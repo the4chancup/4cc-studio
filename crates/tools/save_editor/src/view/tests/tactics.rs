@@ -625,17 +625,19 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     );
 
     // An XI row dropped on another: the two players exchange in the
-    // starting eleven, every formation unchanged.
+    // starting eleven, every formation unchanged. Row 1 on row 4, not
+    // on row 2: on adjacent rows a move (the bench rows' shift) gives
+    // the same eleven as the exchange.
     let before = team_entry(&view, 701).tactics;
     assert_ne!(
-        before.starting_eleven[1], before.starting_eleven[2],
+        before.starting_eleven[1], before.starting_eleven[4],
         "premise: two different players"
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let names = lineup_names(&nodes);
-    drag(&mut window, centre(names[1]), centre(names[2]), &mut view);
+    drag(&mut window, centre(names[1]), centre(names[4]), &mut view);
     let mut expect = before.clone();
-    expect.starting_eleven.swap(1, 2);
+    expect.starting_eleven.swap(1, 4);
     assert_eq!(
         team_entry(&view, 701).tactics,
         expect,

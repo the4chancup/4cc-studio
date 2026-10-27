@@ -3177,7 +3177,14 @@ briefs, review loops, gates and mutation runs as for any step.
       distance; tests at a 5.75 and a 10-point move), a second grass drop below the half-mark,
       the settings' first row pinned under the heading, the eleven's non-identity premises, the
       popover test reading the popover's own area
-    - [ ] round S3 over the S2 rework, x4 and y2 (SWE-2)
+    - [x] round S3 over the S2 rework, x4 and y2 (SWE-2): 4 accepted, ending the SWE-2 loop;
+      reworked 2026-10-27 (Opus, `brief_tac_s3_rework.md`): the XI-row swap tests drop row 1 on
+      row 4 (a move would pass on adjacent rows), a marker swap on preset 2's In-possession, a
+      release within the click distance over a neighbour's box is a click, a marker dropped on
+      an XI row exchanges the two (help says so). Open: S3b-1's host WHEN (preset 2 through the
+      editor), with the views' mutants brief. Files: `team_widgets/src/pitch/{lineup.rs,tests/drops.rs}`,
+      `save_editor/src/view/tests/tactics.rs`, `help/08_tactics.md`, plan "A pitch player dropped on another"
+    - [ ] Astra over `dc55b427` and the S3 rework, then the post-Astra SWE-2 loop
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";

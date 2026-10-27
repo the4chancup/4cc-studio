@@ -49,7 +49,7 @@ eleven on the left, the bench on the right;
 the bench lists the players alone, never an empty slot. Drag a row onto another to move or swap it. A starter's row dropped on
 another starter's row, or on a pitch player, swaps the two players everywhere,
 in every formation of every preset, as picking one and then the other does in
-the game. A bench player dropped on a starter takes
+the game. A pitch player dropped on a starter's row does the same. A bench player dropped on a starter takes
 his place and every job he held (set pieces, joining the attack, instruction
 targets). The captain stays who he was.
 

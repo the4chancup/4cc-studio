@@ -665,7 +665,8 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   changed only those two slots of that one formation). The keeper is never a target, his
   slot's position and spot being fixed. The game's other swap, selecting one starter and then
   the other, exchanges the two players in the starting eleven, so it reaches every formation of
-  every preset; the editor's is an XI row dropped on another row or on a pitch marker. One
+  every preset; the editor's is an XI row dropped on another row or on a pitch marker, or a
+  pitch marker dropped on an XI row. One
   released on the grass moves to the snapped drop point, his position kept, and one released
   off the pitch stays where he was. The game also changes the position of a dragged
   player (an AMF dragged lower becomes a DMF), but not by fixed areas of the pitch: the same

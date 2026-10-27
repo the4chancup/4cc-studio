@@ -173,6 +173,54 @@ fn a_marker_dropped_on_another_marker_swaps_the_two_slots_in_the_shown_formation
     );
 }
 
+// Round S3's S3b-1: the swap writes the shown formation of the shown
+// preset, not a fixed one: on preset 2's In-possession the two slots
+// exchange there alone, preset 1's Kick-off (where a swap would show too)
+// and every other formation unchanged.
+#[test]
+fn a_marker_dropped_on_another_swaps_in_the_shown_preset_and_formation() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView {
+        preset: 1,
+        formation: 1,
+        ..TacticsView::default()
+    };
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let before = tactics.clone();
+    let formation = before.presets[1].formations[1].clone();
+    let (from, onto) = (3, 6);
+    assert_ne!(
+        formation.players[from], formation.players[onto],
+        "premise: two different slots in the shown formation"
+    );
+    let kick_off = before.presets[0].formations[0].players;
+    assert_ne!(
+        kick_off[from], kick_off[onto],
+        "premise: a swap on preset 1's Kick-off would show"
+    );
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let at = marker_point(&nodes, &formation.players, from);
+    let over = marker_point(&nodes, &formation.players, onto);
+
+    let changed = window.drag_pitch(
+        at,
+        over,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(changed, "the drop changed the record");
+    let mut expect = before;
+    expect.presets[1].formations[1].players.swap(from, onto);
+    assert_eq!(
+        tactics, expect,
+        "only preset 2's In-possession two slots exchanged: the eleven and every other formation stay"
+    );
+}
+
 // The keeper is never a swap target (the plan's pitch-drop bullet, his
 // slot's position and spot being fixed): a marker held over him draws no
 // swap mark, and released there moves to the snapped point as on the
@@ -318,6 +366,70 @@ fn a_release_within_the_click_distance_is_a_click_not_a_drop() {
     );
     assert!(!changed, "a click writes nothing");
     assert_eq!(tactics, before, "his slot's x and y stay");
+    assert_eq!(
+        view.popover.map(|open| open.slot),
+        Some(index),
+        "the release is his click: the popover opens"
+    );
+}
+
+// Round S3's S3b-2: the click guard covers the swap too. Kick-off's
+// slot 1 sits a stored unit left of and 8 below slot 5, so his box,
+// drawn after 5's, overlaps its lower part and reaches 2.8 points past
+// its left edge: a press on 5 just above 1's top and a release 2.8
+// points away inside 1's box (outside 5's, so egui marks 5 dragged) is
+// 5's click, never a swap with 1.
+#[test]
+fn a_release_within_the_click_distance_over_a_neighbour_is_a_click() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let before = tactics.clone();
+    let players = before.presets[0].formations[0].players;
+    let (index, neighbour) = (5, 1);
+    assert_ne!(
+        players[index], players[neighbour],
+        "premise: a swap of the two would show"
+    );
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    let own = marker_rect(centres[index], canvas);
+    let other = marker_rect(centres[neighbour], canvas);
+    let press = egui::pos2(own.left() + 1.0, other.top() - 1.0);
+    let release = egui::pos2(own.left() - 1.0, other.top() + 1.0);
+    let under = |point: egui::Pos2| -> Vec<usize> {
+        (0..11)
+            .filter(|&m| marker_rect(centres[m], canvas).contains(point))
+            .collect()
+    };
+    assert_eq!(
+        under(press),
+        vec![index],
+        "premise: the press is on his box alone"
+    );
+    assert_eq!(
+        under(release),
+        vec![neighbour],
+        "premise: the release is on the neighbour's box alone"
+    );
+    assert!(
+        (release - press).length() <= 4.0,
+        "premise: the release is within the click distance"
+    );
+
+    let changed = window.drag_pitch(
+        press,
+        release,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(!changed, "a click writes nothing");
+    assert_eq!(tactics, before, "no swap with the neighbour");
     assert_eq!(
         view.popover.map(|open| open.slot),
         Some(index),

@@ -476,7 +476,9 @@ mod tests {
     }
 
     // The draft's `swapStarters`: a starter on a starter exchanges the two
-    // slots' players; both stay on the pitch so no role moves.
+    // slots' players; both stay on the pitch so no role moves. Row 1 on
+    // row 4, not on row 2: on adjacent rows a move (the bench rows'
+    // shift) gives the same eleven as the exchange.
     #[test]
     fn a_starter_dropped_on_a_starter_exchanges_them_and_moves_no_role() {
         let mut window = Headless::sized(900.0, 1100.0);
@@ -484,25 +486,27 @@ mod tests {
         let mut view = TacticsView::default();
         let rows = fixture_rows(PesVersion::Pes21);
         let roster = roster_rows(&rows);
-        let first = tactics.starting_eleven[1];
-        let second = tactics.starting_eleven[2];
-        assert_ne!(first, second, "premise: two different slots");
-        tactics.set_pieces.penalty = first;
+        assert_ne!(
+            tactics.starting_eleven[1], tactics.starting_eleven[4],
+            "premise: two different slots"
+        );
+        tactics.set_pieces.penalty = tactics.starting_eleven[1];
+        let before = tactics.clone();
         let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let changed = window.drag_lineup(
             row_centre(&nodes, 1),
-            row_centre(&nodes, 2),
+            row_centre(&nodes, 4),
             PesVersion::Pes21,
             &mut tactics,
             &mut view,
             &roster,
         );
         assert!(changed, "the drop changed the record");
-        assert_eq!(tactics.starting_eleven[1], second);
-        assert_eq!(tactics.starting_eleven[2], first);
+        let mut expect = before;
+        expect.starting_eleven.swap(1, 4);
         assert_eq!(
-            tactics.set_pieces.penalty, first,
-            "the role stays on the player"
+            tactics, expect,
+            "the two exchanged, the rows between and the role stay"
         );
     }
 
@@ -744,6 +748,47 @@ mod tests {
         assert_eq!(
             tactics.set_pieces.penalty, inn,
             "the taker followed the swap"
+        );
+    }
+
+    // Round S3's S3a-1, the draft's `swapStarters` on `.lrow`: a marker
+    // dragged onto a starting-eleven row exchanges the two players in the
+    // eleven, as a row dropped on a row does; every formation stays.
+    #[test]
+    fn a_marker_dropped_on_an_eleven_row_exchanges_the_two() {
+        let mut window = Headless::sized(600.0, 1100.0);
+        let mut tactics = fixture_tactics(PesVersion::Pes21);
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(PesVersion::Pes21);
+        let roster = roster_rows(&rows);
+        let (index, row) = (3, 7);
+        // A non-identity eleven: an arm writing indices would look the
+        // same as an exchange on the fixture's [0, 1, 2, ...].
+        tactics.starting_eleven.swap(3, 9);
+        assert_ne!(
+            tactics.starting_eleven[index], tactics.starting_eleven[row],
+            "premise: two different slots"
+        );
+        let before = tactics.clone();
+        let (nodes, _) =
+            window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+        let formation = tactics.presets[0].formations[0].clone();
+        let from = marker_point(&nodes, &formation.players, index);
+
+        let changed = window.drag_pitch_and_lineup(
+            from,
+            row_centre(&nodes, row),
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+        assert!(changed, "the drop changed the record");
+        let mut expect = before;
+        expect.starting_eleven.swap(index, row);
+        assert_eq!(
+            tactics, expect,
+            "the two exchanged in the eleven, every formation unchanged"
         );
     }
 }
