@@ -2710,3 +2710,5 @@ worklog passed 7,000 lines.
   only, each added reason checked against its source; tests, clippy, fmt green); 282 left for cm4.
 - **2026-10-27** — 0.0.1s5: Astra A3 over the Tactics surface, 4 of 4 accepted (all tests passing on a wrong implementation), Astra's
   loop ends; the rework makes each fail under its perturbation.
+- **2026-10-27** — 0.0.1s5: SWE-2 round S6 over the A3 rework, 1 of 3 accepted (the grass drop off Kick-off), the review loops end;
+  the changed-crate gates and the surface's mutation run next.

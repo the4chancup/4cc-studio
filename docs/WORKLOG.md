@@ -3536,8 +3536,14 @@ briefs, review loops, gates and mutation runs as for any step.
       clicked, the medal letters never followed across an edit). Rework done 2026-10-27 (Opus,
       `.tmp/0_0_1s/tac_a3_rework_report.md`; test code only, each test seen failing under its
       perturbation). Files: `team_widgets/src/pitch/tests/{drops,popover}.rs`,
-      `save_editor/src/view/tests/tactics.rs`. Next: the post-Astra SWE-2 loop over it, then
-      `gates-changed c244e6e4` and `mutants-diff 3d39aff3`
+      `save_editor/src/view/tests/tactics.rs`
+    - [x] round S6 over the A3 rework (SWE-2): 1 of 3 accepted, ending the post-Astra SWE-2
+      loop (the grass drop pinned on Kick-off alone; the host's single-slot check and a
+      future table change rejected). Rework done 2026-10-27 (Opus,
+      `.tmp/0_0_1s/tac_s6_rework_report.md`): a third drop on preset 2's In possession, the
+      whole record compared, seen failing on a grass write fixed to Kick-off. Files:
+      `team_widgets/src/pitch/tests/drops.rs`. Next: `gates-changed c244e6e4` and
+      `mutants-diff 3d39aff3`, every survivor triaged
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";

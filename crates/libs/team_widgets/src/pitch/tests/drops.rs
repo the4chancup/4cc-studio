@@ -126,6 +126,68 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     expect.presets[0].formations[0].players[index].x = x;
     expect.presets[0].formations[0].players[index].y = y;
     assert_eq!(tactics, expect, "the point below the half-mark rounds down");
+
+    // A third drop on preset 2's In possession: the snapped point lands
+    // in the shown formation of the shown preset, and Kick-off, where
+    // the first two drops wrote, stays.
+    view.preset = 1;
+    view.formation = 1;
+    let before = tactics.clone();
+    let formation = tactics.presets[1].formations[1].clone();
+    let slot = formation.players[index];
+    let kick_off = tactics.presets[0].formations[0].players[index];
+    assert_ne!(
+        (slot.x, slot.y),
+        (kick_off.x, kick_off.y),
+        "premise: the dragged slot's spot differs from Kick-off's"
+    );
+    let centres = centres_of(canvas, &formation.players);
+    let from = marker_point(&nodes, &formation.players, index);
+    let (x, y, onto) = (0..GRID_X)
+        .flat_map(|x| (0..GRID_Y).map(move |y| (x, y)))
+        .map(|(x, y)| {
+            (
+                x,
+                y,
+                badge_centre(canvas.min, FormationSlot { position: 1, x, y })
+                    + egui::vec2(0.85, -2.04),
+            )
+        })
+        .find(|(x, y, point)| {
+            canvas.contains(*point)
+                && (*x != slot.x || *y != slot.y)
+                && centres
+                    .iter()
+                    .all(|centre| !marker_rect(*centre, canvas).contains(*point))
+        })
+        .expect("an off-grid point free of markers");
+
+    // The pointer rests on his marker in the shown formation a frame
+    // first: egui hit-tests a press against the last frame's widgets,
+    // which drew Kick-off.
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::PointerMoved(from)],
+    );
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(changed, "the third drop changed the record");
+    let mut expect = before;
+    expect.presets[1].formations[1].players[index].x = x;
+    expect.presets[1].formations[1].players[index].y = y;
+    assert_eq!(
+        tactics, expect,
+        "only preset 2's In possession slot moved: Kick-off and the eleven stay"
+    );
 }
 
 // The decision "A pitch player dropped on another swaps the two slots in
