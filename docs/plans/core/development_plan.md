@@ -40,8 +40,9 @@ carries DBC7 as a rules file (`rules/dbc7.4ccrules`, assembled with the current 
 settings name it as the Save editor's `aatf_rules`: 0.0.1's window testers are DBC's managers,
 and no tool of the build writes a template out. VGL 27's rules file rides beside it
 (`rules/vgl27.4ccrules`, assembled the same way), in case VGL's organizer checks his teams in
-the Save editor: the readme's VGL section says to pick it there. Both live in the bundle's `data/` folder,
-`data/settings.toml` and `data/rules/dbc7.4ccrules`, the setting reading `rules/dbc7.4ccrules`,
+the Save editor: the readme's VGL section says to pick it there. The settings and the rules
+files live in the bundle's `data/` folder, `data/settings.toml` and `data/rules/`, the setting
+reading `rules/dbc7.4ccrules`,
 since a relative `aatf_rules` resolves in the data directory; one beside the exe would need a
 `../` in the settings row a member reads. A settings file in `data/` makes the bundle portable
 (`spec/core/distribution.md` "Data location: asked on first run"), so 0.0.1's first start asks

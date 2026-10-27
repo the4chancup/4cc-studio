@@ -3714,7 +3714,7 @@ briefs, review loops, gates and mutation runs as for any step.
     (VGL's are the readme's, 0.0.1f), `savefile_path` auto, "Aesthetics from exports" off
     (SE-GUI-35), the hide IDs 55/11, the theme dark, the exports and output folders beside the
     exe
-  - [ ] j4 the audit finished (Fable, 2026-10-27, every key of every tool and the bundle's
+  - [x] j4 the audit finished (Fable, 2026-10-27, every key of every tool and the bundle's
     `settings.toml`, `.tmp/0_0_1j/j_audit_report.md`): the remaining keys read right; to fix
     (brief `.tmp/0_0_1j/brief_j4.md`): the settings menu draws a CLI-only tool's section (the
     Ruleset editor's header over nothing, the Team compiler's "not built yet" line), which
@@ -3722,11 +3722,24 @@ briefs, review loops, gates and mutation runs as for any step.
     section"); the `aatf_rules` row's tooltip worded for a member; the readme's
     `upgrade-dpfl` step under a heading both groups read (the official-list check runs for
     PES 2017 too); stale settings text in `spec/team_compiler/settings.md`,
-    `spec/save_editor.md` and `save_editor/src/settings.rs`'s module comment
-  - [ ] j5 the bundle ships VGL 27's rules file too, just in case (the maintainer,
+    `spec/save_editor.md` and `save_editor/src/settings.rs`'s module comment. Done 2026-10-27
+    (Opus): `SettingsMenu::show` takes the shell's `cli_only` and skips those tools; the
+    tooltip; the dpfilelist step is "Compiling"'s step 4, the VGL section pointing at it; the
+    spec's "Common settings" lists all 15 `CommonSettings` keys, `pause_allow`'s row says the
+    bundled launcher pauses once. ST-SIDE-08's text and test now say no section (the
+    sidekick's contradiction). The Team compiler's "not built yet" line is unreachable while
+    it is CLI-only, kept for its window. Files: `studio_core/src/shell/{mod.rs,settings_menu/,
+    sidebar/tests.rs}`, `studio/src/main.rs` (comment), `save_editor/src/{lib,settings}.rs`,
+    `resources/bundle/README.txt`, `spec/{save_editor,team_compiler/settings}.md`,
+    `plans/core/gui.md`
+  - [x] j5 the bundle ships VGL 27's rules file too, just in case (the maintainer,
     2026-10-27; plan `core/development_plan.md`'s 0.0.1 paragraph, DECISIONS "The preview
     bundle carries VGL 27's rules file too"): `release.py` assembles `rules/vgl27.4ccrules`
-    beside DBC7's, the readme's VGL section says to pick it (with j4's brief)
+    beside DBC7's, the readme's VGL section says to pick it (with j4's brief). Done
+    2026-10-27 with j4: `RULES_FILES` maps each bundled file to its data block, each checked
+    by the staged exe's `validate` and `update-logic` (a staging run: both validated, logic
+    current); the readme's VGL step 4 names the settings row. Files: `scripts/release{,_test}.py`,
+    `resources/bundle/README.txt`, `plans/core/development_plan.md`
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming

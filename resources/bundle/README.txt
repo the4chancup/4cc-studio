@@ -53,13 +53,8 @@ Compiling
 2. Close PES, then double-click quick_compile.bat. It compiles every export in the exports
    folder and installs the result in the game.
 3. Read the report, then press a key to close the window.
-
-
-For VGL's organizer
--------------------
-
-1. The game needs the cup's official DpFileList.bin. If yours is another list, the compile's
-   report says so (dpfilelist_outdated or dpfilelist_not_official) and names the command that
+4. The game needs the cup's official DpFileList.bin. If the report says dpfilelist_outdated
+   or dpfilelist_not_official, yours is another list, and the report names the command that
    installs the official one. To run it, close PES, open the folder that holds
    UnlimitedToolWorks.exe, click the address bar at the top of the window, type cmd and press
    Enter. In the black window that opens, type
@@ -73,6 +68,12 @@ For VGL's organizer
        UnlimitedToolWorks.exe team-compiler upgrade-dpfl --yes
 
    This is needed once per game folder.
+
+
+For VGL's organizer
+-------------------
+
+1. The game needs the cup's official DpFileList.bin: step 4 of "Compiling" above installs it.
 
 2. The league's first DLC is compiled into several CPKs. With the window closed, open
    data\settings.toml in Notepad, change the line
@@ -95,6 +96,10 @@ For VGL's organizer
    to that matchday's CPK, one of 4cc_61_midcup to 4cc_75_midcup, such as
 
        cpk_name = "4cc_61_midcup"
+
+4. The Save editor checks teams against DBC7's rules. To check them against VGL's, open
+   UnlimitedToolWorks.exe, click the gear at the bottom of the left bar (Settings), and in
+   the Save editor's part of it set "AATF rules file" to rules/vgl27.4ccrules.
 
 
 When something goes wrong

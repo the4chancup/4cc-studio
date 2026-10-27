@@ -169,8 +169,8 @@ impl StudioTool for Tool {
                     ui,
                     "AATF rules file",
                     "aatf_rules",
-                    "The AATF rules file check-aatf and the AATF panel run; empty: the \
-                     official ruleset, built in.",
+                    "The cup's rules file the Save editor checks teams against. Leave it \
+                     empty to check against the 4cc's official rules.",
                     &mut self.aatf_rules,
                     &mut current,
                     AATF_RULES_PICKER,

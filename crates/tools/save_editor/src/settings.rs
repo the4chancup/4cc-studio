@@ -1,9 +1,8 @@
-//! The Save editor's section of the settings file. A key enters with the step whose code reads
-//! it, so the file never carries a setting nothing honors yet: `check-aatf` (step 5.4b) reads
-//! `aatf_rules`; the window reads `live_aatf` (the toolbar's Live AATF toggle),
+//! The Save editor's section of the settings file: its four keys. `check-aatf` and the window's
+//! AATF checks read `aatf_rules`; the window reads `live_aatf` (the toolbar's Live AATF toggle),
 //! `aesthetics_from_exports` ("Aesthetics from exports", the aesthetics lock's setting) and
-//! `scroll_names` (the Tactics formation bar's checkbox); the comparator defaults and the last
-//! folder arrive with the window.
+//! `scroll_names` (the Tactics formation bar's checkbox). A key enters with the code that reads
+//! it, so the file never carries a setting nothing honors.
 
 use serde::{Deserialize, Serialize};
 

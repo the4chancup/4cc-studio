@@ -1186,21 +1186,27 @@ fn a_cli_only_tool_is_a_planned_entry_never_active_and_still_registered() {
     frame(&egui_ctx, &mut app, Vec::new(), true);
     assert_eq!(app.active, 1, "no switch makes the CLI-only tool active");
 
-    // Its settings section is in the settings menu: whatever the sidebar's entry
-    // contributes, the section header adds one more node labeled "C".
+    // Its settings section is not in the settings menu, though its table is not
+    // empty: the menu adds no node labeled "C" to what the sidebar's entry draws,
+    // while A's header adds one.
     let labeled = |nodes: &[accesskit::Node], label: &str| {
         nodes
             .iter()
             .filter(|node| node.label() == Some(label))
             .count()
     };
-    let before = labeled(&nodes, "C");
+    let (before_a, before_c) = (labeled(&nodes, "A"), labeled(&nodes, "C"));
     click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
     let nodes = idle(&egui_ctx, &mut app, 10).nodes;
     assert_eq!(
+        labeled(&nodes, "A"),
+        before_a + 1,
+        "the menu is open, A's section header drawn"
+    );
+    assert_eq!(
         labeled(&nodes, "C"),
-        before + 1,
-        "C's section header is drawn in the settings menu"
+        before_c,
+        "the CLI-only tool has no section in the settings menu"
     );
 
     // Its help chapter is in the help window.

@@ -13,11 +13,20 @@ settings** live in the Team compiler's own settings section.
 | Setting | Old default | Notes |
 |---|---|---|
 | `pes_version` | 15 | Sidebar selector; 15–21. 4cc Studio defaults to 19 as the version most relevant to the current community; derives `fox_mode` (≥18), per-version file extensions, game paths, bin names |
-| `pes_folder_path` | `C:\Program Files (x86)\Pro Evolution Soccer 20**` | `**` replaced with the version; derives `download/` path and `PES20{version}.exe` path |
+| `pes_folder_path` | `C:\Program Files (x86)\Pro Evolution Soccer 20**` | `**` replaced with the version; derives `download/` path and `PES20{version}.exe` path. Empty off Windows, where no default install folder exists |
+| `pes_folders` | — | `[common.pes_folders]`, keyed by the version's number (`21 = '…'`); empty by default. A filled entry is that version's folder taken as written (no `**` expansion), overriding `pes_folder_path`; the settings menu's "A folder per version" rows |
 | `exports_folder_path` | `exports/` | Watched by the GUI and scanned once by the CLI; belongs in `studio_core` so the Team, Refs, and Balls tools share one export source. Relative paths resolve **beside the executable** in both data-location modes (see "Path resolution"), so the folder sits next to `quick_compile.bat` like Red's `exports_to_add/` |
 | `thread_count` | 0 (auto) | Was a Blue CLI arg; auto = logical cores − 1 |
 | `memory_cap_percent` | 80.0 | Was a Blue CLI arg; memory budget cap, as a percent of the physical memory available at run start (`spec/libs/pipeline.md` "Memory cap"); `0 < percent <= 100` |
 | `check_for_updates` | 1 | Was per-compiler (`updates_check` in Red's ini); becomes a suite-wide update check |
+| `check_interval_hours` | 60 minutes (hardcoded) | `24`: hours between release checks. With `last_update_check` and `skipped_version` (both empty by default), the update state of `spec/core/distribution.md` "Update state". The updater that reads these three keys and `check_for_updates` is not built, so the settings menu draws no row for them |
+| `last_update_check` | — | Update state (above): when the last release check ran. No row |
+| `skipped_version` | — | Update state (above): a release the member chose to skip. No row |
+| `theme` | — | `dark` or `light`, default `dark`: the GUI's color theme |
+| `last_tool` | — | The tool active when the GUI last closed, which it reopens; empty on a first run. Written by the shell, no row |
+| `window_main` | — | The main window's last place, `[x, y, width, height, scale]`, written when the window closes; empty until then. No row |
+| `fpc_hide_boots_id` | — | `55`: the boots ID the FPC hide preset writes, one the game has no boots model for |
+| `fpc_hide_gloves_id` | — | `11`: the gloves ID it writes (gloves 1 to 10 are the goalkeepers' real ones) |
 
 ### Team compiler settings
 
@@ -102,7 +111,7 @@ resolved export source.
 |---|---|
 | `cache_clear` | No disk cache: the pipeline is in-memory (each task's files read as owned bytes, `reader/source.rs` `ContentSource`), so there is no equivalent of Red's `patches_contents/` staging folder for the setting to clear |
 | `move_cpks` | Deployment is always attempted; a run that cannot deploy degrades to `output/` by itself, and the deliberate "build but don't install" case is the CLI-only `--no-deploy` flag. See "Why no `move_cpks`" under `pipeline.md` "Post-processing" |
-| `pause_allow` | The `pause()` pattern is gone; errors/warnings are events rendered by the GUI/CLI. Its unattended-run half (`pause_allow = 0`: finish without stopping) survives as `quick_compile_close_on_success` for launcher-started runs |
+| `pause_allow` | The `pause()` pattern is gone; errors/warnings are events rendered by the GUI/CLI. Its unattended-run half (`pause_allow = 0`: finish without stopping) needs no key: a CLI run never stops for input, and the bundled `quick_compile.bat` pauses once, after the run, so its report stays on screen |
 | `admin_mode` | Manifest-based UAC / GUI prompt (see core plan) |
 
 ### CLI

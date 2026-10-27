@@ -8,6 +8,7 @@ use crate::pes_process::RunningPes;
 use crate::settings::{CommonSettings, Settings, Theme, pes_folder_pattern};
 use crate::shell::test_harness::*;
 use crate::status::{ActionEffect, Notice, NoticeAction, NoticeKind};
+use crate::tool::AppPaths;
 
 /// The node carrying `text` as a label-role node's `value`.
 fn text_node<'a>(nodes: &'a [accesskit::Node], text: &str) -> &'a accesskit::Node {
@@ -181,6 +182,41 @@ fn the_gear_opens_the_menu_on_the_active_tools_section_and_resets_each_opening()
         !has_text(&nodes, "B settings body"),
         "the open set was reset at the reopening"
     );
+}
+
+// A CLI-only tool has no section, whatever its table holds: its window is not built
+// and its keys are edited in the settings file (gui.md "Settings menu").
+#[test]
+fn a_cli_only_tool_has_no_section_even_with_settings() {
+    let (a, calls_a) = stub("a", "A", None);
+    let (c, calls_c) = stub("c", "C", None);
+    // The Ruleset editor's shape: a table of state the tool writes itself.
+    *calls_c.default_settings.lock().unwrap() = toml::Table::from_iter([
+        ("last_folder".to_owned(), toml::Value::String(String::new())),
+        ("recent_files".to_owned(), toml::Value::Array(Vec::new())),
+    ]);
+    let dir = TestDir::new("studio_core_settings_cli_only");
+    let Shell { mut app, .. } = shell_in(
+        test_settings(dir.path()),
+        vec![a, c],
+        &[],
+        &["c"],
+        AppPaths {
+            exe_dir: PathBuf::from("exe"),
+            data_dir: Some(dir.path().to_path_buf()),
+        },
+        None,
+        vec![calls_a, calls_c],
+    );
+    let egui_ctx = test_context();
+
+    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+    assert_eq!(labeled(&nodes, "C"), 0, "C is in no planned list: no entry");
+    click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
+    let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+    assert!(has_text(&nodes, "Threads"), "the menu is open");
+    assert_eq!(labeled(&nodes, "A"), 2, "A's sidebar entry and its header");
+    assert_eq!(labeled(&nodes, "C"), 0, "the CLI-only tool has no header");
 }
 
 // ST-SET-02

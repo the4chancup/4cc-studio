@@ -133,6 +133,7 @@ class Pure(unittest.TestCase):
                 "UnlimitedToolWorks-0.0.1/data/settings.toml",
                 "UnlimitedToolWorks-0.0.1/data/rules",
                 "UnlimitedToolWorks-0.0.1/data/rules/dbc7.4ccrules",
+                "UnlimitedToolWorks-0.0.1/data/rules/vgl27.4ccrules",
             },
         )
 
@@ -185,6 +186,7 @@ class Listing(unittest.TestCase):
             (top / "data/rules").mkdir(parents=True)
             (top / "data/settings.toml").write_bytes(b"x")
             (top / "data/rules/dbc7.4ccrules").write_bytes(b"x")
+            (top / "data/rules/vgl27.4ccrules").write_bytes(b"x")
             for bundled in (
                 "Tiny.exe",
                 "quick_compile.bat",

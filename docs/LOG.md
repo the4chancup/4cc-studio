@@ -2670,3 +2670,5 @@ worklog passed 7,000 lines.
   staged exe; the readme gains DBC's and VGL's organizer's steps; the exe measured at 37.6 MiB with `cargo bloat`.
 - **2026-10-27** — 0.0.1s5, Astra round A1's rework: a pitch drop counts on a marker only when released inside his box;
   the Tactics placeholder portrait follows the selected game; six tests that passed on wrong code now fail on it.
+- **2026-10-27** — 0.0.1j4-j5: the settings menu draws no section for a CLI-only tool; the rules-file tooltip in a member's
+  words; the readme's official-list step under "Compiling"; the bundle carries VGL 27's rules file beside DBC7's.

@@ -120,8 +120,8 @@ const PLANNED: [PlannedTool; 14] = [
 /// The registered tools this build shows on the sidebar only as planned entries, grayed
 /// and not clickable: the 0.0.1 preview's three tools whose views come later
 /// (`team-compiler`, `export-upgrader`, `ruleset-editor`; gui.md "Sidebar"
-/// item 3). Their CLI, help chapter and settings section stay; the list goes
-/// when their views land.
+/// item 3). Their CLI and help chapter stay; the settings menu draws no section for
+/// them. The list goes when their views land.
 const CLI_ONLY: [&str; 3] = ["team-compiler", "export-upgrader", "ruleset-editor"];
 
 /// The registered tools, in sidebar order.

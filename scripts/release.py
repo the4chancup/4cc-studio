@@ -4,10 +4,11 @@
 The recipe builds `studio` with `--locked`, reads the executable's name from the built exe's
 `--help` usage line (the codename lives in `studio_core`'s `EXE_NAME`, not in this script),
 stages `<name>-<version>/` — the exe, the two launchers, the readme, the two licenses, the
-bundled `data/settings.toml` and DBC7's rules file `data/rules/dbc7.4ccrules`, joined from
-`aatf`'s sources, and the empty `exports/` and `old_exports/` — under a temporary folder in
-cargo's target directory (asked of `cargo metadata`, since a developer may have moved it),
-checks the rules file with the staged exe's own `ruleset-editor validate` and `update-logic`,
+bundled `data/settings.toml`, DBC7's and VGL 27's rules files `data/rules/dbc7.4ccrules` and
+`data/rules/vgl27.4ccrules`, joined from `aatf`'s sources, and the empty `exports/` and
+`old_exports/` — under a temporary folder in cargo's target directory (asked of `cargo
+metadata`, since a developer may have moved it), checks each rules file with the staged exe's
+own `ruleset-editor validate` and `update-logic`,
 packs it as
 `<target>/dist/<name>-<version>-windows.7z` with a `sha256sum`-format `.sha256` beside it,
 then lists the archive and refuses unless the listing equals the staged set exactly, the empty
@@ -41,11 +42,15 @@ SEVEN_Z = Path(r"C:\Program Files\7-Zip\7z.exe")
 # The exe records this name for its symbols and `llvm-symbolizer` finds the .pdb beside
 # the exe by it, so the symbols archive keeps the build's name, not the bundle exe's.
 PDB_NAME = "4cc_studio.pdb"
-# DBC7's data block, the rules file's first section, kept as `.rhai` in `aatf`'s sources.
-RULES_SOURCE = "crates/libs/aatf/rulesets/dbc7.rhai"
+# Each bundled rules file's path under the bundle's `data/` (a relative `aatf_rules` resolves
+# there) and its data block, the file's first section, kept as `.rhai` in `aatf`'s sources.
+RULES_FILES = {
+    "rules/dbc7.4ccrules": "crates/libs/aatf/rulesets/dbc7.rhai",
+    "rules/vgl27.4ccrules": "crates/libs/aatf/rulesets/vgl27.rhai",
+}
 # The current logic section, banner included: `aatf`'s `LOGIC` constant's source file.
 LOGIC_SOURCE = "crates/libs/aatf/logic/logic.rhai"
-# The rules file's path under the bundle's `data/`; a relative `aatf_rules` resolves there.
+# The rules file the bundled settings name: DBC7's, for DBC's window testers.
 BUNDLED_RULES = "rules/dbc7.4ccrules"
 # `aatf`'s `custom_checks_stub()`, verbatim: the file's ending when the block has no CUSTOM CHECKS.
 CUSTOM_CHECKS_STUB = (
@@ -113,7 +118,7 @@ def expected_entries(name: str, version: str) -> set[str]:
         f"{top}/data",
         f"{top}/data/settings.toml",
         f"{top}/data/rules",
-        f"{top}/data/{BUNDLED_RULES}",
+        *(f"{top}/data/{rules}" for rules in RULES_FILES),
     }
 
 
@@ -153,36 +158,37 @@ def find_7z() -> str | None:
 
 
 def stage_data(top: Path, exe: Path) -> None:
-    """Stage `top/data/`: the bundled settings and DBC7's rules file, which the staged
-    exe itself must load and report as carrying the current logic."""
-    rules = top / "data" / BUNDLED_RULES
-    rules.parent.mkdir(parents=True)
+    """Stage `top/data/`: the bundled settings and the rules files, each of which the
+    staged exe itself must load and report as carrying the current logic."""
+    (top / "data/rules").mkdir(parents=True)
     shutil.copyfile(
         ROOT / "resources/bundle/data/settings.toml", top / "data/settings.toml"
     )
-    rules.write_bytes(
-        assemble_rules(
-            (ROOT / RULES_SOURCE).read_text(encoding="utf-8"),
-            (ROOT / LOGIC_SOURCE).read_text(encoding="utf-8"),
-        ).encode("utf-8")
-    )
-    for subcommand, proof in (
-        ("validate", None),
-        ("update-logic", "logic_already_current"),
-    ):
-        run = subprocess.run(
-            [str(exe), "ruleset-editor", subcommand, str(rules.absolute())],
-            capture_output=True,
-            text=True,
-        )
-        if run.returncode != 0 or (
-            proof is not None and proof not in run.stdout + run.stderr
-        ):
-            raise Refusal(
-                f"data/{BUNDLED_RULES}: `ruleset-editor {subcommand}` exited "
-                f"{run.returncode}; stdout: {run.stdout.strip()}; "
-                f"stderr: {run.stderr.strip()}"
+    logic = (ROOT / LOGIC_SOURCE).read_text(encoding="utf-8")
+    for bundled, source in RULES_FILES.items():
+        rules = top / "data" / bundled
+        rules.write_bytes(
+            assemble_rules((ROOT / source).read_text(encoding="utf-8"), logic).encode(
+                "utf-8"
             )
+        )
+        for subcommand, proof in (
+            ("validate", None),
+            ("update-logic", "logic_already_current"),
+        ):
+            run = subprocess.run(
+                [str(exe), "ruleset-editor", subcommand, str(rules.absolute())],
+                capture_output=True,
+                text=True,
+            )
+            if run.returncode != 0 or (
+                proof is not None and proof not in run.stdout + run.stderr
+            ):
+                raise Refusal(
+                    f"data/{bundled}: `ruleset-editor {subcommand}` exited "
+                    f"{run.returncode}; stdout: {run.stdout.strip()}; "
+                    f"stderr: {run.stderr.strip()}"
+                )
 
 
 def release(version: str) -> None:

@@ -3,9 +3,10 @@
 //! `ActionEffect::OpenSettings`. It holds the common grid every tool shares — one row
 //! per `CommonSettings` field a member edits, in the draft's order and wording — then
 //! one `CollapsingHeader` per registered tool that has settings, its body the tool's
-//! `settings_view`. A tool has settings when its `default_settings()` is not empty;
-//! `last_tool`, `last_update_check` and `skipped_version`, the state the shell writes
-//! itself, have no row.
+//! `settings_view`. A tool has settings when its `default_settings()` is not empty and
+//! the build does not mark it CLI-only: such a tool's window is not built, so its keys
+//! are edited in the settings file. `last_tool`, `last_update_check` and
+//! `skipped_version`, the state the shell writes itself, have no row.
 //!
 //! There is no Save or Apply: a widget's change writes the setting under the settings
 //! lock and asks the shell to save at the end of the frame. A text row commits when its
@@ -83,13 +84,14 @@ impl SettingsMenu {
     }
 
     /// Draws the modal while open: the common grid, then one `CollapsingHeader` per tool
-    /// with settings in sidebar order. `sidebar` is the PES version row's: a pick goes
-    /// through the selector's one function, and the row's tooltips are the selector's
-    /// blocker reason and exe check.
+    /// with settings in sidebar order, none for the tools `cli_only` names. `sidebar` is
+    /// the PES version row's: a pick goes through the selector's one function, and the
+    /// row's tooltips are the selector's blocker reason and exe check.
     pub(super) fn show(
         &mut self,
         egui_ctx: &egui::Context,
         tools: &mut [Box<dyn StudioTool>],
+        cli_only: &[&str],
         ctx: &ToolContext,
         sidebar: &mut Sidebar,
     ) {
@@ -102,7 +104,7 @@ impl SettingsMenu {
             self.common_grid(ui, tools, ctx, sidebar);
             let pending = self.pending.take();
             for (index, tool) in tools.iter_mut().enumerate() {
-                if tool.default_settings().is_empty() {
+                if tool.default_settings().is_empty() || cli_only.contains(&tool.id()) {
                     continue;
                 }
                 let mut header =

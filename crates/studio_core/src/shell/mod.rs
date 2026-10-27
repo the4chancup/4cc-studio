@@ -99,8 +99,8 @@ pub struct StudioApp {
     /// The suite's whole registry as data: the entries no registered tool has are the
     /// sidebar's grayed planned list.
     planned: &'static [PlannedTool],
-    /// The registered tools' ids this build shows only as planned entries: their CLI,
-    /// help chapter and settings section stay.
+    /// The registered tools' ids this build shows only as planned entries: their CLI
+    /// and help chapter stay, and the settings menu draws no section for them.
     cli_only: &'static [&'static str],
     ctx: ToolContext,
     requests: Receiver<ShellRequest>,
@@ -137,7 +137,8 @@ impl StudioApp {
     /// window tool when it names none, an unregistered one or a CLI-only one; ST-SIDE-01,
     /// ST-SIDE-08, ST-RUN-02). `planned` is the suite's registry including the tools this
     /// build does not register; `cli_only` is the registered tools' ids this build shows
-    /// only as planned entries: their CLI, help chapter and settings section stay.
+    /// only as planned entries: their CLI and help chapter stay, their settings section
+    /// does not.
     /// `requests` is the receiving end of the channel `ctx` sends shell requests to.
     /// `config_dir` is the user config folder the first-run dialog's "In my user folder"
     /// choice offers (`studio` passes `user_config_dir()`; `None` drops the choice — and
@@ -517,8 +518,13 @@ impl eframe::App for StudioApp {
                 };
                 self.open_help(&target);
             }
-            self.settings_menu
-                .show(ui.ctx(), &mut self.tools, &self.ctx, &mut self.sidebar);
+            self.settings_menu.show(
+                ui.ctx(),
+                &mut self.tools,
+                self.cli_only,
+                &self.ctx,
+                &mut self.sidebar,
+            );
             self.help_window.show(ui.ctx());
         }
     }

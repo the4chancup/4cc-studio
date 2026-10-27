@@ -1001,8 +1001,9 @@ ST-SIDE-08  GIVEN a build registering two window tools and one marked CLI-only, 
             WHEN the GUI opens
             THEN the CLI-only tool is listed as a planned entry, grayed and not clickable, its
                  tooltip saying it runs from the command line in this version; the first window
-                 tool is active; the CLI-only tool's help chapter is in the help window and its
-                 settings section in the settings menu; and its CLI commands still run
+                 tool is active; the CLI-only tool's help chapter is in the help window, the
+                 settings menu has no section for it, even with a settings table; and its CLI
+                 commands still run
 ```
 
 **Settings menu**

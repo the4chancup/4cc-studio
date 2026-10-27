@@ -92,7 +92,8 @@ lib.
 ```
 crates/tools/save_editor/src/
 ├── lib.rs              # Tool (StudioTool impl) — wiring only
-├── settings.rs         # editor settings (the aatf_rules rules-file path)
+├── settings.rs         # editor settings (aatf_rules, live_aatf, aesthetics_from_exports,
+│                       #   scroll_names)
 ├── cli.rs              # the subcommands of "CLI" below; runs libs/aatf's rules over the
 │                       #   session's teams and maps the results to messages
 ├── messages.rs         # message catalog (the codes of "Messages" below)
