@@ -114,7 +114,7 @@ exist yet (every Phase 2 crate), the plan's data-shape rules stand in for one.
 - Diagnostics go through `log` (`debug!`/`trace!` in libs, `info!` for stage milestones in tools);
   user-facing findings go through `Message`. Never `println!`/`eprintln!` outside `studio`'s CLI
   result output and `main`. Libs never `error!`: return the error, let the caller decide. No
-  `[module]` prefixes; the target carries the module path. Full rules: `plans/core/README.md`
+  `[module]` prefixes; the target carries the module path. Full rules: `spec/core/architecture.md`
   "Diagnostic logging".
 - `unsafe` only where an OS API forces it (`match_feed`'s memory source, `elevation`,
   `studio_core`'s running-PES poll, `pipeline`'s available-memory read on Windows) and in `python_bindings`, each block preceded by a `// SAFETY:`

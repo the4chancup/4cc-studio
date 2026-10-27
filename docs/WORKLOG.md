@@ -170,7 +170,7 @@ in git history up to commit `2f158a9`. CI proof: green run on `5e6ffc6`, deliber
 
 ### Phase 2 — Library crates
 
-Done 2026-09-30 (spec now describes what exists: `docs/plans/core/development_plan.md`
+Done 2026-09-30 (spec now describes what exists: `docs/spec/core/development_plan.md`
 "Phase 2", `libs/README.md`, `model_conversion/README.md`, `pes_savefile/README.md`). Step
 detail (2.1-2.21: each crate's build, review rounds A-C, the 2.20a-k converge with its
 mutation runs, censuses and reviewer rulings) in git history up to commit `7de61f7`. Carried
@@ -2008,7 +2008,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `stroke="none"`: the font build takes it as it is, where the other glyphs' strokes are
     expanded to outlines. The maintainer picked (g) (DECISIONS "The Team compiler's icon is
     the stickman dropping into an open box"); the other tools' picks still wait
-  - [ ] 8.15 (code done 2026-10-25 with 8.9f4c's rework r2; the built window's check open) the window's default to 1280 × 800 (the maintainer, 2026-10-25; `core/gui.md`
+  - [ ] 8.15 (code done 2026-10-25 with 8.9f4c's rework r2; the built window's check open) the window's default to 1280 × 800 (the maintainer, 2026-10-25; `spec/core/gui.md`
     "The window's size", ST-WIN-01, ST-HELP-05; DECISIONS "Studio opens at 1280 × 800
     points"): `studio_core`'s `DEFAULT_SIZE` and its tests, the help window's; the Save
     editor's Tactics lists at 200 points, and its tests named for 1440 × 900 → verify: the
@@ -3907,7 +3907,11 @@ briefs, review loops, gates and mutation runs as for any step.
     its next line (today its title pattern stops at the line end, so such a pointer is
     neither resolved nor reported, and a broken one passes "0 broken") → verify: a test case
     of a wrapped comment pointer, resolved and, perturbed, reported broken (lead's: the
-    check is correctness-critical)
+    check is correctness-critical). 2026-10-27: the widened check (a cut pointer joins the
+    next line, a comment line in `.rs`; a decision entry's title is an anchor) reads 1282
+    pointers where 1050 were read, 24 of the new ones broken; the 19 in `docs/` repointed;
+    the script lands with cm4, which fixes `save_editor`'s `view/tests/appearance.rs` pointer
+    into `plans/core/gui.md` "Shell layout"
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming
@@ -4176,7 +4180,7 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
     `aatf_rules.md` schema can express everything it can, field by field, each gap either
     added to the schema (plan edit, decision entry) or answered by a custom check, with the
     reason → verify: a table in `aatf_rules.md` mapping each of the proposal's items to a
-    schema field or to a custom check, no row empty. Done 2026-10-14 (lead): `aatf_rules.md`
+    schema field or to a custom check, no row empty. Done 2026-10-14 (lead): `spec/aatf_rules.md`
     "Coverage of a plain-language proposal", 30 rows; the gaps became fields (`ranges`,
     `strong_foot`, `any`, the `form` and `injury_resistance` effects, `team.formation` for
     custom checks), implemented at 5.2d2; `ruleset_editor.md`'s forms carry them
@@ -4701,7 +4705,7 @@ points there.
   `.mtl` search's two folders, the file's then the model folder's, are the likely answer):
   for Phase 7's plan pass, when glTF sources are planned.
 - open (2026-10-09) — a Fox referee's body under `fpc_off` waits on a Fox refkit, an FMDL
-  body the maintainer will make ("We'll make one later"; `blue_port.md` "The referee
+  body the maintainer will make ("We'll make one later"; `team_compiler/blue_port.md` "The referee
   body"): then the Fox referee template ships it and a step merges it into an `fpc_off`
   referee's face package. Until then `fpc_off` applies its settings preset alone on Fox.
 - open (2026-10-09) — per-kit face packages on Fox wait on FoxDen (`model_format.md`
@@ -4785,8 +4789,8 @@ points there.
   a test leaves on one file). If a run crashes again at 32 GB, the next lever is one job
   (`--jobs 1` in `scripts/mutants.py`'s local config).
 - open (2026-10-08, 4.14e3's plan) — pre-Fox: a hand-weighted model behind a `.model.common`
-  link is listed whole by its Common path, not split (`hand_split.md` "Pipeline
-  integration"): the game then loads a body with hands on the body skeleton. Splitting it
+  link is listed whole by its Common path, not split (`spec/model_conversion/hand_split.md`
+  "Pipeline integration"): the game then loads a body with hands on the body skeleton. Splitting it
   means packing a copy into the face. Build it when an export has one. Likewise (4.14e3,
   decision entry) a hand-weighted model whose `.mtl` is a Common file fails its folder with
   `model_conversion_failed` instead of reading that file for the split.
@@ -4860,7 +4864,7 @@ points there.
   them too before that save path lands (review S2.1).
 - resolved 2026-10-15 (Phase 5 converge: step 5.3a writes the default-ID rows, TC-BIN-25
   and 27; the gloves' look waits on the FoxDen issue below, "FoxDen's PES 2021 gloves
-  trampoline") — the boots/gloves rows a `Full` export leaves (`pipeline.md`
+  trampoline") — the boots/gloves rows a `Full` export leaves (`spec/team_compiler/pipeline.md`
   "Bins accumulation", TC-BIN-17, decision "a team export's name carries `Full` or `Midcup`").
   Phase 4 (4.22) drops the installed row of a compiled player the export gives no boots or
   gloves, so he has no row until Phase 5 writes the default-ID rows. A team player the `Full`
@@ -5012,9 +5016,10 @@ points there.
     `referee_collar_105`), and the 77 reservation against teams keeps its point, since a
     team's `collar_077` would be the one the referee finds. "Absent" is an inference from the
     referee not appearing in any frame of a walkout where runs B, G and I show him.
-- open, needs the maintainer — FoxDen per-kit models: `docs/QUESTIONS.md` "FoxDen per-kit
-  models"; `kit_variant_model_fox` and `spec/model_format.md` "Kit-dependent assets" change with
-  the answer.
+- open, waits on FoxDen — Fox per-kit models: the maintainer answered (`DECISIONS.md` "on Fox
+  each kit number gets a face package of its own, once FoxDen loads one"); the package layout is
+  decided with FoxDen when it gains the support, and `kit_variant_model_fox` and
+  `spec/model_format.md` "Kit-dependent assets" change then.
 - resolved 2026-10-12 (DECISIONS "the ingame-face run's undecoded bits travel between
   versions") — the unknown bits across versions: per-version tables by record bit position
   dropped hair and sliders when a PES 16 export compiled for PES 21; the run's bits are now one
@@ -5028,8 +5033,8 @@ points there.
 - resolved 2026-10-15 (maintainer: a Midcup carries only the changed shared folders; DECISIONS
   "a compiled CPK records its shared IDs, and a Midcup keeps them"; step 5.3a builds it) —
   shared IDs and retained rows: a team's shared boots/gloves IDs are assigned in
-  alphabetical folder order from the export being compiled (`player_folders.md` "Assigns IDs
-  automatically"), while a player the export does not compile keeps his installed row
+  alphabetical folder order from the export being compiled (`spec/aesthetics_export/player_folders.md`
+  "Assigns IDs automatically"), while a player the export does not compile keeps his installed row
   (`spec/team_compiler/pipeline.md` "Bins accumulation"). A `Midcup` export holding shared folder B but not A
   gives B the ID A had in the full CPK, so A's wearers, their rows untouched, now wear B.
   The same holds for pre-Fox save IDs. Settle before 4.22: a midcup keeps the full export's
@@ -5132,7 +5137,7 @@ points there.
   empty and its files work in game, so the export drops it with a finding; what the block holds
   and whether it is derivable from `Bone.matrix` is unmeasured.
 - open — `pes_savefile` the kit-slot rows: the ten-slot kit block is measured on 18 (+0x1C),
-  19 (+0x20) and 21 (+0x30), with what Strip > Add writes (`plans/pes_savefile/model.md` "Kit
+  19 (+0x20) and 21 (+0x30), with what Strip > Add writes (`spec/pes_savefile/model.md` "Kit
   slots and the strip table"); the tables carry `KitSlot*` rows for PES 17 alone. Add the rows
   for the other versions when the Save editor needs kit bindings. (The PES 21 team colours,
   this issue's other half, were measured in Edit mode on 2026-10-13 at the tables' bits.)

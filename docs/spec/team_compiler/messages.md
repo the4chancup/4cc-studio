@@ -417,8 +417,8 @@ tracer's Fumos folder: `./face_high_*.model` beside `face_high_win32.model`) was
 
 - A `./<name>` reference names a file of the face (the player's own files, directly in the folder,
   then a linked shared face's), and `./<path>/<name>` (`./jessie/body/x.model`) a file of the
-  player's subfolder at that path, relative to the referencing file (`player_folders.md`
-  "Subfolders"), compared case-folded with the reference's `*`
+  player's subfolder at that path, relative to the referencing file
+  (`spec/aesthetics_export/player_folders.md` "Subfolders"), compared case-folded with the reference's `*`
   read as `win32`; the referenced file is **packed under the name the reference gives** (`*` as
   `win32`, spelled as the xml spells it) and the reference is written as it is. We do not
   rename the file to its `oral_<stem>_win32` packed name and respell the reference, because the

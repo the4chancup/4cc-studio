@@ -352,19 +352,19 @@ face-type maxima are the caps the two legacy converters apply when writing a PES
 save. The 17 and 18 face caps are unmeasured; PES 19's editor offers cheek types 0 to 5 and
 forehead types 0 to 6, wider than 16's, its other caps unmeasured. An unmeasured face cap is
 the field's bits, for the parser's widest range and the compiler's narrowing alike, the
-comments keeping the measured ranges (`pes_savefile/operations.md` "Cross-version player
-conversion" holds the table). PES 15's face caps
+comments keeping the measured ranges (`spec/pes_savefile/operations.md` "Cross-version
+player conversion" holds the table). PES 15's face caps
 were measured: the editor's range joined with the game's own faces. The run's other keys were
 measured in the games (`spec/pes_savefile/model.md` "The ingame-face run"). The in-game hair
 ranges were measured on PES 21 and are assumed for 16 to 20. The parser checks a value against the **widest** range of a key (a PES
 16 file may legitimately be compiled for PES 21); the per-version narrowing is the compiler's
 finding at compile time, when the target version is known (`settings_value_out_of_range`). The
 value is then written as the key's default (a face type 0, a motion the template's value), as
-a cross-version player conversion resets a face type (`pes_savefile/operations.md`
+a cross-version player conversion resets a face type (`spec/pes_savefile/operations.md`
 "Cross-version player conversion"), and a custom skin (7) the target has none of as 1. Not as
 authored: a motion beyond the target's range may not fit its field's bits (PES 18's two for
 `hunching_dribbling`), and one that fits is shown as the list's top and may be rewritten to the
-list's first entry by the player's next in-game save (`pes_savefile/operations.md`
+list's first entry by the player's next in-game save (`spec/pes_savefile/operations.md`
 "Cross-version player conversion"). A key the target has
 no field for (`dribbling` before PES 20) is not written, with no finding: an export written for a
 newer version compiles for an older one as it is. Strings are matched exactly (lower case, as

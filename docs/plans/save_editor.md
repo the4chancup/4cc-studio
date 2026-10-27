@@ -455,8 +455,8 @@ another version asks nothing, since a game only writes its own version's save.
   it, the command writes nothing and exits 2, its message naming the game and the flag. Not a
   warning followed by the write: a write made while Edit mode is open is lost without a word,
   and the warning would come after it.
-- The Team compiler's savefile step follows the same rule (`team_compiler/pipeline.md`
-  "Savefile step while the game runs").
+- The Team compiler's savefile step follows the same rule (`spec/team_compiler/pipeline.md`
+  "Savefile update").
 - Scenarios: SE-GUI-21 and SE-CLI-03 (the Acceptance section).
 
 ---

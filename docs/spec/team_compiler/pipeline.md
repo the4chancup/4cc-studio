@@ -1742,7 +1742,7 @@ remain progress-safe", `core/parallelism.md`). A model folder's group (`TaskGrou
 admitted as one, its members' charges acquired together as one permit they share: the writer
 holds the folder's packages until its textures batch arrives, so packages holding permits of
 their own could leave the textures task waiting for memory only they free. A `.7z` export's tasks read the buffer its
-check kept when the keep rule admitted it (`libs/pipeline.md` "What a solid `.7z` is
+check kept when the keep rule admitted it (`spec/libs/pipeline.md` "What a solid `.7z` is
 charged"), else the archive opened once more for all of them; either way the export is charged
 once, by the sum of its entries' sizes, and its tasks share that permit and acquire none of
 their own, since an oversized export permit would otherwise block its own tasks' requests

@@ -35,8 +35,8 @@ manifest.tasks.into_par_iter().for_each(|task| {
 });
 ```
 
-This is the design in outline; the code's shapes are `team_compiler/pipeline.md` "Run driver
-shapes". There the duplicate-refs preflight is `reader::route`, before validation, plus an
+This is the design in outline; the code's shapes are `spec/team_compiler/pipeline.md` "Run
+driver shapes". There the duplicate-refs preflight is `reader::route`, before validation, plus an
 export-scoped `multiple_ref_exports` on each conflicting refs export; `plan_run` accepts only
 identity-resolved `ResolvedAestheticsExport` values and returns a `PlanReport` of the manifest
 and planning's messages, a dropped export being its `DropExport` message, which nothing looks up

@@ -2463,7 +2463,7 @@ plan). Phase 5 withdraws TC-BIN-10, TC-BIN-17 and TC-BIN-22, whose player tables
 and TC-BIN-25 to TC-BIN-27 restate them. Not in Phase 5, so not here: the pre-Fox patch and its
 savefile writes (deferred with pre-Fox's other gaps: a compile for PES 15-17 writes no patch and
 leaves the savefile byte-identical) and a referee export's settings (worklog issue). PES 18
-and 19 appearance rows are built like PES 20 and 21's (`spec/pes_savefile/model.md`, "The Fox
+and 19 appearance rows are built like PES 20 and 21's (`spec/pes_savefile/model.md`, "Fox
 database row"). Test data as in Phase 4. A scenario naming no coverage tag compiles a `Full`
 export (a `Midcup` one keeps a player's installed row where a `Full` one writes the default,
 `aesthetics_export/settings_toml.md`). The patch halves of TC-BIN-31 to TC-BIN-33 are proven

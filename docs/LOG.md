@@ -2712,3 +2712,5 @@ worklog passed 7,000 lines.
   loop ends; the rework makes each fail under its perturbation.
 - **2026-10-27** — 0.0.1s5: SWE-2 round S6 over the A3 rework, 1 of 3 accepted (the grass drop off Kick-off), the review loops end;
   the changed-crate gates and the surface's mutation run next.
+- **2026-10-27** — cm6: `doc_pointers.py` taught to read a pointer wrapped across lines: 232 more pointers read, 24 broken; the 19
+  in `docs/` repointed at the sections they name (most moved to `spec/`), the script waits for cm4's fix of the one in `save_editor`.
