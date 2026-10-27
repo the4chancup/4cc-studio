@@ -41,7 +41,7 @@ keyboard. Use the pad and OBS; keys and the screen are the fallback when OBS is 
   authentication off: `OBS` in `game.py`), and `pip install obs-websocket-py`.
 - For keys and the screen: `pip install mss Pillow pydirectinput` (`pydirectinput` sends
   DirectInput scan codes, the only keys the games read).
-- `install.py` knows the test slots of PES 17 (`download/4cc_90_test.cpk`), PES 19
+- `install.py` knows the test slots of PES 16 and PES 17 (`download/4cc_90_test.cpk`), PES 19
   (`download/4cc_69_midcup.cpk`) and PES 21 (`download/4cc_99_test.cpk`), each the last entry of
   its DpFileList, so it overrides every other CPK. Another game needs its own `TEST_SLOTS`
   entry: the slot's file and the SHA-256 of the file installed there.
@@ -107,6 +107,9 @@ Run every command from the repository root. Screenshots go under `.tmp/` (gitign
      wait:3 enter wait:2 enter wait:2 enter wait:3`, then `keys 17 wait:4` and at once
      `python scripts/ingame/burst.py 17 48 walkout 1.2` for 48 frames 1.2 s apart
      (`.tmp/ingame/walkout_NN.png`, with `walkout_sheetN.png` contact sheets of 16 frames each).
+   - **Fine moves and replays** (the maintainer, 2026-10-27): on a formation screen the d-pad
+     moves a held player one unit per press where a stick push jumps several, so an edge reads
+     to the unit; in a match, Replay is offered only once the ball has been kicked off.
 6. `python scripts/ingame/game.py close 17` (ends the game and Sider), then
    `python scripts/ingame/game.py pad-stop` (unplugs the pad).
 7. `python scripts/ingame/install.py revert 17` puts the slot's own file back. The kept copy

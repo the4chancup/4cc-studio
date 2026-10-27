@@ -12423,3 +12423,12 @@ whatever the tool's controls. Position is left out because the request named the
 window moved at its default size is one the member placed.
 Plan: `plans/core/gui.md` "Status bar" (ST-BAR-01's GIVEN, ST-BAR-06) and the drafts' "Size"
 bullet; `plans/save_editor.md` "Editing UI" (the unsaved-changes prompt).
+
+## 2026-10-27 — kit_config_editor — Undershirt-only long sleeves gray the long-sleeve badge fields
+Decision: with the long sleeves undershirt-only (byte 0x02 = 0xBB), the editor grays the four
+long-sleeve badge positions, as Kit Manager does.
+Why: in PES 2016 no badge drew on the undershirt's forearm, in Edit mode or a cup match, against
+the same kit with normal long sleeves; one drew only at the shoulder of the short sleeve worn
+over it, and which fields place that one was not measured: the maintainer stopped the check as
+too long for a corner of a tool not yet built, so the editor keeps Kit Manager's behavior.
+Plan: `plans/kit_config_editor.md`, the GUI paragraph on constraint gating.

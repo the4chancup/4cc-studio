@@ -2718,3 +2718,5 @@ worklog passed 7,000 lines.
   unsaved-changes prompt as wide as its widest row, the drafts' controls in a column left of the window; font trial swaps faces in place.
 - **2026-10-27** — 0.0.1s5: the Tactics loop's mutation run (`mutants-diff 3d39aff3`, ten crates): 2 missed, both `studio_core`
   `window_size` (a window-only flag, an equivalent f32 tolerance), excluded with reasons; no rework brief.
+- **2026-10-27** — 12.0b stopped by the maintainer (a corner of an unbuilt tool): no badge on PES 2016's undershirt-only forearm, so the
+  editor grays the four long-sleeve badge fields as Kit Manager does; save and test slot restored by hash; PES 16's test slot kept.

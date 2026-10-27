@@ -4074,10 +4074,15 @@ The phase's steps are itemized when it opens; prepared ahead:
   Kit Manager's audit"), the spec
   (collars 1–106 or 1–109, the unreachable cut-out rule, the spacing control's bits, v5.0),
   PROPOSALS P41-P42
-- [ ] 12.0b in game (PES 2016, pad and OBS): a kit with undershirt-only long sleeves
-  (0x02 = 0xBB) and a long-sleeve badge position set: does the badge draw? Kit Manager grays
-  the four long-sleeve badge fields while the sleeves are undershirt-only (12.0a row 21); if
-  the game draws no badge there, the editor grays them too, else it keeps them editable
+- [x] 12.0b in game (PES 2016, pad and OBS): a kit with undershirt-only long sleeves
+  (0x02 = 0xBB) and a long-sleeve badge position set: does the badge draw? Stopped
+  2026-10-27 by the maintainer (too long for a corner of a tool not yet built), on what it had
+  found (Opus, `.tmp/12_0b/findings.md`, /ck/ 0xBB against 0x3E): 0xBB is read (an undershirt
+  sleeve to the wrist), and no badge draws on the undershirt forearm in Edit mode or a cup
+  match, one drawing only at the shoulder of the short sleeve over it. Ruled: the editor
+  grays the four fields, as Kit Manager does (plan, the GUI paragraph). Save and test slot
+  restored by hash after the stop. Files: `plans/kit_config_editor.md`;
+  `scripts/ingame/install.py` and `README.md` gain PES 16's test slot
 
 ### Phase 13 — Refs arranger
 

@@ -55,7 +55,11 @@ tight, pattern), Colors (the five config fields, via the shared `color_tools`
 picker — no more JCPicker subprocess and hex-paste dance), Name, Numbers
 (back/chest/shorts), Badges. Constraint gating is inline: options requiring shirt
 model 144/160 gray out with a tooltip instead of the old modal error boxes, and with the
-name off (`show = false`) its shape, Y and size gray out the same way. A numeric field
+name off (`show = false`) its shape, Y and size gray out the same way, and with
+undershirt-only long sleeves (0x02 = 0xBB) the four long-sleeve badge positions do too, as
+Kit Manager grays them: in PES 2016 the badge never draws on the undershirt's forearm (Edit
+mode and a cup match), only at the shoulder of the short sleeve over it, a corner not
+measured further for a tool not yet built. A numeric field
 takes any value its bits hold, not Kit Manager's lists (which accept only a listed item,
 and stock data exceeds them: collars up to 131 against its 106), and a value outside the
 selected version's range shows that version's warning beside the field. An FPC

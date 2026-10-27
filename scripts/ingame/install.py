@@ -6,7 +6,7 @@
 
 The test slot is one CPK the game already loads last, so whatever it holds overrides every
 other CPK; the compiled CPK replaces it whole. That one file is the only game file written: no
-save, no DpFileList.bin, no other CPK. GAME is a key of `TEST_SLOTS` below (17, 19 or 21); the
+save, no DpFileList.bin, no other CPK. GAME is a key of `TEST_SLOTS` below (16, 17, 19 or 21); the
 install folder comes from game.py's `GAMES`.
 
 Every copy is checked by SHA-256. Both commands refuse while the game runs, and refuse to write
@@ -29,6 +29,12 @@ from game import GAMES, pids_of
 # its DpFileList (the highest priority); its own file is a leftover Fox face package of about
 # 100 MB. A game gets an entry here once its slot and that file's hash are known.
 TEST_SLOTS = {
+    # PES 16's slot is the last entry of its DpFileList too, and holds the cup's 6 KB placeholder
+    # CPK.
+    "16": {
+        "file": "download/4cc_90_test.cpk",
+        "original_sha256": "9aba63a7cb351a858aae33e89caf16dc9b0e9bc6dc62e1441ef4dd5730d31eba",
+    },
     "17": {
         "file": "download/4cc_90_test.cpk",
         "original_sha256": "b1eb59079817d8d3aedc7b0714b1ed8cadc6d786f1269bec9abc43e49bd93a2a",
