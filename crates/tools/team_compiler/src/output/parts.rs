@@ -67,14 +67,14 @@ impl Part {
     fn add(&mut self, path: &str, bytes: &[u8]) -> anyhow::Result<()> {
         self.cpk
             .add(path, bytes, None)
-            .with_context(|| format!("{}: cannot add {path}", self.path.display()))
+            .with_context(|| format!("cannot add {path} to {}", self.path.display()))
     }
 
     /// Writes the part's table of contents and closes its file.
     fn finish(self) -> anyhow::Result<()> {
         self.cpk
             .finish()
-            .with_context(|| format!("{}: cannot write the CPK", self.path.display()))?;
+            .with_context(|| format!("cannot write the CPK {}", self.path.display()))?;
         Ok(())
     }
 }
@@ -176,7 +176,7 @@ impl TeamsParts {
         for (path, bytes) in self.held.drain(..) {
             ensure!(
                 self.placed.insert(path.clone()),
-                "{path}: placed twice in the teams parts"
+                "{path} is placed twice in the teams CPKs"
             );
             part.add(&path, &bytes)?;
         }
@@ -240,7 +240,7 @@ impl TeamsParts {
     pub(crate) fn finish(self) -> anyhow::Result<usize> {
         ensure!(
             self.held.is_empty(),
-            "the entries of a team were never placed in a part"
+            "a team's files were never placed in a teams CPK"
         );
         if let Some(part) = self.part {
             part.finish()?;
@@ -249,14 +249,14 @@ impl TeamsParts {
         for slot in slots {
             let path = self.folder.join(cpk_file_name(slot));
             fs::write(&path, &self.placeholder)
-                .with_context(|| format!("{}: cannot write the placeholder CPK", path.display()))?;
+                .with_context(|| format!("cannot write the placeholder CPK {}", path.display()))?;
         }
         if slots.is_empty() {
             return Ok(0);
         }
         let entries = cpk::CpkArchive::open(std::io::Cursor::new(&self.placeholder))
             .map(|archive| archive.entries().len())
-            .context("the placeholder CPK's table of contents does not parse")?;
+            .context("cannot read the placeholder CPK")?;
         Ok(entries * slots.len())
     }
 }
@@ -547,7 +547,7 @@ mod tests {
         );
         assert_eq!(
             error.to_string(),
-            format!("{}: placed twice in the teams parts", shared.0)
+            format!("{} is placed twice in the teams CPKs", shared.0)
         );
     }
 

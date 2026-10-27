@@ -420,13 +420,13 @@ pub(crate) fn replace_file(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
         if let Err(removal) = fs::remove_file(&temporary) {
             log::debug!("{}: kept: {removal}", temporary.display());
         }
-        return Err(error).with_context(|| format!("{}: cannot write it", temporary.display()));
+        return Err(error).with_context(|| format!("cannot write {}", temporary.display()));
     }
     if let Err(error) = fs::rename(&temporary, path) {
         if let Err(removal) = fs::remove_file(&temporary) {
             log::debug!("{}: kept: {removal}", temporary.display());
         }
-        return Err(error).with_context(|| format!("{}: cannot replace it", path.display()));
+        return Err(error).with_context(|| format!("cannot replace {}", path.display()));
     }
     Ok(())
 }
@@ -473,7 +473,7 @@ mod tests {
 
         let chain = format!("{error:#}");
         assert!(
-            chain.starts_with(&format!("{}: ", path.display())),
+            chain.starts_with(&format!("cannot replace {}", path.display())),
             "{chain}"
         );
         assert!(path.join("kept").is_dir());

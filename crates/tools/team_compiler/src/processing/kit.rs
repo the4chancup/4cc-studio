@@ -140,7 +140,7 @@ pub(super) fn kit(
     // alone, so the two maps' names (`u0714p1_mask`, `u0714p1_srm`) are not in the config.
     let mut game_names = Vec::with_capacity(KIT_TEXTURE_STEMS.len());
     for field in &names {
-        let name = std::str::from_utf8(field).context("a kit texture name is ASCII")?;
+        let name = std::str::from_utf8(field).context("cannot read a kit texture name")?;
         game_names.push(name.trim_end_matches('\0').to_owned());
     }
     let main = game_names[0].clone();
@@ -221,9 +221,11 @@ pub(super) fn kit(
     let config = if emits_config {
         let mut config = match &kit.config {
             Some(file) => {
-                let text = String::from_utf8(take(files, file))
-                    .with_context(|| format!("{}: not UTF-8", file.path.as_str()))?;
-                KitConfig::from_toml(&text).with_context(|| file.path.as_str().to_owned())?
+                let text = String::from_utf8(take(files, file)).with_context(|| {
+                    format!("the kit config {} is not UTF-8", file.path.as_str())
+                })?;
+                KitConfig::from_toml(&text)
+                    .with_context(|| format!("cannot read the kit config {}", file.path.as_str()))?
             }
             None => KitConfig::template(),
         };

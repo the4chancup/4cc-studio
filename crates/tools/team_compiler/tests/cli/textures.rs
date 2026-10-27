@@ -796,7 +796,7 @@ fn a_common_texture_whose_task_fails_lets_the_players_linking_it_commit() {
     };
     assert!(
         failure.starts_with(
-            "Error folder_pack_failed [DropFolder] at Common (error=hair.dds: cannot convert"
+            "Error folder_pack_failed [DropFolder] at Common (error=cannot convert hair.dds"
         ),
         "{failure}"
     );

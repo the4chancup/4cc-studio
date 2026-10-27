@@ -810,7 +810,7 @@ fn size_over_limit(run_folder: &Path, name: &CpkStem, cap: u64) -> anyhow::Resul
     let file_name = deploy::cpk_file_name(name);
     let path = run_folder.join(&file_name);
     let size = fs::metadata(&path)
-        .with_context(|| format!("{}: cannot read the CPK's size", path.display()))?
+        .with_context(|| format!("cannot read the size of {}", path.display()))?
         .len();
     if size <= cap {
         return Ok(None);
@@ -2141,7 +2141,7 @@ mod tests {
         let path = folder.join("4cc_62_midcup.cpk");
         assert_eq!(
             error.to_string(),
-            format!("{}: cannot read the CPK's size", path.display())
+            format!("cannot read the size of {}", path.display())
         );
     }
 

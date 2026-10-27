@@ -738,7 +738,7 @@ fn a_common_texture_that_cannot_convert_fails_the_common_task_and_the_linking_pl
     );
     assert!(
         findings[4].starts_with(
-            "Error folder_pack_failed [DropFolder] at Common (error=broken.dds: cannot convert"
+            "Error folder_pack_failed [DropFolder] at Common (error=cannot convert broken.dds"
         ),
         "{}",
         findings[4]

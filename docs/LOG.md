@@ -2567,3 +2567,5 @@ worklog passed 7,000 lines.
   long sentences split and pronouns named); two `.mtl` search facts brought to the spec.
 - **2026-10-27** — 8.29c4c: the second half of the Team compiler's help chapter reread for flow (62 passages), its
   restated catalog rows brought to the catalog's wording (`old_cpk_locked`, the sideload `livecpk` files).
+- **2026-10-27** — 8.29c4d: the Team compiler's error texts on the terminal and in findings' `error=` fields reread for
+  flow (54 texts): the path now said where a person would say it, not put first and pointed back to.

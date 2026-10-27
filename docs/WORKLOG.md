@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 to c3 and c4a to c4c done; 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 to c3 and c4a to c4d done; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2236,10 +2236,20 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           beside the sentence that re-arranges them), 1 nit, the loop's end. Tables
           `.tmp/8_29/c4c_table.md` and `c4c_s1_table.md` (side/text worktree).
           Files: `team_compiler/help/01_command_line.md`
-        - [ ] c4d the crate's other texts a member reads on the terminal: the `with_context` and
-          `bail!` texts of `upgrade.rs`, `compile.rs` and the like, printed as `error: ...`
-          beside the refusals c4a rewrote (`{}: cannot rename {from} to it: the file already
-          exists`; review S1c4a-9)
+        - [x] c4d the crate's other texts a member reads: the `anyhow` contexts and `bail!`
+          texts printed as `error: ...` on the terminal and in the window, or carried in a
+          finding's `error=` field (`folder_pack_failed`, `installed_bin_unreadable`): 54 texts
+          rewritten, the path no longer put first and pointed back to with "it" (`cannot
+          rename {from} to {}, because a file of that name already exists`), "unwrap" and
+          "parse" now "decompress" and "read", the tests pinning them following (the lead
+          retouched six: a `face.xml` or `.mtl` path named twice, "placed in two of the teams
+          CPKs" where the check is "twice", the staging and "new tree" texts; and the
+          teamnotes test's path check given its verb back). SWE-2 round S1: 8 concerns, none
+          accepted (six asked for contexts the code never had or for other values than the
+          texts format, two for invariants only a bug reaches), the loop's end. Table `.tmp/8_29/c4d_table.md`
+          (side/text worktree). Files: 19 `team_compiler/src/` modules, six `tests/cli/`
+          files. The Save editor's `view/portraits.rs` keeps its own "not a CPK the reader
+          accepts", for whoever holds that crate
         - [ ] c4e a fact audit of `help/01_command_line.md` against the catalog and the spec:
           c4b's review rounds S1 to S6 found over fifty facts the chapter's first half stated
           narrower, staler or for one engine only, and their last ones need the code read

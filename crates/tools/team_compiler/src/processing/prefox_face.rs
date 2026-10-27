@@ -761,8 +761,9 @@ fn face_contents(
                 // The deep pass has dropped a folder whose face diff fails to decode, so a
                 // failure here is not a member's mistake.
                 PlayerFile::FaceDiffXml => {
-                    let bytes = face_diff::from_xml(&take(files, file))
-                        .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?;
+                    let bytes = face_diff::from_xml(&take(files, file)).map_err(|error| {
+                        anyhow::anyhow!("cannot read the face diff {}: {error}", file.path.as_str())
+                    })?;
                     *source_dif = Some(bytes);
                 }
                 PlayerFile::Texture { below, .. } => {
@@ -808,7 +809,7 @@ fn face_contents(
     let xml = match xml {
         Some((_, file)) => Some(
             parse(&take(files, file))
-                .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?,
+                .map_err(|error| anyhow::anyhow!("cannot read {}: {error}", file.path.as_str()))?,
         ),
         None => None,
     };
@@ -1364,7 +1365,7 @@ impl<'a> XmlFace<'a> {
                 })
                 .collect();
             if variants.is_empty() {
-                return Err(anyhow::anyhow!("{value} names no file of the face").into());
+                return Err(anyhow::anyhow!("the face has no file named {value}").into());
             }
             for (below, file) in &variants {
                 self.pack(file, below, files)?;
@@ -1373,7 +1374,7 @@ impl<'a> XmlFace<'a> {
             return Ok(value.to_owned());
         }
         let file = resolve(&Reference::Local(path.to_owned()), &self.named, kind)
-            .ok_or_else(|| anyhow::anyhow!("{value} names no file of the face"))?;
+            .ok_or_else(|| anyhow::anyhow!("the face has no file named {value}"))?;
         if is_common_file(&file.path) {
             return Ok(format!(
                 "{}{}",
@@ -1706,7 +1707,7 @@ pub(super) fn read_materials(
     places: &MaterialPlaces,
 ) -> Result<MaterialSet, TaskFailure> {
     let mut set = MaterialSet::read(bytes)
-        .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?;
+        .map_err(|error| anyhow::anyhow!("cannot read {}: {error}", file.path.as_str()))?;
     point_materials(&mut set, places);
     Ok(set)
 }

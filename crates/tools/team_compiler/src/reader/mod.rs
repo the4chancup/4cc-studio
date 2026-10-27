@@ -160,7 +160,7 @@ struct ScanRoot {
 
 /// The exports root's sources, and the `.upgrading` folders skipped beside them.
 fn scan_root(exports_root: &Path) -> anyhow::Result<ScanRoot> {
-    let cannot_read = || format!("{}: cannot read the exports folder", exports_root.display());
+    let cannot_read = || format!("cannot read the exports folder {}", exports_root.display());
     let mut paths = Vec::new();
     let mut skipped = Vec::new();
     for entry in fs::read_dir(exports_root).with_context(cannot_read)? {

@@ -360,9 +360,9 @@ fn stock_collar_fox_materials(model: &mut fmdl::Model) -> anyhow::Result<()> {
         let (shader, technique) = match material.name.as_str() {
             "uni_collar" => ("pes_3ddf_collar", "pes3DDF_Collar_NC"),
             "uni_shirts" => ("pes_3ddf_shirt_nb", "pes3DDF_Shirt_NB_NC"),
-            other => anyhow::bail!(
-                "collar material `{other}` is not one a collar may use (`uni_collar`, `uni_shirts`)"
-            ),
+            other => {
+                anyhow::bail!("the collar material `{other}` must be `uni_collar` or `uni_shirts`")
+            }
         };
         shader.clone_into(&mut material.shader);
         technique.clone_into(&mut material.technique);
@@ -749,8 +749,7 @@ mod tests {
                     ("model", "collar_12.model".to_owned()),
                     (
                         "error",
-                        "collar material `skin_limb` is not one a collar may use \
-                         (`uni_collar`, `uni_shirts`)"
+                        "the collar material `skin_limb` must be `uni_collar` or `uni_shirts`"
                             .to_owned()
                     )
                 ]

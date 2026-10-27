@@ -224,7 +224,7 @@ pub(crate) fn run(
         if present.contains(cpk) {
             let path = download.join(cpk);
             let size = fs::metadata(&path)
-                .with_context(|| format!("{}: cannot read its size", path.display()))?
+                .with_context(|| format!("cannot read the size of {}", path.display()))?
                 .len();
             context.push(("size", size_text(size)));
         }
@@ -247,14 +247,15 @@ fn read_list_file(path: &Path) -> anyhow::Result<Option<Vec<u8>>> {
     match fs::read(path) {
         Ok(bytes) => Ok(Some(bytes)),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(error)
-            .with_context(|| format!("{}: cannot read the installed list", path.display())),
+        Err(error) => {
+            Err(error).with_context(|| format!("cannot read the installed list {}", path.display()))
+        }
     }
 }
 
 /// The names of the entries of `folder`, as they are spelled.
 fn file_names(folder: &Path) -> anyhow::Result<BTreeSet<String>> {
-    let cannot_list = || format!("{}: cannot list the folder", folder.display());
+    let cannot_list = || format!("cannot list the files in {}", folder.display());
     let mut names = BTreeSet::new();
     for entry in fs::read_dir(folder).with_context(cannot_list)? {
         // A name that is not Unicode matches no list entry, lossy or not.
@@ -271,15 +272,15 @@ fn rename(download: &Path, from: &str, to: &str) -> anyhow::Result<()> {
     let target = download.join(to);
     let exists = target
         .try_exists()
-        .with_context(|| format!("{}: cannot tell whether it exists", target.display()))?;
+        .with_context(|| format!("cannot tell whether {} exists", target.display()))?;
     if exists {
         bail!(
-            "{}: cannot rename {from} to it: the file already exists",
+            "cannot rename {from} to {}, because a file of that name already exists",
             target.display()
         );
     }
     fs::rename(&source, &target)
-        .with_context(|| format!("{}: cannot rename it to {to}", source.display()))
+        .with_context(|| format!("cannot rename {} to {to}", source.display()))
 }
 
 /// Writes `bytes` as the new file `name` in `download`, never over an existing one and never
@@ -292,7 +293,7 @@ fn rename(download: &Path, from: &str, to: &str) -> anyhow::Result<()> {
 fn write_new(download: &Path, name: &str, bytes: &[u8]) -> anyhow::Result<()> {
     let temporary = format!(".{name}-{}.tmp", std::process::id());
     let written = fs::write(download.join(&temporary), bytes)
-        .with_context(|| format!("{}: cannot write it", download.join(name).display()))
+        .with_context(|| format!("cannot write {}", download.join(name).display()))
         .and_then(|()| rename(download, &temporary, name));
     if written.is_err()
         && let Err(removal) = fs::remove_file(download.join(&temporary))
@@ -498,7 +499,7 @@ mod tests {
 
         let error = write_new(download, "4cc_61_midcup.cpk", b"another").unwrap_err();
         assert!(
-            format!("{error:#}").ends_with(": the file already exists"),
+            format!("{error:#}").ends_with("a file of that name already exists"),
             "{error:#}"
         );
         assert_eq!(fs::read(&path).unwrap(), b"placeholder");
@@ -537,7 +538,8 @@ mod tests {
         assert_eq!(
             format!("{error:#}"),
             format!(
-                "{}: cannot rename 4cc_40_faces.cpk to it: the file already exists",
+                "cannot rename 4cc_40_faces.cpk to {}, because a file of that name already \
+                 exists",
                 download.join("4cc_41_teams.cpk").display()
             )
         );

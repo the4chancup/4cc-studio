@@ -548,7 +548,9 @@ fn boots_files(
         .map(|part| {
             PreFoxModel::read(&part.model)
                 .and_then(|file| Model::from_file(&file))
-                .map_err(|error| anyhow::anyhow!("{}: {error}", part.path.as_str()).into())
+                .map_err(|error| {
+                    anyhow::anyhow!("cannot read the model {}: {error}", part.path.as_str()).into()
+                })
         })
         .collect::<Result<Vec<Model>, TaskFailure>>()?;
     let pairs: Vec<(&Model, &MaterialSet)> = models
@@ -559,7 +561,7 @@ fn boots_files(
     let bytes = model
         .to_file()
         .and_then(|file| file.write())
-        .map_err(|error| anyhow::anyhow!("boots.model: {error}"))?;
+        .map_err(|error| anyhow::anyhow!("cannot write boots.model: {error}"))?;
     Ok((bytes, materials.write()))
 }
 

@@ -49,10 +49,10 @@ impl OutputSink {
                 };
                 writer
                     .add(path, bytes, None)
-                    .with_context(|| format!("{}: cannot add {path}", cpk_path.display()))
+                    .with_context(|| format!("cannot add {path} to {}", cpk_path.display()))
             }
             OutputSink::Loose { root } => {
-                let cannot_write = || format!("{}: cannot write {path}", root.display());
+                let cannot_write = || format!("cannot write {path} in {}", root.display());
                 let file = root.join(path);
                 if let Some(folder) = file.parent() {
                     fs::create_dir_all(folder).with_context(cannot_write)?;
@@ -75,7 +75,7 @@ impl OutputSink {
                 cpk: Some(cpk),
             } => {
                 cpk.finish()
-                    .with_context(|| format!("{}: cannot write the CPK", path.display()))?;
+                    .with_context(|| format!("cannot write the CPK {}", path.display()))?;
                 Ok(())
             }
             OutputSink::Cpk { cpk: None, .. } | OutputSink::Loose { .. } => Ok(()),
@@ -85,7 +85,7 @@ impl OutputSink {
 
 /// Creates the CPK file at `path`, and its folder.
 pub(crate) fn create_cpk(path: &Path) -> anyhow::Result<CpkWriter<File>> {
-    let cannot_create = || format!("{}: cannot create the CPK", path.display());
+    let cannot_create = || format!("cannot create the CPK {}", path.display());
     if let Some(folder) = path.parent() {
         fs::create_dir_all(folder).with_context(cannot_create)?;
     }
@@ -137,7 +137,7 @@ mod tests {
 
         assert!(
             error.to_string().starts_with(&format!(
-                "{}: cannot write common/etc/TeamColor.bin",
+                "cannot write common/etc/TeamColor.bin in {}",
                 root.display()
             )),
             "{error}"
@@ -161,7 +161,7 @@ mod tests {
         let error = sink.add("a/b.bin", b"again").unwrap_err();
         assert_eq!(
             error.to_string(),
-            format!("{}: cannot add a/b.bin", path.display())
+            format!("cannot add a/b.bin to {}", path.display())
         );
         sink.finish().unwrap();
 

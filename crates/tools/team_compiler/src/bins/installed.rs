@@ -472,7 +472,7 @@ fn open_cpk(path: &Path) -> Result<Option<InstalledCpk>, Unreadable> {
         Err(error) => return Err(unreadable(error.into())),
     };
     CpkArchive::open(BufReader::new(file))
-        .context("not a CPK the reader accepts")
+        .context("cannot read the CPK")
         .map(Some)
         .map_err(unreadable)
 }
@@ -502,12 +502,12 @@ fn take_bins(
             .read(&entry)
             .with_context(|| format!("cannot read {path_in_cpk}"))?;
         let bytes = wezlib::decompress_if_wrapped(&bytes)
-            .with_context(|| format!("cannot unwrap {path_in_cpk}"))?
+            .with_context(|| format!("cannot decompress {path_in_cpk}"))?
             .into_owned();
         wanted
             .bin
             .set(bins, bytes)
-            .with_context(|| format!("cannot parse {path_in_cpk}"))?;
+            .with_context(|| format!("cannot read {path_in_cpk}"))?;
         wanted.found = Some(name.to_owned());
     }
     Ok(())
@@ -535,7 +535,7 @@ fn take_loose_kit_configs(
             .read(&entry)
             .with_context(|| format!("cannot read {path_in_cpk}"))?;
         let bytes = wezlib::decompress_if_wrapped(&bytes)
-            .with_context(|| format!("cannot unwrap {path_in_cpk}"))?
+            .with_context(|| format!("cannot decompress {path_in_cpk}"))?
             .into_owned();
         configs.insert(name, bytes);
     }
@@ -565,10 +565,10 @@ fn take_shared_ids(
             .read(&entry)
             .with_context(|| format!("cannot read {path_in_cpk}"))?;
         let bytes = wezlib::decompress_if_wrapped(&bytes)
-            .with_context(|| format!("cannot unwrap {path_in_cpk}"))?
+            .with_context(|| format!("cannot decompress {path_in_cpk}"))?
             .into_owned();
         let record =
-            SharedIds::read(&bytes).with_context(|| format!("cannot parse {path_in_cpk}"))?;
+            SharedIds::read(&bytes).with_context(|| format!("cannot read {path_in_cpk}"))?;
         records.insert(team, record);
     }
     Ok(())
@@ -1264,7 +1264,7 @@ mod tests {
         assert_eq!(
             format!("{:#}", unreadable.error),
             format!(
-                "cannot parse {}: UniColor.bin is 84 bytes, not a whole number of 85-byte records",
+                "cannot read {}: UniColor.bin is 84 bytes, not a whole number of 85-byte records",
                 paths::UNI_COLOR
             )
         );
@@ -1365,7 +1365,7 @@ mod tests {
             );
             assert_eq!(
                 format!("{:#}", unreadable.error),
-                format!("cannot parse {path}: {error}")
+                format!("cannot read {path}: {error}")
             );
         }
     }

@@ -53,14 +53,14 @@ pub(crate) fn list(
 
 /// Lists the files of `folder` (at the CPK path `prefix`) and everything below it into `files`.
 fn walk(folder: &Path, prefix: &str, files: &mut BTreeMap<String, PathBuf>) -> anyhow::Result<()> {
-    let cannot_read = || format!("{}: cannot read the overrides folder", folder.display());
+    let cannot_read = || format!("cannot read the overrides folder {}", folder.display());
     for entry in fs::read_dir(folder).with_context(cannot_read)? {
         let entry = entry.with_context(cannot_read)?;
         let path = entry.path();
         let name = entry.file_name();
         // A CPK path is text: a name that is not cannot be put in the CPK as it is spelled.
         let Some(name) = name.to_str() else {
-            bail!("{}: the name is not valid UTF-8", path.display());
+            bail!("the name of {} is not valid UTF-8", path.display());
         };
         let cpk_path = if prefix.is_empty() {
             name.to_owned()
@@ -153,7 +153,7 @@ mod tests {
 
         assert_eq!(
             error,
-            format!("{}: cannot read the overrides folder", file.display())
+            format!("cannot read the overrides folder {}", file.display())
         );
     }
 
@@ -174,7 +174,7 @@ mod tests {
 
         assert_eq!(
             error,
-            format!("{}: the name is not valid UTF-8", file.display())
+            format!("the name of {} is not valid UTF-8", file.display())
         );
     }
 }
