@@ -12130,3 +12130,17 @@ Why: the maintainer's answer to the default-settings audit's question (worklog 0
 preview; if he checks teams in the Save editor, DBC7's rules would otherwise be the only file
 at hand.
 Plan: `plans/core/development_plan.md`, the paragraph on the preview build 0.0.1.
+## 2026-10-27 — save_editor — No narrow-pane fallback, and no frame laid out under the design width
+Decision: the Save editor's layouts for a pane narrower than its design go: the three
+columns' wrap, the Skills and COM cards' one column, the Appearance groups' fewer pairs a row
+and the team row's wrap. The shell discards the pass that finds the zoom changed and runs it
+again at the new zoom, so the frame after a width jump lays out at 1280 points like every
+other. The quick actions' halves stay: a rules file's long tier label reaches them in any
+window.
+Why: the zoom rule and the fixed 240-point list leave a settled pane of 952 points, wider than
+every fallback's threshold (audit 0.0.1m2, `.tmp/0_0_1m/m2_audit_report.md`); the one frame
+after a jump (egui applies a zoom when the next pass begins) was the only native way in. Kept,
+they cost code a reader must follow and a cached-width bug (Astra A2a-1), and the view tests,
+drawn 1100 wide, ran in the fallback state no member sees rather than the design's.
+Plan: `plans/core/gui.md` "Scaling with the width" and ST-WIN-02; `plans/save_editor.md` "The
+player view" and the team view's row.

@@ -2866,7 +2866,15 @@ briefs, review loops, gates and mutation runs as for any step.
     include the three columns' wrap, s3g's one-column cards and the quick actions' halves; if
     the one-column cards stay, Astra A2a-1 found that their cached width keeps one column
     after the pane widens again in the same context, `.tmp/0_0_1s/s3_rulings.md`); the
-    built window text and ST-WIN-01/02 move to `spec/core/gui.md` with it
+    built window text and ST-WIN-01/02 move to `spec/core/gui.md` with it. Audited
+    2026-10-27 (Fable, `.tmp/0_0_1m/m2_audit_report.md`, rulings `m2_rulings.md`): of the
+    four candidates above none is left in the code; six width branches are, five reached only
+    in the one frame after a width jump (the columns' wrap, column 2 shrunk to the pane, the
+    one-column cards, Appearance's fewer pairs, the team row's wrap), the quick actions'
+    halves by a rules file's long label. Ruled: the shell discards the pass that changes the
+    zoom, the five go, the halves stay, the view tests draw the 1224-point design pane (113
+    drew 1100); plan and DECISIONS "No narrow-pane fallback, and no frame laid out under the
+    design width". Brief `.tmp/0_0_1m/brief_m2.md`, after j4
 - [x] 0.0.1n the drafts' Layout edit and scaling (the same review; `plans/core/gui.md`
   "Layout edit", the "Size:" bullet): a moved panel pinned where dropped, a columned panel
   narrowed into fewer columns, the simulated window scaled under the design width

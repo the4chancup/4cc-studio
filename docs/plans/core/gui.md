@@ -58,9 +58,16 @@ reports the monitor's size, the window stays as created.
 
 **Scaling with the width.** A view is laid out for its window's design width: 1280 points for
 the main tools. Narrower than that, the shell scales the whole UI down with the width (egui's
-zoom factor set to the window's width over the design width, read from the native pixel width
-so the zoom does not feed back into it), so every row keeps the arrangement it has at 1280 and
-nothing clips or rewraps; at or above the design width, and at any height, the zoom is 1 and
+zoom factor set to the window's width over the design width, the width read in points at zoom
+1, the frame's screen rectangle times the current zoom, so the zoom does not feed back into it
+and display scaling still applies: 1440 pixels at 150% are 960 points, zoom 0.75), so every
+row keeps the arrangement it has at 1280 and nothing clips or rewraps. egui applies a new zoom
+only when the next pass begins, so the pass that finds the zoom changed is discarded and run
+again at the new zoom (`Context::request_discard`): otherwise the frame after a jump (a snap
+from 1920 points to 960) lays out once at 960 points, and the views draw a layout no other
+frame shows. No view therefore keeps a layout for a pane narrower than its design: we keep no
+fallback no member reaches, because a fallback kept "just in case" was the state the tests ran
+in instead of the design's (0.0.1m2). At or above the design width, and at any height, the zoom is 1 and
 the views reflow: wider rows spread, a shorter window scrolls or stacks as each view's height
 rules say. We scale on the width alone because the views' fixed-width rows (the Tactics pitch,
 a row of colour swatches, the tab strip) are what clips below about 900 points (measured on the
@@ -709,12 +716,12 @@ from where the layout puts it: a neighbour's resize then dragged the moved panel
 2026-10-26.) A resize sets the panel's width and height, and the panels around it that are not
 pinned reflow, as they do in the window; a panel laid out in columns (the stats, the
 positions, a grid of fields) can be narrowed past its columns' width, and then reflows into
-fewer columns, as the view does when its pane narrows, rather than stopping at its widest
-row. "Copy layout" puts one line per changed panel on the clipboard (the
+fewer columns rather than stopping at its widest row (a draft aid alone: the built views never
+narrow, "Scaling with the width"). "Copy layout" puts one line per changed panel on the clipboard (the
 tool, its screen or tab, the simulated window's size and the browser zoom, and each panel's
 name with its rectangle in window points before and after); the tweaks survive a reload, and
 "Reset" clears them. The string is evidence for the lead, not a layout file: the views lay out
-by width rules (rows picked by width, caps, the settings column below a narrow pane), so the
+by width rules (rows picked by width, caps, fixed cells), so the
 lead turns a tweak into width constants and rules in the plan and the code, and reports one no
 rule expresses (an overlap, a panel placed freely) rather than placing it by coordinates.
 Panel names are the readable, stable half of the string: a draft renames a panel only with
@@ -901,7 +908,10 @@ ST-WIN-02   GIVEN a main tool's view and a window 960 points wide (native pixels
             WHEN a frame runs
             THEN the zoom factor is 0.75 and the view lays out 1280 points wide; GIVEN 1280 or
                  1600 wide THEN the zoom is 1 and the view lays out at the window's width;
-                 GIVEN the height changed alone THEN the zoom is as before
+                 GIVEN 1440 native pixels at 150% display scaling THEN the zoom is 0.75;
+                 GIVEN the height changed alone THEN the zoom is as before; GIVEN a frame at
+                 1920 points wide, then one at 960 THEN no pass of the second frame that
+                 reaches the screen lays the view out narrower than 1280 points
 ST-WIN-03   GIVEN two main stub tools and a special stub tool declaring a 480 × 640 size
             WHEN the active tool goes from the first main tool to the second
             THEN no size or position command is sent; WHEN it goes to the special tool THEN the

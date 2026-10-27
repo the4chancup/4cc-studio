@@ -238,9 +238,11 @@ all side by side.
 - **The player view**: three columns side by side, 36 points apart, then the Appearance
   section, the whole centred between the player list and the window's right edge, so the gap
   after the list equals the margin after Ability stats (the room the fixed columns leave, split
-  evenly rather than all at the right). At the 1280 × 800 window it fits the pane with no scrolling (the draft's check);
-  narrower, the columns wrap and a columned panel narrows into fewer columns (`core/gui.md`
-  "Prototypes", Layout edit). Column by column, each panel's title over its content and the
+  evenly rather than all at the right). At the 1280 × 800 window it fits the pane with no
+  scrolling (the draft's check), and the pane is never narrower: a narrower window scales the
+  whole UI down (`core/gui.md` "Scaling with the width") and the player list keeps its 240
+  points, so the columns sit side by side at every size, each panel in its design's columns,
+  with no wrap to keep. Column by column, each panel's title over its content and the
   panels of one column 14 points apart:
   1. **General info**, 350 points wide (the draft's: room for the longest pair label,
      "Injury resistance", beside its box on each half), laid out as 4ccEditor's General Info:
@@ -343,8 +345,8 @@ all side by side.
   - **Appearance** — first a **Cutscenes** group, star (19+) and playing attitude (20+),
     outside the aesthetics lock: they change only cutscenes, so they are no aesthetic the
     export owns. Then the ownership line, the switch and the locked groups, each group's
-    labels in their own aligned cells, the draft's pairs per row a cap a narrow pane lowers
-    (physique two, the strip's ids, enums and checkboxes four, motion two): edit flags (face,
+    labels in their own aligned cells, the draft's pairs per row (physique two, the strip's
+    ids, enums and checkboxes four, motion two): edit flags (face,
     hair, physique, strip, motion, base copy + copy-from ID), physique sliders (14 values),
     strip style (boots ID, gloves ID — any player's, 0 = normal hands — taping, spectacles,
     sleeves, inners, socks, undershorts, shirttail, the player-gloves checkbox with its
@@ -372,8 +374,7 @@ all side by side.
   version that stores none says so in it). The ids share the fields' row, not one of their
   own, because the Tactics editor below needs the height: with a heading-size title and the
   ids on a second row its last row ended about 5 points past the 1280 x 800 window's pane.
-  Where a side panel leaves the view narrower than the row, whole units wrap to a second row
-  rather than a pair splitting. Then the Tactics editor (below), whose bench list shows the
+  Then the Tactics editor (below), whose bench list shows the
   players only (12 for a 4cc team), not the 21 bench-order entries with 9 `(empty)`.
 - Version-gated widgets render disabled with a tooltip ("PES 19+") rather than
   disappearing, so the UI stays spatially stable across versions.
