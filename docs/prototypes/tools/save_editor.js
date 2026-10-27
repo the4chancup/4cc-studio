@@ -61,11 +61,16 @@
 // per player folder, so it is a player action, not a team or savefile
 // one); its dialog's folder picker is the same rfd stub as Save as, and
 // the file the generation writes is shown in a scrollable <pre>.
+// The formation pictures (worklog 8.33, 8.34): the Team menu writes one
+// PNG of the selected team's presets and formations, the Savefile menu one
+// per team of a range of ids, both painted by the pitch painter on a canvas
+// per cell; the draft writes nothing, so a draft control previews the last
+// one drawn.
 // The wrapper keeps the view's names out of the host's scope; its body is
 // left unindented, as in tools/ruleset_editor.js.
 // Names this script uses without declaring them (render, h, row, weak, strong, button,
-// combo, selectable, collapsing, menu, window_, closeWindow, cb, publishNotice,
-// shellPesVersion, setPesVersion, PES_VERSIONS, folderOf, named, updateLink,
+// combo, selectable, collapsing, menu, window_, windowDrawer, closeWindow, cb, publishNotice,
+// openOutputStub, shellPesVersion, setPesVersion, PES_VERSIONS, folderOf, named, updateLink,
 // layoutPanelW, winScale, registerTool) are the host's,
 // index.html.
 (() => {
@@ -124,6 +129,10 @@ input[type=range]:focus { outline: none; }
   width: max-content; min-width: 460px; max-width: 640px;
   background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px;
   padding: 8px; box-shadow: 0 4px 16px #000a; }
+/* The formation pictures run's progress (egui: a ProgressBar). */
+.pbar { width: 100%; height: 14px; background: var(--extreme); border: 1px solid var(--stroke);
+  border-radius: 7px; overflow: hidden; box-sizing: border-box; }
+.pbar .fill { height: 100%; background: var(--sel-bg); }
 /* save editor view */
 .toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
 .master { display: flex; gap: 12px; align-items: flex-start; }
@@ -2602,7 +2611,11 @@ const S = { save: null, baseline: null, teamSel: "all", filter: "",
   changesPop: false,
   // Tactics view state: the drawn preset and formation, the open slot
   // popover (a formation index), the armed assignment mode and a live drag.
-  tac: { preset: 0, formation: 0 }, slotPop: null, assign: null, pitchDrag: null };
+  tac: { preset: 0, formation: 0 }, slotPop: null, assign: null, pitchDrag: null,
+  // The formation pictures' folder (the tool's `formation_pictures_folder`
+  // setting: the folder last picked) and the last picture a run drew (the
+  // draft control's preview; the app writes files instead).
+  picturesFolder: "C:\\Data\\Documents\\Formation pictures", lastPicture: null };
 const clone = x => JSON.parse(JSON.stringify(x));
 function curSave() { return S.save; }
 function curTeam() {
@@ -3028,6 +3041,8 @@ function draftControls() {
     h("span", { title: "the picker's host-supplied swatches; the Save editor passes none" },
       cb("Picker suggestions, as a kit editor would pass", D.pickerSugg,
         v => D.pickerSugg = v)),
+    h("span", { title: "8.33 and 8.34: the draft writes no file; this shows the last picture a save or a range run drew" },
+      button("Last picture written", dlgLastPicture, { disabled: !S.lastPicture })),
     collapsing("save-editor/walk", "How to walk the scenarios", () => WALK.map(([id, how]) =>
       h("div", {}, strong(id), " ", how))),
     collapsing("v2remarks", "Arrangement v2: the collaborator's remarks",
@@ -3268,11 +3283,19 @@ function teamMenu() {
     ["Clear visual flags  Ctrl+F", clearVisualFlags, !aesUnlocked(), ownershipTip()],
     ["Set FPC invisibility", () => teamFpc(true), !aesUnlocked(), ownershipTip()],
     ["Remove FPC invisibility", () => teamFpc(false), !aesUnlocked(), ownershipTip()],
+    "-",
+    // Not an edit: a picture of the team's tactics written to a folder
+    // (8.33). On the Team menu because it acts on the selected row's team,
+    // as the entries above do.
+    ["Save a picture of the formations\u2026", dlgPicturesFolder],
   ]);
 }
 function databaseMenu() {
   return menu("Savefile", [
     ["Output rosters to TSV\u2026", dlgTsv],
+    // The whole save's teams, a range of them (8.34): a Savefile action, as
+    // the TSV is.
+    ["Save formation pictures for a range of teams\u2026", dlgPicturesRange],
     ["Fix database\u2026", dlgFixDb, !aesUnlocked(), ownershipTip()],
   ]);
 }
@@ -4548,8 +4571,10 @@ const POS_COLOUR = pos => pos === "GK" ? "#ffde00"
   : ["CB", "LB", "RB"].includes(pos) ? "#00d2ff"
   : ["DMF", "CMF", "LMF", "RMF", "AMF"].includes(pos) ? "#57e42b" : "#ff2c77";
 // The badge centre of slot i, kept inside the canvas with its portrait and name.
-function badgeAt(t, i) {
-  const s = tacFormation(t).players[i];
+// The geometry takes the formation it draws (`f`), the shown one unless the
+// caller paints another (the formations picture paints all of a team's).
+function badgeAt(t, i, f = tacFormation(t)) {
+  const s = f.players[i];
   const [x, y] = s.position === "GK" ? [PITCH.w / 2, PITCH.keeperY] : [pitchX(s.x), pitchY(s.y)];
   return clampBadge(x, y);
 }
@@ -4559,16 +4584,16 @@ function clampBadge(x, y) {
     Math.min(PITCH.h - MARKER.nameDy - 7, Math.max(top, y))];
 }
 // The marker's whole box: portrait top to name bottom, the badge's width.
-function markerRect(t, i) {
-  const [x, y] = badgeAt(t, i);
+function markerRect(t, i, f = tacFormation(t)) {
+  const [x, y] = badgeAt(t, i, f);
   const top = MARKER.badgeH / 2 + MARKER.gap + MARKER.portrait;
   return { x: x - MARKER.badgeW / 2, y: y - top, w: MARKER.badgeW, h: top + MARKER.nameDy + 7 };
 }
 // The order the game draws markers in: top of the screen first, so a lower
 // marker covers the one above it (the keeper's portrait over a centre-back's
 // badge); ties keep the slot order.
-function drawOrder(t) {
-  return [...Array(11).keys()].sort((a, b) => badgeAt(t, a)[1] - badgeAt(t, b)[1] || a - b);
+function drawOrder(t, f = tacFormation(t)) {
+  return [...Array(11).keys()].sort((a, b) => badgeAt(t, a, f)[1] - badgeAt(t, b, f)[1] || a - b);
 }
 // The marker drawn on top at (px, py), `skip` aside (a dragged marker's own
 // spot, which a release onto it does not swap with).
@@ -4668,13 +4693,21 @@ requestAnimationFrame(pitchTick);
 function drawPitch(t) {
   const cv = document.getElementById("pitch");
   if (!cv) return;
-  const g = cv.getContext("2d"), d = S.pitchDrag;
+  paintPitch(cv.getContext("2d"), t, tacFormation(t), true);
+}
+// The pitch painter, shared by the view's canvas and the formations picture
+// (`formationsPicture`): `f0` is the formation painted; `live` draws the
+// view's own states (the drag, the selection corners, the armed join fill,
+// the scrolling names), which a picture has none of: its wider names hold
+// still at the badge's left, as "Scroll names" off draws them.
+function paintPitch(g, t, f0, live) {
+  const d = live ? S.pitchDrag : null;
   g.drawImage(turf(), 0, 0);
   drawLines(g);
-  const f = tacFormation(t).players, tac = t.tactics;
+  const f = f0.players, tac = t.tactics;
   const joined = tac.players_to_join_attack;
   // The dragged marker is drawn last, over every other.
-  const order = drawOrder(t).filter(i => !(d && d.moved && d.i === i));
+  const order = drawOrder(t, f0).filter(i => !(d && d.moved && d.i === i));
   if (d && d.moved) order.push(d.i);
   // The starter a release would swap with, marked as the screen marks a
   // selection, so a drag meant only to move him can still be steered off.
@@ -4686,12 +4719,12 @@ function drawPitch(t) {
     const s = f[i], roster = tac.starting_eleven[i], p = rosterPlayer(t, roster);
     const dragged = d && d.i === i && d.moved;
     g.globalAlpha = dragged && target >= 0 ? 0.35 : 1;
-    const [x, y] = dragged ? clampBadge(d.px, d.py) : badgeAt(t, i);
+    const [x, y] = dragged ? clampBadge(d.px, d.py) : badgeAt(t, i, f0);
     const bl = x - MARKER.badgeW / 2, bt = y - MARKER.badgeH / 2;
     const img = portraitOf(p);
     if (img) g.drawImage(img, x - MARKER.portrait / 2, bt - MARKER.gap - MARKER.portrait,
       MARKER.portrait, MARKER.portrait);
-    g.fillStyle = S.assign && S.assign.kind === "join" && joined.includes(roster) ? "#005c80" : "#242b2d";
+    g.fillStyle = live && S.assign && S.assign.kind === "join" && joined.includes(roster) ? "#005c80" : "#242b2d";
     g.beginPath(); g.roundRect(bl, bt, MARKER.badgeW, MARKER.badgeH, 2); g.fill();
     g.textBaseline = "middle"; g.textAlign = "left";
     g.fillStyle = POS_COLOUR(s.position); g.font = "12px " + FONT_BODY;
@@ -4721,7 +4754,7 @@ function drawPitch(t) {
     const width = runs.reduce((w, [text]) => w + g.measureText(text).width, 0);
     const long = width > MARKER.badgeW;
     // "Scroll names" off: a wider name holds still at the badge's left.
-    const scrolls = long && S.scrollNames !== false;
+    const scrolls = long && live && S.scrollNames !== false;
     const start = scrolls ? bl - nameScroll(width, (performance.now() - (S.pitchSince ?? performance.now())) / 1000)
       : long ? bl : x - width / 2;
     for (const copy of scrolls ? [0, width + NAME_SCROLL.gap] : [0]) {
@@ -4739,6 +4772,7 @@ function drawPitch(t) {
       g.fillStyle = "#000000"; g.font = "9px " + FONT_BODY; g.textAlign = "center";
       g.fillText("C", bl + 7, bt - 10);
     }
+    if (!live) continue;
     if (S.slotPop && S.slotPop.i === i) corners(g, x, y, "#14fbff");
     else if (S.assign) corners(g, x, y, "#ff4e7f");
   }
@@ -5120,6 +5154,204 @@ function tacticsTab(t) {
   // the team is looked up then, an undo in between would paint stale data.
   setTimeout(() => drawPitch(selTeam()), 0);
   return frame;
+}
+
+// ---- Formation pictures (worklog 8.33 and 8.34): a team's formations as
+// one PNG, and one such picture per team of a range of ids ----
+// The picture: the team's name in its colours and its id over a grid, one
+// row per preset, one column per formation (Kick-off, In-possession,
+// Out-of-possession), each cell the pitch as the view paints it, at the
+// pitch's own size, with no selection state and its wider names held still.
+// A preset whose fluid formation is off draws its first formation only,
+// a weak line in the empty room saying why. The save's version sits at the
+// title's right: a folder of pictures from several saves would otherwise
+// not say which game each came from. Drawn on a canvas here; the view
+// paints the same pitch painter into an image it writes with `image`.
+// sample wording: the fluid-off line.
+const PIC = { margin: 16, gap: 12, labelW: 96, titleH: 30, headH: 22,
+  bg: "#1b1b1b", strong: "#dcdcdc", weak: "#8c8c8c", font: "13px sans-serif" };
+function formationsPicture(t) {
+  const presets = t.tactics.presets;
+  const cols = FORMATIONS.length, rows = presets.length;
+  const w = PIC.margin * 2 + PIC.labelW + cols * PITCH.w + (cols - 1) * PIC.gap;
+  const h0 = PIC.margin * 2 + PIC.titleH + PIC.headH + rows * PITCH.h + (rows - 1) * PIC.gap;
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h0;
+  const g = c.getContext("2d");
+  g.fillStyle = PIC.bg; g.fillRect(0, 0, w, h0);
+  g.textBaseline = "middle";
+  // The title: the name in its colour codes' colours, the id weak after it,
+  // the version at the right.
+  const titleY = PIC.margin + PIC.titleH / 2;
+  g.font = "bold 18px sans-serif"; g.textAlign = "left";
+  let nx = PIC.margin;
+  for (const [text, color] of nameRuns(t.name)) {
+    g.fillStyle = color || PIC.strong; g.fillText(text, nx, titleY);
+    nx += g.measureText(text).width;
+  }
+  g.font = PIC.font; g.fillStyle = PIC.weak;
+  g.fillText(String(t.id), nx + 8, titleY);
+  g.textAlign = "right";
+  g.fillText("PES 20" + version(), w - PIC.margin, titleY);
+  // The column heads over the cells, the row labels left of them.
+  const gridX = PIC.margin + PIC.labelW, gridY = PIC.margin + PIC.titleH + PIC.headH;
+  const cellX = j => gridX + j * (PITCH.w + PIC.gap), cellY = i => gridY + i * (PITCH.h + PIC.gap);
+  g.textAlign = "center"; g.fillStyle = PIC.strong;
+  FORMATIONS.forEach((name, j) => g.fillText(name, cellX(j) + PITCH.w / 2, gridY - PIC.headH / 2));
+  g.textAlign = "left";
+  presets.forEach((pre, i) => {
+    g.fillStyle = PIC.strong;
+    g.fillText("Preset " + (i + 1), PIC.margin, cellY(i) + 10);
+    const shown = pre.style.fluid ? pre.formations : pre.formations.slice(0, 1);
+    shown.forEach((f, j) => {
+      const cell = document.createElement("canvas");
+      cell.width = PITCH.w; cell.height = PITCH.h;
+      paintPitch(cell.getContext("2d"), t, f, false);
+      g.drawImage(cell, cellX(j), cellY(i));
+    });
+    if (!pre.style.fluid) {
+      g.fillStyle = PIC.weak;
+      g.fillText("Fluid formation off, so the game keeps this formation in and out of possession",
+        cellX(1), cellY(i) + 10);
+    }
+  });
+  return c;
+}
+// The file's name: the id, then the name less the characters a file name
+// cannot hold (`/f/` becomes `718 f.png`); a name with nothing left is the id
+// alone. The id first, so a folder of pictures sorts as the teams list does.
+function pictureFileName(t) {
+  const name = displayName(t.name).replace(/[\\/:*?"<>|]/g, "").trim();
+  return t.id + (name ? " " + name : "") + ".png";
+}
+// The draft writes no file: the pictures a run drew are kept for the draft
+// control's preview (`dlgLastPicture`).
+function writePicture(t, folder) {
+  S.lastPicture = { file: folder + "\\" + pictureFileName(t), canvas: formationsPicture(t) };
+}
+const teamLabel = t => displayName(t.name) + " (" + t.id + ")";
+// The team's portraits before its picture: one drawn before they are
+// decoded would show the placeholders where the view shows faces.
+const portraitsReady = t => t.tactics.starting_eleven.every(idx => {
+  const p = rosterPlayer(t, idx);
+  const uri = D.portraits && p && (PORTRAITS[S.saveKey] || {})[p.id];
+  return !uri || portraitOf(p);
+});
+// Team menu, Save a picture of the formations (8.33): rfd's folder picker
+// (the draft's stub edits the path inline), opening at the folder last
+// picked, which the tool remembers in its settings as
+// `formation_pictures_folder`; the file is then written, replacing one of
+// that name, and a notice names it, with an Open folder action. No dialog
+// of ours: the picker is the one question, and the notice the one answer.
+// sample wording: the stub's lines, the notice.
+function dlgPicturesFolder() {
+  const t = selTeam();
+  const input = h("input", { type: "text", id: "pic-folder", style: "width:420px", value: S.picturesFolder });
+  dlg("pictures-folder", "Save a picture of the formations", h("div", {},
+    h("p", {}, weak("The native folder picker (rfd) opens here, at the folder last picked; the draft edits the path inline.")),
+    h("p", {}, weak("The picture is then written as " + pictureFileName(t) + " into the folder picked, replacing an older one of that name.")),
+    input),
+    [button("Select folder", () => {
+      S.picturesFolder = input.value;
+      writePicture(t, input.value);
+      publishNotice("Wrote " + pictureFileName(t) + " to " + input.value,
+        { label: "Open folder", run: openOutputStub }, "success");
+      closeWindow(); render(); }),
+     button("Cancel", closeWindow)]);
+}
+// Savefile menu, Save formation pictures for a range of teams (8.34): the
+// ids asked as a range, the folder as above, and the run in the same dialog,
+// which turns into its progress and then its result, so the member sees one
+// window from the question to the folder. Only the save's teams with an id
+// in the range are drawn, so a range past the save's ids, or a huge one,
+// costs nothing beyond the teams it finds; the count line says how many
+// before Save is pressed, and Save is off while it finds none or the first
+// id is past the last. Stop keeps the pictures written so far. The dialog
+// is a drawer (windowDrawer), rebuilt on every render as the run advances.
+// sample wording: the dialog's lines and buttons.
+const picRange = { from: null, to: null, run: null };
+const picTeamsIn = (from, to) => curSave().teams.filter(t => t.id >= from && t.id <= to);
+function dlgPicturesRange() {
+  const ids = curSave().teams.map(t => t.id);
+  if (picRange.from == null) { picRange.from = Math.min(...ids); picRange.to = Math.max(...ids); }
+  drawPicturesRange();
+  render();
+}
+// egui's ProgressBar.
+const progressBar = frac => h("div", { class: "pbar" },
+  h("div", { class: "fill", style: "width:" + Math.round(frac * 100) + "%" }));
+function drawPicturesRange() {
+  const run = picRange.run, folder = S.picturesFolder;
+  let body, buttons;
+  if (!run) {
+    const teams = picTeamsIn(picRange.from, picRange.to);
+    const reversed = picRange.from > picRange.to;
+    const num = key => h("input", { type: "number", id: "pic-" + key, value: picRange[key], style: "width:72px",
+      onchange: e => { const v = parseInt(e.target.value, 10);
+        if (!Number.isNaN(v)) picRange[key] = v; render(); } });
+    const count = reversed ? "The first id is past the last"
+      : teams.length === 0 ? "No team of this save has an id in this range"
+      : teams.length === 1 ? "1 team of this save has an id in this range"
+      : teams.length + " teams of this save have an id in this range";
+    const folderIn = h("input", { type: "text", id: "pic-folder", style: "width:380px", value: folder,
+      onchange: e => { S.picturesFolder = e.target.value; } });
+    body = h("div", {},
+      h("div", { class: "row" }, "Team ids from ", num("from"), " to ", num("to")),
+      h("p", { class: reversed || !teams.length ? "warn" : "weak", id: "pic-count" }, count),
+      h("div", { class: "row" }, "Folder ", folderIn,
+        button("Browse…", () => {}, { title: "The native folder picker (rfd) opens here" })),
+      h("p", {}, weak("One picture per team, named by its id and name (" +
+        pictureFileName(teams[0] || curSave().teams[0]) + "), an older one of that name replaced.")));
+    buttons = [button("Save pictures", () => startPicturesRun(teams), { disabled: reversed || !teams.length }),
+      button("Cancel", closeWindow)];
+  } else if (run.timer != null) {
+    body = h("div", {},
+      h("p", { id: "pic-progress" }, "Writing " + (run.done + 1) + " of " + run.teams.length + ": " + teamLabel(run.teams[run.done])),
+      progressBar(run.done / run.teams.length));
+    buttons = [button("Stop", stopPicturesRun)];
+  } else {
+    const n = run.done, m = run.teams.length;
+    body = h("p", { id: "pic-result" }, !run.stopped ? n + " pictures written to " + folder
+      : n === 0 ? "Stopped before any picture was written"
+      : "Stopped after " + n + " of " + m + " pictures; they are in " + folder);
+    buttons = [n ? button("Open folder", openOutputStub) : null,
+      button("Close", () => { picRange.run = null; closeWindow(); })];
+  }
+  window_("Save formation pictures for a range of teams", body, buttons, "pictures-range");
+  windowDrawer = drawPicturesRange;
+}
+// The draft's fake run: one team every half second, each picture drawn for
+// real (the preview shows the last).
+function startPicturesRun(teams) {
+  picRange.run = { teams, done: 0, stopped: false, timer: null };
+  const tick = () => {
+    const run = picRange.run;
+    if (!run || run.timer == null) return;
+    const t = run.teams[run.done];
+    if (!portraitsReady(t)) { run.timer = setTimeout(tick, 50); return; }
+    writePicture(t, S.picturesFolder);
+    run.done++;
+    run.timer = run.done === run.teams.length ? null : setTimeout(tick, 500);
+    render();
+  };
+  picRange.run.timer = setTimeout(tick, 500);
+  render();
+}
+function stopPicturesRun() {
+  const run = picRange.run;
+  clearTimeout(run.timer); run.timer = null; run.stopped = true;
+  render();
+}
+// The draft control's preview of the last picture drawn: the PNG scaled to
+// the window, its path and size over it. The app has no such window; it
+// writes the file and shows the notice.
+function dlgLastPicture() {
+  const lp = S.lastPicture;
+  dlg("last-picture", "The last picture written (the draft's preview)", h("div", {},
+    h("p", {}, weak(lp.file + ", " + lp.canvas.width + " x " + lp.canvas.height + " pixels")),
+    h("img", { src: lp.canvas.toDataURL("image/png"), id: "last-picture",
+      style: "max-width:600px; display:block" })),
+    [button("Close", closeWindow)]);
 }
 
 // ---- Slice 4: the cross-save panels (SE-GUI-13, 14, 15, 18) ----
@@ -6585,6 +6817,7 @@ const DLGS = { "set-stats": dlgSetStats, "bump-stats": dlgBumpStats,
   "swap-stats": () => dlgCopySwap(curPlayer(), "swap"),
   settings: dlgSettings, "ingame-face": dlgIngameFace, boglo: dlgBoglo, tsv: dlgTsv, fixdb: dlgFixDb,
   "kit-slots": dlgKitSlots,
+  "pictures-folder": dlgPicturesFolder, "pictures-range": dlgPicturesRange,
   "choose-file": dlgChooseFile, "save-refused": dlgSaveRefused,
   "save-as": saveAs, "export-toml": ixExportToml, "export-ted": ixExportTed,
   "open-save": () => dlgOpenSave(openStub
