@@ -2411,6 +2411,9 @@ const TRI_SETTINGS = [["numbers_in_attack", "Numbers in attack"],
   ["numbers_in_defence", "Numbers in defence"]];
 const TRI_CHOICES = ["Few", "Medium", "Many"];
 const FORMATIONS = ["Kick-off", "In-possession", "Out-of-possession"];
+// Auto substitution's stored 0-3 as the game names them (the Tactics
+// editor's combo says which versions offer Very early).
+const SUBSTITUTION_LABEL = ["Off", "Very late", "Flexible", "Very early"];
 // The six set-piece takers + captain (its own key on the team, as in the
 // model): [key, label]. Takers point at starting-eleven members.
 const SET_PIECES = [["free_kick_long", "Long free kick"],
@@ -3284,10 +3287,12 @@ function teamMenu() {
     ["Set FPC invisibility", () => teamFpc(true), !aesUnlocked(), ownershipTip()],
     ["Remove FPC invisibility", () => teamFpc(false), !aesUnlocked(), ownershipTip()],
     "-",
-    // Not an edit: a picture of the team's tactics written to a folder
-    // (8.33). On the Team menu because it acts on the selected row's team,
-    // as the entries above do.
-    ["Save a picture of the formations\u2026", dlgPicturesFolder],
+    // Not an edit: a picture of the team's tactics written to a file
+    // (8.33), bare or with each preset's settings. On the Team menu because
+    // it acts on the selected row's team, as the entries above do; two
+    // entries, since the native save dialog has no room for the choice.
+    ["Save a picture of the formations\u2026", () => dlgPictureSave(false)],
+    ["Save a picture of the formations with their settings\u2026", () => dlgPictureSave(true)],
   ]);
 }
 function databaseMenu() {
@@ -5116,8 +5121,8 @@ function tacticsTab(t) {
   // 17's screen lists the same four in 21's order; 18 to 20 not looked at, so
   // offered the three); a stored value outside them is offered as its number,
   // so the combo never misreports it.
-  const subs = [["0", "Off"], ["1", "Very late"], ["2", "Flexible"]]
-    .concat(version() === 17 || version() >= 21 ? [["3", "Very early"]] : []);
+  const subs = SUBSTITUTION_LABEL.slice(0, version() === 17 || version() >= 21 ? 4 : 3)
+    .map((label, i) => [String(i), label]);
   const subNow = String(auto.substitution ?? 0);
   const substitution = h("span", { class: "row" }, "Substitution",
     combo(subs.some(([v]) => v === subNow) ? subs : subs.concat([[subNow, subNow]]), subNow,
@@ -5159,22 +5164,73 @@ function tacticsTab(t) {
 // ---- Formation pictures (worklog 8.33 and 8.34): a team's formations as
 // one PNG, and one such picture per team of a range of ids ----
 // The picture: the team's name in its colours and its id over a grid, one
-// row per preset, one column per formation (Kick-off, In-possession,
-// Out-of-possession), each cell the pitch as the view paints it, at the
-// pitch's own size, with no selection state and its wider names held still.
-// A preset whose fluid formation is off draws its first formation only,
-// a weak line in the empty room saying why. The save's version sits at the
-// title's right: a folder of pictures from several saves would otherwise
-// not say which game each came from. Drawn on a canvas here; the view
-// paints the same pitch painter into an image it writes with `image`.
-// sample wording: the fluid-off line.
+// row per preset, each cell the pitch as the view paints it, at the pitch's
+// own size, with no selection state and its wider names held still. The
+// columns are the three formations (Kick-off, In-possession,
+// Out-of-possession); a preset whose fluid formation is off draws its
+// Kick-off formation alone, the one the game keeps all match, the room
+// beside it left empty. A team with fluid off on every preset gets one
+// column and no column heads: a lone "Kick-off" would name a switch the
+// team never makes. The save's version sits at the title's right: a folder
+// of pictures from several saves would otherwise not say which game each
+// came from. Drawn on a canvas here; the app paints the same pitch painter
+// into an image it writes with `image`.
+// With `settings`, a column at the grid's right lists each preset's settings
+// beside its row, as the Tactics editor's panels show them (`presetLines`),
+// and the team's Automatic settings, which no preset owns, are one line
+// under the grid.
 const PIC = { margin: 16, gap: 12, labelW: 96, titleH: 30, headH: 22,
-  bg: "#1b1b1b", strong: "#dcdcdc", weak: "#8c8c8c", font: "13px sans-serif" };
-function formationsPicture(t) {
+  setW: 300, valueX: 120, line: 15, footH: 30,
+  bg: "#1b1b1b", strong: "#dcdcdc", weak: "#8c8c8c", font: "12.5px " + FONT_BODY };
+// One preset's settings as the picture lists them, top to bottom in the
+// editor's order: fluid formation (the preset bar's), Formation settings
+// (the offensive half, then the defensive), Advanced instructions, each
+// instruction with its target. [label, value] is a line, [heading] a
+// heading, null half a line's gap. Values read as the editor's controls
+// name them, full length (the picture has the room the panel lacks).
+// sample wording: the headings.
+function presetLines(t, pre) {
+  const v = version();
+  const line = key => {
+    const tri = TRI_SETTINGS.find(([k]) => k === key);
+    if (tri) return [tri[1], TRI_CHOICES[pre.sliders[key] - 1] || String(pre.sliders[key])];
+    const range = SLIDERS.find(([k]) => k === key);
+    if (range) return [range[1], String(pre.sliders[key])];
+    const [, label] = STYLE_TOGGLES.find(([k]) => k === key);
+    return [label, titleCase(pre.style[key])];
+  };
+  const lines = v >= 16 ? [["Fluid formation", pre.style.fluid ? "On" : "Off"], null] : [];
+  lines.push(["Formation settings"], ...TAC_OFFENSIVE.map(line), null, ...TAC_DEFENSIVE.map(line));
+  if (v >= 17) {
+    const side = (key, name) => pre.instructions[key].map((e, i) => [name + " " + (i + 1),
+      (INSTRUCTION_LABEL[e.instruction] || titleCase(e.instruction))
+        + (takesTarget(e.instruction) && e.player !== 255 ? " → " + playerName(rosterPlayer(t, e.player)) : "")]);
+    lines.push(null, ["Advanced instructions"], ...side("attack", "Attack"), ...side("defence", "Defence"));
+  }
+  return lines;
+}
+// The team's Automatic settings as [label, value] pairs, the editor's names.
+function autoPairs(t) {
+  const auto = t.tactics.auto, onOff = b => b ? "On" : "Off";
+  const sub = auto.substitution ?? 0;
+  return [["Substitution", SUBSTITUTION_LABEL[sub] || String(sub)],
+    ["Preset change", onOff(auto.preset_change)], ["Offside trap", onOff(auto.offside_trap)]]
+    .concat(version() >= 17 ? [["Attack/defence levels", onOff(auto.attack_defence_levels)]] : []);
+}
+// A text cut to a width with an ellipsis (egui's TextWrapping with one row).
+function fitText(g, text, width) {
+  if (g.measureText(text).width <= width) return text;
+  while (text && g.measureText(text + "…").width > width) text = text.slice(0, -1);
+  return text + "…";
+}
+function formationsPicture(t, settings = false) {
   const presets = t.tactics.presets;
-  const cols = FORMATIONS.length, rows = presets.length;
-  const w = PIC.margin * 2 + PIC.labelW + cols * PITCH.w + (cols - 1) * PIC.gap;
-  const h0 = PIC.margin * 2 + PIC.titleH + PIC.headH + rows * PITCH.h + (rows - 1) * PIC.gap;
+  const cols = presets.some(pre => pre.style.fluid) ? FORMATIONS.length : 1;
+  const rows = presets.length, headH = cols > 1 ? PIC.headH : 0;
+  const gridW = cols * PITCH.w + (cols - 1) * PIC.gap;
+  const gridH = rows * PITCH.h + (rows - 1) * PIC.gap;
+  const w = PIC.margin * 2 + PIC.labelW + gridW + (settings ? PIC.gap + PIC.setW : 0);
+  const h0 = PIC.margin * 2 + PIC.titleH + headH + gridH + (settings ? PIC.footH : 0);
   const c = document.createElement("canvas");
   c.width = w; c.height = h0;
   const g = c.getContext("2d");
@@ -5183,7 +5239,7 @@ function formationsPicture(t) {
   // The title: the name in its colour codes' colours, the id weak after it,
   // the version at the right.
   const titleY = PIC.margin + PIC.titleH / 2;
-  g.font = "bold 18px sans-serif"; g.textAlign = "left";
+  g.font = "18px " + FONT_BODY; g.textAlign = "left";
   let nx = PIC.margin;
   for (const [text, color] of nameRuns(t.name)) {
     g.fillStyle = color || PIC.strong; g.fillText(text, nx, titleY);
@@ -5194,11 +5250,12 @@ function formationsPicture(t) {
   g.textAlign = "right";
   g.fillText("PES 20" + version(), w - PIC.margin, titleY);
   // The column heads over the cells, the row labels left of them.
-  const gridX = PIC.margin + PIC.labelW, gridY = PIC.margin + PIC.titleH + PIC.headH;
+  const gridX = PIC.margin + PIC.labelW, gridY = PIC.margin + PIC.titleH + headH;
   const cellX = j => gridX + j * (PITCH.w + PIC.gap), cellY = i => gridY + i * (PITCH.h + PIC.gap);
   g.textAlign = "center"; g.fillStyle = PIC.strong;
-  FORMATIONS.forEach((name, j) => g.fillText(name, cellX(j) + PITCH.w / 2, gridY - PIC.headH / 2));
+  if (cols > 1) FORMATIONS.forEach((name, j) => g.fillText(name, cellX(j) + PITCH.w / 2, gridY - headH / 2));
   g.textAlign = "left";
+  const setX = gridX + gridW + PIC.gap;
   presets.forEach((pre, i) => {
     g.fillStyle = PIC.strong;
     g.fillText("Preset " + (i + 1), PIC.margin, cellY(i) + 10);
@@ -5209,25 +5266,48 @@ function formationsPicture(t) {
       paintPitch(cell.getContext("2d"), t, f, false);
       g.drawImage(cell, cellX(j), cellY(i));
     });
-    if (!pre.style.fluid) {
-      g.fillStyle = PIC.weak;
-      g.fillText("Fluid formation off, so the game keeps this formation in and out of possession",
-        cellX(1), cellY(i) + 10);
+    if (!settings) return;
+    // The settings beside the row: a heading strong, a label in the text
+    // colour with its value strong in a column of its own.
+    g.font = PIC.font;
+    let y = cellY(i) + 10;
+    for (const ln of presetLines(t, pre)) {
+      if (!ln) { y += PIC.line / 2; continue; }
+      g.fillStyle = ln.length === 1 ? PIC.strong : PIC.weak;
+      g.fillText(ln[0], setX, y);
+      if (ln.length === 2) {
+        g.fillStyle = PIC.strong;
+        g.fillText(fitText(g, ln[1], PIC.setW - PIC.valueX), setX + PIC.valueX, y);
+      }
+      y += PIC.line;
     }
   });
+  if (settings) {
+    // The team's Automatic settings, one line under the grid: the heading,
+    // then each label with its value, 16 px between pairs.
+    const y = gridY + gridH + PIC.footH / 2 + 4;
+    let x = PIC.margin;
+    const put = (text, color, after) => {
+      g.fillStyle = color; g.fillText(text, x, y); x += g.measureText(text).width + after; };
+    put("Automatic settings", PIC.strong, 16);
+    for (const [label, value] of autoPairs(t)) { put(label, PIC.weak, 6); put(value, PIC.strong, 16); }
+  }
   return c;
 }
 // The file's name: the id, then the name less the characters a file name
 // cannot hold (`/f/` becomes `718 f.png`); a name with nothing left is the id
-// alone. The id first, so a folder of pictures sorts as the teams list does.
-function pictureFileName(t) {
+// alone. The id first, so a folder of pictures sorts as the teams list does;
+// " settings" before the extension on a picture with the settings, so the
+// two kinds of one team sit side by side in a folder rather than replace
+// each other.
+function pictureFileName(t, settings) {
   const name = displayName(t.name).replace(/[\\/:*?"<>|]/g, "").trim();
-  return t.id + (name ? " " + name : "") + ".png";
+  return t.id + (name ? " " + name : "") + (settings ? " settings" : "") + ".png";
 }
 // The draft writes no file: the pictures a run drew are kept for the draft
 // control's preview (`dlgLastPicture`).
-function writePicture(t, folder) {
-  S.lastPicture = { file: folder + "\\" + pictureFileName(t), canvas: formationsPicture(t) };
+function writePicture(t, file, settings) {
+  S.lastPicture = { file, canvas: formationsPicture(t, settings) };
 }
 const teamLabel = t => displayName(t.name) + " (" + t.id + ")";
 // The team's portraits before its picture: one drawn before they are
@@ -5237,24 +5317,28 @@ const portraitsReady = t => t.tactics.starting_eleven.every(idx => {
   const uri = D.portraits && p && (PORTRAITS[S.saveKey] || {})[p.id];
   return !uri || portraitOf(p);
 });
-// Team menu, Save a picture of the formations (8.33): rfd's folder picker
-// (the draft's stub edits the path inline), opening at the folder last
-// picked, which the tool remembers in its settings as
-// `formation_pictures_folder`; the file is then written, replacing one of
-// that name, and a notice names it, with an Open folder action. No dialog
-// of ours: the picker is the one question, and the notice the one answer.
+// Team menu, Save a picture of the formations, with or without their
+// settings (8.33): rfd's save-file dialog (the draft's stub edits the folder
+// and the name inline), opening at the folder last used (the tool's
+// `formation_pictures_folder` setting, which the range dialog shares) with
+// the name `<id> <name>.png` filled in, so a member names the picture they
+// share; the native dialog asks before replacing a file. The picture is then
+// written and a notice names it, with an Open folder action. No dialog of
+// ours: the native one is the question, the notice the answer.
 // sample wording: the stub's lines, the notice.
-function dlgPicturesFolder() {
+function dlgPictureSave(settings) {
   const t = selTeam();
-  const input = h("input", { type: "text", id: "pic-folder", style: "width:420px", value: S.picturesFolder });
-  dlg("pictures-folder", "Save a picture of the formations", h("div", {},
-    h("p", {}, weak("The native folder picker (rfd) opens here, at the folder last picked; the draft edits the path inline.")),
-    h("p", {}, weak("The picture is then written as " + pictureFileName(t) + " into the folder picked, replacing an older one of that name.")),
-    input),
-    [button("Select folder", () => {
-      S.picturesFolder = input.value;
-      writePicture(t, input.value);
-      publishNotice("Wrote " + pictureFileName(t) + " to " + input.value,
+  const folderIn = h("input", { type: "text", id: "pic-folder", style: "width:420px", value: S.picturesFolder });
+  const nameIn = h("input", { type: "text", id: "pic-name", style: "width:420px", value: pictureFileName(t, settings) });
+  dlg(settings ? "picture-save-settings" : "picture-save",
+    "Save a picture of the formations" + (settings ? " with their settings" : ""), h("div", {},
+      h("p", {}, weak("The native save dialog (rfd) opens here, at the folder last used, the name filled in; the draft edits both inline.")),
+      h("div", { class: "row" }, "Folder ", folderIn),
+      h("div", { class: "row" }, "File name ", nameIn)),
+    [button("Save", () => {
+      S.picturesFolder = folderIn.value;
+      writePicture(t, folderIn.value + "\\" + nameIn.value, settings);
+      publishNotice("Wrote " + nameIn.value + " to " + folderIn.value,
         { label: "Open folder", run: openOutputStub }, "success");
       closeWindow(); render(); }),
      button("Cancel", closeWindow)]);
@@ -5266,10 +5350,13 @@ function dlgPicturesFolder() {
 // in the range are drawn, so a range past the save's ids, or a huge one,
 // costs nothing beyond the teams it finds; the count line says how many
 // before Save is pressed, and Save is off while it finds none or the first
-// id is past the last. Stop keeps the pictures written so far. The dialog
-// is a drawer (windowDrawer), rebuilt on every render as the run advances.
+// id is past the last. Stop keeps the pictures written so far. The
+// pictures with their settings are a checkbox here, not a second menu entry:
+// the dialog already asks how to write the run, and the file-name line shows
+// the choice. The dialog is a drawer (windowDrawer), rebuilt on every render
+// as the run advances.
 // sample wording: the dialog's lines and buttons.
-const picRange = { from: null, to: null, run: null };
+const picRange = { from: null, to: null, run: null, settings: false };
 const picTeamsIn = (from, to) => curSave().teams.filter(t => t.id >= from && t.id <= to);
 function dlgPicturesRange() {
   const ids = curSave().teams.map(t => t.id);
@@ -5300,8 +5387,9 @@ function drawPicturesRange() {
       h("p", { class: reversed || !teams.length ? "warn" : "weak", id: "pic-count" }, count),
       h("div", { class: "row" }, "Folder ", folderIn,
         button("Browse…", () => {}, { title: "The native folder picker (rfd) opens here" })),
+      cb("With each preset's settings beside its row", picRange.settings, v => { picRange.settings = v; }),
       h("p", {}, weak("One picture per team, named by its id and name (" +
-        pictureFileName(teams[0] || curSave().teams[0]) + "), an older one of that name replaced.")));
+        pictureFileName(teams[0] || curSave().teams[0], picRange.settings) + "), an older one of that name replaced.")));
     buttons = [button("Save pictures", () => startPicturesRun(teams), { disabled: reversed || !teams.length }),
       button("Cancel", closeWindow)];
   } else if (run.timer != null) {
@@ -5323,13 +5411,13 @@ function drawPicturesRange() {
 // The draft's fake run: one team every half second, each picture drawn for
 // real (the preview shows the last).
 function startPicturesRun(teams) {
-  picRange.run = { teams, done: 0, stopped: false, timer: null };
+  picRange.run = { teams, done: 0, stopped: false, timer: null, settings: picRange.settings };
   const tick = () => {
     const run = picRange.run;
     if (!run || run.timer == null) return;
     const t = run.teams[run.done];
     if (!portraitsReady(t)) { run.timer = setTimeout(tick, 50); return; }
-    writePicture(t, S.picturesFolder);
+    writePicture(t, S.picturesFolder + "\\" + pictureFileName(t, run.settings), run.settings);
     run.done++;
     run.timer = run.done === run.teams.length ? null : setTimeout(tick, 500);
     render();
@@ -6817,7 +6905,8 @@ const DLGS = { "set-stats": dlgSetStats, "bump-stats": dlgBumpStats,
   "swap-stats": () => dlgCopySwap(curPlayer(), "swap"),
   settings: dlgSettings, "ingame-face": dlgIngameFace, boglo: dlgBoglo, tsv: dlgTsv, fixdb: dlgFixDb,
   "kit-slots": dlgKitSlots,
-  "pictures-folder": dlgPicturesFolder, "pictures-range": dlgPicturesRange,
+  "picture-save": () => dlgPictureSave(false), "picture-save-settings": () => dlgPictureSave(true),
+  "pictures-range": dlgPicturesRange,
   "choose-file": dlgChooseFile, "save-refused": dlgSaveRefused,
   "save-as": saveAs, "export-toml": ixExportToml, "export-ted": ixExportTed,
   "open-save": () => dlgOpenSave(openStub
