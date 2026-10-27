@@ -191,8 +191,7 @@ mod tests {
         let mut view = TacticsView::default();
         let rows = fixture_rows(PesVersion::Pes21);
         let roster = roster_rows(&rows);
-        let before = tactics.clone();
-        let formation = before.presets[0].formations[0].clone();
+        let formation = tactics.presets[0].formations[0].clone();
         let keeper = formation
             .players
             .iter()
@@ -200,6 +199,20 @@ mod tests {
             .expect("the fixture has a keeper slot");
         let index = 4;
         assert_ne!(index, keeper, "premise: not the keeper's slot");
+        // A non-identity eleven: an arm writing the two indices into the
+        // eleven would look the same as an exchange on the fixture's
+        // [0, 1, 2, ...].
+        tactics.starting_eleven.swap(index, 9);
+        tactics.starting_eleven.swap(keeper, 7);
+        assert_ne!(
+            tactics.starting_eleven[index], index as u8,
+            "premise: his slot and index differ"
+        );
+        assert_ne!(
+            tactics.starting_eleven[keeper], keeper as u8,
+            "premise: the keeper's slot and index differ"
+        );
+        let before = tactics.clone();
 
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let at = marker_point(&nodes, &formation.players, index);
@@ -238,6 +251,9 @@ mod tests {
             "the keeper takes his slot"
         );
         assert_eq!(tactics.presets, before.presets, "the formation slots stay");
+        let mut expect = before;
+        expect.starting_eleven.swap(index, keeper);
+        assert_eq!(tactics, expect, "the two entries exchanged, nothing else");
         assert_eq!(view.popover, None, "and the popover closes");
     }
 

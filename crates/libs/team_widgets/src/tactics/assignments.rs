@@ -292,8 +292,10 @@ mod tests {
     use pes_version::PesVersion;
 
     use super::*;
-    use crate::tactics::tests::click;
-    use crate::test_support::{Headless, chips_below, fixture_rows, fixture_tactics, roster_rows};
+    use crate::tactics::tests::{click, named_roster};
+    use crate::test_support::{
+        Headless, chips_below, fixture_tactics, named_assignments, roster_rows,
+    };
 
     // The draft's "Player assignments" column (`.tachalf`): each of the
     // six takers and the captain its label over a chip showing the
@@ -305,29 +307,45 @@ mod tests {
         let mut window = Headless::sized(1400.0, 1200.0);
         let version = PesVersion::Pes21;
         let mut tactics = fixture_tactics(version);
+        // Seven different holders with different names (the fixture's
+        // five takers share one player, the second taker and the captain
+        // another, and its players are all "PLACEHOLDER"), so a chip
+        // drawing another role's holder shows.
+        named_assignments(&mut tactics);
         tactics.players_to_join_attack = [tactics.starting_eleven[2], u8::MAX, u8::MAX];
         let mut view = TacticsView::default();
-        let rows = fixture_rows(version);
+        let rows = named_roster();
         let roster = roster_rows(&rows);
+        // Each chip's holder read from its own field, not through the
+        // getters that draw it.
+        let pieces = &tactics.set_pieces;
+        let holders = [
+            ("Long free kick", pieces.free_kick_long),
+            ("Short free kick", pieces.free_kick_short),
+            ("Second free kick", pieces.free_kick_second),
+            ("Left corner", pieces.corner_left),
+            ("Right corner", pieces.corner_right),
+            ("Penalty kick", pieces.penalty),
+            ("Captain", pieces.captain),
+        ];
+        let names: std::collections::HashSet<&str> = holders
+            .iter()
+            .map(|&(_, holder)| name_at(&roster, holder))
+            .collect();
+        assert_eq!(names.len(), holders.len(), "premise: seven different names");
         let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-        for role in &SET_PIECES {
-            let holder = (role.get)(&tactics.set_pieces);
-            let expected = if holder == u8::MAX {
-                "Unassigned".to_owned()
-            } else {
-                name_at(&roster, holder).to_owned()
-            };
+        for (label, holder) in holders {
+            let expected = name_at(&roster, holder);
             // The chip directly under the label (the next role's chip
             // is a label further down).
-            let chip = chips_below(&nodes, role.label)
+            let chip = chips_below(&nodes, label)
                 .into_iter()
                 .next()
-                .unwrap_or_else(|| panic!("{}: no chip under its label", role.label));
+                .unwrap_or_else(|| panic!("{label}: no chip under its label"));
             assert_eq!(
                 chip.label(),
-                Some(expected.as_str()),
-                "{}'s chip names its holder",
-                role.label
+                Some(expected),
+                "{label}'s chip names its holder"
             );
         }
         // "Join the attack": one chip per entry — a name where one

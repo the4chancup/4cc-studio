@@ -2683,3 +2683,5 @@ worklog passed 7,000 lines.
   pass laid out on a new grid's sizing widths is discarded); the view tests' default window is the design pane.
 - **2026-10-27** — 14.0a: the Balls compiler's plan checked row by row against 2.03's batch and bins; an error now writes no CPK,
   the default CPK name is the cup's `4cc_38_balls`, only the textures a model names ship, legacy import keeps the DDS of a pair.
+- **2026-10-27** — 0.0.1s5: Astra A2's rework, seven Tactics tests that passed on a wrong implementation now fail on it (a
+  non-identity eleven, whole-record comparisons, seven named role holders); test code only.

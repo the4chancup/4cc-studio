@@ -435,6 +435,40 @@ mod tests {
             other,
             "the other starter's target stays"
         );
+
+        // A starter holding none of the six roles: each taker is another
+        // starter and stays who he was.
+        let mut tactics = fixture_tactics(PesVersion::Pes21);
+        let out = tactics.starting_eleven[4];
+        let inn = tactics.bench_order[2];
+        let holders = [5, 6, 7, 8, 9, 10].map(|index| tactics.starting_eleven[index]);
+        assert!(
+            holders.iter().all(|&holder| holder != out && holder != inn),
+            "premise: the takers are neither of the two"
+        );
+        let pieces = &mut tactics.set_pieces;
+        pieces.free_kick_long = holders[0];
+        pieces.free_kick_short = holders[1];
+        pieces.free_kick_second = holders[2];
+        pieces.corner_left = holders[3];
+        pieces.corner_right = holders[4];
+        pieces.penalty = holders[5];
+        swap_in(PesVersion::Pes21, &mut tactics, 4, 2);
+        assert_eq!(tactics.starting_eleven[4], inn, "the bench player starts");
+        assert_eq!(tactics.bench_order[2], out, "the starter sits");
+        let pieces = &tactics.set_pieces;
+        assert_eq!(
+            [
+                pieces.free_kick_long,
+                pieces.free_kick_short,
+                pieces.free_kick_second,
+                pieces.corner_left,
+                pieces.corner_right,
+                pieces.penalty,
+            ],
+            holders,
+            "the other starters keep their roles"
+        );
     }
 
     // The same swap on a version with no instruction table moves the

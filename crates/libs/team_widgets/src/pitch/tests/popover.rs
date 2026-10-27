@@ -10,8 +10,8 @@ use pes_version::PesVersion;
 
 use super::*;
 use crate::test_support::{
-    Headless, centre, chip_under, chips_below, combo_row, controls_right_of, entry, entry_id,
-    fixture_rows, fixture_tactics, pointer_at, roster_rows,
+    Headless, button_labels, centre, chip_under, chips_below, combo_row, controls_right_of, entry,
+    entry_id, fixture_rows, fixture_tactics, pointer_at, roster_rows,
 };
 
 // The draft's role palette: arm a chip and the note asks for its pitch
@@ -493,9 +493,17 @@ fn the_popovers_position_pick_writes_the_slot() {
     let mut view = TacticsView::default();
     let rows = fixture_rows(PesVersion::Pes21);
     let roster = roster_rows(&rows);
+    let index = 3;
+    // A non-identity eleven: a write keyed by his roster slot rather
+    // than the slot's index would look right on the fixture's
+    // [0, 1, ...].
+    tactics.starting_eleven.swap(index, 9);
+    assert_ne!(
+        tactics.starting_eleven[index], index as u8,
+        "premise: slot and index differ"
+    );
     let before = tactics.clone();
     let formation = before.presets[0].formations[0].clone();
-    let index = 3;
     let cf = POSITIONS
         .iter()
         .position(|label| *label == "CF")
@@ -513,6 +521,7 @@ fn the_popovers_position_pick_writes_the_slot() {
         .into_iter()
         .next()
         .expect("the position combo");
+    let closed = window.pitch_ids(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     window.click_pitch(
         centre(combo),
         PesVersion::Pes21,
@@ -523,6 +532,20 @@ fn the_popovers_position_pick_writes_the_slot() {
     // The item pick goes through AccessKit, as the instruction
     // combos' do: a pointer click does not reach a combo's popup.
     let ids = window.pitch_ids(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    // The popup's buttons, unfiltered: every button the open frame
+    // holds that the closed one did not, so a GK entry would show.
+    let shown: std::collections::HashSet<accesskit::NodeId> =
+        closed.iter().map(|(id, _)| *id).collect();
+    let popup: Vec<accesskit::Node> = ids
+        .iter()
+        .filter(|(id, _)| !shown.contains(id))
+        .map(|(_, node)| node.clone())
+        .collect();
+    assert_eq!(
+        button_labels(&popup, |_| true),
+        POSITIONS[1..],
+        "the twelve outfield positions in order, GK absent"
+    );
     let item = entry_id(&ids, Role::Button, "CF");
     let (_, changed) =
         window.action_click_pitch(item, PesVersion::Pes21, &mut tactics, &mut view, &roster);
@@ -536,12 +559,15 @@ fn the_popovers_position_pick_writes_the_slot() {
         before.presets[0].formations[1..],
         "the other two formations untouched"
     );
+    let mut expect = before;
+    expect.presets[0].formations[0].players[index].position = cf;
+    assert_eq!(tactics, expect, "the slot's position alone changed");
     assert!(view.popover.is_some(), "the pick leaves the popover open");
 }
 
-// Round A1's A1a-3: the popover writes the shown preset's shown
-// formation, not a fixed one: a position pick and an X edit on preset
-// 2's In-possession change that slot there alone.
+// The popover writes the shown preset's shown formation, not a fixed
+// one: a position pick, an X and a Y edit on preset 2's In-possession
+// change that slot there alone.
 #[test]
 fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -558,6 +584,14 @@ fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
     // formations' slots differ.
     let index = 3;
     tactics.presets[1].formations[1].players[index].y += 1;
+    // A non-identity eleven: a write keyed by his roster slot rather
+    // than the slot's index would look right on the fixture's
+    // [0, 1, ...].
+    tactics.starting_eleven.swap(index, 9);
+    assert_ne!(
+        tactics.starting_eleven[index], index as u8,
+        "premise: slot and index differ"
+    );
     let before = tactics.clone();
     let players = before.presets[1].formations[1].players;
     assert!(players[index].position != 0, "premise: an outfield slot");
@@ -574,6 +608,12 @@ fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
         "premise: a real position change"
     );
     assert_ne!(players[index].x, 55, "premise: a real x change");
+    // The typed y is neither the slot's y nor its x, old or new, so a Y
+    // field writing x (or nothing) shows.
+    let y = 30;
+    assert!(y <= GRID_Y, "premise: y on the grid");
+    assert_ne!(players[index].y, y, "premise: a real y change");
+    assert_ne!(players[index].x, y, "premise: y is not the slot's x");
 
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let at = marker_point(&nodes, &players, index);
@@ -625,13 +665,46 @@ fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
             repeat: false,
         }],
     );
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let field = controls_right_of(&nodes, "Y", Role::SpinButton)
+        .into_iter()
+        .next()
+        .expect("the Y field");
+    window.click_pitch(
+        centre(field),
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::Text(y.to_string())],
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::Key {
+            key: egui::Key::Enter,
+            physical_key: None,
+            pressed: true,
+            modifiers: egui::Modifiers::NONE,
+            repeat: false,
+        }],
+    );
 
     let mut expect = before;
     expect.presets[1].formations[1].players[index].position = cf;
     expect.presets[1].formations[1].players[index].x = 55;
+    expect.presets[1].formations[1].players[index].y = y;
     assert_eq!(
         tactics, expect,
-        "only preset 2's In-possession slot took the position and x"
+        "only preset 2's In-possession slot took the position, x and y"
     );
 }
 

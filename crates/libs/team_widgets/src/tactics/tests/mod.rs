@@ -1113,6 +1113,28 @@ fn the_numbers_are_three_choice_toggles() {
         "Many stored"
     );
 
+    // From the stored 3, Few stores 1 and then Medium 2, nothing else.
+    for (choice, stored) in [(0, 1), (1, 2)] {
+        assert_ne!(
+            tactics.presets[0].sliders.numbers_in_attack, stored,
+            "premise: a real change"
+        );
+        let mut expect = tactics.clone();
+        expect.presets[0].sliders.numbers_in_attack = stored;
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let choices = controls_below(&nodes, "Numbers in attack", Role::Button, half);
+        let (_, changed) = click(
+            &mut window,
+            choices[choice],
+            version,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+        assert!(changed, "the click changed the record");
+        assert_eq!(tactics, expect, "{stored} stored, nothing else");
+    }
+
     // A stored value outside 1-3 selects none and is not rewritten.
     tactics.presets[0].sliders.numbers_in_attack = 7;
     let (nodes, changed) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
@@ -1184,9 +1206,9 @@ fn the_armed_mode_draws_no_note() {
     );
 }
 
-/// A roster of named slots for `tactics_term`: the fixture's own names
-/// are all "PLACEHOLDER".
-fn named_roster() -> Vec<(String, String, Option<u8>)> {
+/// A roster of named slots for `tactics_term` and the role chips: the
+/// fixture's own names are all "PLACEHOLDER".
+pub(crate) fn named_roster() -> Vec<(String, String, Option<u8>)> {
     (0..32)
         .map(|i| (format!("Player {:02}", i + 1), String::new(), None))
         .collect()

@@ -3486,9 +3486,14 @@ briefs, review loops, gates and mutation runs as for any step.
       accepted, all tests that pass on a wrong implementation (the popover's writes, Make GK
       and the markers' states on the identity eleven, a substitution's other takers, the Y
       field, the position combo's GK entry, the Few/Medium choices, the chips' holders read
-      through their own getter). Rework briefed (`brief_tac_a2_rework.md`, after m2b), then a
-      SWE-2 loop over it and Astra A3, then the surface's one mutation run
-      (`just mutants-diff 3d39aff3`) at its loop's end
+      through their own getter). Rework done 2026-10-27 (Opus,
+      `.tmp/0_0_1s/tac_a2_rework_report.md`; test code only, each test seen failing under its
+      perturbation): the tests swap entries of the eleven first and compare the whole record;
+      the chips' test draws seven differently named holders, since the fixture's takers were
+      two players all named "PLACEHOLDER" (the sidekick's contradiction, accepted). Files:
+      `team_widgets/src/pitch/{lineup.rs,popover.rs,tests/{paint,popover}.rs}`,
+      `tactics/{assignments.rs,tests/mod.rs}`. Then a SWE-2 loop over it and Astra A3, then the
+      surface's one mutation run (`just mutants-diff 3d39aff3`) at its loop's end
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";

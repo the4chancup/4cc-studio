@@ -335,6 +335,19 @@ fn the_markers_paint_badge_position_captain_and_portrait() {
         egui::ColorImage::new([4, 4], vec![egui::Color32::RED; 16]),
         egui::TextureOptions::LINEAR,
     );
+    // A non-identity eleven: a portrait or captaincy looked up by the
+    // marker's index rather than its roster slot would look right on
+    // the fixture's [0, 1, ...].
+    tactics.starting_eleven.swap(4, 9);
+    tactics.starting_eleven.swap(2, 8);
+    assert_ne!(
+        tactics.starting_eleven[4], 4,
+        "premise: the portrait's slot and index differ"
+    );
+    assert_ne!(
+        tactics.starting_eleven[2], 2,
+        "premise: the captain's slot and index differ"
+    );
     let portrait_slot = usize::from(tactics.starting_eleven[4]);
     roster[portrait_slot].portrait = Some(texture.id());
     tactics.set_pieces.captain = tactics.starting_eleven[2];
@@ -478,6 +491,14 @@ fn the_corners_and_the_join_fill_mark_the_states() {
     let roster = roster_rows(&rows);
     let players = tactics.presets[0].formations[0].players;
     let index = 3;
+    // A non-identity eleven: a join fill looked up by the marker's index
+    // rather than its roster slot would look right on the fixture's
+    // [0, 1, ...].
+    tactics.starting_eleven.swap(index, 9);
+    assert_ne!(
+        tactics.starting_eleven[index], index as u8,
+        "premise: the joining player's slot and index differ"
+    );
 
     // The open popover's marker.
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
