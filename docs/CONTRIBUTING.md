@@ -135,6 +135,21 @@ exist yet (every Phase 2 crate), the plan's data-shape rules stand in for one.
   a legacy tool's output, may name that tool; a literal an existing file carries (a `Tvers`
   string a parity test must reproduce); and the provenance line of a committed fixture in its
   `README.md`.
+- **A comment stands on its own.** It is plain sentences a maintainer understands on one
+  reading without opening another file: what the item is, or why the code is shaped this way.
+  It never cites a plan (`plans/…`, "the core plan", "Phase 8"), `DECISIONS.md` or a decision's
+  date, the worklog or the log, a step (`0.0.1m2`, `5.6e`), a review round or concern (`S4a-2`,
+  "round A1") or an agent (the sidekick, the reviewer): plans change and move, steps and rounds
+  are history, and a chain of pointers in parentheses is what makes a comment unreadable. Write
+  short sentences, one idea each, and name things the way the code and the UI do. When the why
+  takes more than a few lines, the comment gives the short version and points at the one
+  `docs/spec/` section that holds the rest, by file and heading (`spec/core/gui.md` "Scaling
+  with the width"), never at a plan; a tooling file (`Cargo.toml`, `.cargo/`, the justfile,
+  `scripts/`) may point at this file or `RUNBOOK.md`, which specify the tooling, and a test at
+  its fixture folder's `README.md`. A view's code may name the element of its draft it
+  reproduces (`the draft's .lrow`): the draft is the view's specification. A test's
+  acceptance-ID line is not a comment in this sense (below, "Testing"). `just comment-refs`
+  lists every comment that breaks the pointer half of this rule.
 - No child→parent back-references, anywhere: pass resolved identity/context down as parameters; no
   `Rc<RefCell<_>>` graphs. `Arc` for sharing immutable leaf data across threads (textures,
   snapshots, wake callbacks) is not a parent reference and is what the plan intends.

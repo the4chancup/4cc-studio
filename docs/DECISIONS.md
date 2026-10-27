@@ -12200,3 +12200,16 @@ tool changing a context-wide option. A third pass runs only when the second aske
 discard: a player's first frame, or a zoom change meeting a new grid.
 Plan: `spec/core/gui.md` "Shell layout", "Scaling with the width"; `plans/save_editor.md`
 "Editing UI", the "The player view" bullet.
+## 2026-10-27 — workspace — A code comment stands on its own
+Decision (the maintainer): a code comment never cites a plan, `DECISIONS.md`, the worklog or
+the log, a step, a review round or concern, or an agent; it says what it needs in plain short
+sentences, and when the why runs long it points at one `docs/spec/` section by file and
+heading. A tooling file may point at `CONTRIBUTING.md` or `RUNBOOK.md`, a test at its fixture
+folder's `README.md`, a view at the element of its draft it reproduces. `scripts/comment_refs.py`
+(`just comment-refs`) lists the breaches; the 1044 found when the rule was set are rewritten in
+slices, and the check joins the gates when none is left.
+Why: the maintainer found the comments hard to read: parenthesised chains of plan sections,
+decision dates and step tags, where a reader wants one sentence; and a plan pointer goes stale
+when the plan moves to the spec. Decisions live in this file alone.
+Plan: `CONTRIBUTING.md` "Code style", the bullet "A comment stands on its own"; `AGENTS.md`'s
+design sweep.

@@ -70,6 +70,12 @@ doc-pointers:
     {{python}} scripts/symbolize_log_test.py
     {{python}} scripts/doc_pointers.py
 
+# Every code comment that cites a plan, a decision, a step or a review instead of standing on
+# its own (CONTRIBUTING.md "Code style"). Joins the gates once the cleanup has none left.
+comment-refs:
+    {{python}} scripts/comment_refs_test.py
+    {{python}} scripts/comment_refs.py
+
 # Mutation run over one crate (converge); survivors are test gaps, equivalents or dead code; split with STUDIO_MUTANTS_REMOTE when set
 mutants crate:
     {{python}} scripts/mutants.py {{crate}}

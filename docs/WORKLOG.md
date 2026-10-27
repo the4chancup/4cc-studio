@@ -3786,6 +3786,16 @@ briefs, review loops, gates and mutation runs as for any step.
     by the staged exe's `validate` and `update-logic` (a staging run: both validated, logic
     current); the readme's VGL step 4 names the settings row. Files: `scripts/release{,_test}.py`,
     `resources/bundle/README.txt`, `plans/core/development_plan.md`
+- [ ] 0.0.1cm comments that stand on their own (the maintainer, 2026-10-27; `CONTRIBUTING.md`
+  "Code style", the bullet "A comment stands on its own"; DECISIONS "A code comment stands on
+  its own"): the 1044 comments `just comment-refs` lists rewritten as plain sentences, in
+  slices a review each, then the check joins `just gates`
+  - [ ] cm1 config files, `scripts/`, `crates/dev/`, `studio` and the libs not under review
+    (brief `.tmp/cm/brief_cm1.md`, Opus)
+  - [ ] cm2 `team_compiler` (335)
+  - [ ] cm3 `studio_core`, `export_upgrader`, `ruleset_editor`
+  - [ ] cm4 `save_editor` and `team_widgets`, once the Tactics surface's review loop ends
+  - [ ] cm5 `comment-refs` in `just gates` and CI
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming

@@ -149,7 +149,9 @@ enums, `== Engine::`/`!= Engine::` (a test against one engine, which a third one
 silently), `.clone()`/`.to_vec()` on bulk data, `as ` casts, two functions differing in a name and a
 branch, `pub` items with no caller outside the crate, a module that crossed roughly a thousand
 lines in this diff, a comment naming or alluding to a legacy tool outside a parity test (`Red`,
-`Blue`, `reference`, `add-on`, `Python`, `texconv`, `always`). The **mutation run** (`just
+`Blue`, `reference`, `add-on`, `Python`, `texconv`, `always`), a comment that does not stand on
+its own (it cites a plan, a decision, a step or a review: `just comment-refs`; or it is a chain
+of parentheses a maintainer has to read twice). The **mutation run** (`just
 mutants-diff <the loop's first commit's parent>`, once per review loop, over every diff the loop
 landed) is the third check and the only one that is a measurement rather than a reading: each
 survivor is an assertion the sweeps cannot see because it was never written (the `kit_config`
