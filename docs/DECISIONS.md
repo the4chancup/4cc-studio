@@ -11737,3 +11737,16 @@ it goes half transparent. The game shows a three-letter abbreviation and stores 
 checkbox is a view setting, remembered as Live AATF's toggle is (the maintainer's yes).
 Plan: `plans/save_editor.md` "Editing UI": the team view bullet, the pitch's marker paragraph,
 "A pitch player dropped on another".
+
+## 2026-10-27 — save_editor — Advanced instructions by side, a picked team's tactics, the team row's hint
+Decision: an Attack instruction combo lists the attacking instructions and a Defence combo the
+defending ones (Swarm the Box, Deep Defensive Line, Gegenpress, Tight Marking, Counter Target,
+Wing-Back), the side `pes_savefile`'s beside `takes_player`; a team picked in the team selector
+selects its team row (ALL keeps the selection); each team row reads `[click for tactics]` in
+the weak colour after the name, elided before the name is.
+Why: the maintainer's requests, approved on the draft: one list for both sides offered a slot
+what the game cannot put there (the game's split read on the Rigged Wiki's Tactical pages for
+PES 2017, 2019 and 2021, Konami's PES 2019 manual counting 9 attacking and 6 defending); a
+manager who picks a team wants its tactics next, and nothing on the row said a click opens them.
+Plan: `plans/save_editor.md` "Editing UI": "Team selector", "Player list" (the team row);
+"Tactics editor", "An advanced instruction's list".

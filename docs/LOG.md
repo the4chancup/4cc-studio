@@ -2582,3 +2582,5 @@ worklog passed 7,000 lines.
   9 px before the mark as the draft draws it; the mutation run's survivors tested. `gates-changed` green, 2917 tests.
 - **2026-10-27** — The maintainer approved s6 (short name three characters, the pitch drag's swap mark, Scroll names
   remembered); a second batch drafted (s7: attack and defence instructions apart, a picked team's tactics, the row's hint).
+- **2026-10-27** — The maintainer approved s7 (instructions by side, a picked team's tactics, `[click for tactics]`); its plan,
+  decision and the s6 + s7 draft committed.

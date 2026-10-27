@@ -98,6 +98,10 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
    backdrop so it reads apart from a player row. */
 .plist .rows .trow { background: var(--faint); font-weight: bold; color: var(--strong); }
 .plist .rows .trow .swatch { width: 10px; height: 10px; flex: none; }
+/* The team row's hint after its name, in the weak grey at the normal
+   weight; on a narrow row it gives way first, elided before the name is. */
+.plist .rows .trow .thint { color: #6e6e6e; font-weight: normal; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; flex: 0 1000 auto; }
 .plist .qagrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; }
 /* Every quick action one height, egui 0.37's interact_size.y. */
 .plist #quick-actions button, .plist #quick-actions input { height: 20px; box-sizing: border-box; }
@@ -2272,10 +2276,20 @@ const STORED_18 = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 8, 9, 10, 11, 12, 15]
   .map(i => INSTRUCTIONS[i]);
 const STORED_20 = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 16, 8, 9, 10, 11, 12, 15]
   .map(i => INSTRUCTIONS[i]);
-// Tight Marking is left out of what the editor offers: it marks an opponent, set in
-// a match; Edit mode does not offer it. A record holding it still shows it.
-const instructionsFor = v => (v < 17 ? [] : v === 17 ? INSTRUCTIONS.slice(0, 13)
-  : v >= 20 ? STORED_20 : STORED_18).filter(x => x !== "tight_marking");
+// The defending instructions; every other one is an attacking one. The game
+// offers each group in its own slots (the Rigged Wiki's Tactical pages for PES
+// 2017, 2019 and 2021, "Attack" and "Defence"; Konami's PES 2019 manual counts
+// 9 and 6), and every version's stored table lists the attacking ones first:
+// 17's seven then five, 18/19's nine then six, 20/21's ten (Anchoring) then six.
+const DEFENDING = ["swarm_the_box", "deep_defensive_line", "gegenpress", "tight_marking",
+  "counter_target", "wing_back"];
+// The instructions version v can store, in its stored order.
+const versionInstructions = v => v < 17 ? [] : v === 17 ? INSTRUCTIONS.slice(0, 13)
+  : v >= 20 ? STORED_20 : STORED_18;
+// What a side's combo offers. Tight Marking is left out: it marks an opponent,
+// set in a match; Edit mode does not offer it. A record holding it still shows it.
+const instructionsFor = (v, side) => versionInstructions(v).filter(x => x !== "tight_marking"
+  && (x === "off" || DEFENDING.includes(x) === (side === "defence")));
 // Instructions whose target-player field applies (the original's rule: the
 // player combo enables for Counter Target on 17, Counter Target or Defensive
 // on 18+).
@@ -3348,7 +3362,9 @@ function matches(p, q) {
 function renderMaster() {
   const box = h("div", { class: "plist", "data-panel": "player-list" });
   const sel = combo([["all", "ALL"]].concat(curSave().teams.map(t => [String(t.id), t.name])),
-    S.teamSel, v => { S.teamSel = v; });
+    // A team picked selects its team row, so the view shows its tactics; ALL
+    // keeps the selection.
+    S.teamSel, v => { S.teamSel = v; if (v !== "all") S.sel = { team: Number(v) }; });
   sel.id = "team-sel";
   // sample wording: the filter's placeholder and the rows' tooltips.
   const filter = h("input", { type: "text", id: "filter-box",
@@ -3392,6 +3408,8 @@ function teamRow(team) {
     h("span", { class: "swatch", style: "background:" + shownHex(team.color_1) }),
     h("span", { class: "swatch", style: "background:" + shownHex(team.color_2) }),
     h("span", { class: "pname" }, ...nameSpans(team.name)),
+    // What a click on the row opens, for a manager who looks for the tactics.
+    h("span", { class: "thint" }, "[click for tactics]"),
     dirtyTeam(team) ? h("span", { class: "dot", title: "Unsaved changes" }, "●") : null,
     teamMark(team));
 }
@@ -3650,7 +3668,10 @@ function teamView(t) {
 function teamFields(t) {
   const nameIn = h("input", { type: "text", id: "team-name", value: t.name,
     onchange: e => { edit("team name", () => { t.name = e.target.value; }); render(); } });
+  // The game shows a three-letter abbreviation (each version stores it in
+  // 4 bytes): the box takes three characters.
   const shortIn = h("input", { type: "text", id: "team-short", class: "shirt", value: t.short_name,
+    maxlength: 3,
     onchange: e => { edit("team short name", () => { t.short_name = e.target.value; }); render(); } });
   const colour = (key, label) => {
     const shown = shownHex(t[key]);
@@ -4312,8 +4333,11 @@ function markerRect(t, i) {
 function drawOrder(t) {
   return [...Array(11).keys()].sort((a, b) => badgeAt(t, a)[1] - badgeAt(t, b)[1] || a - b);
 }
-function hitMarker(t, px, py) {
+// The marker drawn on top at (px, py), `skip` aside (a dragged marker's own
+// spot, which a release onto it does not swap with).
+function hitMarker(t, px, py, skip = -1) {
   for (const i of drawOrder(t).reverse()) {
+    if (i === skip) continue;
     const r = markerRect(t, i);
     if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i;
   }
@@ -4409,9 +4433,15 @@ function drawPitch(t) {
   // The dragged marker is drawn last, over every other.
   const order = drawOrder(t).filter(i => !(d && d.moved && d.i === i));
   if (d && d.moved) order.push(d.i);
+  // The starter a release would swap with, marked as the screen marks a
+  // selection, so a drag meant only to move him can still be steered off.
+  // The dragged marker sits on him, so it goes half transparent over him
+  // and his corners are drawn over both.
+  const target = d && d.moved ? hitMarker(t, d.px, d.py, d.i) : -1;
   for (const i of order) {
     const s = f[i], roster = tac.starting_eleven[i], p = rosterPlayer(t, roster);
     const dragged = d && d.i === i && d.moved;
+    g.globalAlpha = dragged && target >= 0 ? 0.35 : 1;
     const [x, y] = dragged ? clampBadge(d.px, d.py) : badgeAt(t, i);
     const bl = x - MARKER.badgeW / 2, bt = y - MARKER.badgeH / 2;
     const img = portraitOf(p);
@@ -4440,9 +4470,11 @@ function drawPitch(t) {
     const runs = p ? nameRuns(p.name) : [["(empty)", null]];
     const width = runs.reduce((w, [text]) => w + g.measureText(text).width, 0);
     const long = width > MARKER.badgeW;
-    const start = long ? bl - nameScroll(width, (performance.now() - (S.pitchSince ?? performance.now())) / 1000)
-      : x - width / 2;
-    for (const copy of long ? [0, width + NAME_SCROLL.gap] : [0]) {
+    // "Scroll names" off: a wider name holds still at the badge's left.
+    const scrolls = long && S.scrollNames !== false;
+    const start = scrolls ? bl - nameScroll(width, (performance.now() - (S.pitchSince ?? performance.now())) / 1000)
+      : long ? bl : x - width / 2;
+    for (const copy of scrolls ? [0, width + NAME_SCROLL.gap] : [0]) {
       let nx = start + copy;
       for (const [text, color] of runs) {
         g.fillStyle = color || "#ffffff";
@@ -4460,6 +4492,8 @@ function drawPitch(t) {
     if (S.slotPop && S.slotPop.i === i) corners(g, x, y, "#14fbff");
     else if (S.assign) corners(g, x, y, "#ff4e7f");
   }
+  g.globalAlpha = 1;
+  if (target >= 0) corners(g, ...badgeAt(t, target), "#14fbff");
 }
 function pitchCanvas(t) {
   const cv = h("canvas", { class: "pitch", id: "pitch",
@@ -4530,8 +4564,8 @@ document.addEventListener("pointerup", e => {
   const cv = document.getElementById("pitch");
   const [lx, ly] = pitchPoint(cv, e);
   if (lx < 0 || ly < 0 || lx > cv.width || ly > cv.height) { render(); return; }
-  const onto = hitMarker(t, lx, ly);
-  if (onto >= 0 && onto !== d.i) { swapStarters(t, d.i, onto); render(); return; }
+  const onto = hitMarker(t, lx, ly, d.i);
+  if (onto >= 0) { swapStarters(t, d.i, onto); render(); return; }
   const [x, y] = snapXY(lx, ly);
   edit("Move on pitch", () => {
     const s = tacFormation(t).players[d.i]; s.x = x; s.y = y; });
@@ -4694,9 +4728,9 @@ function tacticsTab(t) {
     const range = SLIDERS.find(([k]) => k === key);
     return range ? slider(...range) : toggle(...STYLE_TOGGLES.find(([k]) => k === key));
   };
-  const ins = instructionsFor(version());
   const instrSet = (label, side, i) => {
     const e = pre.instructions[side][i];
+    const ins = instructionsFor(version(), side);
     const targetable = takesTarget(e.instruction);
     // The target is picked as the assignments are: the chip armed, then a
     // pitch player clicked (an instruction that takes none greys it out).
@@ -4747,6 +4781,11 @@ function tacticsTab(t) {
       onchange: e => { edit("Fluid formation", () => { pre.style.fluid = e.target.checked; }); render(); } }),
     " Fluid formation"), 16);
   const pitchWrap = h("div", { style: "position:relative" }, pitchCanvas(t), slotPopover(t));
+  // The pitch's name scrolling, on by default: a view setting, not an edit.
+  const scrollNames = h("label", { class: "cb" },
+    h("input", { type: "checkbox", checked: S.scrollNames !== false, id: "scroll-names",
+      onchange: e => { S.scrollNames = e.target.checked; drawPitch(t); } }),
+    " Scroll names");
   // Auto substitution as the game names its choices (measured in-game: Off 0,
   // Very late 1, Flexible 2 on PES 15, 16 and 21, Very early 3 on PES 21; 17
   // to 20 unmeasured, so offered the three); a stored value outside them is
@@ -4768,7 +4807,7 @@ function tacticsTab(t) {
   const frame = h("div", {},
     h("div", { class: "tacgrid" },
       h("div", { class: "tacbar" }, presetSel, fluid, presetMenu),
-      h("div", { class: "tacbar", id: "tac-formbar" }, formationSel, formationMenu),
+      h("div", { class: "tacbar", id: "tac-formbar" }, formationSel, formationMenu, scrollNames),
       namedCols(h("div", { class: "group", id: "tac-settings" }, strong("Formation settings"),
         formRows), "tactics-settings"),
       h("div", { "data-panel": "tactics-pitch" }, pitchWrap),
@@ -5754,7 +5793,7 @@ function ixWarnings(d) {
         for (const side of ["attack", "defence"])
           for (const e of ((pre.instructions || {})[side] || []))
             if (e.instruction !== "off"
-              && !instructionsFor(v).includes(e.instruction))
+              && !versionInstructions(v).includes(e.instruction))
               warn("import_value_not_encodable (path=tactics.preset_" + (i + 1)
                 + ".instructions." + side + ", label=" + e.instruction + ")");
       }
@@ -5849,7 +5888,7 @@ function ixWriteTactics(src, dst) {
   Object.assign(tac.set_pieces, src.set_pieces);
   for (const [k, x] of Object.entries(src.auto))
     if (x !== null) tac.auto[k] = x;
-  const enc = instructionsFor(v);
+  const enc = versionInstructions(v);
   src.presets.forEach((p, i) => {
     const pre = tac.presets[i];
     if (p.man_marking) pre.man_marking = clone(p.man_marking);

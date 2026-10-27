@@ -2982,8 +2982,9 @@ briefs, review loops, gates and mutation runs as for any step.
     steered off; a "Scroll names" checkbox right of the formations' Copy/swap, on by
     default, which holds a wider name still at its badge's left when off → verify: a test per
     request in the built view; the code with s5
-  - [ ] s7 the maintainer's second batch of 2026-10-27 (drafted, waiting for the maintainer's
-    look; `save_editor.js` `DEFENDING`, `versionInstructions`, `instructionsFor`, the team
+  - [ ] s7 the maintainer's second batch of 2026-10-27 (drafted and approved; plan "Editing
+    UI", DECISIONS "Advanced instructions by side, a picked team's tactics, the team row's
+    hint"; `save_editor.js` `DEFENDING`, `versionInstructions`, `instructionsFor`, the team
     selector's callback in `renderMaster`, `teamRow`'s `.thint`; renders
     `.tmp/0_0_1s/draft_list_req4_*.png`, `draft_instr_req5.png`): Advanced instructions'
     attack combos offer the attacking instructions and the defence combos the defending ones
@@ -2992,7 +2993,8 @@ briefs, review loops, gates and mutation runs as for any step.
     attacking ones first; Anchoring, new in 2020, attacking); a team picked in
     the team selector selects its team row, so the view shows its tactics (ALL keeps the
     selection); each team row reads `[click for tactics]` in the weak grey after the name,
-    elided before the name is. Plan and DECISIONS once approved; then the code with s5
+    elided before the name is → verify: a test per request in the built view (the side's
+    list per version from `pes_savefile`'s side); the code with s5
 - [x] 0.0.1t a rules file a member handles ends in `.4ccrules` (the maintainer, 2026-10-26;
   DECISIONS "A rules file a member handles ends in `.4ccrules`"; `plans/aatf_rules.md` "The
   rules file"): the Save editor's settings row and AATF panel and the Ruleset editor's pickers

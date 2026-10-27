@@ -174,14 +174,18 @@ all side by side.
   that searches across all teams** (name, shirt name, ID) — finding a player no
   longer requires knowing their team first. Matching uses the colour-code-free
   `display_name()` (see the pes_savefile plan's "Name colour codes"), a team's own name
-  included.
+  included. Picking a team selects its team row, so the detail shows that team's view, its
+  tactics with it: a manager who picks a team usually wants its tactics next. Picking ALL keeps
+  the selection.
 - **Player list**, 240 points wide and not resizable: under the design width the window scales
   instead of narrowing (`core/gui.md` "Shell layout", the paragraph "Scaling with the width"), so the view always has the
   room the 1280-point layout gives it, and a list dragged wider would only take that room back.
   A **team row** heads each team's players, set apart from a player row by the
   faint fill under it and its name in the strong text colour (the draft's bold: the app
   installs no bold face, and a second font file for one row costs more than it shows): the team's id, its colours
-  1-2 as swatches and its name, a dot when the team's own fields (name, short name, colours,
+  1-2 as swatches and its name, then `[click for tactics]` in the weak colour at the normal
+  weight (nothing else says where the tactics are; on a narrow row it is elided before the
+  name is), a dot when the team's own fields (name, short name, colours,
   ids, kit slots, tactics) have unsaved changes. A click selects the team, and the detail shows
   the team view; it never drags and is no drop target. ALL lists every team's row and players;
   under a filter a team's row stays while its own name or any of its players matches. The team
@@ -591,9 +595,15 @@ Win32 original hurt the most):
 What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc`) could differ:
 
 - **An advanced instruction's list** is the version's stored table in its stored order (the
-  game's own list), less Tight Marking: it marks an opponent, which a member sets in a match,
+  game's own list), split by side as the game's Game Plan splits it: an Attack combo lists the
+  attacking instructions, a Defence combo the defending ones (Swarm the Box, Deep Defensive
+  Line, Gegenpress, Tight Marking, Counter Target, and Wing-Back from PES 2018; the Rigged
+  Wiki's Tactical pages for PES 2017, 2019 and 2021, Konami's PES 2019 manual counting 9 and
+  6; every version's stored table lists the attacking ones first). One list for both would
+  offer a slot what the game cannot put there. The side is `pes_savefile`'s (`Instruction`,
+  beside `takes_player`), the one place the rule lives. Each list is less Tight Marking: it marks an opponent, which a member sets in a match,
   and Edit mode does not offer it (4ccEditor's lists leave it out for that reason). A record
-  that holds it shows it as the current choice. The target-player pick is enabled only for the
+  that holds it, or an instruction of the other side, shows it as the current choice. The target-player pick is enabled only for the
   instructions that take one of ours, Counter Target and Defensive (`pes_savefile`'s
   `Instruction::takes_player`, the one place the rule lives); picking an instruction that takes
   none sets the target to none (255), so no stale target is kept where 4ccEditor left one.
