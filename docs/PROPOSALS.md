@@ -32,3 +32,28 @@ Adds: up/down buttons (or a drag) on a player in the slot list, so a manager set
 order the streamer sees without leaving the editor. Costs: two buttons beside Rename and
 Delete, and the drag the song rows already plan reused for the slot list; nothing new in the
 format.
+
+## P41 — The Kit config editor shows what a collar, shorts model or pattern looks like
+
+From the Kit Manager audit (12.0a, 2026-10-27). Kit Manager's preview was a catalogue: one
+prerendered picture per collar (1–106), shorts model (0–17), shirt pattern (0–13), sleeve
+type and shirt model, shown as the field changed. The planned preview draws the kit's
+colors, positions and real textures (`plans/kit_config_editor.md` "Preview panel"), so it
+drops the one thing Kit Manager's showed: what collar 37 looks like before picking it.
+
+Adds: a thumbnail beside the Collar, Winter collar, Shorts model and Shirt pattern fields,
+or a gallery to pick from, for the kit maker who knows the look and not the number. Costs:
+the pictures themselves, which Kit Manager's bitmaps cannot supply (PES 2016's models, 51 MB,
+not ours to ship): renders of each version's stock collars and shorts, made once per version
+(up to 131 collars on PES 2021), plus a gallery widget.
+
+## P42 — The color picker's hex field takes Kit Manager's spellings too
+
+From the Kit Manager audit (12.0a, 2026-10-27). Kit makers paste colors from the tools they
+used with Kit Manager, which accepted `0xRRGGBB` and bare `RRGGBB` (and nothing else, not
+even `#RRGGBB`). The shared `color_tools` picker's hex field is not specified beyond the
+TOML's `#RRGGBB`.
+
+Adds: the picker's hex field accepts `#RRGGBB`, `0xRRGGBB` and `RRGGBB` alike in every tool
+that uses it, so a pasted value from an old habit lands instead of being refused. Costs: one
+parse with three prefixes in `color_tools`; the field still shows `#RRGGBB`.

@@ -24,6 +24,7 @@ is the same). Every kit in every aesthetics export ships one.
 |------|------|--------|
 | Kit Manager PES2016 v4.0 (GOALARG) | Kit config editing GUI | Closed source, abandoned |
 | Kit Manager V4 "pes2021-4cc" | The same exe, hex-patched for PES2021's shirt-name offsets | Ditto |
+| Kit Manager PES2016 v5.0 (GOALARG, six weeks after v4.0) | v4.0 with collars listed 1–109 and three more collar previews; same format, same editing behavior | Ditto |
 
 ### Relationship to the old codebase
 
@@ -44,8 +45,8 @@ nobody has to do that archaeology again.
 
 120 bytes, little-endian, no header. Multi-bit fields packed across byte boundaries
 are noted explicitly; bit 0 = LSB. "?" bits are undecoded — the old editor never
-reads or writes them, but some are **set in real configs**, so they must be
-preserved on rewrite.
+reads them and writes none but 0x19's bits 6–7, which its Back number spacing control
+clears; some are **set in real configs**, so they must be preserved on rewrite.
 
 | Offset | Bits | Field | Values |
 |--------|------|-------|--------|
@@ -56,7 +57,7 @@ preserved on rewrite.
 | 0x03 | all | Shorts model | 0–17 |
 | 0x04–0x12 | | Five RGB triplets | shirt1, shirt2, undershirt, shorts, socks |
 | 0x13 | all | ? | 0 in samples |
-| 0x14 | all | Collar | 1-based; the old editor lists 1–107, PES 2021 stock configs carry up to 131 |
+| 0x14 | all | Collar | 1-based; the old editor lists 1–106 (v4.0 and its PES 2021 patch) or 1–109 (v5.0), PES 2021 stock configs carry up to 131 |
 | 0x15 | all | Winter collar | as above |
 | 0x16 | 0 | ? | set in samples |
 | 0x16 | 1–4 | Shorts number Y | 0–14 |
@@ -129,8 +130,10 @@ Notes:
   Collars folder) and point every kit config's collar at the replaced ID — the
   quick way to put a custom model on the whole team.
 - **Cross-field constraints** (enforced by the old editor with modal errors, by ours
-  inline as warnings): the old editor allowed cut-out short sleeves and undershirt-only long
-  sleeves on shirt model 144 only, but PES 2021 stock data carries both on model 160 as well (32
+  inline as warnings): the old editor allowed undershirt-only long sleeves on shirt model 144
+  only (its cut-out short sleeves rule, 144 only too, sits in code its window never reaches:
+  the control stays disabled and byte 0x00 is never read, so no member ever set cut-out
+  sleeves with it), but PES 2021 stock data carries both on model 160 as well (32
   configs), so `kit_config` warns only when they appear on model 176, which no stock config does;
   tight requires 144 or 160 (a warning likewise). The FPC kit values (shirt 176, shorts 16,
   collar and winter collar 105 — see "FPC toggle" in the

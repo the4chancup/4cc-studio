@@ -33,11 +33,32 @@ Two ways in, per the suite's export-first philosophy:
   container — covers the cup keeper's "fix one team's config in the compiled bins"
   case without a compile round.
 
+In the loose-file and container modes the five texture names (the `.bin`'s 16-byte
+fields) are editable text, ASCII and at most 15 characters, refused at entry otherwise:
+a compiled config naming the wrong texture is a kit that does not load, and these two
+modes are where it gets fixed. In export mode they are derived from the kit folder and
+only shown. A loose-file mode with nothing open shows the picker.
+
+**Saving**, as in the suite's other editors: nothing is written until Save (Ctrl+S);
+unsaved changes are the difference from the file as opened or last saved, marked on the
+tab, and opening another file or closing the tool with unsaved changes asks to save,
+discard or cancel. Export mode writes each changed kit's `config.toml` (and `colors.txt`
+and its marker) through `toml_edit`; the loose-file mode writes its file, and the
+container mode the container, through a temporary file renamed over it, so a failed write
+leaves the old file whole and reports an error naming it. The loose-file mode also has
+Save as, after which Save writes the new path. Not Kit Manager's model: its "not saved"
+warning looked at whether a Save had happened since the load, not at edits, and its
+Save as left later Saves on the original file.
+
 The form groups the fields as the format does — Shirt (models, collars, sleeves,
 tight, pattern), Colors (the five config fields, via the shared `color_tools`
 picker — no more JCPicker subprocess and hex-paste dance), Name, Numbers
 (back/chest/shorts), Badges. Constraint gating is inline: options requiring shirt
-model 144/160 gray out with a tooltip instead of the old modal error boxes. An FPC
+model 144/160 gray out with a tooltip instead of the old modal error boxes, and with the
+name off (`show = false`) its shape, Y and size gray out the same way. A numeric field
+takes any value its bits hold, not Kit Manager's lists (which accept only a listed item,
+and stock data exceeds them: collars up to 131 against its 106), and a value outside the
+selected version's range shows that version's warning beside the field. An FPC
 indicator chip shows when the config carries the FPC values, linking the concept
 to the Team compiler's reconciliation rather than leaving it as four magic numbers.
 
@@ -94,7 +115,10 @@ studio kit-config-editor check <path>         # validate configs in an export / 
 What exists of this is in `spec/kit_config_editor.md` "Testing".
 
 - **Manual**: edits made side-by-side in Kit Manager and this tool on the same file
-  produce identical bytes.
+  produce identical bytes, leaving out Kit Manager's own write defects: its Right long X
+  sleeve badge field writes nothing, a Name shape edit clears the top bit of Name size
+  (a size of 16–20 drops by 16), a Back number spacing edit clears 0x19's undecoded bits
+  6–7, and its Short sleeves type control is never enabled.
 
 ## Improvements over Kit Manager (summary)
 

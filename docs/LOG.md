@@ -2694,3 +2694,5 @@ worklog passed 7,000 lines.
 - **2026-10-27** — 0.0.1s round S5 (4 of 4) reworked: three more Tactics tests fail on an identity-eleven implementation; the
   post-Astra SWE-2 loop ends. y4c: PARTY HARD's overalls read in game, and the PES 2016 rule reproduces y3's four scans on them.
 - **2026-10-27** — 0.0.1q: the maintainer's monitor-off reopen fits on the 4K; the maximized reopen's faint flicker becomes q5.
+- **2026-10-27** — 12.0a: Kit Manager's three exes read (43 rows, the format right in every bit they touch); the editor saves on
+  Save, texture names editable outside exports, four Kit Manager write defects kept out of the parity test; P41-P42; 12.0b in game.

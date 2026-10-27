@@ -3974,13 +3974,23 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
 
 The phase's steps are itemized when it opens; prepared ahead:
 
-- [ ] 12.0a the tool's GUI plan against Kit Manager's recovered behavior: the format and its
+- [x] 12.0a the tool's GUI plan against Kit Manager's recovered behavior: the format and its
   constraints were recovered by disassembly before the repository existed
   (`spec/kit_config_editor.md` "Relationship to the old codebase"; the scripts were not kept),
   so the audit compares `plans/kit_config_editor.md`'s GUI rows with the spec's recovered
   controls and constraints, and re-reads the exe (`Kits/Configs/KitmanagerV4.exe`, capstone)
-  only where a GUI behavior is not in the spec. Briefed (`.tmp/12_0a/brief_kitmanager_audit.md`,
-  Fable: disassembly), launched when a Fable slot frees
+  only where a GUI behavior is not in the spec. Done 2026-10-27 (Fable,
+  `.tmp/12_0a/kitmanager_audit.md`, scripts in `.tmp/12_0a/scripts/`): 43 rows, the format
+  right in every offset and bit the code touches; ruled into the plan (Saving, numeric
+  fields, the name's gating, texture names in the loose-file and container modes, the
+  parity test's exclusions; DECISIONS "The Kit config editor saves on Save, and the rest of
+  Kit Manager's audit"), the spec
+  (collars 1–106 or 1–109, the unreachable cut-out rule, the spacing control's bits, v5.0),
+  PROPOSALS P41-P42
+- [ ] 12.0b in game (PES 2016, pad and OBS): a kit with undershirt-only long sleeves
+  (0x02 = 0xBB) and a long-sleeve badge position set: does the badge draw? Kit Manager grays
+  the four long-sleeve badge fields while the sleeves are undershirt-only (12.0a row 21); if
+  the game draws no badge there, the editor grays them too, else it keeps them editable
 
 ### Phase 13 — Refs arranger
 

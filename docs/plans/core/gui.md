@@ -107,10 +107,15 @@ place as the size to restore to; and the first frame, after it sends the positio
 restoring it first (on Windows `set_outer_position` clears the maximized flag, a
 `ShowWindow(SW_RESTORE)`), and an X11 window manager ignores the maximize asked of the window
 eframe keeps hidden until its first paint (egui-winit's own persistence maximizes after the
-first show for that reason). Not the position resend skipped for a maximized place: on a
-mixed-scale desk the creation's position is converted with the primary monitor's scale, so the
-restore place, and the monitor the window maximizes on, would stay wrong. The first frame's
-commands run after the show, so the window may be seen restoring and maximizing again once. A record of five numbers, written before the sixth existed,
+first show for that reason). For a maximized place the position is sent again only when the
+creation can have landed wrong: when the record's scale differs from the primary monitor's
+(the scale winit converts the creation position with) or from the frame's pixels per point
+(the window sits on a monitor of another scale than the record's). Elsewhere the resend moves
+nothing and only restores the shown window and maximizes it again, a faint but visible
+flicker; the maximize is still sent, a no-op on Windows for a
+window already maximized and the needed one on X11. Not the resend skipped for every maximized
+place: on a mixed-scale desk the restore place, and the monitor the window maximizes on, would
+stay wrong; there the window may be seen restoring and maximizing again once. A record of five numbers, written before the sixth existed,
 reads as not maximized. A place the first frame finds on no monitor ends fitted and not
 maximized: the window was created maximized before that check could run, so the first frame
 sends `Maximized(false)` ahead of the fit, a visible jump we accept for a case as rare as an
@@ -897,7 +902,10 @@ ST-WIN-04   GIVEN a main tool active and the window moved to (100, 50) and resiz
                  1100 × 700, and the first frame's (50, 25); GIVEN the window maximized when
                  it closes, or minimized from maximized THEN window_main is the place it had
                  before the maximize with 1 last, the options carry that place and are
-                 maximized, and the first frame sends the outer position, then the maximize;
+                 maximized, and the first frame, the primary monitor's scale and its own the
+                 record's, sends the maximize alone; GIVEN the same with the primary
+                 monitor's scale, or the frame's, another than the record's THEN the first
+                 frame sends the outer position, then the maximize;
                  GIVEN a window_main of five numbers THEN the options are not
                  maximized; GIVEN a remembered place whose title bar
                  lies on none of the window's monitors THEN the window is created at the place

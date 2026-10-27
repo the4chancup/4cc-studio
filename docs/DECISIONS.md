@@ -12314,3 +12314,37 @@ built with RigDJ's box does; matching it keeps those slots playing the same. Rig
 also deleted the chip while the cursor was in a text field.
 Plan: `plans/music_export_editor.md` "What the editor does" (Condition editing, Guard rails,
 Randomise Horns), "GUI view".
+
+## 2026-10-27 — studio_core shell — A maximized reopen resends its position only where the creation can have landed wrong
+Decision: the first frame of a window reopened maximized sends the position again only when the
+record's scale differs from the primary monitor's or from the frame's pixels per point; it
+still sends the maximize. A place not maximized keeps the unconditional resend.
+Why: the resend on a maximized window restores it to move it and maximizes it again, a flicker
+the maintainer sees on the built window; where the record's scale is the primary's and the
+window's, winit's creation already put the window at the record's pixels, so the resend moves
+nothing. Not the resend skipped for every maximized place, which left the restore place and the
+maximized monitor wrong on a mixed-scale desk; not the window created unmaximized, which keeps
+our restore-and-maximize and adds a maximize of a shown window. A window not maximized does not
+flicker at a resend that moves nothing.
+Plan: `plans/core/gui.md` "Window size classes", the remembered place's paragraph.
+
+## 2026-10-27 — kit_config_editor — The Kit config editor saves on Save, and the rest of Kit Manager's audit
+Decision: nothing is written until Save (Ctrl+S); unsaved changes are the difference from the
+file as opened or last saved, and opening another file or closing asks to save, discard or
+cancel; the loose-file and container modes write through a temporary file renamed over the
+old one, and the loose-file mode's Save as adopts the new path. A numeric field takes any
+value its bits hold, warning beside it when the selected version's range is exceeded. The
+name's shape, Y and size gray out with the name off. The five texture names are editable
+ASCII text of at most 15 characters in the loose-file and container modes, shown only in
+export mode. The manual byte-parity test leaves out Kit Manager's four write defects.
+Why: the Save editor and the Music export editor save on Save with the same unsaved-changes
+rule, and one rule across the suite's editors is what members learn once. Kit Manager's own
+model is not worth keeping: its "not saved" warning ignored edits, its exit always asked, and
+its Save as left later Saves on the original file. Its lists refused stock values (collars up
+to 131 against 106). Its graying of the name's fields follows the format (a hidden name has no
+shape). The compiled-bin fix is the one place texture names are typed by hand today, and a
+wrong one is a kit that does not load. Its defects (a badge field that writes nothing, a shape
+edit that clears a size bit, a spacing edit that clears two undecoded bits, a sleeves control
+never enabled) would make an identical-bytes test fail for Kit Manager's reasons.
+Plan: `plans/kit_config_editor.md` "GUI view" (the texture names, Saving, the form's gating and
+numeric fields), "Testing".
