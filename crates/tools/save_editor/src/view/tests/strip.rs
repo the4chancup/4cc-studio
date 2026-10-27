@@ -9,7 +9,7 @@ fn a_name_edit_does_not_reach_the_next_players_field() {
     let mut view = SaveView::new();
     view.open(&path);
     view.team = TeamChoice::Team(702);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let name_of = |view: &SaveView, id: u32| {
         view.session
             .as_ref()
@@ -82,7 +82,7 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
     let path_a = fixture(PesVersion::Pes21, "history_a");
     let path_b = fixture(PesVersion::Pes21, "history_b");
     let mut view = SaveView::new();
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let name_of = |view: &SaveView| {
         view.session
             .as_ref()
@@ -166,7 +166,7 @@ fn the_name_and_shirt_fields_share_the_rows_edges() {
     let path = fixture(PesVersion::Pes21, "field_widths");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     for _ in 0..3 {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     }
@@ -197,7 +197,7 @@ fn a_name_or_shirt_edit_sets_the_edited_player_flag() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let flag = |view: &SaveView| {
         view.session
             .as_ref()
@@ -252,7 +252,7 @@ fn a_shirt_name_is_upper_cased_as_typed() {
     let path = fixture(PesVersion::Pes21, "uppercase_shirt");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let shirt = shirt_field(&nodes);
     let stored = shirt.value().expect("its text").to_owned();
@@ -295,7 +295,7 @@ fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
     let tint = visuals
         .extreme_bg_color
@@ -535,7 +535,7 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     let mut view = SaveView::new();
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
     let tint = visuals
         .extreme_bg_color
@@ -704,7 +704,7 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     let mut view = SaveView::new();
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
         label_value(&nodes, "Name (4/61)"),
@@ -724,7 +724,7 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     let mut view = SaveView::new();
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
         label_value(&nodes, &format!("Name ({name_n}/46)")),
@@ -750,7 +750,7 @@ fn a_shirt_name_takes_latin1_letters_and_refuses_past_them() {
     let path = fixture(PesVersion::Pes21, "shirt_latin1");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let shirt_name = |view: &SaveView| {
         view.session
             .as_ref()
@@ -816,7 +816,7 @@ fn a_shirt_at_the_portable_limit_draws_no_tint() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
     let tint = visuals
         .extreme_bg_color

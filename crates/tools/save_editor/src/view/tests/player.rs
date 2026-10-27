@@ -74,7 +74,7 @@ fn set_and_bump_stats_write_every_ability_as_one_undoable_edit() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let before = player_entry(&view, 70101);
     assert_ne!(
         before.stats.attacking_prowess, 75,
@@ -198,7 +198,7 @@ fn the_set_dialog_clamps_the_typed_value_to_40_and_99() {
     let path = fixture(PesVersion::Pes21, "player_set_clamp");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let name = display_name(&player_entry(&view, 70101).name);
     for (typed, clamped) in [("100", 99u8), ("30", 40u8)] {
         run_stat_dialog(
@@ -220,7 +220,7 @@ fn the_bump_dialog_prefills_the_last_n_used() {
     let path = fixture(PesVersion::Pes21, "player_bump_remember");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let name = display_name(&player_entry(&view, 70101).name);
 
     run_stat_dialog(
@@ -388,7 +388,7 @@ fn copy_stats_writes_the_field_set_and_nothing_else() {
     mark_copy_players(&path, PesVersion::Pes21);
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let dest_before = player_entry(&view, 70101);
     let source_before = player_entry(&view, 70102);
     // Premises: the fields a copy must and must not carry all differ.
@@ -446,7 +446,7 @@ fn swap_stats_trades_the_field_set_on_pes16() {
     mark_copy_players(&path, PesVersion::Pes16);
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let first_before = player_entry(&view, 70101);
     let second_before = player_entry(&view, 70102);
     assert_ne!(first_before.appearance, second_before.appearance);
@@ -509,7 +509,7 @@ fn the_menu_dialogs_draw_their_headings() {
     let path = fixture(PesVersion::Pes21, "player_dialog_headings");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     for (item, title) in [
         ("Set all stats", "Set all stats"),
         ("Bump all stats", "Bump all stats"),
@@ -541,7 +541,7 @@ fn the_copy_swap_dialog_picks_the_teams_first_filled_slot() {
     let path = fixture(PesVersion::Pes21, "player_copy_swap_pick");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     // The selected player is the first listed, so his team's first
     // filled slot is the pick. Another team of the fixture, for the
     // switch: read both from the save, never typed in.
@@ -609,7 +609,7 @@ fn the_copy_swap_dialog_closes_on_ok_and_cancel() {
     let path = fixture(PesVersion::Pes21, "player_copy_swap_close");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
 
     for button in ["OK", "Cancel"] {
         let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
@@ -687,7 +687,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     assert_eq!(
         strip_of(&view, 70101),
         (1, true, 0, 0, 0),
@@ -873,7 +873,7 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
         label_value(&nodes, "The default body is currently shown"),
@@ -936,7 +936,7 @@ fn hide_body_round_trips_on_pes16() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
 
     let nodes = appearance_frame(&mut window, &mut view);
     click(
@@ -984,7 +984,7 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
     let mut view = SaveView::new();
     view.open(&path);
     view.aesthetics_from_exports = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let before = player_entry(&view, 70101);
 
     // The section's two buttons disabled, each hover the ownership line.
@@ -1098,7 +1098,7 @@ fn the_hide_ids_come_from_the_settings() {
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.hide_ids = fpc::HideIds::new(60, 12);
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
 
     // Hide default body on 70101 (IDs 0): boots 60 and gloves 12, "...hidden".
     let nodes = appearance_frame(&mut window, &mut view);
@@ -1162,7 +1162,7 @@ fn the_tool_carries_the_common_hide_ids_into_the_view() {
     let mut tool = crate::Tool::new();
     tool.view.open(&path);
     tool.view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     open_appearance(&mut window, &mut tool.view);
     scroll_into_view(&mut window, &mut tool.view, |node| {
         node.role() == Role::Button && node.label() == Some("Hide default body")
@@ -1213,7 +1213,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
     view.edit_aesthetics = true;
     view.hide_ids = Err(fpc::HideIdsError::Boots(627));
     let error = fpc::HideIdsError::Boots(627).to_string();
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     let before = player_entry(&view, 70101);
 
     let nodes = appearance_frame(&mut window, &mut view);
@@ -1327,7 +1327,7 @@ fn every_fpc_path_writes_the_settings_hide_ids() {
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.hide_ids = fpc::HideIds::new(60, 12);
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     assert_eq!(
         strip_of(&view, 70101),
         (1, true, 0, 0, 0),

@@ -17,7 +17,7 @@ fn open_734(test: &str) -> (SaveView, Headless) {
     view.open(&path);
     view.team = TeamChoice::Team(734);
     view.selected = Some(Selection::Player(734, 0));
-    (view, Headless::sized(1100.0, 800.0))
+    (view, Headless::sized(DEFAULT_PANE.x, 800.0))
 }
 
 /// The painted text shapes whose galley text is exactly `text` (a mark's
@@ -950,6 +950,11 @@ fn each_fields_cross_stands_beside_its_control() {
 #[test]
 fn the_name_cross_holds_back_the_counts_tooltip() {
     let (mut view, mut window) = open_734("live_marks_name_tip");
+    // The centring pad reads the columns' widths the previous frame
+    // measured, and a first frame's differ: settle it before the hovers.
+    for _ in 0..3 {
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    }
     view.live_aatf = true;
     let revision = view.session.as_ref().expect("the save opened").revision();
     let name_color = violation(
@@ -1107,8 +1112,10 @@ fn the_teams_own_violations_mark_the_team_row() {
 
     // A clean team's row passes (the imported 714 holds only
     // suggestions, which count as neither).
-    let (mut view, mut window) =
-        open_legal_714("live_marks_team_row_clean", Headless::sized(1100.0, 800.0));
+    let (mut view, mut window) = open_legal_714(
+        "live_marks_team_row_clean",
+        Headless::sized(DEFAULT_PANE.x, 800.0),
+    );
     view.live_aatf = true;
     let nodes = live_checked(&mut window, &mut view, None, &[714]);
     let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -1287,6 +1294,11 @@ fn a_long_name_truncates_before_the_rows_mark() {
 fn no_cross_overlaps_text_and_no_field_moves() {
     use aatf::ViolationKind as K;
     let (mut view, mut window) = open_734("live_marks_no_overlap");
+    // The centring pad reads the columns' widths the previous frame
+    // measured, and a first frame's differ: settle it before the marks.
+    for _ in 0..3 {
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    }
     view.live_aatf = true;
     let error = |kind| violation(Some(0), aatf::Severity::Error, kind);
     let violations = vec![
@@ -1416,7 +1428,7 @@ fn a_failed_check_marks_nothing() {
     view.team = TeamChoice::Team(743);
     view.selected = Some(Selection::Player(743, 0));
     view.live_aatf = true;
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     let nodes = live_checked(&mut window, &mut view, Some(rules.as_path()), &[743]);
     assert!(
         nodes.iter().any(|node| {

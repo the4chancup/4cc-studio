@@ -23,7 +23,7 @@ fn locked_section(version: PesVersion, test: &str) -> (SaveView, Headless, Vec<a
     let mut view = SaveView::new();
     view.open(&path);
     view.aesthetics_from_exports = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     (view, window, nodes)
@@ -260,7 +260,7 @@ fn the_gated_star_and_attitude_draw_disabled_in_place_on_pes17() {
         let path = fixture(version, test);
         let mut view = SaveView::new();
         view.open(&path);
-        let mut window = Headless::sized(1100.0, 700.0);
+        let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
         open_appearance(&mut window, &mut view);
         // The group's controls sit below the fold: the hovers need them
         // inside the scroll's clip (the attitude's row is the lower one).
@@ -382,7 +382,7 @@ fn a_stripped_players_section_says_the_look_is_the_tables_and_the_motions_are_re
     let mut view = SaveView::new();
     view.open(&path);
     view.aesthetics_from_exports = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     // 70101 is the selected player; every other player's id is set while
     // his is -1, so the Strip again window opened too: close it first.
@@ -419,7 +419,7 @@ fn randomize_draws_within_pes21s_measured_tops_one_undo_entry() {
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.randomize_draw = Box::new(|top| top);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     let motion_of = |view: &SaveView| -> PlayerMotion {
         view.session
@@ -478,7 +478,7 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
     // The dribbling stand-in sits below the 700-point fold since the
     // physique grid's cap lengthened the section; the hover needs it inside
     // the scroll viewport, so the window is taller.
-    let mut window = Headless::sized(1100.0, 1000.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 1000.0);
     open_appearance(&mut window, &mut view);
     let motion_of = |view: &SaveView| -> PlayerMotion {
         view.session
@@ -546,7 +546,7 @@ fn a_stored_celebration_past_its_top_draws_as_stored_without_marking_the_player(
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     for _ in 0..5 {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -603,7 +603,7 @@ fn a_fox_save_with_some_ids_set_lists_them_with_strip_again() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     // The window lists exactly the three restored players, by id: the
@@ -700,7 +700,7 @@ fn randomize_low_end_stores_zero_for_one_based_and_one_for_celebrations() {
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.randomize_draw = Box::new(|_| 1);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     let motion_of = |view: &SaveView| -> PlayerMotion {
         view.session
@@ -764,7 +764,7 @@ fn a_physique_field_shows_stored_minus_limit_and_stores_shown_plus_it() {
             .neck_length
     };
     assert_eq!(neck_length(&view), 12, "premise: stored 12");
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
 
     let nodes = scroll_into_view(&mut window, &mut view, |node| {
@@ -795,7 +795,7 @@ fn a_swatch_click_stores_its_index() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     let skin_of = |view: &SaveView| {
         view.session
@@ -840,7 +840,7 @@ fn a_one_based_motion_shows_one_above_stored_within_the_measured_top() {
     // Taller than 700 so the motion rows stay inside the scroll viewport
     // for the click and typing below (the physique cap lengthened the
     // section).
-    let mut window = Headless::sized(1100.0, 1000.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 1000.0);
     open_appearance(&mut window, &mut view);
     let motion_of = |view: &SaveView| {
         view.session
@@ -927,7 +927,7 @@ fn a_combo_pick_stores_the_options_index_as_one_undo_entry() {
             .sleeves
     };
     assert_ne!(sleeves(&view), 2, "premise: not Long");
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
 
     let nodes = scroll_into_view(&mut window, &mut view, |node| {
@@ -969,7 +969,7 @@ fn the_player_gloves_checkbox_draws_the_runs_flag() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     // The box is bare: the label sits in the cell before it.
     fn gloves_box(nodes: &[accesskit::Node]) -> &accesskit::Node {
@@ -1049,7 +1049,7 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -1108,7 +1108,7 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
     view17.open(&path17);
     view17.aesthetics_from_exports = true;
     view17.edit_aesthetics = true;
-    let mut window17 = Headless::sized(1100.0, 700.0);
+    let mut window17 = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window17, &mut view17);
     let (_, nodes, _) =
         window17.frame(Vec::new(), |ui| show(ui, &mut view17, &|| Vec::new(), None));
@@ -1120,19 +1120,17 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
     );
 }
 
-// The strip and motion grids break a row after `pairs_per_row` pairs (190
-// each for the strip's four, 194 for the motion's two, at this pane's
-// width): the first row's controls share one top, the next pair wraps
-// below — the same rule `the_stats_rows_wrap_at_the_panes_width` pins for
-// the stats.
+// The strip and motion grids break a row after the draft's pairs (four
+// for the strip, two for the motion): the first row's controls share one
+// top, the next pair starts the row below.
 #[test]
-fn the_strip_and_motion_grids_wrap_after_the_fitted_pairs() {
+fn the_strip_and_motion_grids_break_after_the_drafts_pairs() {
     let path = fixture(PesVersion::Pes21, "grid_wraps");
     let mut view = SaveView::new();
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let y = |label: &str| control_right_of(&nodes, label).bounds().expect("bounds").y0;
@@ -1164,7 +1162,7 @@ fn the_boots_id_control_takes_the_records_bound() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     let nodes = scroll_into_view(&mut window, &mut view, |node| {
         node.role() == Role::Label && node.value() == Some("Boots ID")
@@ -1221,7 +1219,7 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.selected = Some(Selection::Player(701, 0));
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     let flags_of = |view: &SaveView| {
         view.session
@@ -1458,8 +1456,9 @@ fn the_motion_grid_holds_two_pairs_a_row_in_two_columns() {
 
 // plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
 // layout", the same pane rule as the player view's: on the pane the
-// shell's smallest default window leaves (877 x 624) every drawn node
-// ends inside it — on PES 17 unlocked, and on PES 21 with the switch on.
+// shell leaves at the 1280 x 800 window, the narrowest a member sees,
+// every drawn node ends inside it — on PES 17 unlocked, and on PES 21
+// with the switch on.
 #[test]
 fn the_appearance_section_fits_the_pane_the_shell_leaves() {
     for (version, test) in [
@@ -1475,14 +1474,14 @@ fn the_appearance_section_fits_the_pane_the_shell_leaves() {
             view.team = TeamChoice::Team(734);
             view.selected = Some(Selection::Player(734, 0));
         }
-        let mut window = Headless::sized(877.0, 624.0);
+        let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
         open_appearance(&mut window, &mut view);
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         for node in &nodes {
             if let Some(bounds) = node.bounds() {
                 assert!(
-                    bounds.x1 <= 877.0,
+                    bounds.x1 <= f64::from(DEFAULT_PANE.x),
                     "{version:?}: {:?} {} clips the pane's right edge ({bounds:?})",
                     node.role(),
                     node.label().or(node.value()).unwrap_or("?")
@@ -1535,7 +1534,7 @@ fn the_setting_off_draws_no_lock_and_the_setting_on_locks_the_paths() {
         tool_context(path.parent().unwrap(), studio_core::Settings::default());
     let mut tool = crate::Tool::new();
     tool.view.open(&path);
-    let mut window = Headless::sized(1100.0, 1000.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 1000.0);
     open_appearance(&mut window, &mut tool.view);
 
     let nodes = tool_frame(&mut window, &mut tool, &ctx);

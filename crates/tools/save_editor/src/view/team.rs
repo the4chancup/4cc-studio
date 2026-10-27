@@ -45,9 +45,7 @@ pub(super) enum HeaderUnit {
 /// The header's units in their order, each with its claimed width on the
 /// row, measured once in a headless frame at 1600 x 1400 (each unit's
 /// drawn `min_rect` width; the widths are fixed, a longer team name
-/// changes nothing). A claim a bit wide wraps the unit a bit early; it
-/// never splits it, each unit being one `allocate_ui` inside the
-/// `horizontal_wrapped`.
+/// changes nothing), each unit one `allocate_ui` at its claim.
 pub(super) const TEAM_ROW: [(HeaderUnit, f32); 7] = [
     (HeaderUnit::Name, 178.5),
     (HeaderUnit::Short, 78.0),
@@ -110,13 +108,11 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         }
         ui.label(title);
         // The fields, the ids and the button on one row (the maintainer's
-        // 2026-10-26 ask: the Tactics below need the height). Each unit is
-        // one `allocate_ui` inside `horizontal_wrapped`, so a narrower
-        // view wraps whole units to a second row, never inside a pair; the
-        // units' widget ids follow their fixed call order inside the
-        // wrapped child, so a wrap never re-keys a field.
+        // 2026-10-26 ask: the Tactics below need the height), each unit one
+        // `allocate_ui` at its claim. The pane is never narrower than the
+        // row (`plans/save_editor.md` "The player view"), so it never wraps.
         let mut open_kit_slots = false;
-        ui.horizontal_wrapped(|ui| {
+        ui.horizontal(|ui| {
             for (unit, width) in TEAM_ROW {
                 ui.allocate_ui_with_layout(
                     egui::vec2(width, ui.spacing().interact_size.y),

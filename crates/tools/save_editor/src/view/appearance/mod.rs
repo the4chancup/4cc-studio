@@ -27,7 +27,7 @@ use pes_savefile::settings_toml::{Kind, SettingKey};
 use pes_version::{Engine, PesVersion};
 
 use crate::session::{Session, is_stripped};
-use crate::view::abilities::{gating_tooltip, maybe_end_row, number, pairs_per_row, small_stat};
+use crate::view::abilities::{gating_tooltip, maybe_end_row, number, small_stat};
 use crate::view::appearance::fields::{
     MOTIONS, MotionField, PHYSIQUE, Palette, STRIP_ENUMS, combo_options, number_range, option_name,
     palette,
@@ -385,8 +385,7 @@ fn edit_flags(
 }
 
 /// The 14 physique fields in an aligned grid of label and field cells,
-/// the draft's two pairs a row as a cap a narrower pane lowers (`pairs_per_row`
-/// at the draft's 190-point pair). Each field is on its key's `Signed`
+/// the draft's two pairs a row. Each field is on its key's `Signed`
 /// scale (±7: `shown - limit` stores `shown + limit`).
 fn physique_grid(
     ui: &mut egui::Ui,
@@ -394,7 +393,7 @@ fn physique_grid(
     player_id: u32,
     appearance: &PlayerAppearance,
 ) {
-    let per_row = pairs_per_row(ui, 190.0).min(2);
+    let per_row = 2;
     egui::Grid::new("appearance physique").show(ui, |ui| {
         for (index, (label, key, get, set)) in PHYSIQUE.iter().enumerate() {
             let Kind::Signed { limit } = key.spec().kind else {
@@ -425,10 +424,10 @@ fn physique_grid(
 
 /// The draft's Strip style group: the ids, the enums and the two
 /// checkboxes as label and field cells in one grid (the draft's four
-/// pairs a row as a cap a narrower pane lowers — its two table rows fall
-/// out at four: the ids and the first two enums, then the rest with the
-/// checkboxes), then the wrist-taping, spectacles and player-gloves rows
-/// as a second grid, a label cell and a contents cell each. The draft's
+/// pairs a row — its two table rows fall out at four: the ids and the
+/// first two enums, then the rest with the checkboxes), then the
+/// wrist-taping, spectacles and player-gloves rows as a second grid, a
+/// label cell and a contents cell each. The draft's
 /// colspan rows cannot share the first grid (an egui grid has no span),
 /// so their labels align among themselves instead.
 fn strip_rows(
@@ -438,7 +437,7 @@ fn strip_rows(
     version: PesVersion,
     appearance: &PlayerAppearance,
 ) {
-    let per_row = pairs_per_row(ui, 190.0).min(4);
+    let per_row = 4;
     egui::Grid::new("appearance strip").show(ui, |ui| {
         // The id fields take the record's own bound (`player_max_value`,
         // wider than `settings.toml`'s stock range): a compile-allocated
@@ -622,10 +621,8 @@ fn motion_grid(
     motion: &PlayerMotion,
     draw: &mut dyn FnMut(u8) -> u8,
 ) {
-    // Two pairs a row (the draft's `COL_PANELS` motion `[2, 194, 14]`:
-    // the column 194 wide, its 14 the panel's own chrome, which the
-    // collapsing section's `available_width` already excludes).
-    let per_row = pairs_per_row(ui, 194.0).min(2);
+    // Two pairs a row (the draft's `COL_PANELS` motion `[2, 194, 14]`).
+    let per_row = 2;
     egui::Grid::new("appearance motion").show(ui, |ui| {
         let mut pair = 0usize;
         for field in &MOTIONS[..7] {

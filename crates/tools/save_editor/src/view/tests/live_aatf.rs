@@ -119,7 +119,8 @@ fn the_list_shrinks_as_edits_fix_violations_and_grows_back_on_undo() {
 // SE-GUI-30
 #[test]
 fn a_clean_team_reads_no_issues_and_a_broken_rule_the_count() {
-    let (mut view, mut window) = open_legal_714("live_aatf_clean", Headless::sized(1100.0, 800.0));
+    let (mut view, mut window) =
+        open_legal_714("live_aatf_clean", Headless::sized(DEFAULT_PANE.x, 800.0));
     view.live_aatf = true;
     let nodes = live_checked(&mut window, &mut view, None, &[714]);
     let name = view
@@ -194,7 +195,7 @@ fn the_toggle_is_remembered_in_the_settings() {
     table.insert("unread_key".to_owned(), toml::Value::Integer(3));
     settings.set_tool("save-editor", table);
     let (ctx, _events_rx, _requests_rx) = tool_context(&dir, settings);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
 
     // The toggle clicked: the setting holds true, the unread key stands.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
@@ -432,7 +433,7 @@ fn the_checks_follow_the_selected_rows_team_under_a_filter() {
     view.live_aatf = true;
     view.aatf.open = true;
     view.aatf.mode = crate::view::aatf_panel::AatfMode::Current;
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
 
     // The filter lists 70202 of team 702 across teams; clicking his row
     // selects him.

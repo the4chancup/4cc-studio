@@ -95,10 +95,11 @@ fn assert_quick_actions(
         .and_then(accesskit::Node::bounds)
         .expect("a player row in the list");
     // Every button fills its column's width (its widest cell's natural
-    // width while the two columns fit the list, else half each), its
-    // label eliding only when it cannot fit.
+    // width while the two columns fit the grid's band, else half each),
+    // its label eliding only when it cannot fit. The band runs past the
+    // rows to the list's scroll bar.
     let style = window.ctx.global_style();
-    let columns = expected_columns(window, left, right, row.x1 - row.x0);
+    let columns = expected_columns(window, left, right, grid_band_right(nodes) - row.x0);
     let ctx = &window.ctx;
     let mut column_xs = Vec::new();
     for (labels, cell) in [(left, columns[0]), (right, columns[1])] {
@@ -319,7 +320,7 @@ fn open_701(test: &str) -> (PathBuf, SaveView, Headless) {
     let mut view = SaveView::new();
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
-    (path, view, Headless::sized(1100.0, 700.0))
+    (path, view, Headless::sized(DEFAULT_PANE.x, 700.0))
 }
 
 /// `name`'s embedded ruleset as a rules file under `dir` (its own custom
@@ -546,7 +547,7 @@ fn set_stats_writes_every_ability_to_the_number() {
     let mut view = SaveView::new();
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let before = player_entry(&view, 70101);
     assert_eq!(before.stats.speed, 60, "premise: the moved stat");
     assert_eq!(view.set_stats, 77, "the number starts at 77");
@@ -675,7 +676,7 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
     table.insert("unread_key".to_owned(), toml::Value::Integer(3));
     settings.set_tool("save-editor", table);
     let (ctx, _events_rx, _requests_rx) = tool_context(&dir, settings);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
 
     // The VTL11 path typed into the row and Enter pressed: the setting holds it,
     // the tool's other key unchanged, and the next view frame draws VTL11's
@@ -916,7 +917,7 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
 #[test]
 fn the_quick_actions_reach_the_panes_bottom() {
     let (_path, mut view, _window) = open_701("quick_fills_pane");
-    let mut window = Headless::sized(1280.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let panel_fill = window.ctx.style_of(window.ctx.theme()).visuals.panel_fill;
     let frame = |shapes: &[egui::epaint::ClippedShape],
@@ -1077,13 +1078,25 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
     let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(wide.as_path()))
     });
-
+    // The cells as the labels alone say they should be: halves, the long
+    // label elided in its own.
+    let wide_label = format!("Make {WIDE_TIER}");
+    let left = [wide_label.as_str(), "Make Silver", "Make Bronze"];
+    let right = ["Make Goalkeeper", "Make Regular", "Set stats"];
     let row = nodes
         .iter()
         .find(|node| player_row(node))
         .and_then(accesskit::Node::bounds)
         .expect("a player row in the list");
     let band_right = grid_band_right(&nodes);
+    let natural = expected_columns(&window, &left, &right, f64::INFINITY);
+    assert!(
+        natural[0] + 6.0 + natural[1] > band_right - row.x0,
+        "premise: the naturals {natural:?} do not fit the band from {} to {band_right}",
+        row.x0
+    );
+    assert_quick_actions(&window, &nodes, &shapes, &left, &right);
+
     let half = (band_right - row.x0 - 6.0) / 2.0;
     for label in [
         &*format!("Make {WIDE_TIER}"),

@@ -529,7 +529,7 @@ fn the_rows_group_per_team_in_the_open_saves_order() {
     let mut view = SaveView::new();
     view.open(&open_path);
     view.comparator.open = true;
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     pick(&mut window, &mut view, picked);
     compared(&mut window, &mut view);
     let lines = window_lines(&mut window, &mut view, None, "Comparator");
@@ -644,7 +644,7 @@ fn a_stripped_players_mark_reads_beside_his_head() {
         let mut view = SaveView::new();
         view.open(&open_path);
         view.comparator.open = true;
-        let mut window = Headless::sized(1100.0, 800.0);
+        let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
         pick(&mut window, &mut view, picked);
         compared(&mut window, &mut view);
         let expected = format!("Player 70101  1 PLACEHOLDER, {mark}");
@@ -957,7 +957,7 @@ fn export_writes_the_commands_text_whatever_the_team_filter() {
     let mut view = SaveView::new();
     view.open(&open_path);
     view.comparator.open = true;
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     pick(&mut window, &mut view, picked.clone());
     compared(&mut window, &mut view);
 

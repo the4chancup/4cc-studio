@@ -2874,7 +2874,20 @@ briefs, review loops, gates and mutation runs as for any step.
     halves by a rules file's long label. Ruled: the shell discards the pass that changes the
     zoom, the five go, the halves stay, the view tests draw the 1224-point design pane (113
     drew 1100); plan and DECISIONS "No narrow-pane fallback, and no frame laid out under the
-    design width". Brief `.tmp/0_0_1m/brief_m2.md`, after j4
+    design width". Done 2026-10-27 (Opus, `.tmp/0_0_1m/m2_report.md`): the shell's
+    `request_discard` after a zoom change (ST-WIN-02's jump test); the columns' wrap, column
+    2's shrink, the one-column cards, `pairs_per_row` and the team row's wrap removed; 112 view
+    tests drawn at `DEFAULT_PANE` (1224) instead of 1100, seven tests of the removed fallbacks
+    deleted; the design fit and the halves were already pinned (SE-GUI-37's test, the team
+    row's, the halves test, now through `expected_columns`, whose helper read the rows' width
+    for the band's). Files: `studio_core/src/shell/{mod.rs,window_size/}`,
+    `team_widgets/src/cards.rs`, `save_editor/src/view/{abilities,mod,team}.rs`,
+    `view/appearance/mod.rs`, `view/tests.rs`, 15 files of `view/tests/`. Open: the window
+    text and ST-WIN-01/02 to `spec/core/gui.md`
+  - [ ] m2b the implementation's findings (`.tmp/0_0_1m/m2_rulings.md`, brief `brief_m2b.md`):
+    a player view's first frame drawn 26 points right of every later one at the design pane
+    (the centring pad's widths from egui's first-show pass); `the_two_column_fit_is_the_drafts_330`
+    asserting what always holds; `Headless::new()`'s 800-point window, a pane no member sees
 - [x] 0.0.1n the drafts' Layout edit and scaling (the same review; `plans/core/gui.md`
   "Layout edit", the "Size:" bullet): a moved panel pinned where dropped, a columned panel
   narrowed into fewer columns, the simulated window scaled under the design width

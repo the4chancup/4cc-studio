@@ -59,6 +59,11 @@ fn window_frame(
     size_px: egui::Vec2,
     native_ppp: f32,
 ) -> FrameOutput {
+    run_frame(ctx, app, window_input(ctx, size_px, native_ppp))
+}
+
+/// `window_frame`'s input, for a test that runs the passes itself.
+fn window_input(ctx: &egui::Context, size_px: egui::Vec2, native_ppp: f32) -> egui::RawInput {
     let mut input = raw_input(Vec::new(), true, None, None);
     let size_pt = size_px / (ctx.zoom_factor() * native_ppp);
     input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size_pt));
@@ -68,7 +73,7 @@ fn window_frame(
         .expect("`RawInput::default` carries the root viewport");
     info.native_pixels_per_point = Some(native_ppp);
     info.inner_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size_pt));
-    run_frame(ctx, app, input)
+    input
 }
 
 /// One harness frame for a window whose outer top-left sits at `outer_min`
@@ -881,6 +886,37 @@ fn a_window_narrower_than_the_design_width_scales_the_ui_with_the_width() {
     window_frame(&egui_ctx, &mut app, egui::vec2(1440.0, 1050.0), 1.5);
     assert_eq!(egui_ctx.zoom_factor(), 0.75);
     assert_eq!(egui_ctx.content_rect().width(), 1280.0);
+}
+
+// ST-WIN-02
+#[test]
+fn the_frame_after_a_jump_under_the_design_width_lays_out_at_the_design_width() {
+    // A snap from a 1920-point window to 960: the frame that meets 960 at zoom
+    // 1 must not reach the screen laid out 960 points wide.
+    let egui_ctx = test_context();
+    let Shell { mut app, _dir, .. } = shell();
+    window_frame(&egui_ctx, &mut app, egui::vec2(1920.0, 1000.0), 1.0);
+    window_frame(&egui_ctx, &mut app, egui::vec2(1920.0, 1000.0), 1.0);
+    assert_eq!(egui_ctx.zoom_factor(), 1.0);
+
+    // Each pass of the jump frame: its layout width and whether egui discards it.
+    let mut passes = Vec::new();
+    let input = window_input(&egui_ctx, egui::vec2(960.0, 1000.0), 1.0);
+    let output = egui_ctx.run_ui(input, |ui| {
+        app.logic(ui.ctx(), &mut eframe::Frame::_new_kittest());
+        app.ui(ui, &mut eframe::Frame::_new_kittest());
+        passes.push((ui.ctx().content_rect().width(), ui.ctx().will_discard()));
+    });
+    output.drop_without_applying_deltas();
+
+    let (last_width, _) = *passes.last().expect("a frame runs at least one pass");
+    assert_eq!(last_width, 1280.0, "the kept pass, of {passes:?}");
+    for (width, discarded) in &passes {
+        assert!(
+            *discarded || *width == 1280.0,
+            "a pass reaching the screen, of {passes:?}"
+        );
+    }
 }
 
 // The zoom factor is the shell's alone: egui's keyboard zoom is off

@@ -133,8 +133,10 @@ fn show_suggestions_reveals_the_unused_allowances() {
     // ruleset (every one carries the TierCount errors): the legal team is
     // the CLI's `official_legal.toml` on team 714 of the PES 15 save,
     // whose 32 findings are all suggestions.
-    let (mut view, mut window) =
-        open_legal_714("aatf_panel_suggestions", Headless::sized(1100.0, 800.0));
+    let (mut view, mut window) = open_legal_714(
+        "aatf_panel_suggestions",
+        Headless::sized(DEFAULT_PANE.x, 800.0),
+    );
     view.aatf.open = true;
     let nodes = panel_checked(&mut window, &mut view, None, &[714]);
     assert!(
@@ -186,7 +188,7 @@ fn select_teams_lists_the_picked_teams_and_a_failed_ones_line() {
     view.open(&save);
     view.aatf.open = true;
     let rules = Some(rules_path.as_path());
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     let names = |id: u32| {
         view.session
             .as_ref()
@@ -303,7 +305,7 @@ fn validate_rules_reports_the_files_findings() {
     let mut view = SaveView::new();
     view.open(&save);
     view.aatf.open = true;
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
 
     // The embedded official ruleset.
     let nodes = draw(&mut window, &mut view, None);
@@ -386,7 +388,7 @@ fn a_rules_file_that_does_not_load_shows_the_error_in_the_lists_place() {
     let mut view = SaveView::new();
     view.open(&save);
     view.aatf.open = true;
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(broken.as_path()))
     });
@@ -507,7 +509,7 @@ fn save_a_copy_writes_the_embedded_official_file() {
         assert_eq!(name, "autumn26.4ccrules", "the suggested name");
         Some(for_dialog.clone())
     });
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     let nodes = draw(&mut window, &mut view, None);
     click(
         &mut window,
@@ -570,7 +572,8 @@ fn a_rows_click_clears_the_filter_so_the_row_shows() {
 // SE-GUI-15
 #[test]
 fn no_violations_needs_every_check_to_succeed() {
-    let (mut view, mut window) = open_legal_714("aatf_fail_only", Headless::sized(1100.0, 800.0));
+    let (mut view, mut window) =
+        open_legal_714("aatf_fail_only", Headless::sized(DEFAULT_PANE.x, 800.0));
     let dir = view
         .session
         .as_ref()

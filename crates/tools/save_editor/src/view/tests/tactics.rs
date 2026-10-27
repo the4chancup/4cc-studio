@@ -64,7 +64,7 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     open_team_view(&mut window, &mut view, 701);
     let preset1_before = team_entry(&view, 701).tactics.presets[0].clone();
     let formations_before = team_entry(&view, 701).tactics.presets[0].formations.clone();
@@ -291,7 +291,7 @@ fn the_formation_bar_copies_and_swaps_in_the_shown_preset() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics;
     let formations_before = before.presets[1].formations.clone();
@@ -347,7 +347,7 @@ fn the_preset_selector_writes_nothing() {
     let path = fixture(PesVersion::Pes21, "tactics_preset_select");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     open_team_view(&mut window, &mut view, 701);
     assert_eq!(view.tactics.preset, 0, "preset 1 is on screen first");
 
@@ -397,7 +397,7 @@ fn the_preset_bars_menu_and_fluid_checkbox() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
@@ -470,7 +470,7 @@ fn the_fluid_checkbox_is_gated_on_pes15() {
     let path = fixture(PesVersion::Pes15, "tactics_fluid_gated");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     window
         .ctx
         .all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
@@ -1735,7 +1735,7 @@ fn the_pitch_draws_a_starter_s_portrait_from_the_selected_game() {
         "tactics_portrait_pes",
         &[("4cc_40_faces.cpk", &[(entry.as_str(), bytes)])],
     );
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     open_team_view(&mut window, &mut view, 701);
     view.select_portraits(&window.ctx, &folder, PesVersion::Pes21);
 
@@ -1861,7 +1861,7 @@ fn the_popover_scrolls_with_the_pitch() {
     let path = fixture(PesVersion::Pes21, "tactics_popover_scroll");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(877.0, 624.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 624.0);
     open_team_view(&mut window, &mut view, 701);
 
     // Open the popover on an outfield marker a click can reach.
@@ -1915,7 +1915,7 @@ fn the_view_scrolls_to_the_grids_last_control() {
     let path = fixture(PesVersion::Pes21, "stacked_scroll_bottom");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(877.0, 624.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 624.0);
     open_team_view(&mut window, &mut view, 701);
 
     let at = egui::pos2(300.0, 350.0);
@@ -1945,10 +1945,10 @@ fn the_view_scrolls_to_the_grids_last_control() {
 
 // plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
 // layout" (the window's 960 × 600 minimum, ST-WIN-01's last clause): the
-// pane the minimum window leaves — (960 - 56) wide, the sidebar's rail
-// off, and (600 - 24) high, the status bar's — holds every view whole:
-// every widget and label ends inside the pane's right edge, no row
-// clipping in place of a wrap.
+// minimum window lays out at the design width ("Scaling with the
+// width"), so the pane it leaves is `DEFAULT_PANE`'s width, and that pane
+// holds every view whole: every widget and label ends inside the pane's
+// right edge.
 #[test]
 fn every_view_fits_the_pane_the_minimum_window_leaves() {
     /// The widget and label roles, plus `Unknown` (the pitch canvas'
@@ -1967,14 +1967,12 @@ fn every_view_fits_the_pane_the_minimum_window_leaves() {
         Role::Label,
         Role::Unknown,
     ];
-    // The pane the minimum window leaves.
-    let pane = egui::vec2(960.0 - 56.0, 600.0 - 24.0);
+    // The pane the minimum window leaves: 960 × 600 at zoom 0.75 is the
+    // 1280 × 800 design window.
+    let pane = DEFAULT_PANE;
     let edge = f64::from(pane.x - PANEL_MARGIN);
-    // Each selection kind: the player view (the Appearance section closed
-    // as it opens, then open). The team view's grid lays out at the
-    // design width — below it the window's width zoom is what fits it
-    // (the core plan, "Scaling with the width"), so the raw-pane check is
-    // the player view's alone.
+    // The player view (the Appearance section closed as it opens, then
+    // open); the team view's fit at this pane is the Tactics tests'.
     for version in [PesVersion::Pes21, PesVersion::Pes17] {
         let path = fixture(version, "min_pane_fit");
         for name in ["player", "appearance"] {

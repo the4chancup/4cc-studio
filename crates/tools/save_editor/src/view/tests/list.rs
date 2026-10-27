@@ -19,7 +19,7 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
     view.open(&path);
     // Tall enough for a team's row plus all of 701's 23 player rows (the
     // team row eats one row's height).
-    let mut window = Headless::sized(800.0, 1100.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 1100.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     // The team selector is the left panel's combo (the detail holds combos of
@@ -493,7 +493,7 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     view.open(&path);
     assert_eq!(view.team, TeamChoice::All, "open selects ALL");
     // Tall enough for team 702's block to be drawn under team 701's.
-    let mut window = Headless::sized(800.0, 1100.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 1100.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     // A drag onto another team's row: nothing moves.

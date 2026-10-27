@@ -507,9 +507,8 @@ pub(crate) fn show(
                         ui.horizontal(|ui| {
                             ui.add_space(pad);
                             ui.vertical(|ui| {
-                                // The stored total, or the pane's when it
-                                // is smaller (the columns wrap inside).
-                                ui.set_width(width.min(ui.available_width()));
+                                // The columns' stored total.
+                                ui.set_width(width);
                                 info_strip::show(ui, view);
                                 abilities::show(ui, view);
                                 egui::CollapsingHeader::new("Appearance")

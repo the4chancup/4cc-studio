@@ -123,7 +123,7 @@ fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() 
     let path = fixture(PesVersion::Pes21, "team_view_edit");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
     assert_eq!(
         team_entry(&view, 701).name,
@@ -240,7 +240,7 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
     // The Kit slots… button opens the dialog over the view; a second frame
     // before reading nodes: the modal re-centres once its content's size
@@ -368,7 +368,7 @@ fn the_team_name_field_gets_its_full_width_on_the_first_frame() {
     let path = fixture(PesVersion::Pes21, "team_name_width");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     // The release frame is the first one that draws the team view.
     let nodes = click_at(&mut window, centre(team_row(&nodes, &view, 701)), &mut view);
@@ -395,7 +395,7 @@ fn the_title_is_the_teams_name_in_the_bodys_strong_weight() {
     let path = fixture(PesVersion::Pes21, "team_title_body");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -458,74 +458,6 @@ fn the_fields_ids_and_kit_slots_button_share_one_row_at_the_default_pane() {
     );
 }
 
-// plans/save_editor.md "Editing UI", "The team view" bullet (whole units
-// wrap to a second row rather than a pair splitting): on a pane narrower
-// than the row, whole units take a second row and every label keeps its
-// control beside it.
-#[test]
-fn whole_units_wrap_to_a_second_row_on_a_narrow_pane() {
-    let path = fixture(PesVersion::Pes21, "team_header_wrap");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(877.0, 624.0);
-    open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-
-    let topmost = |value: &str| {
-        nodes
-            .iter()
-            .filter(|node| node.role() == Role::Label && node.value() == Some(value))
-            .filter_map(|node| node.bounds())
-            .min_by(|a, b| a.y0.partial_cmp(&b.y0).expect("ordered bounds"))
-            .unwrap_or_else(|| panic!("no {value:?} label"))
-    };
-    let row_y = topmost("Team").y0;
-    // The row's left edge, for the wrapped units' alignment.
-    let row_x = topmost("Team").x0;
-    // An early unit stays on the first row; the button wrapped whole.
-    assert!(
-        (topmost("Col. 1").y0 - row_y).abs() < 4.0,
-        "Col. 1 shares the first row"
-    );
-    let button_y = node_labeled(&nodes, Role::Button, "Kit slots\u{2026}")
-        .bounds()
-        .expect("button bounds")
-        .y0;
-    assert!(
-        button_y > row_y + 5.0,
-        "the Kit slots button wrapped to a second row ({button_y} vs {row_y})"
-    );
-    // Every pair keeps its control on its own row (a pair never splits).
-    for (label, role) in [
-        ("Team", Role::TextInput),
-        ("Short", Role::TextInput),
-        ("Col. 1", Role::ColorWell),
-        ("Col. 2", Role::ColorWell),
-        ("Manager ID", Role::SpinButton),
-        ("Stadium ID", Role::SpinButton),
-    ] {
-        let control = first_right_of(&nodes, label_node_of(&nodes, label, row_x), |node| {
-            node.role() == role
-        })
-        .unwrap_or_else(|| panic!("no {role:?} right of {label:?}"));
-        let dy = (control.bounds().expect("bounds").y0 - topmost(label).y0).abs();
-        assert!(dy < 4.0, "{label}'s control sits on its row");
-    }
-}
-
-/// The Label node `value` nearest `row_x`'s left edge (the row's own
-/// label, not a second row's or the list's).
-fn label_node_of<'a>(nodes: &'a [accesskit::Node], value: &str, row_x: f64) -> &'a accesskit::Node {
-    nodes
-        .iter()
-        .filter(|node| node.role() == Role::Label && node.value() == Some(value))
-        .min_by(|a, b| {
-            let x = |node: &&accesskit::Node| (node.bounds().expect("bounds").x0 - row_x).abs();
-            x(a).partial_cmp(&x(b)).expect("ordered bounds")
-        })
-        .unwrap_or_else(|| panic!("no {value:?} label"))
-}
-
 // plans/save_editor.md "Editing UI", "The team view" bullet (the ids share
 // the fields' row "because the Tactics editor below needs the height"):
 // at the default pane the view's lowest drawn stroke — the lists' and
@@ -574,7 +506,7 @@ fn the_short_name_box_takes_three_characters() {
         "3",
         "premise: team 701's short name"
     );
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let field = nodes
@@ -618,7 +550,7 @@ fn a_stored_short_name_past_three_shows_whole_until_edited() {
         "ABCD",
         "premise: the stored short name"
     );
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let field = nodes
@@ -748,7 +680,7 @@ fn drawing_the_team_view_edits_nothing() {
         !team_entry(&view, 701).edit_flags.name,
         "premise: the name flag is clear"
     );
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
     for _ in 0..3 {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -770,7 +702,7 @@ fn a_team_name_keystroke_past_the_fields_limit_is_not_taken() {
     let path = fixture(PesVersion::Pes21, "team_name_overlong");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
     // The version's own field length in bytes, read from the schema —
     // never a typed constant.
@@ -830,7 +762,7 @@ fn the_boglo_dialogs_preview_names_the_last_filled_slots_id() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     // The last filled slot's index, read from the roster, never typed in.
     let last = rostered(&view, 701)
         .last()
@@ -920,7 +852,7 @@ fn the_boots_dialog_prefills_the_team_rows_first_filled_slot() {
         let player = player_entry(&view, first);
         (player.appearance.boots_id, player.appearance.gloves_id)
     };
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
 
     let nodes = open_team_menu(&mut window, &mut view);
@@ -965,7 +897,7 @@ fn the_boots_dialog_prefills_past_a_dangling_roster_id() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
 
     let nodes = open_team_menu(&mut window, &mut view);
@@ -994,7 +926,7 @@ fn on_pes16_the_colours_ids_and_kit_slots_draw_disabled_with_their_versions() {
     let path = fixture(PesVersion::Pes16, "team_view_gated");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
@@ -1060,7 +992,7 @@ fn the_short_name_upper_cases_caps_at_three_and_sets_the_flags() {
             "3",
             "premise: team 701's short name"
         );
-        let mut window = Headless::sized(1100.0, 700.0);
+        let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
         open_team_view(&mut window, &mut view, 701);
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -1222,7 +1154,7 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     // A rostered player of another team, to prove the operations stay on
     // the selected player's team.
     let other_id = {
@@ -1394,7 +1326,7 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
     let mut view = SaveView::new();
     view.open(&path);
     view.aesthetics_from_exports = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let nodes = open_team_menu(&mut window, &mut view);
 
     for label in [
@@ -1490,7 +1422,7 @@ fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let cleared = |view: &SaveView, id: u32| {
         let flags = &player_entry(view, id).edit_flags;
         !(flags.face || flags.hair || flags.physique || flags.strip)
@@ -1571,7 +1503,7 @@ fn the_team_menu_and_ctrl_f_act_on_the_selected_rows_team() {
     view.open(&path);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let cleared = |view: &SaveView, id: u32| {
         let flags = &player_entry(view, id).edit_flags;
         !(flags.face || flags.hair || flags.physique || flags.strip)
@@ -1620,52 +1552,5 @@ fn the_team_menu_and_ctrl_f_act_on_the_selected_rows_team() {
     assert!(
         menu_button(&nodes, "Team").is_disabled(),
         "the Team menu is disabled with no row selected"
-    );
-}
-
-// plans/save_editor.md "Editing UI", "The team view" bullet (whole units
-// wrap): at a pane just past the row's full claim the units hold one row
-// — the wrapped layout's edge, the claim total plus the gaps between
-// units inside `VIEW_AREA_OFFSET`.
-#[test]
-fn the_header_row_holds_one_row_at_the_claims_edge() {
-    let path = fixture(PesVersion::Pes21, "team_view_edge");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let window = Headless::sized(1100.0, 700.0);
-    let spacing = window
-        .ctx
-        .style_of(window.ctx.theme())
-        .spacing
-        .item_spacing
-        .x;
-    let row_width: f64 = crate::view::team::TEAM_ROW
-        .iter()
-        .map(|(_, width)| f64::from(*width))
-        .sum::<f64>()
-        + 6.0 * f64::from(spacing);
-    let mut window = Headless::sized(row_width as f32 + VIEW_AREA_OFFSET, 900.0);
-    open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-
-    let row_y = label_bounds(&nodes, "Short").y0;
-    for label in ["Team", "Col. 1", "Col. 2", "Manager ID", "Stadium ID"] {
-        let bounds = nodes
-            .iter()
-            .filter(|node| node.role() == Role::Label && node.value() == Some(label))
-            .filter_map(|node| node.bounds())
-            .min_by(|a, b| a.y0.partial_cmp(&b.y0).expect("ordered bounds"))
-            .unwrap_or_else(|| panic!("no {label:?} label"));
-        assert!(
-            (bounds.y0 - row_y).abs() < 4.0,
-            "{label} shares the row at the claims' edge"
-        );
-    }
-    let button = node_labeled(&nodes, Role::Button, "Kit slots\u{2026}")
-        .bounds()
-        .expect("button bounds");
-    assert!(
-        (button.y0 - row_y).abs() < 4.0,
-        "the Kit slots button shares the row at the edge"
     );
 }

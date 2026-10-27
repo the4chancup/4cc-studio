@@ -41,7 +41,8 @@ fn panel_bounds(
 /// brings the last one in.
 #[test]
 fn the_results_scroll_reaches_the_last_row() {
-    let (mut view, mut window) = open_legal_714("aatf_panel_scroll", Headless::sized(900.0, 600.0));
+    let (mut view, mut window) =
+        open_legal_714("aatf_panel_scroll", Headless::sized(DEFAULT_PANE.x, 600.0));
     view.aatf.open = true;
     view.aatf.show_suggestions = true;
     let _ = panel_checked(&mut window, &mut view, None, &[714]);
@@ -135,7 +136,7 @@ fn the_picker_scroll_reaches_the_last_team() {
     view.open(&save);
     view.aatf.open = true;
     view.aatf.mode = AatfMode::Select;
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     let (first_label, last_label) = {
         let teams = view
             .session
@@ -229,7 +230,7 @@ fn another_save_starts_the_panel_afresh() {
     let copy = dir.join("copy.4ccrules");
     view.aatf_copy_dialog = Box::new(move |_| Some(copy.clone()));
     let rules = Some(rules_path.as_path());
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     let names = |id: u32| {
         view.session
             .as_ref()

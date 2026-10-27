@@ -12,7 +12,7 @@ fn a_slider_drag_on_the_editor_is_one_undo_entry_and_marks_the_team() {
     let path = fixture(PesVersion::Pes21, "tactics_slider_drag");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 900.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics.presets[0].sliders.clone();
 
@@ -57,7 +57,7 @@ fn a_bench_player_dragged_onto_a_starter_swaps_them_as_one_undo_entry() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 1400.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 1400.0);
     open_team_view(&mut window, &mut view, 701);
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));

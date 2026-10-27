@@ -78,7 +78,7 @@ pub(crate) fn columns_width(ui: &egui::Ui) -> f32 {
 
 /// The columns for the selected player, under `info_strip`'s title: the
 /// three fixed columns side by side, each a `ui.vertical` of panels 14
-/// points apart, the row wrapping whole columns on a narrow pane.
+/// points apart.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, slot, player_id)) = selected_player(view) else {
         return;
@@ -126,25 +126,20 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let generation = *generation;
     let mut skills_changed = false;
     ui.push_id(("player", generation, player_id), |ui| {
-        // A wrapped row with tops aligned: `horizontal_wrapped` centers on
-        // the cross axis, the columns want their tops level.
+        // A row with tops aligned: `horizontal` centers on the cross axis,
+        // the columns want their tops level.
         let spacing = ui.spacing().item_spacing;
         // Each column's allocated width is its last frame's measured one
-        // (the wrap's fit check reads the desired width, the cursor's
-        // advance the used one: giving them different values wraps a
-        // column whose content runs under its constant).
+        // (the constants on a first frame), the widths the centring pad
+        // reads too.
         let saved: [f32; 3] = ui
             .ctx()
             .data(|data| data.get_temp(egui::Id::unique(COLUMN_WIDTHS_ID)))
             .unwrap_or([info_strip::GENERAL_WIDTH, cards::TWO_COLUMN_WIDTH, 170.0]);
         ui.scope_builder(
-            egui::UiBuilder::new()
-                .layout(egui::Layout::left_to_right(egui::Align::Min).with_main_wrap(true)),
+            egui::UiBuilder::new().layout(egui::Layout::left_to_right(egui::Align::Min)),
             |ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(COLUMN_GAP, COLUMN_GAP);
-                // The row's width, read before the columns draw: `max_rect`
-                // is a soft bound, so a column wider than the pane grows it.
-                let pane_width = ui.available_width();
                 // Column 1: General info, Other stats, Playable positions —
                 // its panels `PANEL_GAP` apart.
                 let col1 = ui.allocate_ui_with_layout(
@@ -175,11 +170,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     },
                 );
                 // Column 2: Skills (the Cards left badge in its header
-                // row) over COM playing styles, their columns 158 wide:
-                // the two-column width, or the pane's when that cannot
-                // hold them (the card columns narrow to one).
+                // row) over COM playing styles, their two columns 158 wide.
                 let col2 = ui.allocate_ui_with_layout(
-                    egui::vec2(saved[1].min(pane_width), ui.available_height()),
+                    egui::vec2(saved[1], ui.available_height()),
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
@@ -267,14 +260,6 @@ fn panel(
         });
         add(ui);
     });
-}
-
-/// The count of label/field pairs that fit `ui.available_width()` at
-/// `pair_width` each: how many columns a grid takes at the pane's width
-/// (the estimate is a typical pair's width, so a slightly wider pair
-/// still lands inside). At least one.
-pub(crate) fn pairs_per_row(ui: &egui::Ui, pair_width: f32) -> usize {
-    (ui.available_width() / pair_width).floor().max(1.0) as usize
 }
 
 /// `end_row` after `index` pairs (1-based) of `per_row` are done, so a row

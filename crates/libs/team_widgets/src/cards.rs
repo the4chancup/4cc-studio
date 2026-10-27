@@ -19,8 +19,7 @@ pub const CARD_COLUMN_WIDTH: f32 = 158.0;
 const CARD_COLUMN_GAP: f32 = 14.0;
 
 /// The width `card_columns` needs for its two columns: the host sizes
-/// the column that holds them from it (narrower, the cards draw one
-/// column).
+/// the column that holds them from it.
 pub const TWO_COLUMN_WIDTH: f32 = 2.0 * CARD_COLUMN_WIDTH + CARD_COLUMN_GAP;
 
 /// The badge's tier: its label and the player's card economy under it
@@ -44,9 +43,7 @@ pub enum CardsBadge<'a> {
 
 /// One card kind's checkboxes in two columns `CARD_COLUMN_WIDTH` wide,
 /// `CARD_COLUMN_GAP` apart, filled column by column (the draft's
-/// `.skcols`), narrowing to one column when the width the ui leaves
-/// cannot hold two (`plans/save_editor.md` "Editing UI": "a columned
-/// panel narrows into fewer columns"): every card is drawn on every
+/// `.skcols`): every card is drawn on every
 /// version; one the version cannot store stays in its cell, disabled
 /// with a `PES NN+` tooltip naming the first version that has it.
 /// Returns whether a card was ticked or unticked this frame.
@@ -59,12 +56,7 @@ pub fn card_columns(
 ) -> bool {
     let fields = schema_for(version).player_field_set();
     let mut changed = false;
-    let columns = if ui.available_width() >= TWO_COLUMN_WIDTH {
-        2
-    } else {
-        1
-    };
-    let per_column = names.len().div_ceil(columns);
+    let per_column = names.len().div_ceil(2);
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = CARD_COLUMN_GAP;
         for (column, chunk) in names.chunks(per_column).enumerate() {
@@ -482,65 +474,8 @@ mod tests {
         );
     }
 
-    // plans/save_editor.md "Editing UI", the player view bullet ("a
-    // columned panel narrows into fewer columns"): a pane too narrow for
-    // the two `CARD_COLUMN_WIDTH` columns and their gap draws one
-    // column, every card in its order.
-    #[test]
-    fn the_columns_narrow_to_one_past_the_two_column_width() {
-        // One point under the two-column fit.
-        let mut window = Headless::sized(TWO_COLUMN_WIDTH - 1.0, 1400.0);
-        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
-        let (nodes, _) = window.columns(PesVersion::Pes21, &mut skills, vec![]);
-        let mut cells: Vec<(f64, f64, String)> = nodes
-            .iter()
-            .filter(|node| node.role() == Role::CheckBox)
-            .filter_map(|node| {
-                node.bounds()
-                    .map(|bounds| (bounds.x0, bounds.y0, node.label().unwrap().to_owned()))
-            })
-            .collect();
-        cells.sort_by(|a, b| {
-            a.1.partial_cmp(&b.1)
-                .expect("ordered bounds")
-                .then(a.0.partial_cmp(&b.0).expect("ordered bounds"))
-        });
-        let mut xs: Vec<f64> = cells.iter().map(|(x0, _, _)| *x0).collect();
-        xs.sort_by(f64::total_cmp);
-        xs.dedup();
-        assert_eq!(xs.len(), 1, "one column: every checkbox at one x");
-        let (drawn_skills, drawn_coms) = (
-            &cells[..labels::SKILLS.len()],
-            &cells[labels::SKILLS.len()..],
-        );
-        let order = |names: &[&'static str]| {
-            names
-                .iter()
-                .map(|name| title_case(name))
-                .collect::<Vec<_>>()
-        };
-        assert_eq!(
-            drawn_skills
-                .iter()
-                .map(|(_, _, label)| label.as_str())
-                .collect::<Vec<_>>(),
-            order(&labels::SKILLS),
-            "the skills in their order, top to bottom"
-        );
-        assert_eq!(
-            drawn_coms
-                .iter()
-                .map(|(_, _, label)| label.as_str())
-                .collect::<Vec<_>>(),
-            order(&labels::COM_STYLES),
-            "the COM styles in their order, top to bottom"
-        );
-    }
-
-    // The draft's `.skcols`: two 158-point columns 14 apart is the
-    // literal 330 — the narrow test above sizes its window from
-    // `TWO_COLUMN_WIDTH`, so a mutation of its arithmetic survives it;
-    // this one draws at the literal widths.
+    // The draft's `.skcols`: two 158-point columns 14 apart fill the
+    // literal 330 the host allocates them.
     #[test]
     fn the_two_column_fit_is_the_drafts_330() {
         /// The distinct x0s `card_columns` draws inside a `width`-wide ui.
@@ -568,7 +503,6 @@ mod tests {
             xs.len()
         }
         assert_eq!(columns_at(330.0), 2, "the draft's 330 holds two columns");
-        assert_eq!(columns_at(329.0), 1, "one point under draws one column");
     }
 
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: a checkbox

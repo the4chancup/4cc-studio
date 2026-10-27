@@ -16,10 +16,12 @@ use crate::settings::WindowPlace;
 pub(super) const DEFAULT_SIZE: egui::Vec2 = egui::vec2(1280.0, 800.0);
 
 /// The smallest window a member's resize can reach: 960 × 600 points, under
-/// the smallest default the fit produces (1264 × 648) so the fit never meets
-/// it. The views are laid out for the defaults; below about 900 points wide,
-/// rows with fixed parts (the Tactics pitch, a swatch row, the tab strip)
-/// clip at the right edge instead of wrapping (measured 2026-10-25).
+/// the smallest default the fit produces on a monitor of at least 1280 × 720
+/// logical points (1264 × 648), so on such a monitor the fit never meets it;
+/// a smaller one (a 1366 × 768 laptop at 125% is 1093 × 614) can ask for less
+/// than the minimum, which then holds. Under the design width the UI scales
+/// down rather than narrowing (`width_zoom`), so the bound is legibility:
+/// below 960 points the scaled text drops under 75% of its size.
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) const MIN_SIZE: egui::Vec2 = egui::vec2(960.0, 600.0);
 

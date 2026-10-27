@@ -75,7 +75,7 @@ fn a_speed_edit_does_not_reach_the_next_players_control() {
     let mut view = SaveView::new();
     view.open(&path);
     view.team = TeamChoice::Team(702);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let speed_of = |view: &SaveView, id: u32| {
         view.session
             .as_ref()
@@ -91,8 +91,9 @@ fn a_speed_edit_does_not_reach_the_next_players_control() {
     let a_id = file.team(702).unwrap().roster[0].player_id;
     let b_id = file.team(702).unwrap().roster[1].player_id;
     view.selected = Some(Selection::Player(702, 0));
-    // The wrapped third column's stats sit below the fold on this window:
-    // scroll the Speed row inside the clip before aiming the pointer.
+    // The view moves after its first frame (the centring pad reads the
+    // previous frame's widths): find the Speed row once its bounds hold,
+    // inside the clip, before aiming the pointer.
     let nodes = scroll_into_view(&mut window, &mut view, |node| {
         node.role() == Role::Label && node.value() == Some("Speed")
     });
@@ -133,11 +134,12 @@ fn an_ability_edit_marks_the_row_until_ctrl_s_writes_the_save() {
     let original = std::fs::read(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
 
     // 70101's Speed is 77: focus the control and type a new one. The
-    // wrapped third column's stats sit below the fold on this window:
-    // scroll the Speed row inside the clip before aiming the pointer.
+    // view moves after its first frame (the centring pad reads the
+    // previous frame's widths): find the Speed row once its bounds hold,
+    // inside the clip, before aiming the pointer.
     let nodes = scroll_into_view(&mut window, &mut view, |node| {
         node.role() == Role::Label && node.value() == Some("Speed")
     });
@@ -209,7 +211,7 @@ fn version_gated_controls_are_disabled_in_place_with_their_first_version() {
         let path = fixture(version, test);
         let mut view = SaveView::new();
         view.open(&path);
-        let mut window = Headless::sized(1100.0, 700.0);
+        let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         let sides = right_of_label(&nodes, "Stronger hand", Role::Button);
@@ -258,10 +260,11 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
     let path = fixture(PesVersion::Pes15, "gated_stats_15");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
 
-    // The wrapped third column's stats sit below the fold on this window:
-    // scroll each gated row inside the clip before aiming the pointer.
+    // The view moves after its first frame (the centring pad reads the
+    // previous frame's widths): find each gated row once its bounds hold,
+    // inside the clip, before aiming the pointer.
     for (label, tooltip) in [("Physical Contact", "PES 17+"), ("Clearing", "PES 16+")] {
         let nodes = scroll_into_view(&mut window, &mut view, |node| {
             node.role() == Role::Label && node.value() == Some(label)
@@ -283,41 +286,6 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
     assert!(!speed.is_disabled(), "Speed is enabled on PES 15");
 }
 
-// plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
-// layout": the pane the shell leaves in its smallest default window
-// (1037 × 648, less the sidebar's 56-point rail and the status bar's 24:
-// 981 × 624 — the test draws the tighter 877 × 624); the player list
-// takes its default width, and the view's field/control pairs wrap below
-// one another rather than clip — every control's rect lies inside the
-// central panel.
-#[test]
-fn the_view_fits_the_pane_the_shell_leaves() {
-    let path = fixture(PesVersion::Pes21, "shell_pane");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(877.0, 624.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    for role in [
-        Role::Button,
-        Role::CheckBox,
-        Role::ComboBox,
-        Role::RadioButton,
-        Role::SpinButton,
-        Role::TextInput,
-    ] {
-        for node in nodes.iter().filter(|node| node.role() == role) {
-            let bounds = node
-                .bounds()
-                .unwrap_or_else(|| panic!("{role:?} has no bounds"));
-            assert!(
-                bounds.x1 <= 877.0,
-                "{role:?} {} clips the pane's right edge ({bounds:?})",
-                node.label().unwrap_or("?")
-            );
-        }
-    }
-}
-
 // plans/save_editor.md "Editing UI", the player view bullet (the ability
 // stats in one column in the game's order, each label beside its number):
 // the 25 stats run top to bottom at one x, each label's SpinButton on its
@@ -327,7 +295,7 @@ fn the_stats_fill_one_column_in_the_games_order() {
     let path = fixture(PesVersion::Pes21, "stats_column");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1280.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let at = |label: &str| {
         nodes
@@ -366,7 +334,7 @@ fn a_playable_positions_rating_writes_its_own_slot_and_undoes() {
     let path = fixture(PesVersion::Pes21, "playable_rating");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let playable = |view: &SaveView| {
         view.session
             .as_ref()
@@ -479,7 +447,7 @@ fn the_positions_grid_draws_five_centered_rows_with_the_registered_outlined() {
     let path = fixture(PesVersion::Pes21, "positions_grid");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
@@ -608,7 +576,7 @@ fn a_card_tick_on_another_player_is_its_own_undo_entry() {
     view.open(&path);
     view.team = TeamChoice::Team(702);
     view.selected = Some(Selection::Player(702, 0));
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let file = EditFile::load(&path).unwrap();
     let a_id = file.team(702).unwrap().roster[0].player_id;
     let b_id = file.team(702).unwrap().roster[1].player_id;
@@ -683,7 +651,7 @@ fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
     let path = fixture(PesVersion::Pes21, "shifted_fields");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     // The six fields the two groups hold: form, injury resistance, weak
     // foot usage and accuracy, star, playing attitude.
     let six = |view: &SaveView| {
@@ -802,7 +770,7 @@ fn an_out_of_range_value_draws_as_stored_without_marking_the_player() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     for _ in 0..5 {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     }
@@ -878,7 +846,7 @@ fn the_cards_left_badge_reads_the_players_own_tier() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let rules = aatf::Rules::official();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
@@ -990,7 +958,7 @@ fn an_overdrawn_badge_paints_in_the_error_colour() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let rules = aatf::Rules::official();
     let badge = {
         let session = view.session.as_ref().unwrap();
@@ -1063,7 +1031,7 @@ fn a_player_no_tier_matches_gets_the_stand_in() {
             "premise: 78101 matches no VTL11 tier"
         );
     }
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
     });
@@ -1113,7 +1081,7 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
             "premise: the check fails on the selected player"
         );
     }
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
     });
@@ -1197,11 +1165,10 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
     );
 }
 
-// The same bullet: the Skills header stays clean at the pane the shell
-// leaves at its smallest default too (as `the_view_fits`'s): `Skills`
-// alone, no badge and no error line.
+// The same bullet: the Skills header stays clean under an error naming a
+// long path too: `Skills` alone, no badge and no error line.
 #[test]
-fn a_load_error_draws_nothing_in_the_skills_column_at_a_narrow_pane() {
+fn a_load_error_at_a_long_path_draws_nothing_in_the_skills_column() {
     let path = fixture(
         PesVersion::Pes21,
         "rules_load_error_at_a_path_long_enough_to_need_the_wrap",
@@ -1216,7 +1183,7 @@ fn a_load_error_draws_nothing_in_the_skills_column_at_a_narrow_pane() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(877.0, 624.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
     });
@@ -1243,7 +1210,7 @@ fn a_rules_file_that_does_not_load_draws_no_badge() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
     });
@@ -1277,7 +1244,7 @@ fn the_registered_position_combo_stores_the_pick_as_one_edit() {
     let path = fixture(PesVersion::Pes21, "registered_position");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     assert_eq!(
         view.session
             .as_ref()
@@ -1351,7 +1318,7 @@ fn the_foot_and_hand_sides_fill_the_held_side_and_store_the_pick() {
     let path = fixture(PesVersion::Pes21, "stronger_sides");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let positions =
         |view: &SaveView, side: fn(&PlayerEntry) -> Option<u8>| side(&player_entry(view, 70101));
     assert_eq!(
@@ -1421,50 +1388,6 @@ fn the_foot_and_hand_sides_fill_the_held_side_and_store_the_pick() {
         positions(&view, |p| p.positions.stronger_hand),
         Some(0),
         "the hand undone"
-    );
-}
-
-// The columns' wrap never re-keys a widget: an egui id follows call
-// order inside a scope, which the wrapped row does not change. A field's
-// AccessKit id is the egui `Id`: the Ball Control stat's field, the
-// Playing style combo and the team view's Short field at one line of
-// columns and at wrapped all keep the same id.
-#[test]
-fn widget_ids_hold_across_the_width_thresholds() {
-    let path = fixture(PesVersion::Pes21, "widget_ids");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let id_at = |window: &mut Headless, view: &mut SaveView, label: &str, role: Role| {
-        let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
-        node_id_right_of(&ids, label, role)
-    };
-
-    // The wide window is the layout test's `DEFAULT_PANE`: the three
-    // columns on one line; the narrow one wraps the third.
-    let mut wide = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
-    let ball_control = id_at(&mut wide, &mut view, "Ball Control", Role::SpinButton);
-    let mut narrow = Headless::sized(877.0, 624.0);
-    assert_eq!(
-        id_at(&mut narrow, &mut view, "Ball Control", Role::SpinButton),
-        ball_control,
-        "the stat's field across the wrap"
-    );
-
-    let playing_style = id_at(&mut wide, &mut view, "Playing style", Role::ComboBox);
-    assert_eq!(
-        id_at(&mut narrow, &mut view, "Playing style", Role::ComboBox),
-        playing_style,
-        "the playing-style combo across the wrap"
-    );
-
-    // The team view's Short field across the fields' row break.
-    open_team_view(&mut narrow, &mut view, 701);
-    let short = id_at(&mut narrow, &mut view, "Short", Role::TextInput);
-    open_team_view(&mut wide, &mut view, 701);
-    assert_eq!(
-        id_at(&mut wide, &mut view, "Short", Role::TextInput),
-        short,
-        "the view's field across the row break"
     );
 }
 
@@ -1807,42 +1730,6 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     }
 }
 
-// plans/save_editor.md "Editing UI", the player view bullet ("a columned
-// panel narrows into fewer columns"): on a pane too narrow for the two
-// card columns and their gap (the 560-point window leaves the view under
-// 300, under the 330 the two need) the Skills column draws one column, no
-// checkbox past the pane's right edge.
-#[test]
-fn the_skills_column_narrows_to_one_column_on_a_narrow_pane() {
-    let path = fixture(PesVersion::Pes21, "skills_one_column");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(560.0, 700.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-
-    let skills_top = label_bounds(&nodes, "Skills").y0;
-    let com_top = label_bounds(&nodes, "COM playing styles").y0;
-    let mut xs: Vec<f64> = nodes
-        .iter()
-        .filter(|node| node.role() == Role::CheckBox)
-        .filter_map(|node| node.bounds())
-        .filter(|b| b.y0 >= skills_top && b.y0 < com_top)
-        .map(|b| b.x0)
-        .collect();
-    xs.sort_by(f64::total_cmp);
-    xs.dedup();
-    assert_eq!(xs.len(), 1, "the skills draw in one column ({xs:?})");
-    let pane_right = 560.0 - 2.0 * f64::from(PANEL_MARGIN);
-    for node in nodes.iter().filter(|node| node.role() == Role::CheckBox) {
-        let bounds = node.bounds().expect("bounds");
-        assert!(
-            bounds.x1 <= pane_right + 0.5,
-            "{:?} inside the pane's right edge ({bounds:?} vs {pane_right})",
-            node.label()
-        );
-    }
-}
-
 // plans/save_editor.md "Editing UI", the player view bullet's first
 // sentence: the view centred between the player list and the window's
 // right edge — the gap after the list equals the margin after Ability
@@ -1934,7 +1821,7 @@ fn the_chosen_ratings_paint_their_fills_and_letters() {
     let mut view = SaveView::new();
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
-    let mut window = Headless::sized(1100.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));

@@ -846,22 +846,16 @@ fn label_value(nodes: &[accesskit::Node], value: &str) -> bool {
 
 /// The pane the shell leaves a tool's view at the 1280 x 800 default
 /// window (`plans/core/gui.md`, the paragraph starting "The window's
-/// size."): the sidebar's 56-point rail and the 24-point status bar
-/// taken off.
+/// size."): the sidebar's 56-point rail (`studio_core`'s `RAIL_WIDTH`,
+/// which it does not export) and the 24-point status bar taken off. It is
+/// also the narrowest pane a member sees: a narrower window scales the UI
+/// down and lays it out at 1280 ("Scaling with the width").
 const DEFAULT_PANE: egui::Vec2 = egui::vec2(1224.0, 776.0);
 
 /// A `CentralPanel`'s inner margin on each side (egui's
 /// `Frame::central_panel`, `inner_margin(8)`): the shell's panel and the
 /// view's own each take one off the pane's edge.
 const PANEL_MARGIN: f32 = 8.0;
-
-/// What the editor's pane takes before a view's content: a `Headless`
-/// window `w` wide gives the view `w - VIEW_AREA_OFFSET` of
-/// `available_width` (the two `CentralPanel`s' margins, the 240-wide
-/// player list, its separator and its frame margins; the 200 list's
-/// measured 232 was exact at 877, 1120, 1224 and 1440 — the draft's 240
-/// list adds its 40).
-const VIEW_AREA_OFFSET: f32 = 272.0;
 
 /// The bounds of the Label node showing `value` (a grid's label cell).
 fn label_bounds(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
@@ -1308,7 +1302,7 @@ fn open_734_with(test: &str, ids: &[u32], height: u8) -> (SaveView, Headless) {
         .as_mut()
         .expect("the save opened")
         .edit_players(edits);
-    (view, Headless::sized(1100.0, 800.0))
+    (view, Headless::sized(DEFAULT_PANE.x, 800.0))
 }
 
 /// The PES 15 fixture save open with the CLI's `official_legal.toml`

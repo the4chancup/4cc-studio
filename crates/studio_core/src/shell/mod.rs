@@ -412,6 +412,10 @@ impl eframe::App for StudioApp {
             let new_zoom = window_size::width_zoom(rect.width() * zoom);
             if new_zoom != zoom {
                 egui_ctx.set_zoom_factor(new_zoom);
+                // The zoom lands when the next pass begins, so this pass lays out at
+                // the old one: without the discard, the frame after a jump (a snap
+                // from 1920 points to 960) reaches the screen laid out 960 wide.
+                egui_ctx.request_discard("the window's width changed the zoom");
             }
         }
         for tool in &mut self.tools {
