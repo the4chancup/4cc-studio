@@ -3738,14 +3738,20 @@ briefs, review loops, gates and mutation runs as for any step.
       three widths the maintainer named: General info's label columns 107 → 109
       ("Registered position" 108.4) and 72 → 73 ("Shirt number" 72.9), the Tactics settings
       column 414 → 422 ("Frontline Press." 96.9 with its padding, 99 given since 97 still
-      elided at a 2x scale), Player assignments taking the 8 points. Checked:
+      elided at a 2x scale), Player assignments taking the 8 points. Then (the maintainer,
+      2026-10-28: the right side had room to spare, the list too little) the player list
+      240 → 255, taking the Tactics view's spare strip (the scroll gutter, which the drafts'
+      Tactics view drops: it never scrolls, and the app's floating bar reserves none), and
+      General info 350 → 344 so the player view keeps its three columns on one row
+      (`list_width_probe*.py`: at 255 with 350 they wrap). Checked:
       `elide_check.py` nothing elided or wrapped at scales 1, 1.5 and 2, and red on the old
       widths (`elide_check_red.py`); `draft_fonts.py` all suite text in the bundled files,
       the one fallback a member-typed "♂" in a player name (Selawik lacked it too)
     - [ ] w4b the code (brief `.tmp/0_0_1w/brief_w4b.md`): `theme.rs`'s body and label
       families and both chains on the Roboto Flex files, the Selawik files and their README
       rows removed, `make_symbols.py`'s `BODY_FONT` and `symbols.ttf` rebuilt (both copies),
-      the formation label's `FontId` and offset, the three widths' constants and every test
+      the formation label's `FontId` and offset, the widths' constants (settings 422, list
+      255, General info 344) and every test
       that pins a width or a row count re-measured → verify: the gates; the built window's
       player and team views at 1280 x 800 with the same rows as the drafts (asks before it
       takes focus)

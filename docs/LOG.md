@@ -2738,3 +2738,5 @@ worklog passed 7,000 lines.
   with the three widths the maintainer named; the app's code follows on approval (worklog w4b).
 - **2026-10-28** — Library rework slices B and D landed: kit config notes name both shirt models `validate` accepts; the AATF operation
   limit checked on every embedded ruleset; the texture Converter rewraps kept blocks without a decode (156 to 85 ms on a 2048 BC7 face).
+- **2026-10-28** — The drafts' player list is 255 points (from 240), taking the Tactics view's spare strip; General info 344 so the player
+  view keeps one row.

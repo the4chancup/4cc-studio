@@ -12471,3 +12471,15 @@ keeps one family in the UI; its stem is 3% wider than Selawik Semibold's, about 
 against the game's 3.01 (inferred from the outlines, not measured on a render).
 Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row; `plans/save_editor.md`
 "The formation's name".
+
+## 2026-10-28 — save_editor — The player list is 255 points wide, General info 344
+Decision: the player list takes 15 more points (240 to 255), the Tactics view's spare strip on
+the right; General info narrows from 350 to 344 so the player view's three columns stay on one
+row beside it. The drafts' Tactics view drops the scroll gutter the other views keep, since it
+never scrolls; the app reserves none anywhere (egui's scroll bar floats).
+Why: the maintainer saw room to spare on the right of the team view while the list cut names.
+The strip was the drafts' 15-point gutter plus the pane's 12-point margin; the player view, which
+shares the list, has only about 10 points to spare at the 1280-point window, so the list can
+grow by the gutter alone (at 255 with General info at 350 the player view wraps), and General
+info needs 339 in Roboto Flex. Three of the list's 13 cut names on /3/ and /f/ now show whole.
+Plan: `plans/save_editor.md`, the "Player list" and "General info" bullets.

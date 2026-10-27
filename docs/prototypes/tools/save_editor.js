@@ -112,7 +112,7 @@ input[type=range]:focus { outline: none; }
 /* save editor view */
 .toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
 .master { display: flex; gap: 12px; align-items: flex-start; }
-.plist { width: 240px; flex: none; display: flex; flex-direction: column; gap: 4px; }
+.plist { width: 255px; flex: none; display: flex; flex-direction: column; gap: 4px; }
 .plist .rows { background: var(--extreme); border: 1px solid var(--stroke); min-height: 200px;
   flex: 1; overflow-y: auto; overflow-x: hidden; }
 /* A name too long for the row truncates, its dot and mark kept after it. */
@@ -153,7 +153,7 @@ input[type=range]:focus { outline: none; }
 .pcols { display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }
 #player-view { width: fit-content; margin: 0 auto; }
 .pcol { gap: 14px; }
-.pcol.first { width: 350px; }
+.pcol.first { width: 344px; }
 /* The skills' and COM styles' second columns start at the same x: one
    column width for both panels (and the values' pairs under them). */
 .skcols { display: flex; gap: 14px; align-items: flex-start; }
@@ -368,9 +368,11 @@ table.grid.stats-grid td { padding: 2px 6px; }
 .center.filled .master { flex: 1; min-height: 0; align-items: stretch; }
 /* The scroll bar's strip is kept while nothing scrolls, so opening
    Appearance does not shift the view. This stands for egui's floating
-   scroll bar, which takes no space: the built view reserves nothing (the
-   maintainer, 2026-10-26: its margin is room enough). */
+   scroll bar, which takes no space: the built view reserves nothing, its
+   margin being room enough. The Tactics view fills its pane and never
+   scrolls, so it keeps no strip: the list's width has it. */
 .center.filled .detail { overflow: auto; min-height: 0; scrollbar-gutter: stable; }
+.center.filled .detail:has(.tacgrid) { scrollbar-gutter: auto; }
 .live-panel { flex: none; margin-top: 6px; }
 .live-divider { height: 4px; cursor: ns-resize; }
 .live-divider:hover { background: var(--hover); }

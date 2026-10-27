@@ -37,7 +37,9 @@ names where the question came from so the context can be read there.
   General info's label columns 2 and 1 points wider, so "Registered position" and "Shirt
   number" keep one line; the Tactics settings column 8 points wider, so "Frontline Press." is
   whole, Player assignments 8 narrower; the pitch's formation name in Roboto Flex's semibold
-  (Selawik Semibold before). The app's code follows once you approve (0.0.1w4b).
+  (Selawik Semibold before); the player list 15 points wider (255), taking the Tactics
+  view's spare strip on the right, General info 6 narrower (344) so the player view keeps
+  its columns on one row. The app's code follows once you approve (0.0.1w4b).
 - **Track D's drafts, 8.30, 8.32, 8.33 and 8.34**, revised with your answers of 2026-10-27
   (DECISIONS "Formation pictures, the formation's name and the nation names: the maintainer's
   answers"): branch `side/drafts2`, each step's renders and proposed plan text in
