@@ -11842,3 +11842,19 @@ title and the ids on a row of their own; at the 1280 x 800 window the Tactics gr
 about 5 points past the pane (the built window, 2026-10-27), the lists' and Automatic settings'
 bottom strokes and the bench's twelfth row cut. The draft's row fits with room to spare.
 Plan: `plans/save_editor.md` "Editing UI", the team view bullet.
+
+## 2026-10-27 — core — The theme pins 0.36's `interact_size` and widget colors too
+Decision: besides `button_padding` and the corner radii, `theme.rs` pins egui 0.36's
+`interact_size` (40 x 18) and both themes' widget states whole (`Widgets::dark()`/`light()` as
+0.36 has them); the quick actions keep their own 20-point height; one `theme::install` puts the
+fonts and this style on a context, at window creation and in every test harness.
+Why: measured, the drafts' buttons, combos, number boxes and list rows are all 18 high (0.37's
+default is 20; only the quick actions are 20, by their own CSS rule), and the drafts'
+stylesheet draws widgets in 0.36's dark colors (`--widget` 60, `--hover` 70, `--active` 55,
+button text 180), where 0.37 moved them to 50, 64, 40 and 215. The 2026-10-26 ruling (the drafts
+were reviewed at 0.36's look; the build follows the drafts, not a library's new defaults)
+reaches these the same way; it named only the two differences known then. One installer, not a
+second call beside `install_fonts`, so no harness can measure a spacing the window does not
+draw.
+Plan: `plans/core/gui.md` "Other UI components", the "Dark/light theme" row;
+`plans/save_editor.md` "The quick actions".

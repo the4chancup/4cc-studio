@@ -217,7 +217,8 @@ all side by side.
   Gold, Make Silver, Make Bronze under the official one), on the right the other tiers' (Make
   Goalkeeper, Make Regular), then Set stats with its number beside it ("Configurable AATF
   rules" below says what they do). Every button and the number's box are 20 points tall
-  (egui 0.37's `interact_size.y`), the Set stats row in line with the buttons above it. The
+  (their own height, the draft's: the theme's controls are 18), the Set stats row in line
+  with the buttons above it. The
   grid spans the list's width; each column is as wide as its widest cell when
   the two fit, else half the list, a longer label then elided (its tooltip names the tier).
   Not halves always, as the draft's `1fr 1fr`: egui's button text is wider than the draft's,

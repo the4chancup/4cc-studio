@@ -103,7 +103,7 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .plist .rows .trow .thint { color: #6e6e6e; font-weight: normal; min-width: 0; overflow: hidden;
   text-overflow: ellipsis; flex: 0 1000 auto; }
 .plist .qagrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; }
-/* Every quick action one height, egui 0.37's interact_size.y. */
+/* Every quick action one height, their own: the theme's controls are 18. */
 .plist #quick-actions button, .plist #quick-actions input { height: 20px; box-sizing: border-box; }
 .plist #quick-actions .row { flex-wrap: nowrap; margin: 0; }
 .plist .qacol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }

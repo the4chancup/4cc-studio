@@ -3154,11 +3154,14 @@ briefs, review loops, gates and mutation runs as for any step.
   by name in `.cargo/mutants.toml`
 - [ ] 0.0.1u the theme pins egui 0.36's spacing and corner radii (the maintainer, 2026-10-26;
   `plans/core/gui.md` "Other UI components", the "Dark/light theme" row; DECISIONS "The theme
-  pins egui 0.36's spacing and corner radii"): `button_padding` and the widgets' corner radii
-  set in `theme.rs` from 0.36's defaults; first the drafts' control heights measured against
-  `interact_size` (the quick actions 20, the list rows 18) and `interact_size` settled → verify:
-  a test reading the installed style's values; every view's layout tests rerun, their moved
-  numbers checked against the drafts
+  pins egui 0.36's spacing and corner radii", "The theme pins 0.36's `interact_size` and widget
+  colors too"). The drafts' controls measured 2026-10-27 (`.tmp/0_0_1u/measure_controls.py`):
+  buttons, combos, number boxes, list rows 18; the quick actions 20 (their own rule); text
+  boxes 20 (their border). `theme::install` (replacing `install_fonts` at every call site) sets
+  0.36's `button_padding`, `interact_size` and both themes' `Widgets` whole; the quick actions
+  get their own 20 (SWE-2, after s5e) → verify: a test reading the installed style's values
+  for both themes; every view's layout tests rerun, their moved numbers checked against the
+  drafts; the built window's buttons against the draft's
 - [ ] 0.0.1v the preview's icon (the maintainer, 2026-10-27: Archer, from
   `C:\Data\Pictures\FSN\Smug\smugredman.png`; `plans/core/development_plan.md` "The preview's
   icon", DECISIONS "The preview's icon and its build dependency"). The maintainer's split:
