@@ -1235,8 +1235,14 @@ fn the_rows_and_the_popover_header_draw_the_names_colours() {
         Some(5),
     );
     let roster = roster_rows(&rows);
-    // Slot 5 is in the fixture's eleven: swap so it shows once.
+    // Slot 5 is in the fixture's eleven: swap so it shows once. The swap
+    // also makes the eleven non-identity, so a name read by the formation
+    // index rather than the roster slot lands on marker and row 5, not 3.
     tactics.starting_eleven.swap(3, 5);
+    assert_eq!(
+        tactics.starting_eleven[3], 5,
+        "premise: starter 3's roster slot is not his index"
+    );
     tactics.bench_order[0] = 5;
 
     // The color of each painted "PEPSI MAN" galley's section covering
@@ -1264,7 +1270,12 @@ fn the_rows_and_the_popover_header_draw_the_names_colours() {
             .collect::<Vec<egui::Color32>>()
     };
 
-    let (_, shapes) = window.lineup_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (nodes, shapes) = window.lineup_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    assert_eq!(
+        lineup_rows(&nodes)[3].last().and_then(|name| name.value()),
+        Some("PEPSI MAN"),
+        "the eleven's row 3 names its roster slot's player"
+    );
     let colors = run_colors(&shapes, "PEP");
     assert_eq!(colors.len(), 2, "the eleven row's and the bench row's name");
     for color in colors {
@@ -1295,7 +1306,46 @@ fn the_rows_and_the_popover_header_draw_the_names_colours() {
     let formation = tactics.presets[0].formations[0].clone();
     let at = marker_point(&nodes, &formation.players, 3);
     window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
-    let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let canvas = canvas_rect(&nodes);
+    let centre3 = centres_of(canvas, &formation.players)[3];
+    let badge3 = egui::Rect::from_center_size(centre3, egui::vec2(BADGE_W, BADGE_H));
+    // Marker 3's own label and the two copies of the name painted under
+    // its badge (clipped to the badge's width, a name's height below it).
+    let labeled: Vec<egui::Pos2> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node
+                    .label()
+                    .is_some_and(|label| label.ends_with(" PEPSI MAN"))
+        })
+        .map(centre)
+        .collect();
+    assert_eq!(labeled.len(), 1, "one marker is labeled with the name");
+    let marker3 = marker_rect(centre3, canvas).center();
+    assert!(
+        labeled[0].distance(marker3) <= 0.5,
+        "the label is marker 3's ({:?}, marker 3 at {marker3:?})",
+        labeled[0]
+    );
+    let under_badge = shapes
+        .iter()
+        .filter(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) if shape.galley.job.text == "PEPSI MAN" => {
+                let clip = clipped.clip_rect;
+                (clip.left() - badge3.left()).abs() <= 0.5
+                    && (clip.right() - badge3.right()).abs() <= 0.5
+                    && (shape.pos.y - (centre3.y + NAME_DY - shape.galley.size().y / 2.0)).abs()
+                        <= 0.5
+            }
+            _ => false,
+        })
+        .count();
+    assert_eq!(
+        under_badge, 2,
+        "the name's two copies under marker 3's badge"
+    );
     let colors = run_colors(&shapes, "PEP");
     assert_eq!(
         colors.len(),
@@ -1749,6 +1799,14 @@ fn a_fielded_mark_paints_a_cross_left_of_the_starters_badge() {
     let rows = fixture_rows(PesVersion::Pes21);
     let mut roster = roster_rows(&rows);
     let index = 4;
+    // A non-identity eleven: marks looked up by the marker's index rather
+    // than its roster slot would look right on the fixture's [0, 1, ...].
+    tactics.starting_eleven.swap(index, 9);
+    assert_ne!(
+        usize::from(tactics.starting_eleven[index]),
+        index,
+        "premise: the starter's slot and index differ"
+    );
     let slot = usize::from(tactics.starting_eleven[index]);
     let position = tactics.presets[0].formations[0].players[index].position;
     let marks = [fielded(

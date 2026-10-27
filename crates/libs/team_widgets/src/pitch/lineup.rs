@@ -437,14 +437,22 @@ mod tests {
         );
 
         // A starter holding none of the six roles: each taker is another
-        // starter and stays who he was.
+        // starter and stays who he was. The eleven is shuffled so that a
+        // taker's roster slot equals the outgoing starter's formation
+        // index, which a repoint keyed by the index would move.
         let mut tactics = fixture_tactics(PesVersion::Pes21);
+        tactics.starting_eleven.swap(4, 9);
+        assert_ne!(tactics.starting_eleven[4], 4, "premise: a shuffled eleven");
         let out = tactics.starting_eleven[4];
         let inn = tactics.bench_order[2];
         let holders = [5, 6, 7, 8, 9, 10].map(|index| tactics.starting_eleven[index]);
         assert!(
             holders.iter().all(|&holder| holder != out && holder != inn),
             "premise: the takers are neither of the two"
+        );
+        assert!(
+            holders.contains(&4),
+            "premise: a taker's roster slot is the outgoing starter's index"
         );
         let pieces = &mut tactics.set_pieces;
         pieces.free_kick_long = holders[0];

@@ -633,69 +633,21 @@ fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
     let ids = window.pitch_ids(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let item = entry_id(&ids, Role::Button, "CF");
     window.action_click_pitch(item, PesVersion::Pes21, &mut tactics, &mut view, &roster);
-    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let field = controls_right_of(&nodes, "X", Role::SpinButton)
-        .into_iter()
-        .next()
-        .expect("the X field");
-    window.click_pitch(
-        centre(field),
+    window.type_in_spin_field(
+        "X",
+        "55",
         PesVersion::Pes21,
         &mut tactics,
         &mut view,
         &roster,
     );
-    window.pitch(
+    window.type_in_spin_field(
+        "Y",
+        &y.to_string(),
         PesVersion::Pes21,
         &mut tactics,
         &mut view,
         &roster,
-        vec![egui::Event::Text("55".to_owned())],
-    );
-    window.pitch(
-        PesVersion::Pes21,
-        &mut tactics,
-        &mut view,
-        &roster,
-        vec![egui::Event::Key {
-            key: egui::Key::Enter,
-            physical_key: None,
-            pressed: true,
-            modifiers: egui::Modifiers::NONE,
-            repeat: false,
-        }],
-    );
-    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let field = controls_right_of(&nodes, "Y", Role::SpinButton)
-        .into_iter()
-        .next()
-        .expect("the Y field");
-    window.click_pitch(
-        centre(field),
-        PesVersion::Pes21,
-        &mut tactics,
-        &mut view,
-        &roster,
-    );
-    window.pitch(
-        PesVersion::Pes21,
-        &mut tactics,
-        &mut view,
-        &roster,
-        vec![egui::Event::Text(y.to_string())],
-    );
-    window.pitch(
-        PesVersion::Pes21,
-        &mut tactics,
-        &mut view,
-        &roster,
-        vec![egui::Event::Key {
-            key: egui::Key::Enter,
-            physical_key: None,
-            pressed: true,
-            modifiers: egui::Modifiers::NONE,
-            repeat: false,
-        }],
     );
 
     let mut expect = before;

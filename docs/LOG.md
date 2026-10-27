@@ -2691,3 +2691,6 @@ worklog passed 7,000 lines.
   record all reopen as specified; a maximized reopen shows two blips under one frame each (QUESTIONS asks if they flicker).
 - **2026-10-27** — 0.0.1cm1: the config files, scripts, `crates/dev`, `studio` and twelve libs' comments stand on their own
   (257 rewritten, comment lines only); `comment_refs.py` also catches bare and letter step tags and `mutants-diff` commits.
+- **2026-10-27** — 0.0.1s round S5 (4 of 4) reworked: three more Tactics tests fail on an identity-eleven implementation; the
+  post-Astra SWE-2 loop ends. y4c: PARTY HARD's overalls read in game, and the PES 2016 rule reproduces y3's four scans on them.
+- **2026-10-27** — 0.0.1q: the maintainer's monitor-off reopen fits on the 4K; the maximized reopen's faint flicker becomes q5.

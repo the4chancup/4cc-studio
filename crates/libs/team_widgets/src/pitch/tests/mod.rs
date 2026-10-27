@@ -2,7 +2,7 @@ use egui::accesskit::{self, Role};
 use pes_version::PesVersion;
 
 use super::*;
-use crate::test_support::{Headless, centre, pointer_at};
+use crate::test_support::{Headless, centre, control_right_of, pointer_at};
 
 /// The drag-and-drop and swap tests.
 mod drops;
@@ -166,6 +166,43 @@ impl Headless {
     ) -> (Vec<accesskit::Node>, bool) {
         self.pitch(version, tactics, view, roster, pointer_at(pos, true));
         self.pitch(version, tactics, view, roster, pointer_at(pos, false))
+    }
+
+    /// `text` typed into the open popover's spin field right of `label`
+    /// (`"X"` or `"Y"`) over `pitch`: a frame to find the field, a click
+    /// on it, the text on the next frame and Enter on the one after.
+    pub(crate) fn type_in_spin_field(
+        &mut self,
+        label: &str,
+        text: &str,
+        version: PesVersion,
+        tactics: &mut TeamTactics,
+        view: &mut TacticsView,
+        roster: &[RosterRow<'_>],
+    ) {
+        let (nodes, _) = self.pitch(version, tactics, view, roster, vec![]);
+        let field = control_right_of(&nodes, label, Role::SpinButton);
+        self.click_pitch(centre(field), version, tactics, view, roster);
+        self.pitch(
+            version,
+            tactics,
+            view,
+            roster,
+            vec![egui::Event::Text(text.to_owned())],
+        );
+        self.pitch(
+            version,
+            tactics,
+            view,
+            roster,
+            vec![egui::Event::Key {
+                key: egui::Key::Enter,
+                physical_key: None,
+                pressed: true,
+                modifiers: egui::Modifiers::NONE,
+                repeat: false,
+            }],
+        );
     }
 
     /// A drag from `from` to `onto` over `pitch` (press, move,

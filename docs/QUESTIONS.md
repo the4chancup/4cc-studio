@@ -56,10 +56,3 @@ names where the question came from so the context can be read there.
   click one candidate per tool (the rail at the top shows the picks together), then copy the
   "Picks" box. The font build and the glyph constants wait on it. The Team compiler's is
   picked, (g); the other thirteen tools are open.
-- **Does a window reopened maximized flicker?** (worklog 0.0.1q4; `.tmp/0_0_1q/built/findings.md`.)
-  Maximize the app, close it, start it again from Explorer: the trace shows two blips, each
-  under one 60 Hz frame (an unpainted maximized window for 7-13 ms at creation, then a 2-6 ms
-  restore before it maximizes again; on the 4K monitor both pass by the FHD first). If you see
-  a flicker, creating the window unmaximized (the first frame maximizes it anyway) removes the
-  first blip. Also yours to try: a place on the FHD monitor, that monitor switched off, reopen:
-  the app should open fitted on the 4K one.

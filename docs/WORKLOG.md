@@ -3033,9 +3033,8 @@ briefs, review loops, gates and mutation runs as for any step.
   gives the shell the monitor list only once the window exists"): no route before the window
   exists, and after it the frame's window lists the monitors (`Frame::winit_window`,
   `available_monitors`), so the window is created at the place and the first frame checks it.
-  The built-window checks are done (q3's and q4's `manual:` lines). Open: the off-monitor case
-  with a monitor really switched off (the maintainer's), and QUESTIONS "Does a window reopened
-  maximized flicker?"
+  The built-window checks are done (q3's and q4's `manual:` lines). Open: q5, the maximized
+  reopen's flicker
   - [x] q1 the record, the opening and the guard (`.tmp/0_0_1q/brief_q1.md`): `window_main`
     as `[x, y, width, height, scale]` (pixels, points at zoom 1, the monitor's scale), read
     each normal frame and written at exit, the window created at it and the first frame
@@ -3074,8 +3073,8 @@ briefs, review loops, gates and mutation runs as for any step.
     `.tmp/0_0_1q/built/findings.md`): move and resize, close and reopen at the place on the FHD
     at 100% and on the 4K at 200% (there the window is first shown on the FHD for 15 ms, the
     mixed-scale creation offset the plan records); an off-monitor record, simulated by writing
-    one off every screen, reopens fitted on the primary. A monitor actually switched off is
-    the maintainer's to try. Files:
+    one off every screen, reopens fitted on the primary. manual: checked 2026-10-27 (the
+    maintainer): a place on the FHD, that monitor switched off, reopens fitted on the 4K. Files:
     `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`
   - [ ] q4 a window closed maximized reopens maximized (P39, accepted 2026-10-27; DECISIONS
     "A window closed maximized reopens maximized"; `plans/core/gui.md` "Window size classes",
@@ -3097,8 +3096,18 @@ briefs, review loops, gates and mutation runs as for any step.
     on the FHD and on the 4K at 200%; an off-monitor maximized record reopens unmaximized and
     fitted. How visible: two blips per maximized reopen, each under one 60 Hz frame (the
     creation shows a maximized window for 7-13 ms before eframe hides it; the first show
-    restores for 2-6 ms before maximizing again). Open: whether the maintainer sees either as
-    a flicker (QUESTIONS)
+    restores for 2-6 ms before maximizing again). The maintainer sees a flicker, faint
+    (2026-10-27): q5
+  - [ ] q5 the maximized reopen without the flicker. The second blip is ours: the first frame
+    resends the position (the mixed-scale creation offset's fix), winit's
+    `set_outer_position` clears the maximized flag and restores the window to move it, and
+    the next command maximizes it again, a restore and a maximize on a shown window
+    (`SW_MAXIMIZE`, which Windows may animate; the 2 ms trace sees the rectangle, not the
+    animation). Creating the window unmaximized removes only the creation blip and adds a
+    maximize of a shown window. To try first: when the window is created maximized, no
+    position resend on the first frame → verify: the built window traced as in
+    `.tmp/0_0_1q/built/findings.md`, maximized reopen on the FHD and on the 4K, then
+    restore to the place; the maintainer's eye
 - [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version
@@ -3504,6 +3513,14 @@ briefs, review loops, gates and mutation runs as for any step.
       `team_widgets/src/pitch/{lineup.rs,popover.rs,tests/{paint,popover}.rs}`,
       `tactics/{assignments.rs,tests/mod.rs}`. Then a SWE-2 loop over it and Astra A3, then the
       surface's one mutation run (`just mutants-diff 3d39aff3`) at its loop's end
+    - [x] round S5 over the A2 rework (SWE-2): 4 of 4 accepted, ending the post-Astra SWE-2
+      loop (three more tests passing on the identity eleven: a substitution's taker keyed by
+      the starter's index, the marker's name and label, the fielded cross; the spin field's
+      typing copied three times). Rework done 2026-10-27 (Opus,
+      `.tmp/0_0_1s/tac_s5_rework_report.md`; test code only, each test seen failing under its
+      perturbation): the eleven shuffled with its premise asserted, the name located under
+      marker 3's badge, `Headless::type_in_spin_field`. Files: `team_widgets/src/pitch/
+      {lineup.rs,popover.rs,tests/{mod,paint,popover}.rs}`. Next: Astra A3
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";
@@ -3746,13 +3763,29 @@ briefs, review loops, gates and mutation runs as for any step.
     not hold the cut, the drop keeping the position meanwhile. The exe copied to
     `4cc-studio-temp/pes16_re/` (sha256 `1576ee45...`): 32-bit, `.text` not packed (entropy
     6.7; `.bind` is the Steam stub); capstone and pefile approved (the maintainer)
-    - [ ] y4a find the Team Sheet drag's code: the routine that writes a formation slot's
+    - [x] y4a find the Team Sheet drag's code: the routine that writes a formation slot's
       position byte after a drop (from the slot record's layout, the save's 2-byte X/Y pair
-      and position byte, and the edit screen's strings), and the tables it reads
-    - [ ] y4b state the rule as code reads it (inputs: the dragged slot, its drop point, the
-      other slots; output: the position byte), each table dumped
+      and position byte, and the edit screen's strings), and the tables it reads. Done
+      2026-10-27 (Fable, `.tmp/0_0_1y4/re_findings.md`, `re_report.md`; Ghidra work in
+      `4cc-studio-temp/pes16_re/`): `matchPlan::SelectPositionEdit`'s drag update, two
+      13-row rectangle tables per position
+    - [x] y4b state the rule as code reads it: each frame of a drag, a point inside the current
+      position's rectangle keeps it; otherwise the band's default (the first of CB, CMF, SS
+      whose rectangle holds the point) or the first free of LB, RB, DMF, LMF, RMF, AMF, LWF,
+      RWF, CF, CB, SS holding it, whichever the dragged player's own per-position overall
+      rates higher (the default on a tie). Teammates' spots never enter it: y3's switch near a
+      teammate is the marker-overlap swap preview
     - [ ] y4c check it against `.tmp/0_0_1y3/findings.md`'s four PES 2021 scans (every
-      transition within one push); a rule that reproduces them goes to the plan, then the code
+      transition within one push); a rule that reproduces them goes to the plan, then the code.
+      `simulate.py` reproduces all four scans within one push on the overalls read in game
+      (2026-10-27, `.tmp/0_0_1y4/overalls.md`, the save unchanged by hash: team 718's PARTY
+      HARD LMF 95, LWF 87, AMF 85, SS 84, CMF 83). The Select Position menu (X on a starter)
+      lists exactly the rule's two candidates at three spots checked, a one-press check of
+      the tables anywhere. Open: (1) the CF row: the 2016 table puts CF's lower edge at 39.5
+      where y3 measured 40.7, the one row off by more than 0.3, so PES 2021's tables may
+      differ (a starter dropped between the two edges, then the menu, settles it); (2) the per-position
+      overall formula for each version (2016's is dumped, 2021's is not), which the rule
+      needs before the code can follow it
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
