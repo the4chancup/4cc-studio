@@ -118,11 +118,7 @@ mod tests {
 
     #[test]
     fn a_pes_17_list_is_read() {
-        let bytes = fs::read(
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../examples/DpFileList.bin"),
-        )
-        .unwrap();
-        let names = read(&bytes).unwrap();
+        let names = read(&fixture("pes17_official.bin")).unwrap();
         assert_eq!(names.len(), 39);
         assert_eq!(names[0], "4cc_01_db.cpk");
         assert_eq!(names[38], "4cc_90_test.cpk");

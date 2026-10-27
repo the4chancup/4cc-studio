@@ -179,7 +179,8 @@ pub enum EndAction {
 pub enum Instruction {
     /// Begin playback at this offset; looping returns to it.
     Start(StartOffset),
-    /// Fixed playback speed (0.25 to 4.00 play; outside that the engine clamps).
+    /// Fixed playback speed: the parser takes any finite positive rate; the
+    /// editor checks 0.25 to 4.00.
     Speed(f64),
     /// When all of a player's non-warcry entries carry it: pick at random.
     Randomise,

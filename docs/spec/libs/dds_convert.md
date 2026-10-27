@@ -44,7 +44,8 @@ approach in production, in `Engines/stages/lib/dxt.py` + the `texture2ddecoder` 
   PES 15–17 crash on uncompressed kit textures.
 - **Mipmaps**: each mip level is decoded and re-encoded individually; a DDS/FTEX source keeps its
   own mip count whatever its codec, uncompressed included (Konami ships single-mip pre-Fox
-  textures, and on Fox a mipped texture with neither side a power of two is refused), a raster source gets the
+  textures; on Fox the Team compiler's deep pass refuses a mipped texture with neither side a
+  power of two, as `texture_not_pow2`), a raster source gets the
   full chain down to 1×1 by 2×2 box averaging on
   straight alpha (odd sides floor, never below 1). Output headers are rebuilt from the emitted
   layout: legacy DX9 headers for BC1/BC3 (what texconv wrote for the legacy compilers and what
@@ -139,7 +140,9 @@ features and AVIF backends vary by release):
 The crate is three pure steps and one stateful wrapper. `decode` turns any accepted source into
 straight-alpha RGBA8 mips plus, for DDS/FTEX, the compressed blocks it carried; `convert` applies
 the codec rules above to a decoded texture and returns the finished container bytes (a DDS for
-PES 15–17, an FTEX for PES 18–21); `Converter` is the session cache in front of both.
+PES 15–17, an FTEX for PES 18–21); `Converter` is the session cache in front of both, which
+skips the decode for a DDS or FTEX source whose blocks the target keeps, rewrapping them into
+the bytes `decode` + `convert` would make.
 `encode_dds` is the one exception to choosing by version: a file every engine reads as a DDS
 in a codec the plan fixes (a player portrait, BC3: "Portraits" in the [player folders
 plan](../aesthetics_export/player_folders.md)) names its codec, and gets a DDS on Fox targets too.
@@ -274,8 +277,9 @@ unchanged textures reuse its converted bytes; eviction may require conversion ag
   target codec/container, texture role and channel swizzle, and mip/color-space settings —
   source hash, source format and target. The source hash is computed at materialization and reused; DXT5 color data and
   DXT5nm normal data must not alias merely because they share a codec.
-- Cache misses fall through to the normal decode → mipmap → encode path. The cache is
-  consulted after the build manifest has determined the target codec for each texture, so the
+- Cache misses fall through to the normal decode → mipmap → encode path, or, for a source
+  whose blocks the target keeps, to the passthrough, which rewraps them without a decode. The
+  cache is consulted after the build manifest has determined the target codec for each texture, so the
   same source PNG cached as DXT5 for a pre-Fox compile is not wrongly reused for a Fox BC7
   compile (different `target_codec` → different key → separate entry).
 - **Engagement limit:** the cache engages only when compiling **≤2 teams**. The build manifest

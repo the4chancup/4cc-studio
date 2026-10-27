@@ -1,13 +1,13 @@
 //! DDS and FTEX sources -> [`Decoded`]: container walk via `ftex::dds`,
 //! block decode via `block_compression`, mask decode for uncompressed
-//! layouts.
+//! layouts; and the passthrough that rewraps kept blocks without a decode.
 
 use block_compression::CompressionVariant;
 use block_compression::decode::decompress_blocks_as_rgba8;
 use ftex::PixelFormat;
 use ftex::dds::{DdsLayout, DdsPixel, read_layout};
 
-use crate::{BlockCodec, Blocks, ConvertError, Decoded, alloc_len};
+use crate::{BlockCodec, Blocks, ConvertError, Decoded, Target, alloc_len, encode};
 
 /// Decodes an FTEX source by converting it to DDS first; the DDS path then
 /// applies unchanged.
@@ -36,28 +36,18 @@ pub(crate) fn decode_dds(dds: &[u8]) -> Result<Decoded, ConvertError> {
             ));
         }
     }
-    let mut mips = Vec::with_capacity(layout.mipmaps as usize);
-    let mut blocks = codec.map(|_| Vec::with_capacity(layout.mipmaps as usize));
-    let mut offset = layout.data_offset;
-    for level in 0..layout.mipmaps {
+    let data = mip_data(dds, &layout)?;
+    let mut mips = Vec::with_capacity(data.len());
+    for (level, data) in (0..).zip(&data) {
         let width = (layout.width >> level).max(1);
         let height = (layout.height >> level).max(1);
-        let size = mip_size(&layout, level, width, height)?;
-        let end = usize::try_from(size)
-            .ok()
-            .and_then(|size| offset.checked_add(size))
-            .ok_or(ConvertError::Truncated)?;
-        let data = dds.get(offset..end).ok_or(ConvertError::Truncated)?;
         mips.push(decode_mip(&layout, codec, level, width, height, data)?);
-        if let Some(blocks) = &mut blocks {
-            blocks.push(data.to_vec());
-        }
-        offset = end;
     }
 
-    let blocks = codec
-        .zip(blocks)
-        .map(|((codec, _), mips)| Blocks { codec, mips });
+    let blocks = codec.map(|(codec, _)| Blocks {
+        codec,
+        mips: data.iter().map(|mip| mip.to_vec()).collect(),
+    });
     Ok(Decoded {
         width: layout.width,
         height: layout.height,
@@ -65,6 +55,47 @@ pub(crate) fn decode_dds(dds: &[u8]) -> Result<Decoded, ConvertError> {
         blocks,
         authored_mips: true,
     })
+}
+
+/// The finished container for a DDS source (already unwrapped by the
+/// caller) whose blocks `target` keeps as they are, built from the source's
+/// own block data without decoding a pixel; `None` when the source has to
+/// be decoded and encoded instead.
+pub(crate) fn pass_through(dds: &[u8], target: Target) -> Result<Option<Vec<u8>>, ConvertError> {
+    let layout = read_layout(dds)?;
+    let Some((codec, _)) = block_codec(&layout) else {
+        return Ok(None);
+    };
+    if !encode::compatible(target.version, codec, target.role) {
+        return Ok(None);
+    }
+    let blocks = mip_data(dds, &layout)?;
+    encode::container(
+        target.version,
+        encode::pixel_format(codec),
+        layout.width,
+        layout.height,
+        &blocks,
+    )
+    .map(Some)
+}
+
+/// Each mip level's bytes in the DDS stream, top level first.
+fn mip_data<'a>(dds: &'a [u8], layout: &DdsLayout) -> Result<Vec<&'a [u8]>, ConvertError> {
+    let mut data = Vec::with_capacity(layout.mipmaps as usize);
+    let mut offset = layout.data_offset;
+    for level in 0..layout.mipmaps {
+        let width = (layout.width >> level).max(1);
+        let height = (layout.height >> level).max(1);
+        let size = mip_size(layout, level, width, height)?;
+        let end = usize::try_from(size)
+            .ok()
+            .and_then(|size| offset.checked_add(size))
+            .ok_or(ConvertError::Truncated)?;
+        data.push(dds.get(offset..end).ok_or(ConvertError::Truncated)?);
+        offset = end;
+    }
+    Ok(data)
 }
 
 /// The row pitch a level's data uses in the stream: level 0 keeps the

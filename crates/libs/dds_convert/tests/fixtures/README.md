@@ -61,3 +61,12 @@ blocks; encoded output is judged by decoding it and comparing its error against 
 error texconv's own encode of the same image shows (per mip the worst channel within 8, the chain
 mean within 1.0). The small mips of this image put a 2D gradient and the checker inside single
 blocks, where any BC1 colour line loses over 100 in some channel, texconv included.
+
+Passthrough goldens, written by `Converter::convert` at commit `73a86858`, when every
+conversion still decoded the source first: they pin that the passthrough without a decode
+writes the same bytes.
+
+| File | Made from | Notes |
+|---|---|---|
+| `bc7.pes21.ftex` | `bc7.dds`, PES 21, color role | the FTEX carrying the source's BC7 blocks, written in a `cargo test -p dds_convert` build (`flate2`'s `miniz_oxide` backend). A build that also links `zlib-rs` (any workspace build with `team_compiler`) compresses its frames to other bytes, so the test compares it through `ftex_to_dds` |
+| `bc3_wesys.pes17.dds` | `bc3.dds` WESYS-wrapped by `wezlib::compress`, PES 17, color role | the unwrapped DDS with its header rebuilt, the BC3 blocks unchanged |

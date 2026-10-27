@@ -152,7 +152,7 @@ fn encode_mips(
 /// read BC1..BC3, PES 19-21 also BC4, BC5 and BC7. A normal-role source
 /// keeps only BC3 blocks (or BC5 on PES 19-21): anything else carries a
 /// color layout the shader would read as a normal map.
-fn compatible(version: PesVersion, codec: BlockCodec, role: TextureRole) -> bool {
+pub(crate) fn compatible(version: PesVersion, codec: BlockCodec, role: TextureRole) -> bool {
     let version_reads = match codec {
         BlockCodec::Bc1 | BlockCodec::Bc2 | BlockCodec::Bc3 => true,
         BlockCodec::Bc4 | BlockCodec::Bc5 | BlockCodec::Bc7 => version >= PesVersion::Pes19,
@@ -335,12 +335,12 @@ pub(crate) fn encode_mip(
 
 /// Wraps the emitted blocks in the container the version reads: a DDS for
 /// PES 15-17, an FTEX for PES 18-21.
-fn container(
+pub(crate) fn container(
     version: PesVersion,
     format: ftex::PixelFormat,
     width: u32,
     height: u32,
-    blocks: &[Vec<u8>],
+    blocks: &[impl AsRef<[u8]>],
 ) -> Result<Vec<u8>, ConvertError> {
     let dds = dds(format, width, height, blocks);
     match version.engine() {
@@ -353,10 +353,10 @@ fn container(
 
 /// A DDS of the emitted blocks: a legacy DX9 header for BC1/BC2/BC3, a DX10
 /// header for the rest (`ftex::dds::header_bytes`), one mip after another.
-fn dds(format: ftex::PixelFormat, width: u32, height: u32, blocks: &[Vec<u8>]) -> Vec<u8> {
+fn dds(format: ftex::PixelFormat, width: u32, height: u32, blocks: &[impl AsRef<[u8]>]) -> Vec<u8> {
     let mut dds = ftex::dds::header_bytes(format, width, height, blocks.len() as u32);
     for mip in blocks {
-        dds.extend_from_slice(mip);
+        dds.extend_from_slice(mip.as_ref());
     }
     dds
 }

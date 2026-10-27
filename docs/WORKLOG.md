@@ -4014,8 +4014,18 @@ briefs, review loops, gates and mutation runs as for any step.
     stays split; `fmdl`'s vertex encoder fails before it permutes; the anti-blur duplicate's
     two-sided bit in the spec; three test gaps. c-8 closed unchanged (Konami's PES 21 boots
     carry alpha 0 too)
-  - [ ] B `aatf`, `pes_version`, `kit_config`, `color_tools`, `pipeline`, `vtree` (`slice_b.md`)
-  - [ ] D `dds_convert` and the containers (`slice_d.md`): first the passthrough decode
+  - [x] B `aatf`, `pes_version`, `kit_config`, `color_tools`, `pipeline`, `vtree` (`slice_b.md`):
+    a kit config's injected notes name both models `validate` accepts (144/160), the
+    upgraded tracers' goldens with them; `TeamViewError` carries the import note, not its
+    `Debug`; a bad badge value names its key; the operation limit's margin checked on all
+    nine embedded rulesets (DBC7 the heaviest, 786,215); `RelativeScopePath` removed (no
+    user); tests for `TierValues::write`'s gate and `year`/`Display`; fixture comments
+    without the legacy checker
+  - [x] D `dds_convert` and the containers (`slice_d.md`): the Converter rewraps blocks a
+    target keeps without decoding them (a 2048x2048 BC7 face to PES 21: median 156 to
+    85 ms, bytes identical, pinned by goldens captured before); three tests' fixtures moved
+    into their own crates; `GK_GLOVES_RANGE` and `FpkFile::remove` removed (no users);
+    comments and spec sentences brought to the code
   - [ ] A2 `pes_savefile`'s design items and `aatf`'s bare record (`slice_a2.md`), after A1
   - [ ] after the cut: `aatf`'s nine fixture modules' repeated tests as helpers (b-3)
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on

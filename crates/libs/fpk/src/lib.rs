@@ -251,11 +251,6 @@ impl FpkFile {
     pub fn insert(&mut self, name: String, content: Vec<u8>) -> Option<Vec<u8>> {
         self.entries.insert(name, content)
     }
-
-    /// Removes `name`, returning its content if present.
-    pub fn remove(&mut self, name: &str) -> Option<Vec<u8>> {
-        self.entries.remove(name)
-    }
 }
 
 /// Bytes needed to bring `len` up to the next multiple of 16.
@@ -477,18 +472,10 @@ mod tests {
     }
 
     #[test]
-    fn remove_returns_content_and_drops_the_entry() {
+    fn an_archive_with_an_entry_is_not_empty() {
         let mut fpk = FpkFile::new(FpkKind::Fpk);
         assert!(fpk.is_empty());
         fpk.insert("a.txt".to_owned(), vec![1, 2, 3]);
-        fpk.insert("b.txt".to_owned(), vec![4]);
         assert!(!fpk.is_empty());
-
-        assert_eq!(fpk.remove("a.txt"), Some(vec![1, 2, 3]));
-        assert_eq!(fpk.get("a.txt"), None);
-        assert_eq!(fpk.len(), 1);
-        assert_eq!(fpk.remove("a.txt"), None);
-        assert_eq!(fpk.remove("b.txt"), Some(vec![4]));
-        assert!(fpk.is_empty());
     }
 }

@@ -450,6 +450,8 @@ mod tests {
     const DDS_BC1: &[u8] = include_bytes!("../tests/fixtures/konami_bc1_bibs_metalness.dds");
     const CUBE: &[u8] =
         include_bytes!("../tests/fixtures/konami_bc1_cubemap_default_reflection.dds");
+    const BC7_PES21: &[u8] = include_bytes!("../tests/fixtures/bc7.pes21.ftex");
+    const BC3_WESYS_PES17: &[u8] = include_bytes!("../tests/fixtures/bc3_wesys.pes17.dds");
 
     fn mips_of(dds: &[u8]) -> Vec<Vec<u8>> {
         decode(dds, SourceFormat::Dds).unwrap().mips
@@ -2023,6 +2025,93 @@ mod tests {
 
         converter.clear();
         assert_eq!(converter.retained_bytes(), 0);
+    }
+
+    #[test]
+    fn converter_passes_kept_blocks_through_byte_for_byte() {
+        let pes21 = Target {
+            version: PesVersion::Pes21,
+            role: TextureRole::Color,
+        };
+        let pes17 = Target {
+            version: PesVersion::Pes17,
+            role: TextureRole::Color,
+        };
+        let wrapped_bc3 = wezlib::compress(BC3);
+        let cases: [(&[u8], SourceFormat, Target, &[u8]); 2] = [
+            (BC7, SourceFormat::Dds, pes21, BC7_PES21),
+            (&wrapped_bc3, SourceFormat::Dds, pes17, BC3_WESYS_PES17),
+        ];
+        // An FTEX's zlib streams depend on the deflate backend the build
+        // links, which another crate in the same build can switch, so an FTEX
+        // is compared through its DDS form: header, mip chain and blocks.
+        let as_dds = |bytes: &[u8]| {
+            if bytes.starts_with(b"FTEX") {
+                ftex::ftex_to_dds(bytes).unwrap()
+            } else {
+                bytes.to_vec()
+            }
+        };
+        for (bytes, format, target, golden) in cases {
+            for policy in [CachePolicy::Use, CachePolicy::Bypass] {
+                let output = Converter::new()
+                    .convert(source_hash(bytes), bytes, format, target, policy)
+                    .unwrap();
+                assert_eq!(as_dds(&output), as_dds(golden), "{target:?} {policy:?}");
+            }
+        }
+
+        // An FTEX source takes the same path through its DDS form.
+        let output = Converter::new()
+            .convert(
+                source_hash(FTEX_BC1),
+                FTEX_BC1,
+                SourceFormat::Ftex,
+                pes21,
+                CachePolicy::Bypass,
+            )
+            .unwrap();
+        let via_decode = convert(&decode(FTEX_BC1, SourceFormat::Ftex).unwrap(), pes21).unwrap();
+        assert_eq!(&output[..], &via_decode[..]);
+    }
+
+    #[test]
+    fn converter_decodes_a_source_whose_blocks_do_not_pass_through() {
+        // BC7 is not read by PES 17, and a BC1 normal map carries a color
+        // layout: both are decoded and encoded again.
+        let cases = [
+            (
+                BC7,
+                Target {
+                    version: PesVersion::Pes17,
+                    role: TextureRole::Color,
+                },
+                ftex::PixelFormat::Bc3,
+            ),
+            (
+                BC1,
+                Target {
+                    version: PesVersion::Pes17,
+                    role: TextureRole::Normal,
+                },
+                ftex::PixelFormat::Bc3,
+            ),
+        ];
+        for (bytes, target, format) in cases {
+            let output = Converter::new()
+                .convert(
+                    source_hash(bytes),
+                    bytes,
+                    SourceFormat::Dds,
+                    target,
+                    CachePolicy::Bypass,
+                )
+                .unwrap();
+            let layout = ftex::dds::read_layout(&output).unwrap();
+            assert_eq!(layout.pixel, ftex::dds::DdsPixel::Format(format));
+            let via_decode = convert(&decode(bytes, SourceFormat::Dds).unwrap(), target).unwrap();
+            assert_eq!(&output[..], &via_decode[..], "{target:?}");
+        }
     }
 
     #[test]

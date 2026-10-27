@@ -155,8 +155,8 @@ pub(crate) fn check_logo(
 }
 
 /// Whether `file` is a logo candidate: a root file whose stem starts with
-/// `logo` (ASCII-case-insensitively). §4 owns these — never
-/// `root_file_unexpected`.
+/// `logo` (ASCII-case-insensitively). `check_logo` reports these, so
+/// `check_root` skips them and never reports one as `root_file_unexpected`.
 fn is_logo_candidate(file: &FileDescriptor) -> bool {
     strip_prefix_ci(stem(file.path.name()), "logo").is_some()
 }

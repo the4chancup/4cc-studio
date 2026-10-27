@@ -109,10 +109,6 @@ pub enum HideIdsError {
     Gloves(u16),
 }
 
-/// The real gloves IDs goalkeepers may use when un-hidden (FPC.wikitext
-/// line 40).
-pub const GK_GLOVES_RANGE: RangeInclusive<u16> = 1..=10;
-
 /// Whether `version` has a Custom skin color: true on PES 15 to 17 only; the
 /// later games dropped it, so the partial-hide preset's one version-dependent
 /// fact lives here (FPC.wikitext line 57).

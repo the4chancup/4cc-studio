@@ -172,9 +172,8 @@ mod tests {
 
     const KONAMI: &[u8] = include_bytes!("../tests/fixtures/konami_pes21_UniformParameter.bin");
     const SAMPLE: &[u8] = include_bytes!("../tests/fixtures/pft_sample.bin");
-    const KIT_CONFIG_100: &[u8] = include_bytes!(
-        "../../kit_config/tests/fixtures/konami_pes21_model144_100_DEF_1st_realUni.bin"
-    );
+    const KIT_CONFIG_100: &[u8] =
+        include_bytes!("../tests/fixtures/konami_pes21_model144_100_DEF_1st_realUni.bin");
 
     fn sample_entries() -> [(String, Vec<u8>); 3] {
         [

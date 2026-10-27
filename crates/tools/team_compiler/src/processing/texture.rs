@@ -523,10 +523,12 @@ pub(super) fn convert(
         version: ctx.version,
         role: texture_role(file_stem(name)),
     };
-    // The decode happens inside the converter, so it is charged before the call. It is
-    // released only after the pass-through test, not right after the call: that test unwraps
-    // a wrapped source again, the copy the charge's source-size share covers. A cache hit
-    // decodes nothing, and is charged all the same.
+    // A decode may happen inside the converter, so one is charged before the call. Only the
+    // converter knows whether it will decode (blocks the target keeps are rewrapped without
+    // one), and a cache hit decodes nothing: both are charged all the same, an over-charge
+    // that holds other tasks back for this call alone. It is released only after the
+    // pass-through test, not right after the call: that test unwraps a wrapped source again,
+    // the copy the charge's source-size share covers.
     let charge = decode_charge(&ctx.budget, bytes, format)
         .map_err(|error| conversion_failure(name, error))?;
     let converted = ctx
@@ -554,8 +556,8 @@ pub(super) fn convert(
 /// the converter's output rather than decided again here, so the rule of which codecs a
 /// version keeps stays the converter's alone.
 fn keeps_blocks(wrapped: &[u8], converted: &[u8]) -> bool {
-    // The converter has just read both: it unwrapped and decoded `wrapped`, or a cache hit
-    // stands for the same bytes decoded before, and wrote `converted` itself.
+    // The converter has just read both: it unwrapped `wrapped` and read its header, or a
+    // cache hit stands for the same bytes read before, and wrote `converted` itself.
     let source = wezlib::decompress(wrapped).expect("the converter has unwrapped this DDS");
     let from = read_layout(&source).expect("the converter has read this DDS's header");
     let to = read_layout(converted).expect("the converter writes a DDS it can read");

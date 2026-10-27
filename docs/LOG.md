@@ -2736,3 +2736,5 @@ worklog passed 7,000 lines.
   offers the pick; a Team TOML apply stages only the rostered players; the spec brought to the text limits and team comparison.
 - **2026-10-28** — The drafts draw Roboto Flex (cut at optical size 12.5, the size the trial drew it at; its semibold for the formation name),
   with the three widths the maintainer named; the app's code follows on approval (worklog w4b).
+- **2026-10-28** — Library rework slices B and D landed: kit config notes name both shirt models `validate` accepts; the AATF operation
+  limit checked on every embedded ruleset; the texture Converter rewraps kept blocks without a decode (156 to 85 ms on a 2048 BC7 face).

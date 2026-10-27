@@ -10,7 +10,7 @@ mod player;
 pub use interference::{Finding, Severity, StripStyle, check};
 pub use kit::{KitFpcValues, kit_values};
 pub use player::{
-    Appearance, GK_GLOVES_RANGE, HideIds, HideIdsError, Preset, SkinColor, Sleeves, Socks, Tuck,
+    Appearance, HideIds, HideIdsError, Preset, SkinColor, Sleeves, Socks, Tuck,
     custom_skin_available, preset,
 };
 

@@ -1200,7 +1200,7 @@ mod tests {
         // DirectXTex's LUMINANCE and RGB matches ignore a mask no flag
         // declares (DDS.cpp:234-247,274-279): the gate applies before the
         // classification, not after it.
-        let mut dds = include_bytes!("../../dds_convert/tests/fixtures/l8_nvtt1.dds").to_vec();
+        let mut dds = include_bytes!("../tests/fixtures/l8_nvtt1.dds").to_vec();
         dds[104..108].copy_from_slice(&0xff000000u32.to_le_bytes()); // a_mask
         assert_eq!(
             dds::read_layout(&dds).unwrap().pixel,

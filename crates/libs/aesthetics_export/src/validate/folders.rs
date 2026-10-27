@@ -85,7 +85,8 @@ pub struct SharedModelFolder {
     pub files: Vec<FileDescriptor>,
 }
 
-/// `FolderDraft` → `PlayerFolder`, no checks (that is the next slice's). The
+/// `FolderDraft` → `PlayerFolder`, no checks: `check_player` reports the
+/// folder's findings and `validate_with` applies the drops. The
 /// folder's name is the player name, whole under a roster file, else the
 /// `<head>[ - <label>]` split's label when present.
 pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFolder {
@@ -157,8 +158,8 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
             | FileKind::Other => files.push(file.clone()),
         }
     }
-    // Both fpc markers present is a conflict, not a directive; the check that
-    // drops such a folder is the next slice's.
+    // Both fpc markers present is a conflict, not a directive; `check_player`
+    // reports it as `fpc_conflict`.
     let fpc = match (fpc_on, fpc_off) {
         (true, false) => Some(FpcDirective::On),
         (false, true) => Some(FpcDirective::Off),
@@ -242,7 +243,9 @@ pub enum KitTextureSource {
     Shared,
 }
 
-/// `FolderDraft` → `SharedModelFolder`, unchecked this slice.
+/// `FolderDraft` → `SharedModelFolder`, no checks: `validate_with` removes
+/// the files a content finding drops and, on Fox, a `.common` link whose
+/// target is absent.
 pub(crate) fn shared_model_folder(draft: &FolderDraft) -> SharedModelFolder {
     SharedModelFolder {
         path: draft.path.clone(),
