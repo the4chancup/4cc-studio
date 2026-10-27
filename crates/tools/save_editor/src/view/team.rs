@@ -55,7 +55,7 @@ pub(super) const TEAM_ROW: [(HeaderUnit, f32); 7] = [
     (HeaderUnit::Colour(1), 143.5),
     (HeaderUnit::Manager, 116.0),
     (HeaderUnit::Stadium, 112.5),
-    (HeaderUnit::KitSlots, 77.0),
+    (HeaderUnit::KitSlots, 69.0),
 ];
 /// The view's Team field.
 pub(super) const TEAM_LABEL: &str = "Team";

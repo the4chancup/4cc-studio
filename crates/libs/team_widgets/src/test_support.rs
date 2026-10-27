@@ -70,9 +70,9 @@ impl Headless {
     pub(crate) fn sized(width: f32, height: f32) -> Headless {
         let ctx = egui::Context::default();
         ctx.enable_accesskit();
-        // The window draws with these fonts; the test measures what a
-        // member sees, whichever crates the build unifies.
-        studio_core::theme::install_fonts(&ctx);
+        // The window draws with these fonts and style; the test measures
+        // what a member sees, whichever crates the build unifies.
+        studio_core::theme::install(&ctx);
         Headless {
             ctx,
             screen: egui::vec2(width, height),

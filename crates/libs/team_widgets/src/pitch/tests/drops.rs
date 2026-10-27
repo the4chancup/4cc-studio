@@ -22,7 +22,7 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     let from = marker_point(&nodes, &formation.players, index);
-    let onto = grass_point(canvas, &formation.players);
+    let onto = grass_point(canvas, &formation.players, egui::Rect::NOTHING);
     let (x, y) = snap(onto, canvas.min);
     let slot = formation.players[index];
     assert_ne!((slot.x, slot.y), (x, y), "premise: a real move");
@@ -133,7 +133,7 @@ fn an_eleven_row_released_on_the_grass_changes_nothing() {
     let (nodes, _) =
         window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
-    let onto = grass_point(canvas, &formation.players);
+    let onto = grass_point(canvas, &formation.players, egui::Rect::NOTHING);
 
     let changed = window.drag_pitch_and_lineup(
         row_centre(&nodes, 3),
@@ -244,7 +244,7 @@ fn a_press_on_the_keeper_over_another_marker_moves_neither() {
 
     let changed = window.drag_pitch(
         point,
-        grass_point(canvas, &players),
+        grass_point(canvas, &players, egui::Rect::NOTHING),
         PesVersion::Pes21,
         &mut tactics,
         &mut view,
@@ -274,7 +274,7 @@ fn the_keepers_marker_cannot_be_dragged() {
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     let from = marker_point(&nodes, &formation.players, keeper);
-    let onto = grass_point(canvas, &formation.players);
+    let onto = grass_point(canvas, &formation.players, egui::Rect::NOTHING);
 
     let changed = window.drag_pitch(
         from,

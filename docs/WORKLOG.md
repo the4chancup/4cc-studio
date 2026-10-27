@@ -3193,7 +3193,7 @@ briefs, review loops, gates and mutation runs as for any step.
   `spec/{aatf_rules,save_editor}.md`. `mutants-diff e04c318d`: 3 caught, 1 unviable, 1 missed:
   `ruleset_dialog` to `Default`, a `#[cfg(not(test))]` native dialog no test compiles, excluded
   by name in `.cargo/mutants.toml`
-- [ ] 0.0.1u the theme pins egui 0.36's spacing and corner radii (the maintainer, 2026-10-26;
+- [x] 0.0.1u the theme pins egui 0.36's spacing and corner radii (the maintainer, 2026-10-26;
   `plans/core/gui.md` "Other UI components", the "Dark/light theme" row; DECISIONS "The theme
   pins egui 0.36's spacing and corner radii", "The theme pins 0.36's `interact_size` and widget
   colors too"). The drafts' controls measured 2026-10-27 (`.tmp/0_0_1u/measure_controls.py`):
@@ -3202,7 +3202,13 @@ briefs, review loops, gates and mutation runs as for any step.
   0.36's `button_padding`, `interact_size` and both themes' `Widgets` whole; the quick actions
   get their own 20 (SWE-2, after s5e) → verify: a test reading the installed style's values
   for both themes; every view's layout tests rerun, their moved numbers checked against the
-  drafts; the built window's buttons against the draft's
+  drafts; the built window's buttons against the draft's. Done 2026-10-27 (SWE-2; `theme.rs`,
+  every harness, `quick_actions.rs`, `team.rs`'s Kit slots claim 77 → 69, `player_list.rs`):
+  the widget states checked field by field against 0.36.1's source; the player list now
+  reserves its scroll bar's 10-point band (DECISIONS "The player list reserves its scroll bar's
+  band": at the 4-point padding the bar's hit zone covered the rows' marks; red: three
+  `live_marks` tests fail without it); tests that measured with a fresh default context read
+  the window's style. Open: the built window's look, with w2's fonts (0.0.1w)
 - [ ] 0.0.1v the preview's icon (the maintainer, 2026-10-27: Archer, from
   `C:\Data\Pictures\FSN\Smug\smugredman.png`; `plans/core/development_plan.md` "The preview's
   icon", DECISIONS "The preview's icon and its build dependency"). The maintainer's split:
@@ -3257,7 +3263,7 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] w1b the drafts' native controls as egui draws them: the checkbox (13 × 13 in Chromium),
     the sliders (Chromium's and Firefox's own), the combo's popup (the system's list), each
     measured in egui first; and the scrollbars, which a headful browser on Windows 10 draws
-    17 wide in the layout where egui's float (the probes run headless and see none)
+    17 wide in the layout where egui's float (the probes run headless and see none); the player list's reserved 10-point band (0.0.1u) drawn in the draft
   - [ ] w2 the app (SWE-2, after 0.0.1u: same `theme.rs`): Selawik in `resources/fonts/` and
     first in the proportional family, the chain the plan's row lists, `monochrome_emoji_fonts`
     on, the code's ✕ and ⠇ as the draft replaces them → verify: a test that every symbol the

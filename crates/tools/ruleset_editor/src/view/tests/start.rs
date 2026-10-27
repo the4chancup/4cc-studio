@@ -326,7 +326,7 @@ fn the_start_modal_scrolls_when_it_outgrows_the_screen() {
 
     // A vertical wheel scroll over the modal brings Close inside the
     // screen.
-    let frame = scroll_until(
+    scroll_until(
         &mut window,
         &mut view,
         &ctx,
@@ -336,6 +336,23 @@ fn the_start_modal_scrolls_when_it_outgrows_the_screen() {
     )
     .expect("a scroll brought Close inside the screen");
 
+    // The wheel scroll animates over several frames: the button's
+    // first on-screen bounds are mid-animation, so draw until they
+    // stop moving and click the fresh ones.
+    let top = |frame: &Frame| node(&frame.nodes, "Close").bounds().expect("drawn").y0;
+    let mut frame = window.draw(&mut view, &ctx);
+    for _ in 0..20 {
+        let before = top(&frame);
+        frame = window.draw(&mut view, &ctx);
+        if top(&frame) == before {
+            break;
+        }
+    }
+    assert_eq!(
+        top(&frame),
+        top(&window.draw(&mut view, &ctx)),
+        "the scroll settled"
+    );
     click(&mut window, node(&frame.nodes, "Close"), &mut view, &ctx);
     assert!(!view.start_open, "Close put the start page away");
     assert_name(&view, "Edited");

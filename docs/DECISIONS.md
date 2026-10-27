@@ -11892,3 +11892,14 @@ app itself drew → ↓ ≡ ▸ ▾ ● ▶ ⚠ ✔ ✕ ✖ ⠇ through the syst
 fonts), a different glyph per machine and a missing one in every test context.
 Plan: `plans/core/gui.md` "Prototypes before implementation" (the Fonts bullet) and "Other UI
 components" (the Dark/light theme row).
+
+## 2026-10-27 — save_editor — The player list reserves its scroll bar's band
+Decision: the player list's scroll area reserves the floating scroll bar's width
+(`floating_allocated_width` = `bar_width`, 10 points), so the rows end left of the bar while
+the list scrolls; the quick actions below keep the panel's full width.
+Why: once the theme pinned egui 0.36's 4-point button padding (0.0.1u), a row's live mark and
+dot, at its right end, sat under the bar, whose hit zone floats over the content: their
+tooltip never showed and a click on one hit the bar (three `live_marks` tests failed, and fail
+again with the line removed). A browser's scrollbar takes layout width the same way; the
+drafts, measured headless, show none, which w1b's scrollbar item settles.
+Plan: `plans/save_editor.md` "Editing UI", the Player list bullet.

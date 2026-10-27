@@ -180,8 +180,11 @@ all side by side.
 - **Player list**, 240 points wide and not resizable: under the design width the window scales
   instead of narrowing (`core/gui.md` "Shell layout", the paragraph "Scaling with the width"), so the view always has the
   room the 1280-point layout gives it, and a list dragged wider would only take that room back.
+  Its rows stop short of the scroll bar's 10-point band, which the list reserves while it
+  scrolls: egui's bar floats over the content otherwise, and its hit zone takes the marks at a
+  row's right end (their hover and click), while the quick actions below span the full width.
   A **team row** heads each team's players, set apart from a player row by the
-  faint fill under it and its name in the strong text colour (the draft's bold: the app
+  faint fill under it and its name in the strong text colour (no bold: the app
   installs no bold face, and a second font file for one row costs more than it shows): the team's id, its colours
   1-2 as swatches and its name, then `[click for tactics]` in the weak colour at the normal
   weight (nothing else says where the tactics are; on a narrow row it is elided before the

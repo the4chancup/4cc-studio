@@ -33,7 +33,7 @@ fn painted_label<'a>(
 /// fails the tests. `right`'s last is the Set stats cell (its button,
 /// the item spacing and the field's two digits).
 fn expected_columns(window: &Headless, left: &[&str], right: &[&str], list_width: f64) -> [f64; 2] {
-    let style = egui::Context::default().global_style();
+    let style = window.ctx.global_style();
     let button = egui::TextStyle::Button.resolve(&style);
     // The DragValue's text is `drag_value_text_style` (`TextStyle::Button`).
     let field = egui::TextStyle::Button.resolve(&style);
@@ -74,8 +74,8 @@ fn expected_columns(window: &Headless, left: &[&str], right: &[&str], list_width
 
 /// The quick actions are `left`'s labels down the left column and
 /// `right`'s down the right, in the given order — each column's cells
-/// sharing one x inside the list rows' x range, every control
-/// `interact_size.y` (20 points) tall and below the list's drawn rows,
+/// sharing one x inside the list rows' x range, every cell
+/// `QUICK_ACTION_HEIGHT` (20 points) tall and below the list's drawn rows,
 /// the Set stats row the right column's last at the buttons' own pitch.
 /// `shapes` is the frame's painted shapes: every button is as wide as
 /// its label plus the button padding, the label eliding only when the
@@ -97,7 +97,7 @@ fn assert_quick_actions(
     // Every button fills its column's width (its widest cell's natural
     // width while the two columns fit the list, else half each), its
     // label eliding only when it cannot fit.
-    let style = egui::Context::default().global_style();
+    let style = window.ctx.global_style();
     let columns = expected_columns(window, left, right, row.x1 - row.x0);
     let ctx = &window.ctx;
     let mut column_xs = Vec::new();
@@ -194,22 +194,23 @@ fn assert_quick_actions(
         (column_xs[0] - row.x0).abs() <= 1.0,
         "the first column starts at the rows' left edge ({column_xs:?} vs {row:?})"
     );
-    // Every cell inside the list rows' x range.
+    // Every cell inside the grid's band.
+    let band_right = grid_band_right(nodes);
     for label in left.iter().chain(right.iter()) {
         let bounds = node_labeled(nodes, Role::Button, label)
             .bounds()
             .expect("bounds");
         assert!(
-            bounds.x0 >= row.x0 - 1.0 && bounds.x1 <= row.x1 + 1.0,
-            "{label} inside the list rows' x range ({bounds:?} vs {row:?})"
+            bounds.x0 >= row.x0 - 1.0 && bounds.x1 <= band_right + 1.0,
+            "{label} inside the grid's band ({bounds:?} vs {band_right})"
         );
     }
     // The Set stats number stays inside the list's width with its
     // button (it takes the cell's remaining width), and it is 20 tall.
     let field = set_stats_field(nodes).bounds().expect("bounds");
     assert!(
-        field.x1 <= row.x1 + 1.0,
-        "the Set stats field inside the list rows' x range ({field:?} vs {row:?})"
+        field.x1 <= band_right + 1.0,
+        "the Set stats field inside the grid's band ({field:?} vs {band_right})"
     );
     assert!(
         (field.y1 - field.y0 - 20.0).abs() < 0.5,
@@ -237,6 +238,19 @@ fn assert_quick_actions(
 /// Label nodes inside the side panel (left of the detail pane's edge):
 /// the quick actions' band's load error standing in for the Make buttons.
 /// The detail view's own labels sit at its x and never pass.
+/// The quick actions grid's right edge: the player list's scroll bar's
+/// (the leftmost bar of the frame). The grid spans the panel's width, while
+/// the rows stop short of the band the list reserves for its bar.
+fn grid_band_right(nodes: &[accesskit::Node]) -> f64 {
+    nodes
+        .iter()
+        .filter(|node| node.role() == Role::ScrollBar)
+        .filter_map(|node| node.bounds())
+        .min_by(|a, b| a.x0.total_cmp(&b.x0))
+        .map(|bounds| bounds.x1)
+        .expect("the list's scroll bar marks the band's right")
+}
+
 fn quick_action_row_labels(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
     nodes
         .iter()
@@ -1066,7 +1080,8 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
         .find(|node| player_row(node))
         .and_then(accesskit::Node::bounds)
         .expect("a player row in the list");
-    let half = (row.x1 - row.x0 - 6.0) / 2.0;
+    let band_right = grid_band_right(&nodes);
+    let half = (band_right - row.x0 - 6.0) / 2.0;
     for label in [
         &*format!("Make {WIDE_TIER}"),
         "Make Silver",
@@ -1085,12 +1100,12 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
             bounds.x1
         };
         assert!(
-            bounds.x0 >= row.x0 - 1.0 && right <= row.x1 + 1.0,
-            "{label} inside the list rows' x range ({bounds:?} vs {row:?})"
+            bounds.x0 >= row.x0 - 1.0 && right <= band_right + 1.0,
+            "{label} inside the grid's band ({bounds:?} vs {band_right})"
         );
         assert!(
             (right - bounds.x0 - half).abs() <= 1.0,
-            "{label}'s cell a half of the list ({bounds:?} vs {half})"
+            "{label}'s cell a half of the band ({bounds:?} vs {half})"
         );
     }
     let label = format!("Make {WIDE_TIER}");

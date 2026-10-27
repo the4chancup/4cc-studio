@@ -1,8 +1,10 @@
-//! The shared look (core plan, "Other UI components"): the fonts, and the `theme`
-//! setting's application to the egui context. `install_fonts` installs the one font
-//! set: `run_gui` calls it at window creation and every view test's harness calls it
-//! too, so a width a test measures is the width a member sees. The presets stay
-//! egui's own dark and light `Visuals` until the curated one lands.
+//! The shared look (core plan, "Other UI components"): the fonts, the drafts'
+//! style and the `theme` setting's application to the egui context. `install`
+//! puts the one font set and the pinned style on a context: `run_gui` calls it
+//! at window creation and every view test's harness calls it too, so a size a
+//! test measures is the size a member sees. The spacing and both themes'
+//! widget states are egui 0.36's, the look the drafts were reviewed in; the
+//! rest of the presets stays egui's own `Visuals` until the curated one lands.
 
 use crate::settings::Theme;
 use crate::status::NoticeKind;
@@ -38,6 +40,129 @@ pub(crate) fn apply(ctx: &egui::Context, theme: Theme) {
     });
 }
 
+/// Installs the suite's look on `ctx`: the fonts (`install_fonts`) and the
+/// drafts' style. `run_gui` calls it at window creation and every view test's
+/// harness calls it too, so a size a test measures is the size a member sees.
+/// The spacing and both themes' widget states are egui 0.36's, the look the
+/// drafts the GUI is built from were reviewed in: 0.37 moved them (the button
+/// padding to 8 by 2, the controls to 20 high, the dark buttons to grey 50
+/// with text at 215), so `install` pins them on both themes itself and an egui
+/// upgrade cannot move the approved look (core plan "Other UI components", the
+/// "Dark/light theme" row).
+#[cfg(not(target_arch = "wasm32"))]
+pub fn install(ctx: &egui::Context) {
+    install_fonts(ctx);
+    for theme in [egui::Theme::Dark, egui::Theme::Light] {
+        ctx.style_mut_of(theme, |style| {
+            style.spacing.button_padding = egui::vec2(4.0, 1.0);
+            style.spacing.interact_size = egui::vec2(40.0, 18.0);
+            style.visuals.widgets = match theme {
+                egui::Theme::Dark => widgets_dark(),
+                egui::Theme::Light => widgets_light(),
+            };
+        });
+    }
+}
+
+/// egui 0.36.1's `Widgets::dark()`, field for field: the drafts' stylesheet
+/// draws widgets in these colors, and 0.37's `Widgets::dark()` moved them (the
+/// buttons to grey 50 with text at 215, the radii to 4 to 6 points), so it
+/// cannot supply them.
+#[cfg(not(target_arch = "wasm32"))]
+fn widgets_dark() -> egui::style::Widgets {
+    egui::style::Widgets {
+        noninteractive: egui::style::WidgetVisuals {
+            weak_bg_fill: egui::Color32::from_gray(27),
+            bg_fill: egui::Color32::from_gray(27),
+            bg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(60)),
+            fg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(140)),
+            corner_radius: egui::CornerRadius::same(2),
+            expansion: 0.0,
+        },
+        inactive: egui::style::WidgetVisuals {
+            weak_bg_fill: egui::Color32::from_gray(60),
+            bg_fill: egui::Color32::from_gray(60),
+            bg_stroke: egui::Stroke::default(),
+            fg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(180)),
+            corner_radius: egui::CornerRadius::same(2),
+            expansion: 0.0,
+        },
+        hovered: egui::style::WidgetVisuals {
+            weak_bg_fill: egui::Color32::from_gray(70),
+            bg_fill: egui::Color32::from_gray(70),
+            bg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(150)),
+            fg_stroke: egui::Stroke::new(1.5, egui::Color32::from_gray(240)),
+            corner_radius: egui::CornerRadius::same(3),
+            expansion: 0.0,
+        },
+        active: egui::style::WidgetVisuals {
+            weak_bg_fill: egui::Color32::from_gray(55),
+            bg_fill: egui::Color32::from_gray(55),
+            bg_stroke: egui::Stroke::new(1.0, egui::Color32::WHITE),
+            fg_stroke: egui::Stroke::new(2.0, egui::Color32::WHITE),
+            corner_radius: egui::CornerRadius::same(2),
+            expansion: 0.0,
+        },
+        open: egui::style::WidgetVisuals {
+            weak_bg_fill: egui::Color32::from_gray(45),
+            bg_fill: egui::Color32::from_gray(27),
+            bg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(60)),
+            fg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(210)),
+            corner_radius: egui::CornerRadius::same(2),
+            expansion: 0.0,
+        },
+    }
+}
+
+/// egui 0.36.1's `Widgets::light()`, field for field, for the same reason as
+/// `widgets_dark`: 0.37's `Widgets::light()` rounded every state to 6 points,
+/// which is not the look the drafts were reviewed in.
+#[cfg(not(target_arch = "wasm32"))]
+fn widgets_light() -> egui::style::Widgets {
+    egui::style::Widgets {
+        noninteractive: egui::style::WidgetVisuals {
+            weak_bg_fill: egui::Color32::from_gray(248),
+            bg_fill: egui::Color32::from_gray(248),
+            bg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(190)),
+            fg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(80)),
+            corner_radius: egui::CornerRadius::same(2),
+            expansion: 0.0,
+        },
+        inactive: egui::style::WidgetVisuals {
+            weak_bg_fill: egui::Color32::from_gray(230),
+            bg_fill: egui::Color32::from_gray(230),
+            bg_stroke: egui::Stroke::default(),
+            fg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(60)),
+            corner_radius: egui::CornerRadius::same(2),
+            expansion: 0.0,
+        },
+        hovered: egui::style::WidgetVisuals {
+            weak_bg_fill: egui::Color32::from_gray(220),
+            bg_fill: egui::Color32::from_gray(220),
+            bg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(105)),
+            fg_stroke: egui::Stroke::new(1.5, egui::Color32::BLACK),
+            corner_radius: egui::CornerRadius::same(3),
+            expansion: 0.0,
+        },
+        active: egui::style::WidgetVisuals {
+            weak_bg_fill: egui::Color32::from_gray(165),
+            bg_fill: egui::Color32::from_gray(165),
+            bg_stroke: egui::Stroke::new(1.0, egui::Color32::BLACK),
+            fg_stroke: egui::Stroke::new(2.0, egui::Color32::BLACK),
+            corner_radius: egui::CornerRadius::same(2),
+            expansion: 0.0,
+        },
+        open: egui::style::WidgetVisuals {
+            weak_bg_fill: egui::Color32::from_gray(220),
+            bg_fill: egui::Color32::from_gray(220),
+            bg_stroke: egui::Stroke::new(1.0, egui::Color32::from_gray(160)),
+            fg_stroke: egui::Stroke::new(1.0, egui::Color32::BLACK),
+            corner_radius: egui::CornerRadius::same(2),
+            expansion: 0.0,
+        },
+    }
+}
+
 /// Registers the suite's fonts on `ctx`: the body font `"Ubuntu-Regular"`, the
 /// file `resources/fonts/Ubuntu-Regular.ttf` bundles — the drafts the GUI is built
 /// from are drawn at weight 400 and egui ships only the light weight, so the
@@ -54,7 +179,7 @@ pub(crate) fn apply(ctx: &egui::Context, theme: Theme) {
 /// whole font set, so the definitions start from egui's defaults and add ours.
 /// Native only for now: Studio Web's frontend calls it when that exists.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn install_fonts(ctx: &egui::Context) {
+fn install_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     fonts.font_data.insert(
         "Ubuntu-Regular".to_owned(),
@@ -113,9 +238,32 @@ mod tests {
     }
 
     #[test]
+    fn install_pins_egui_0_36s_spacing_and_widget_states() {
+        let ctx = egui::Context::default();
+        install(&ctx);
+        for (theme, inactive_fill, inactive_text) in
+            [(egui::Theme::Dark, 60, 180), (egui::Theme::Light, 230, 60)]
+        {
+            let style = ctx.style_of(theme);
+            assert_eq!(style.spacing.button_padding, egui::vec2(4.0, 1.0));
+            assert_eq!(style.spacing.interact_size, egui::vec2(40.0, 18.0));
+            let widgets = &style.visuals.widgets;
+            assert_eq!(
+                widgets.inactive.weak_bg_fill,
+                egui::Color32::from_gray(inactive_fill)
+            );
+            assert_eq!(
+                widgets.inactive.fg_stroke.color,
+                egui::Color32::from_gray(inactive_text)
+            );
+            assert_eq!(widgets.hovered.corner_radius, egui::CornerRadius::same(3));
+        }
+    }
+
+    #[test]
     fn installing_fonts_puts_ubuntu_regular_first_and_the_icons_second() {
         let ctx = egui::Context::default();
-        install_fonts(&ctx);
+        install(&ctx);
         // `Context::fonts` is populated by the first pass.
         ctx.run_ui(egui::RawInput::default(), |_| {})
             .drop_without_applying_deltas();
@@ -188,7 +336,7 @@ mod tests {
             crate::icons::X,
         ];
         let ctx = egui::Context::default();
-        install_fonts(&ctx);
+        install(&ctx);
         ctx.run_ui(egui::RawInput::default(), |_| {})
             .drop_without_applying_deltas();
         ctx.fonts_mut(|fonts| {

@@ -484,13 +484,13 @@ pub(super) struct FrameOutput {
     pub(super) shapes: Vec<egui::epaint::ClippedShape>,
 }
 
-/// A context with AccessKit on and the window's fonts
-/// (`crate::theme::install_fonts`), so every shell test draws what a member
+/// A context with AccessKit on and the window's fonts and style
+/// (`crate::theme::install`), so every shell test draws what a member
 /// sees.
 pub(super) fn test_context() -> egui::Context {
     let ctx = egui::Context::default();
     ctx.enable_accesskit();
-    crate::theme::install_fonts(&ctx);
+    crate::theme::install(&ctx);
     ctx
 }
 

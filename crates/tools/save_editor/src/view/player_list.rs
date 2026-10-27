@@ -116,6 +116,11 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let held = live_marks::held_violations(view.live_aatf, &view.live.check, view.rules.as_ref());
     let session = view.session.as_mut().expect("checked above");
     let rows = selection::list(session.file(), &view.team, &view.filter);
+    // The floating scroll bar's band stays clear of the rows: reserve
+    // it, so a row's dot and mark, at its right end, sit left of the bar
+    // and keep their hover and click; floating over them, the bar's hit
+    // zone took both once the button padding shrank to 4.
+    ui.spacing_mut().scroll.floating_allocated_width = ui.spacing().scroll.bar_width;
     egui::ScrollArea::vertical().show_rows(ui, layout.row_height, rows.len(), |ui, range| {
         for row in &rows[range] {
             match row {

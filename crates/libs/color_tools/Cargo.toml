@@ -11,7 +11,7 @@ rust-version.workspace = true
 egui.workspace = true
 
 [dev-dependencies]
-# The tests draw with the window's fonts (`theme::install_fonts`).
+# The tests draw with the window's fonts and style (`theme::install`).
 studio_core.workspace = true
 
 [lints]

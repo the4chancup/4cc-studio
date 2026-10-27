@@ -2617,3 +2617,5 @@ worklog passed 7,000 lines.
 - **2026-10-27** — The drafts drew in Segoe UI, Ubuntu being installed nowhere they were opened; Selawik, its metric twin, becomes
   the body font, and the drafts now load the app's own font files only (`scripts/draft_fonts.py` checks it); their approval is
   withdrawn until the maintainer's close look (0.0.1w1).
+- **2026-10-27** — The theme pins egui 0.36's button padding, 18-point controls and widget colours the drafts were reviewed in;
+  the player list keeps its rows' marks clear of the scroll bar (0.0.1u).

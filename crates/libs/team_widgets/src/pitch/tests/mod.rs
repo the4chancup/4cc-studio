@@ -379,13 +379,20 @@ pub(crate) fn marker_point(
         .unwrap_or_else(|| panic!("no point on marker {index} is free of later markers"))
 }
 
-/// A point on `canvas` no marker of `players` covers: a grass drop
-/// (the first free of the grid scan).
-fn grass_point(canvas: egui::Rect, players: &[FormationSlot; 11]) -> egui::Pos2 {
+/// A point on `canvas` no marker of `players` covers and not inside
+/// `blocked` (the open popover's rect — it floats over the grass, so a
+/// press meant for the grass has to land outside it): the first free of
+/// the grid scan.
+fn grass_point(
+    canvas: egui::Rect,
+    players: &[FormationSlot; 11],
+    blocked: egui::Rect,
+) -> egui::Pos2 {
     let free = |point: egui::Pos2| {
-        players
-            .iter()
-            .all(|slot| !marker_rect(badge_centre(canvas.min, *slot), canvas).contains(point))
+        !blocked.contains(point)
+            && players
+                .iter()
+                .all(|slot| !marker_rect(badge_centre(canvas.min, *slot), canvas).contains(point))
     };
     (0..=GRID_X)
         .flat_map(|x| (0..=GRID_Y).map(move |y| (x, y)))

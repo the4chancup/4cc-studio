@@ -542,7 +542,7 @@ pub fn run_gui(mut app: StudioApp) -> anyhow::Result<()> {
         APP_NAME,
         options,
         Box::new(|creation| {
-            crate::theme::install_fonts(&creation.egui_ctx);
+            crate::theme::install(&creation.egui_ctx);
             // The context's clones share the wake slot, so a `with_events` sink made before
             // the window exists still wakes it (gui.md "Event wiring").
             let egui_ctx = creation.egui_ctx.clone();

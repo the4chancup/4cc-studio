@@ -674,7 +674,6 @@ fn a_press_outside_closes_the_popover_but_a_press_inside_does_not() {
     let roster = roster_rows(&rows);
     let formation = tactics.presets[0].formations[0].clone();
     let index = 3;
-    let other = 6;
 
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
@@ -692,8 +691,13 @@ fn a_press_outside_closes_the_popover_but_a_press_inside_does_not() {
         "premise: the popover is open"
     );
 
-    // A press on the grass closes it.
-    let grass = grass_point(canvas, &formation.players);
+    // A press on the grass closes it: outside the open popover too,
+    // which floats over the pitch's lower-left here.
+    let grass = grass_point(
+        canvas,
+        &formation.players,
+        popover_rect(&window.ctx).expect("the popover is open"),
+    );
     window.pitch(
         PesVersion::Pes21,
         &mut tactics,
@@ -776,7 +780,13 @@ fn a_press_outside_closes_the_popover_but_a_press_inside_does_not() {
     assert!(view.popover.is_some(), "the pick leaves the popover open");
 
     // A press then release on another marker: the press closes the open
-    // popover, the click opens that marker's.
+    // popover, the click opens that marker's. The marker's point has to
+    // be outside the popover, which floats over the pitch's lower-left.
+    let popover = popover_rect(&window.ctx).expect("the popover is open");
+    let other = (0..11)
+        .filter(|&i| i != index)
+        .find(|&i| !popover.contains(marker_point(&nodes, &formation.players, i)))
+        .expect("some marker is free of the popover");
     window.click_pitch(
         marker_point(&nodes, &formation.players, other),
         PesVersion::Pes21,

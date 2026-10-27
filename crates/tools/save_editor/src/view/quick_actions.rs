@@ -29,6 +29,10 @@ const COLUMN_GAP: f32 = 6.0;
 /// The gap between a column's cells (the draft's `.qacol` gap).
 const ROW_GAP: f32 = 3.0;
 
+/// A quick action cell's height (the plan's 20, the draft's): the theme's
+/// controls are 18 (`interact_size`), the quick actions keep their own.
+const QUICK_ACTION_HEIGHT: f32 = 20.0;
+
 /// The medal tiers' ids (the draft's `MEDAL_MARK`), which the left column
 /// holds in the ruleset's order.
 fn is_medal(id: &str) -> bool {
@@ -112,7 +116,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         // first cell), and before a ruleset ever loaded it is too.
         None => (column_widths(set_stats_width, 0.0, ui.available_width()), 0),
     };
-    let height = ui.spacing().interact_size.y;
+    let height = QUICK_ACTION_HEIGHT;
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing = egui::vec2(COLUMN_GAP, ROW_GAP);
         for (index, tiers) in [&left, &right].into_iter().enumerate() {

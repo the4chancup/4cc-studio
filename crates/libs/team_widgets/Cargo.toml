@@ -17,7 +17,7 @@ pes_version.workspace = true
 # The fixture saves as whole encrypted files (`fixture_save`), for the
 # headless tests' real players.
 pes_savefile = { workspace = true, features = ["test-support"] }
-# The tests draw with the window's fonts (`theme::install_fonts`).
+# The tests draw with the window's fonts and style (`theme::install`).
 studio_core.workspace = true
 
 [lints]

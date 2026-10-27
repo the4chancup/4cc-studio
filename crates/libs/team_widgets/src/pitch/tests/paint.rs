@@ -722,7 +722,7 @@ fn a_dragged_marker_paints_last_at_the_pointer() {
         .copied()
         .find(|&i| players[i].position != 0 && i != first_outfield)
         .expect("a second outfield slot");
-    let onto = grass_point(canvas, &players);
+    let onto = grass_point(canvas, &players, egui::Rect::NOTHING);
     let from = marker_point(&nodes, &players, index);
     assert!(
         off(onto, centres[index]),
@@ -1346,7 +1346,7 @@ fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
     );
 
     // Held over the grass instead: no brackets, full opacity.
-    let grass = grass_point(canvas, &players);
+    let grass = grass_point(canvas, &players, egui::Rect::NOTHING);
     let (_, shapes) = window.frame(vec![egui::Event::PointerMoved(grass)], |ui| {
         pitch(
             ui,
