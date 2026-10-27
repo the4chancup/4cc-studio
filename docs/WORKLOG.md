@@ -3033,9 +3033,9 @@ briefs, review loops, gates and mutation runs as for any step.
   gives the shell the monitor list only once the window exists"): no route before the window
   exists, and after it the frame's window lists the monitors (`Frame::winit_window`,
   `available_monitors`), so the window is created at the place and the first frame checks it.
-  Open for the top lead, on the merged code: the built-window checks (move and resize, close,
-  reopen at 100% and on the 4K monitor's 200%, close maximized) and the off-monitor case by
-  hand (a place on the FHD monitor, that monitor switched off, reopen: fitted on the main one)
+  The built-window checks are done (q3's and q4's `manual:` lines). Open: the off-monitor case
+  with a monitor really switched off (the maintainer's), and QUESTIONS "Does a window reopened
+  maximized flicker?"
   - [x] q1 the record, the opening and the guard (`.tmp/0_0_1q/brief_q1.md`): `window_main`
     as `[x, y, width, height, scale]` (pixels, points at zoom 1, the monitor's scale), read
     each normal frame and written at exit, the window created at it and the first frame
@@ -3070,8 +3070,12 @@ briefs, review loops, gates and mutation runs as for any step.
     size a member reaches (2200 x 1400 pixels; 550 x 350 points sat under the minimum); the
     plan says eframe's creation clamp is kept. Done 2026-10-26 (SWE-2). The post-Astra SWE-2
     round S3: 2 of 3 accepted (the clamp's sentence overstated, the bar's height scaling
-    unpinned; fixed by the lead), the review loops end. Open: the built-window checks (the
-    reopen at a place, the off-monitor case), asked first. Files:
+    unpinned; fixed by the lead), the review loops end. manual: checked 2026-10-27 (with q4's,
+    `.tmp/0_0_1q/built/findings.md`): move and resize, close and reopen at the place on the FHD
+    at 100% and on the 4K at 200% (there the window is first shown on the FHD for 15 ms, the
+    mixed-scale creation offset the plan records); an off-monitor record, simulated by writing
+    one off every screen, reopens fitted on the primary. A monitor actually switched off is
+    the maintainer's to try. Files:
     `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`
   - [ ] q4 a window closed maximized reopens maximized (P39, accepted 2026-10-27; DECISIONS
     "A window closed maximized reopens maximized"; `plans/core/gui.md` "Window size classes",
@@ -3087,8 +3091,14 @@ briefs, review loops, gates and mutation runs as for any step.
     platform, not on X11 alone (the sidekick's contradiction: winit restores a maximized
     window to move it; plan and DECISIONS); an off-monitor maximized place unmaximized before
     the fit. Files: `studio_core/src/settings/common.rs`, `shell/{mod.rs,window_size/}`,
-    `spec/team_compiler/settings.md`. Open: the built-window check (with q's), and how visible
-    the first frame's restore-and-maximize is
+    `spec/team_compiler/settings.md`. manual: checked 2026-10-27 with q's (release build at
+    `0c1d7c3f`, a portable copy, the app's own window traced every 2 ms;
+    `.tmp/0_0_1q/built/findings.md`): close maximized, reopen maximized, restore to the place,
+    on the FHD and on the 4K at 200%; an off-monitor maximized record reopens unmaximized and
+    fitted. How visible: two blips per maximized reopen, each under one 60 Hz frame (the
+    creation shows a maximized window for 7-13 ms before eframe hides it; the first show
+    restores for 2-6 ms before maximizing again). Open: whether the maintainer sees either as
+    a flicker (QUESTIONS)
 - [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version
@@ -3917,7 +3927,9 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
   capabilities", "GUI view", "Testing"; four DECISIONS entries; player reordering proposed
   (PROPOSALS P40)
 - [ ] 10.0i 10.0f's part 2, Rigdio's player controls against `plans/music_player.md` (the
-  rows 10.0f marked "later"), ruled the same way. Queued after 10.0h
+  rows 10.0f marked "later"), ruled the same way, plus the controls part 2 missed. Audit
+  running (Opus, read-only, brief `.tmp/10_0i/brief_rigdio_controls_audit.md`, report
+  `rigdio_controls_audit.md`)
 
 ### Phase 12 — Kit config editor
 
@@ -3928,7 +3940,8 @@ The phase's steps are itemized when it opens; prepared ahead:
   (`spec/kit_config_editor.md` "Relationship to the old codebase"; the scripts were not kept),
   so the audit compares `plans/kit_config_editor.md`'s GUI rows with the spec's recovered
   controls and constraints, and re-reads the exe (`Kits/Configs/KitmanagerV4.exe`, capstone)
-  only where a GUI behavior is not in the spec. Queued
+  only where a GUI behavior is not in the spec. Briefed (`.tmp/12_0a/brief_kitmanager_audit.md`,
+  Fable: disassembly), launched when a Fable slot frees
 
 ### Phase 13 — Refs arranger
 
@@ -3936,7 +3949,8 @@ The phase's steps are itemized when it opens; prepared ahead:
 
 - [ ] 13.0a the plan's readiness audit: `plans/refs_arranger.md` against what it relies on
   (`aesthetics_export`'s built referee handling, FoxDen's referee hook as the plan cites it),
-  every open question listed for QUESTIONS. Queued
+  every open question listed for QUESTIONS. Audit running (Fable, read-only, brief
+  `.tmp/13_0a/brief_refs_audit.md`, report `refs_audit.md`)
 
 ### Phase 14 — Balls compiler
 

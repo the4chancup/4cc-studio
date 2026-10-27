@@ -2687,3 +2687,5 @@ worklog passed 7,000 lines.
   non-identity eleven, whole-record comparisons, seven named role holders); test code only.
 - **2026-10-27** — 10.0h: the Music export editor's plan checked row by row against RigDJ; players keep the file's (Rigdio's
   button) order, new names are checked at entry, the `pause`, `end`, `every` and `match` forms stop losing or breaking values.
+- **2026-10-27** — 0.0.1q/q4 built-window checks: the place, the 200% monitor, close maximized and the simulated off-monitor
+  record all reopen as specified; a maximized reopen shows two blips under one frame each (QUESTIONS asks if they flicker).
