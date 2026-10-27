@@ -753,7 +753,6 @@ fn a_dragged_marker_paints_last_at_the_pointer() {
         pointer_at(from, true),
     );
     let (_, shapes) = window.frame(vec![egui::Event::PointerMoved(onto)], |ui| {
-        tactics::assign_note(ui, &mut view);
         pitch(
             ui,
             "pitch",
@@ -828,7 +827,6 @@ fn a_pressed_keeper_paints_at_his_spot() {
         pointer_at(point, true),
     );
     let (_, shapes) = window.frame(vec![egui::Event::PointerMoved(onto)], |ui| {
-        tactics::assign_note(ui, &mut view);
         pitch(
             ui,
             "pitch",
@@ -1010,7 +1008,6 @@ fn the_scrolls_clock_survives_a_discarded_pass() {
         if ui.ctx().current_pass_index() == 0 {
             ui.ctx().request_discard("test");
         }
-        tactics::assign_note(ui, &mut view);
         pitch(
             ui,
             "pitch",
@@ -1091,6 +1088,56 @@ fn the_pitch_repaints_when_the_next_name_moves() {
         window.repaint_delay(),
         std::time::Duration::MAX,
         "nothing requested without a wide name"
+    );
+}
+
+// `TacticsView::scroll_names` (the formation bar's checkbox): on, a
+// name wider than its badge moves as the game's; off, every wide name is
+// still at its badge's left — the scroll's resting phase, no repaint to
+// ask for either.
+#[test]
+fn scroll_names_off_holds_wide_names_still_at_the_badges_left() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let mut rows = fixture_rows(PesVersion::Pes21);
+    let index = 4;
+    rows[usize::from(tactics.starting_eleven[index])].1 = "3DSMAX HAS STOPPED WORKING".to_owned();
+    let roster = roster_rows(&rows);
+    let players = tactics.presets[0].formations[0].players;
+    let x_of = |shapes: &[egui::epaint::ClippedShape]| {
+        name_galleys(shapes, "3DSMAX HAS STOPPED WORKING")[0].pos.x
+    };
+
+    // The clock starts at the pitch's first frame, 100.0; the name moves
+    // in the last seconds of its 13.5 s period.
+    window.pitch_paint_at(100.0, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (nodes, moving_a) =
+        window.pitch_paint_at(111.0, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (_, moving_b) =
+        window.pitch_paint_at(112.5, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    assert_ne!(
+        x_of(&moving_a),
+        x_of(&moving_b),
+        "the wide name moves between frames while names scroll"
+    );
+    let canvas = canvas_rect(&nodes);
+    let badge_left = centres_of(canvas, &players)[index].x - 25.0;
+
+    view.scroll_names = false;
+    let (_, still_a) =
+        window.pitch_paint_at(111.0, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (_, still_b) =
+        window.pitch_paint_at(112.5, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    assert_eq!(
+        x_of(&still_a),
+        x_of(&still_b),
+        "the same frames hold the name still with Scroll names off"
+    );
+    assert!(
+        (x_of(&still_a) - badge_left).abs() <= 0.5,
+        "at the badge's left ({} vs {badge_left})",
+        x_of(&still_a)
     );
 }
 

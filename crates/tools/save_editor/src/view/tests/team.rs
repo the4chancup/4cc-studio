@@ -803,7 +803,7 @@ fn the_team_view_draws_its_fields_and_edits_them_undoable() {
         !label_value(&nodes, "Slot 1"),
         "the kit slot rows stay behind the dialog"
     );
-    node_labeled(&nodes, Role::Button, "Copy/swap preset");
+    node_labeled(&nodes, Role::Button, "Copy/swap");
 
     // A short-name edit lands in the team's entry as one undoable edit.
     let before = team_entry(&view, 734).short_name;

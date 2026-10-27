@@ -3,14 +3,17 @@ three presets is on screen, its formation settings, the advanced instructions
 and the team's automatic settings. A field the save's version does not hold
 stays in its place, disabled, with a note naming the first version that has it.
 
-The part is three columns: the pitch, the two lists, then the settings column
-with the preset bar and the groups. On a window too narrow for all three the
-settings column moves below the pitch and the lists instead.
+The part is a grid of three columns and three rows: the preset bar level with
+the formation bar at the top; **Formation settings**, the pitch and **Player
+assignments** in the middle; **Advanced instructions** and **Automatic
+settings** beside the two player lists at the bottom.
 
 The **pitch** is where the formation takes shape, drawn like the game's own
 formation screen: each starter stands at his spot, drawn as his portrait
 over a badge with his position and his name below it (a name too long for
-the badge scrolls now and then, as in the game). The portraits come from
+the badge scrolls now and then, as in the game; the **Scroll names**
+checkbox at the right of the formation bar holds them still when off, and
+the setting is remembered). The portraits come from
 the game picked at the top of the sidebar, out of the `download` folder
 inside the **PES folder** setting. When that folder is missing, or a file
 it lists is missing, the starters show without portraits. Dragging a pitch
@@ -20,12 +23,13 @@ player dropped on a bench row does the same. Clicking a pitch player opens
 his details: a position pick, the exact X and Y fields and **Make GK**,
 which puts him in goal and brings the goalkeeper out onto his spot. The
 goalkeeper cannot be dragged and his position and spot stay fixed.
-The **Kick-off**, **In-possession** and **Out-of-possession** buttons above
-the pitch pick which of the preset's three formations it shows (the game
+The **Kick-off**, **In-possession** and **Out-of-possession** buttons on the
+formation bar pick which of the preset's three formations it shows (the game
 uses the second and third only while the preset's fluid formation is on).
 Switching formations changes nothing by itself.
 
-The **Starting eleven** and **Bench** lists set who plays and in which order;
+The two lists under the pitch set who plays and in which order: the starting
+eleven on the left, the bench on the right;
 the bench lists the players alone, never an empty slot. Drag a row onto another to move or swap it. A starter dropped on
 another starter trades their places. A bench player dropped on a starter takes
 his place and every job he held (set pieces, joining the attack, instruction
@@ -33,17 +37,17 @@ targets). The captain stays who he was.
 
 The **Player assignments** chips set who takes each set piece, the captain and
 who joins the attack: click a chip, then click the pitch player. Join attack
-keeps its mode open so up to three can be picked or unpicked. Done closes
-the mode.
+keeps its mode open so up to three can be picked or unpicked; click the chip
+again to close the mode.
 
-The **Preset** buttons at the top of the settings column, beside the two
-Copy/swap menus, pick which of the team's three presets the groups below edit.
-Switching presets changes nothing by itself.
+The **Preset** buttons on the left of the preset bar pick which of the team's
+three presets the panels below edit. Switching presets changes nothing by
+itself. The **Fluid formation** checkbox beside them (PES 2016 and later)
+decides whether the game uses the second and third formations.
 
-**Formation settings** holds the fluid-formation switch (PES 2016 and later),
-the five sliders (support range, defensive line, compactness, and the numbers
-joining attack and defence) and the seven style pairs, each named as the game
-names its two choices.
+**Formation settings** holds the five sliders (support range, defensive line,
+compactness, and the numbers joining attack and defence) and the seven style
+pairs, each named as the game names its two choices.
 
 **Advanced instructions** (PES 2017 and later) sets the team's two attack and
 two defence instructions. Tight Marking is never offered, because it marks an
@@ -58,7 +62,10 @@ the save stores (0 is off; on PES 2021, 1 is very late, 2 flexible and 3 very
 early), the offside trap, the preset change and (PES 2017 and later) the
 attack/defence levels.
 
-The two menus above the groups copy or swap whole presets (man marking included)
-and the shown preset's three formations, and the starting eleven is never
-touched. Every change, like every edit in the editor, is one undoable step
-(Ctrl+Z).
+Each bar's **Copy/swap** menu acts on the shown preset or formation: a copy
+to, then a swap with, each of the other two (Copy to 2, Copy to 3, Swap with 2
+and Swap with 3 from preset 1; Copy to In-possession and so on for a
+formation). A preset copy or swap moves the whole preset, man marking
+included, and a formation copy or swap moves its eleven slots; the starting
+eleven is never touched. Every change, like every edit in the editor, is one
+undoable step (Ctrl+Z).

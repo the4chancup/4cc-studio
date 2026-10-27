@@ -65,11 +65,12 @@ fn capped_combo(
     .inner
 }
 
-/// The "Advanced instructions" group (PES 17+): the four rows Attack 1,
-/// Attack 2, Defence 1, Defence 2, each its instruction and its target.
-/// A version with no instruction table draws the same rows, disabled —
-/// the plan's version-gating rule — each combo showing the empty pick's
-/// text and the `PES NN+` tooltip on hover.
+/// The "Advanced instructions" group's rows (PES 17+): the four rows
+/// Attack 1, Attack 2, Defence 1, Defence 2, each its instruction and
+/// its target. A version with no instruction table draws the same rows,
+/// disabled — the plan's version-gating rule — each combo showing the
+/// empty pick's text and the `PES NN+` tooltip on hover. The panel's
+/// heading is the caller's `panel`.
 pub(super) fn instruction_table(
     ui: &mut egui::Ui,
     version: PesVersion,
@@ -77,7 +78,6 @@ pub(super) fn instruction_table(
     starting_eleven: &[u8; 11],
     roster: &[RosterRow<'_>],
 ) {
-    ui.strong("Advanced instructions");
     let (Some(attack), Some(defence)) = (
         preset.attack_instructions.as_mut(),
         preset.defence_instructions.as_mut(),
@@ -301,10 +301,10 @@ mod tests {
 
     use super::*;
     use crate::tactics::tests::click;
-    use crate::tactics::{TacticsView, preset_selector, tactics_settings};
+    use crate::tactics::{TacticsView, preset_selector};
     use crate::test_support::{
         Headless, button_labels, centre, control_right_of, controls_right_of, entry_id,
-        fixture_rows, fixture_tactics, roster_rows,
+        fixture_rows, fixture_tactics, roster_rows, tactics_settings,
     };
 
     // plans/save_editor.md "Tactics editor", "What the controls write": the

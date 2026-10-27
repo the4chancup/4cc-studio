@@ -315,14 +315,10 @@ mod tests {
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         entry(&nodes, Role::Button, "Close");
 
-        let other = entry(&nodes, Role::Button, "In-possession");
-        window.click_pitch(
-            centre(other),
-            PesVersion::Pes21,
-            &mut tactics,
-            &mut view,
-            &roster,
-        );
+        // A formation switch on the bar (as `view.preset = 1` is a preset
+        // switch in `a_preset_switch_closes_the_popover`).
+        view.formation = 1;
+        window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         assert_eq!(view.formation, 1, "in-possession is on screen");
         assert_eq!(view.popover, None, "and the popover closed");
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);

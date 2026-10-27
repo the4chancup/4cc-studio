@@ -893,7 +893,8 @@ fn node_labeled<'a>(nodes: &'a [accesskit::Node], role: Role, label: &str) -> &'
 /// name is the label right of the row's position label (≡, position,
 /// name) — the rightmost label of the row is no answer on the
 /// three-column Tactics frame, where a settings label can share the
-/// row's y beside the lists.
+/// row's y beside the lists. The two lists sit side by side, so the
+/// order is a column's top-to-bottom then the next's (x, then y).
 fn lineup_names(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
     let mut handles: Vec<&accesskit::Node> = nodes
         .iter()
@@ -902,7 +903,7 @@ fn lineup_names(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
     handles.sort_by(|a, b| {
         let key = |node: &&accesskit::Node| {
             let bounds = node.bounds().expect("handle bounds");
-            (bounds.y0, bounds.x0)
+            (bounds.x0, bounds.y0)
         };
         key(a).partial_cmp(&key(b)).expect("ordered bounds")
     });

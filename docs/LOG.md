@@ -2594,3 +2594,5 @@ worklog passed 7,000 lines.
   Motion in two columns, the FPC wording, the quick actions' two columns, Captain centred, the view to the pane's bottom.
 - **2026-10-27** — o2a's Astra round (3 of 3 accepted) in rework r5 (SWE-2): the toggle reads `▶ Live AATF`, and a table test
   puts each field's cross on its own control's row. The Tactics grid (s5) sliced into s5a-s5e.
+- **2026-10-27** — The Tactics editor's grid frame built (0.0.1s5a, SWE-2, one rework): three columns and three rows, the two bars with
+  four-entry Copy/swap menus, Scroll names remembered, the lists untitled; the old narrow arrangement gone.

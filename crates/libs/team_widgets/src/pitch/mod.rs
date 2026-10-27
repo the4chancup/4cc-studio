@@ -46,6 +46,9 @@ pub(crate) enum LineupDrag {
 /// scale. Public so a host's column layout can give the pitch its fixed
 /// width rather than measuring it back.
 pub const PITCH: egui::Vec2 = egui::vec2(320.0, 384.0);
+/// The widget's whole extent: `PITCH` plus the draft `.pitch`'s 1 px
+/// border a side (the plan's "386 points with its border").
+pub const PITCH_BOX: egui::Vec2 = egui::vec2(322.0, 386.0);
 /// The grid's extent in stored units.
 const GRID_X: u8 = 104;
 const GRID_Y: u8 = 48;
@@ -127,12 +130,26 @@ struct Spot {
     centre: egui::Pos2,
 }
 
-/// The draft's pitch column, the armed mode's note a host draws above it
-/// excepted: the formation selector (the draft heads the pitch with it —
-/// it writes `view.formation`, not the record), then the canvas — a
-/// marker per starter of the shown formation, dragged to his spot,
-/// dropped on to swap, clicked for the slot popover — and the open
-/// popover beside its marker.
+/// The formation selector of the formation bar (the draft's
+/// `formationSel`, moved out of `pitch` for the bar over the pitch's and
+/// the assignments' columns): the shown preset's three formations.
+/// Writes `view.formation`, never the record.
+pub fn formation_selector(ui: &mut egui::Ui, view: &mut TacticsView) {
+    ui.horizontal(|ui| {
+        for (index, label) in FORMATIONS.iter().enumerate() {
+            ui.selectable_value(&mut view.formation, index, *label);
+        }
+    })
+    .response
+    .on_hover_text(
+        "The game uses formations 2 and 3 only while the preset's fluid formation is on",
+    );
+}
+
+/// The draft's `.pitch`: the canvas inside its 1 px border — a marker
+/// per starter of the shown formation, dragged to his spot, dropped on
+/// to swap, clicked for the slot popover — and the open popover beside
+/// its marker. `formation_selector` heads it in the host's bar.
 ///
 /// A marker carries `LineupDrag::Marker`, so a release over a lineup row
 /// is that row's drop (a bench row swaps him out through `swap_in`, an
@@ -154,15 +171,6 @@ pub fn pitch(
     ui.push_id(id_salt, |ui| {
         // The answer is the deep compare, as `tactics_settings`' is.
         let before = tactics.clone();
-        ui.horizontal(|ui| {
-            for (index, label) in FORMATIONS.iter().enumerate() {
-                ui.selectable_value(&mut view.formation, index, *label);
-            }
-        })
-        .response
-        .on_hover_text(
-            "The game uses formations 2 and 3 only while the preset's fluid formation is on",
-        );
         // The popover's slot is of the scope, preset and formation it
         // opened on; a change of any of them closes it.
         if view.popover.is_some_and(|open| {
@@ -193,10 +201,26 @@ pub fn pitch(
                 }
             });
         let seconds = (now - started) as f32;
-        let (canvas, canvas_response) = ui.allocate_exact_size(PITCH, egui::Sense::hover());
+        // The draft's `.pitch`: the canvas and its 1 px border a side
+        // (`PITCH_BOX` is the widget's extent, `canvas` inside it). The
+        // canvas' response is an `interact` on the already-allocated
+        // rect, not a second allocation.
+        let (area, _) = ui.allocate_exact_size(PITCH_BOX, egui::Sense::hover());
+        let canvas = area.shrink(1.0);
+        let canvas_response = ui.interact(
+            canvas,
+            ui.scope_id().with("pitch canvas"),
+            egui::Sense::hover(),
+        );
         canvas_response.widget_info(|| {
             egui::WidgetInfo::labeled(egui::Role::Unknown, ui.is_enabled(), "pitch")
         });
+        ui.painter().rect_stroke(
+            area,
+            0,
+            ui.visuals().widgets.noninteractive.bg_stroke,
+            egui::StrokeKind::Inside,
+        );
         let painter = ui.painter_at(canvas);
         paint_pitch(&painter, canvas);
         let players = tactics.presets[view.preset.min(2)].formations[view.formation.min(2)].players;
@@ -628,8 +652,15 @@ fn paint_marker(
     let galley = painter.layout_job(job);
     let size = galley.size();
     let wide = !name_fits(size.x);
+    // Scroll names off: the scroll's resting phase — the name still at
+    // the badge's left, cut to its width — and no repaint to ask for.
+    let scroll = if wide && view.scroll_names {
+        name_scroll(size.x, seconds)
+    } else {
+        0.0
+    };
     let left = if wide {
-        badge.left() - name_scroll(size.x, seconds)
+        badge.left() - scroll
     } else {
         spot.centre.x - size.x / 2.0
     };
@@ -681,7 +712,7 @@ fn paint_marker(
         corner(portrait.left_bottom(), 1.0, -1.0);
         corner(portrait.right_bottom(), -1.0, -1.0);
     }
-    wide.then(|| name_still_for(size.x, seconds))
+    (wide && view.scroll_names).then(|| name_still_for(size.x, seconds))
 }
 
 /// The position byte's label (`POSITIONS`), "?" past the table as the

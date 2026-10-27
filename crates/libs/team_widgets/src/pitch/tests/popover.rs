@@ -50,15 +50,24 @@ fn a_role_chip_then_a_marker_click_writes_the_taker_and_disarms() {
     assert!(!changed, "arming writes no record");
     assert_eq!(view.assign, Some(Assign::Role(5)), "the mode is armed");
 
-    // The pitch draws the note; the marker click writes the taker.
+    // The marker click writes the taker; no note is drawn while armed
+    // (the plan's "No note explains the armed mode").
     let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
     assert!(
-        nodes
-            .iter()
-            .any(|node| node.value() == Some("Click the pitch player for penalty kick.")),
-        "the armed note is drawn"
+        !nodes.iter().any(|node| {
+            node.role() == Role::Button && matches!(node.label(), Some("Cancel") | Some("Done"))
+        }),
+        "no Cancel or Done while armed"
     );
-    entry(&nodes, Role::Button, "Cancel");
+    assert!(
+        !nodes.iter().any(|node| {
+            node.role() == Role::Label
+                && node
+                    .value()
+                    .is_some_and(|value| value.starts_with("Click the pitch player"))
+        }),
+        "no armed note's text"
+    );
     let formation = tactics.presets[0].formations[0].clone();
     let at = marker_point(&nodes, &formation.players, index);
     let (_, changed) = window.click_pitch(at, version, &mut tactics, &mut view, &roster);
@@ -196,10 +205,10 @@ fn each_assignment_chip_writes_its_own_field() {
     }
 }
 
-// The join pick toggles members until Done: three clicks fill the
-// three entries, a fourth is ignored, and clicking a member removes
-// him, packing the list (the plan's "Players to join the attack stay
-// packed").
+// The join pick toggles members until the chip's click disarms: three
+// clicks fill the three entries, a fourth is ignored, and clicking a
+// member removes him, packing the list (the plan's "Players to join the
+// attack stay packed").
 #[test]
 fn join_clicks_fill_three_then_toggle_members_packed() {
     let mut window = Headless::sized(900.0, 1100.0);
@@ -272,11 +281,21 @@ fn join_clicks_fill_three_then_toggle_members_packed() {
     );
     assert_eq!(view.assign, Some(Assign::Join), "join stays armed");
 
-    // Done disarms.
-    let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
-    let done = entry(&nodes, Role::Button, "Done");
-    window.click_pitch(centre(done), version, &mut tactics, &mut view, &roster);
-    assert_eq!(view.assign, None, "Done disarms the mode");
+    // A click on the armed chip disarms (the plan's "No note explains the
+    // armed mode": the highlighted chip and the candidates' corner
+    // brackets say it).
+    let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
+    let chip = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Button
+                && node
+                    .label()
+                    .is_some_and(|label| label.starts_with("Join attack:"))
+        })
+        .expect("the join chip");
+    window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
+    assert_eq!(view.assign, None, "the armed chip's click disarms");
 }
 
 // The popover's slot is of the preset it opened on: a preset switch

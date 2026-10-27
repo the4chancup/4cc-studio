@@ -10,7 +10,7 @@ use pes_savefile::model::instruction::Instruction;
 use super::*;
 use crate::test_support::{
     Headless, centre, control_right_of, controls_right_of, entry, entry_id, fixture_rows,
-    fixture_tactics, pointer_at, roster_rows,
+    fixture_tactics, pointer_at, roster_rows, tactics_settings,
 };
 
 impl Headless {
@@ -41,10 +41,12 @@ impl Headless {
     ) -> (Vec<accesskit::Node>, bool) {
         let mut changed = None;
         let (nodes, _) = self.frame_at(time, events, |ui| {
+            // The preset bar as the host draws it, then the panels.
             preset_selector(ui, view);
-            changed = Some(tactics_settings(
-                ui, "tactics", version, tactics, view, roster,
-            ));
+            changed = Some(
+                fluid_formation(ui, tactics, view)
+                    | tactics_settings(ui, "tactics", version, tactics, view, roster),
+            );
         });
         (nodes, changed.expect("the widget ran"))
     }
@@ -76,9 +78,10 @@ impl Headless {
         let mut changed = None;
         let (nodes, _) = self.frame_at_ids(None, events, |ui| {
             preset_selector(ui, view);
-            changed = Some(tactics_settings(
-                ui, "tactics", version, tactics, view, roster,
-            ));
+            changed = Some(
+                fluid_formation(ui, tactics, view)
+                    | tactics_settings(ui, "tactics", version, tactics, view, roster),
+            );
         });
         (nodes, changed.expect("the widget ran"))
     }
@@ -427,8 +430,10 @@ fn no_gesture_no_change() {
     }
 }
 
-// A control's AccessKit id: the `role` on `label`'s row to its right
-// (a slider's or spinner's node has no label of its own).
+// A control's AccessKit id: the leftmost `role` on `label`'s row to its
+// right (a slider's or spinner's node has no label of its own; on a
+// two-pairs row the order the update lists the nodes in is arbitrary,
+// so the leftmost is the pair's own control).
 fn id_right_of(
     ids: &[(accesskit::NodeId, accesskit::Node)],
     label: &str,
@@ -440,11 +445,17 @@ fn id_right_of(
         .and_then(|(_, node)| node.bounds())
         .unwrap_or_else(|| panic!("no label {label:?}"));
     ids.iter()
-        .find(|(_, node)| {
+        .filter(|(_, node)| {
             node.role() == role
                 && node.bounds().is_some_and(|b| {
                     (b.y0 - label_bounds.y0).abs() < 4.0 && b.x0 >= label_bounds.x1 - 1.0
                 })
+        })
+        .min_by(|a, b| {
+            let x = |(_, node): &&(accesskit::NodeId, accesskit::Node)| {
+                node.bounds().expect("bounds").x0
+            };
+            x(a).partial_cmp(&x(b)).expect("ordered bounds")
         })
         .map(|(id, _)| *id)
         .unwrap_or_else(|| panic!("no {role:?} right of {label:?}"))
@@ -859,12 +870,14 @@ fn the_pairs_threshold_covers_the_drawn_row() {
 
 // The Automatic settings row wraps like the formation cells' (the
 // draft's `.row`): at a pane narrower than the row the last checkbox
-// lands on a new line below the Substitution pair, inside the pane; the
-// armed note's button lands inside too. (Inside a host's vertical-only
-// scroll area the region grows to the content's width, so the wrap is
-// exercised by the pane itself, not the window's clip.)
+// lands on a new line below the Substitution pair, inside the pane.
+// (Inside a host's vertical-only scroll area the region grows to the
+// content's width, so the wrap is exercised by the pane itself, not the
+// window's clip.) And the armed mode draws no note (the plan's "No note
+// explains the armed mode"): nothing labeled while join is armed but
+// the armed chip.
 #[test]
-fn the_automatic_settings_and_the_note_wrap_at_a_narrow_pane() {
+fn the_automatic_settings_wrap_at_a_narrow_pane() {
     let mut window = Headless::sized(400.0, 900.0);
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
@@ -885,30 +898,26 @@ fn the_automatic_settings_and_the_note_wrap_at_a_narrow_pane() {
         "it wrapped to a new line below the Substitution pair"
     );
 
-    // Arm join: at a pane narrower than the note plus its button, Done
-    // wraps to a line below the note and still lands inside the pane.
+    // Arm join: no note, no Cancel or Done — the armed chip says it.
     view.assign = Some(Assign::Join);
-    let mut narrow = Headless::sized(360.0, 900.0);
-    let (nodes, _) = narrow.frame(vec![], |ui| {
-        assign_note(ui, &mut view);
-        tactics_settings(ui, "tactics", version, &mut tactics, &mut view, &roster);
-    });
-    let note = nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Label
-                && node.value()
-                    == Some("Click pitch players to join or leave the attack (up to three).")
-        })
-        .expect("the join note");
-    let done = entry(&nodes, Role::Button, "Done");
-    let note_bounds = note.bounds().expect("note bounds");
-    let done_bounds = done.bounds().expect("button bounds");
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    for label in ["Cancel", "Done"] {
+        assert!(
+            !nodes
+                .iter()
+                .any(|node| node.role() == Role::Button && node.label() == Some(label)),
+            "no {label} button while armed"
+        );
+    }
     assert!(
-        done_bounds.y0 > note_bounds.y0 + 4.0,
-        "Done starts below the note's first line (note {note_bounds:?}, Done {done_bounds:?})"
+        !nodes.iter().any(|node| {
+            node.role() == Role::Label
+                && node
+                    .value()
+                    .is_some_and(|value| value.starts_with("Click "))
+        }),
+        "no note's text while armed"
     );
-    assert!(done_bounds.x1 <= 360.0, "Done ends inside the pane");
 }
 
 /// A roster of named slots for `tactics_term`: the fixture's own names

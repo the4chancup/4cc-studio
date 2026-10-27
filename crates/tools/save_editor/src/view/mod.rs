@@ -65,9 +65,10 @@ pub(crate) struct SaveView {
     /// The selected row.
     selected: Option<Selection>,
     /// The team view's Tactics state (`team_widgets`' `TacticsView`:
-    /// the preset its groups edit and the formation its lists show); back
-    /// to preset 1 and kick-off on every open.
-    tactics: team_widgets::tactics::TacticsView,
+    /// the preset its panels edit, the formation its lists show, the
+    /// armed assignment mode, the open slot popover and Scroll names);
+    /// back to preset 1 and kick-off on every open.
+    pub(crate) tactics: team_widgets::tactics::TacticsView,
     /// The widget holding the keyboard at the last frame's end. A
     /// widget's gesture ends when it loses the keyboard (a click
     /// elsewhere, a Tab): sealing then keeps two gestures' writes from

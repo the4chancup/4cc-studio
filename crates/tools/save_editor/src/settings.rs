@@ -1,13 +1,14 @@
 //! The Save editor's section of the settings file. A key enters with the step whose code reads
 //! it, so the file never carries a setting nothing honors yet: `check-aatf` (step 5.4b) reads
-//! `aatf_rules`; the window reads `live_aatf` (the toolbar's Live AATF toggle) and
-//! `aesthetics_from_exports` ("Aesthetics from exports", the aesthetics lock's setting); the
-//! comparator defaults and the last folder arrive with the window.
+//! `aatf_rules`; the window reads `live_aatf` (the toolbar's Live AATF toggle),
+//! `aesthetics_from_exports` ("Aesthetics from exports", the aesthetics lock's setting) and
+//! `scroll_names` (the Tactics formation bar's checkbox); the comparator defaults and the last
+//! folder arrive with the window.
 
 use serde::{Deserialize, Serialize};
 
 /// The Save editor's settings, the keys this version reads.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub(crate) struct SaveEditorSettings {
     /// The AATF rules file `check-aatf` and the AATF panel run; empty: the official ruleset,
@@ -20,6 +21,27 @@ pub(crate) struct SaveEditorSettings {
     /// default: on, the save's aesthetics write only through the Appearance section's "Edit
     /// aesthetics anyway" switch; off, they edit as every other field does.
     pub(crate) aesthetics_from_exports: bool,
+    /// "Scroll names" (the Tactics formation bar's checkbox), on by default: a view setting,
+    /// not an edit — `Tool::view` reads it at start and writes it back when the checkbox
+    /// changes it, as `live_aatf` is written.
+    #[serde(default = "default_scroll_names")]
+    pub(crate) scroll_names: bool,
+}
+
+impl Default for SaveEditorSettings {
+    fn default() -> SaveEditorSettings {
+        SaveEditorSettings {
+            aatf_rules: String::new(),
+            live_aatf: false,
+            aesthetics_from_exports: false,
+            scroll_names: default_scroll_names(),
+        }
+    }
+}
+
+/// `scroll_names`'s default: names scroll, as the game's do.
+fn default_scroll_names() -> bool {
+    true
 }
 
 /// The defaults as a settings table, merged into the file's section for every key it lacks.

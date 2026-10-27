@@ -2,7 +2,6 @@ use egui::accesskit::{self, Role};
 use pes_version::PesVersion;
 
 use super::*;
-use crate::tactics;
 use crate::test_support::{Headless, centre, pointer_at};
 
 /// The drag-and-drop and swap tests.
@@ -66,7 +65,6 @@ impl Headless {
     ) -> (Vec<accesskit::Node>, bool) {
         let mut changed = None;
         let (nodes, _) = self.frame(events, |ui| {
-            tactics::assign_note(ui, view);
             changed = Some(super::pitch(ui, "pitch", version, tactics, view, roster));
         });
         (nodes, changed.expect("the widget ran"))
@@ -82,7 +80,6 @@ impl Headless {
         roster: &[RosterRow<'_>],
     ) -> Vec<(accesskit::NodeId, accesskit::Node)> {
         let (nodes, _) = self.frame_at_ids(None, vec![], |ui| {
-            tactics::assign_note(ui, view);
             super::pitch(ui, "pitch", version, tactics, view, roster);
         });
         nodes
@@ -117,7 +114,7 @@ impl Headless {
 
     /// One frame of `lineup` keeping the painted shapes: the name
     /// assertions read the rows' text runs.
-    fn lineup_paint(
+    pub(crate) fn lineup_paint(
         &mut self,
         version: PesVersion,
         tactics: &mut TeamTactics,
@@ -139,7 +136,6 @@ impl Headless {
         roster: &[RosterRow<'_>],
     ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
         self.frame(vec![], |ui| {
-            tactics::assign_note(ui, view);
             super::pitch(ui, "pitch", version, tactics, view, roster);
         })
     }
@@ -155,7 +151,6 @@ impl Headless {
         roster: &[RosterRow<'_>],
     ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
         self.frame_at(Some(time), vec![], |ui| {
-            tactics::assign_note(ui, view);
             super::pitch(ui, "pitch", version, tactics, view, roster);
         })
     }
@@ -209,7 +204,7 @@ impl Headless {
     ) -> (Vec<accesskit::Node>, bool) {
         let mut changed = false;
         let (nodes, _) = self.frame(events, |ui| {
-            tactics::assign_note(ui, view);
+            super::formation_selector(ui, view);
             changed = super::pitch(ui, "pitch", version, tactics, view, roster);
             changed |= super::lineup(ui, "lineup", version, tactics, view, roster);
         });
@@ -252,7 +247,7 @@ impl Headless {
     ) -> (Vec<accesskit::Node>, bool) {
         let mut changed = None;
         let (nodes, _) = self.frame(events, |ui| {
-            changed = Some(tactics::tactics_settings(
+            changed = Some(crate::test_support::tactics_settings(
                 ui, "tactics", version, tactics, view, roster,
             ));
         });
@@ -391,44 +386,44 @@ fn grass_point(canvas: egui::Rect, players: &[FormationSlot; 11]) -> egui::Pos2 
         .expect("some grid point is free of markers")
 }
 
-/// The frame's Label nodes whose text is `text`, in (y, x) order.
-fn label_nodes<'a>(nodes: &'a [accesskit::Node], text: &str) -> Vec<&'a accesskit::Node> {
-    let mut found: Vec<&accesskit::Node> = nodes
+/// The lineup rows' label triples (≡ handle, position, name) in draw
+/// order: the 11 starting-eleven rows, then the bench rows. The lists
+/// sit side by side, so the order is a column's top-to-bottom then the
+/// next's (x, then y — the old stacked lists' order holds either way).
+/// Rows are found by index, not by name — the fixture's PES 21 players
+/// all read "PLACEHOLDER".
+pub(crate) fn lineup_rows(nodes: &[accesskit::Node]) -> Vec<Vec<&accesskit::Node>> {
+    let mut handles: Vec<&accesskit::Node> = nodes
         .iter()
-        .filter(|node| node.role() == Role::Label && node.value() == Some(text))
+        .filter(|node| node.role() == Role::Label && node.value() == Some("≡"))
         .collect();
-    found.sort_by(|a, b| {
+    handles.sort_by(|a, b| {
         let key = |node: &&accesskit::Node| {
-            let bounds = node.bounds().expect("bounds");
-            (bounds.y0, bounds.x0)
+            let bounds = node.bounds().expect("handle bounds");
+            (bounds.x0, bounds.y0)
         };
         key(a).partial_cmp(&key(b)).expect("ordered bounds")
     });
-    found
-}
-
-/// The lineup rows' label triples (≡ handle, position, name) in draw
-/// order: the 11 starting-eleven rows, then the bench rows. Rows are
-/// found by index, not by name — the fixture's PES 21 players all
-/// read "PLACEHOLDER".
-pub(crate) fn lineup_rows(nodes: &[accesskit::Node]) -> Vec<Vec<&accesskit::Node>> {
-    label_nodes(nodes, "≡")
+    handles
         .iter()
         .map(|handle| {
             let bounds = handle.bounds().expect("handle bounds");
+            // The row's own three: the labels on its band right of the
+            // handle — the other list's row shares the band's y.
             let mut row: Vec<&accesskit::Node> = nodes
                 .iter()
                 .filter(|node| {
                     node.role() == Role::Label
-                        && node
-                            .bounds()
-                            .is_some_and(|b| (b.y0 - bounds.y0).abs() < 4.0)
+                        && node.bounds().is_some_and(|b| {
+                            (b.y0 - bounds.y0).abs() < 4.0 && b.x0 >= bounds.x0 - 1.0
+                        })
                 })
                 .collect();
             row.sort_by(|a, b| {
                 let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
                 x(a).partial_cmp(&x(b)).expect("ordered bounds")
             });
+            row.truncate(3);
             row
         })
         .collect()

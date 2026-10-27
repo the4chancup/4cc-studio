@@ -3011,12 +3011,23 @@ briefs, review loops, gates and mutation runs as for any step.
     initials on the badges → verify: SE-GUI-12, SE-GUI-25; then o2b on it. With s6 and s7 and
     the popover and pitch-picked targets (DECISIONS "The slot popover's anchor, a target picked
     on the pitch, "No target""), in slices, each its own commit and review:
-    - [ ] s5a the grid's frame (`view/tactics.rs`): 414 | 320 | the rest, three rows; the
+    - [x] s5a the grid's frame (`view/tactics.rs`): 414 | 320 | the rest, three rows; the
       preset bar (Preset, Fluid formation, Copy/swap's four entries on the selected preset)
       level with the formation bar over columns 2-3 (the formations out of `pitch::pitch`,
       Copy/swap's four, s6's Scroll names in the tool's settings); the lists under columns 2-3,
       halves, twelve 18-point rows, no titles; the narrow fallback gone; the panels in their
-      cells as they are
+      cells as they are. Done 2026-10-27 (SWE-2, one rework): one `pub fn` per panel, each in
+      a group frame (`tactics_settings` now a test helper); `pitch::formation_selector`,
+      `PITCH_BOX` (the canvas and its 1-point border); `TacticsView::scroll_names`, off holding
+      a wide name at its badge's left; the bars one `interact_size.y` line each; the armed
+      note gone. Measured at 1280 x 800: Player assignments 196 points wide; the formation
+      bar's Scroll names ends 44 points inside its span; the lists' bottom 4 points past the
+      pane's, so the team view scrolls by 4 (s5b's panel heights decide whether that stays).
+      The rework's catch: the Scroll names test ran at 1100 wide, where the bar overflows the
+      pane's clip and a press misses the checkbox; the app scales such a window instead.
+      Files: `team_widgets/src/{pitch/{mod,lineup,popover}.rs,tactics/{mod,assignments,
+      instructions}.rs,test_support.rs}` and their tests, `save_editor/src/{lib,settings}.rs`,
+      `view/{mod,tactics}.rs`, the view tests, `help/08_tactics.md`
     - [ ] s5b Formation settings (pairs of equal rows, label over a 24-point box, two-choice
       toggles the half's width, Few | Medium | Many, "Frontline Press.", "All Out Def.") and
       Player assignments (label over chip, Join the attack three rows, one picker), both as

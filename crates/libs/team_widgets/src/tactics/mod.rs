@@ -1,15 +1,14 @@
 //! The tactics settings of `plans/save_editor.md` "Tactics editor" (the
 //! draft's `tacticsTab`, minus the pitch canvas and the lineup, which are
-//! `crate::pitch`): the preset selector, the Formation settings group, the
-//! Advanced instructions table (`instructions`), the Player assignments
-//! palette (`assignments`) and the Automatic settings group.
-//! `tactics_settings` edits `tactics` in place and answers whether it
+//! `crate::pitch`): the preset selector and the Fluid formation switch of
+//! the preset bar, then one `pub fn` per group panel — Formation
+//! settings, Advanced instructions (`instructions`), Player assignments
+//! (`assignments`), Automatic settings — so the host lays the grid's
+//! cells out. Each panel edits `tactics` in place and answers whether it
 //! changed; the host decides what the change means (the contract in
 //! `plans/save_editor.md` "`libs/team_widgets`").
 
-use pes_savefile::model::tactics::{
-    TacticSliders, TacticStyle, TacticsPreset, TeamAutoFlags, TeamTactics,
-};
+use pes_savefile::model::tactics::{TacticSliders, TacticStyle, TeamTactics};
 use pes_savefile::schema::fields::{
     FormationPart, InstructionPart, InstructionSide, PresetField, TacticsField,
 };
@@ -23,20 +22,19 @@ mod assignments;
 /// The "Advanced instructions" table and its rows.
 mod instructions;
 
-pub use assignments::assign_note;
 pub(crate) use assignments::{Assign, OpenSlot};
 
 /// What the tactics editor shows that the record does not hold: the
-/// preset and the formation on screen, the armed assignment mode and the
-/// open slot popover.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+/// preset and the formation on screen, the armed assignment mode, the
+/// open slot popover and the pitch's name scrolling.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TacticsView {
     /// The preset the controls edit, 0 to 2, shown 1 to 3.
     pub preset: usize,
     /// The preset's formation the lineup and pitch show: 0 kick-off, 1
-    /// in-possession, 2 out-of-possession. The pitch's own selector is
-    /// its only writer.
-    pub(crate) formation: usize,
+    /// in-possession, 2 out-of-possession. The formation bar's
+    /// `pitch::formation_selector` is its only writer.
+    pub formation: usize,
     /// The armed assignment mode, `None` when none: a pitch click then
     /// writes the role instead of opening the slot popover.
     pub(crate) assign: Option<Assign>,
@@ -44,6 +42,25 @@ pub struct TacticsView {
     /// closes it when the preset, the formation or the team it opened on
     /// changed since.
     pub(crate) popover: Option<OpenSlot>,
+    /// The formation bar's Scroll names checkbox: on, a name wider than
+    /// its badge scrolls; off, it is drawn still at the badge's left. A
+    /// view setting — the host owns its persistence (`scroll_names`,
+    /// remembered as Live AATF is); it never edits the record.
+    pub scroll_names: bool,
+}
+
+impl Default for TacticsView {
+    /// The view as a save opens: preset 1, kick-off, nothing armed or
+    /// popped, names scrolling.
+    fn default() -> TacticsView {
+        TacticsView {
+            preset: 0,
+            formation: 0,
+            assign: None,
+            popover: None,
+            scroll_names: true,
+        }
+    }
 }
 
 /// What a roster slot shows where the editor lists it (the instruction
@@ -221,54 +238,15 @@ pub fn preset_selector(ui: &mut egui::Ui, view: &mut TacticsView) {
     }
 }
 
-/// The four groups, in the draft's order and wording. `roster` gives each
-/// roster slot's row, indexed by slot (an empty name or a slot past
-/// `roster` shows "(empty)"). Answers `true` only when `tactics` changed
-/// this frame: an idle frame, a hover or a re-pick of the stored value
-/// leaves it equal.
-pub fn tactics_settings(
-    ui: &mut egui::Ui,
-    id_salt: impl egui::AsIdSalt,
-    version: PesVersion,
-    tactics: &mut TeamTactics,
-    view: &mut TacticsView,
-    roster: &[RosterRow<'_>],
-) -> bool {
-    ui.push_id(id_salt, |ui| {
-        // The answer is the deep compare, not the responses' `changed()`:
-        // a combo opened and closed, or a control re-picked at its own
-        // value, reports nothing.
-        let before = tactics.clone();
-        let TeamTactics {
-            presets,
-            starting_eleven,
-            set_pieces,
-            players_to_join_attack,
-            auto,
-            ..
-        } = tactics;
-        let preset = &mut presets[view.preset.min(2)];
-        formation_settings(ui, preset);
-        instructions::instruction_table(ui, version, preset, starting_eleven, roster);
-        assignments::player_assignments(ui, set_pieces, players_to_join_attack, view, roster);
-        automatic_settings(ui, auto);
-        *tactics != before
-    })
-    .inner
-}
-
-/// The "Formation settings" group: the fluid-formation switch, then one
-/// `egui::Grid` of the five sliders and the seven style pairs, row-filled
-/// in the draft's order — each pair a label cell and a control cell (the
-/// slider; the two choices in a `ui.horizontal`). Two pairs a row where
-/// the column's width holds two of the widest (`two_pairs_width`), else
-/// one.
-fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
-    ui.strong("Formation settings");
+/// The Fluid formation switch of the preset bar (the draft's `fluid`,
+/// moved out of Formation settings onto the bar beside the preset
+/// selector): the shown preset's flag. A version that stores none keeps
+/// it in place, disabled with the `PES NN+` tooltip. Answers `true` only
+/// when the flag changed this frame.
+pub fn fluid_formation(ui: &mut egui::Ui, tactics: &mut TeamTactics, view: &TacticsView) -> bool {
+    let preset = &mut tactics.presets[view.preset.min(2)];
     match &mut preset.style.fluid {
-        Some(fluid) => {
-            ui.checkbox(fluid, FLUID_LABEL);
-        }
+        Some(fluid) => ui.checkbox(fluid, FLUID_LABEL).changed(),
         None => {
             let mut off = false;
             ui.add_enabled(false, egui::Checkbox::new(&mut off, FLUID_LABEL))
@@ -276,40 +254,75 @@ fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
                     preset: 0,
                     field: PresetField::FluidFormation,
                 }));
+            false
         }
     }
-    let per_row = if ui.available_width() >= two_pairs_width(ui) {
-        2
-    } else {
-        1
-    };
-    egui::Grid::new("formation settings").show(ui, |ui| {
-        let mut index = 0usize;
-        for spec in &SLIDERS {
-            ui.label(spec.label);
-            let mut value = (spec.get)(&preset.sliders);
-            if ui
-                .add(
-                    egui::Slider::new(&mut value, 1..=spec.max)
-                        .clamping(egui::SliderClamping::Edits),
-                )
-                .changed()
-            {
-                (spec.set)(&mut preset.sliders, value);
+}
+
+/// The "Formation settings" panel (the draft's `#tac-settings` group):
+/// one `egui::Grid` of the five sliders and the seven style pairs,
+/// row-filled in the draft's order — each pair a label cell and a
+/// control cell (the slider; the two choices in a `ui.horizontal`). Two
+/// pairs a row where the column's width holds two of the widest
+/// (`two_pairs_width`), else one. Edits the preset on screen; answers
+/// `true` only when `tactics` changed this frame.
+pub fn formation_settings(
+    ui: &mut egui::Ui,
+    tactics: &mut TeamTactics,
+    view: &TacticsView,
+) -> bool {
+    let preset = &mut tactics.presets[view.preset.min(2)];
+    // The answer is the deep compare, not the responses' `changed()`: a
+    // control re-picked at its own value reports nothing.
+    let before = preset.clone();
+    panel(ui, "Formation settings", |ui| {
+        let per_row = if ui.available_width() >= two_pairs_width(ui) {
+            2
+        } else {
+            1
+        };
+        egui::Grid::new("formation settings").show(ui, |ui| {
+            let mut index = 0usize;
+            for spec in &SLIDERS {
+                ui.label(spec.label);
+                let mut value = (spec.get)(&preset.sliders);
+                if ui
+                    .add(
+                        egui::Slider::new(&mut value, 1..=spec.max)
+                            .clamping(egui::SliderClamping::Edits),
+                    )
+                    .changed()
+                {
+                    (spec.set)(&mut preset.sliders, value);
+                }
+                index += 1;
+                if index.is_multiple_of(per_row) {
+                    ui.end_row();
+                }
             }
-            index += 1;
-            if index.is_multiple_of(per_row) {
-                ui.end_row();
+            for toggle in &STYLE_TOGGLES {
+                ui.label(toggle.label);
+                ui.horizontal(|ui| style_choices(ui, &mut preset.style, toggle));
+                index += 1;
+                if index.is_multiple_of(per_row) {
+                    ui.end_row();
+                }
             }
-        }
-        for toggle in &STYLE_TOGGLES {
-            ui.label(toggle.label);
-            ui.horizontal(|ui| style_choices(ui, &mut preset.style, toggle));
-            index += 1;
-            if index.is_multiple_of(per_row) {
-                ui.end_row();
-            }
-        }
+        });
+    });
+    *preset != before
+}
+
+/// A settings panel of the grid (the draft's `.group` boxes): the
+/// bordered box with its `strong` heading inside, spanning the cell the
+/// host gives it.
+fn panel(ui: &mut egui::Ui, heading: &'static str, add: impl FnOnce(&mut egui::Ui)) {
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        // The box spans the cell even where its content is narrower
+        // (Player assignments fills the rest of the grid's row).
+        ui.set_min_width(ui.available_width());
+        ui.strong(heading);
+        add(ui);
     });
 }
 
@@ -389,51 +402,104 @@ fn style_choices(ui: &mut egui::Ui, style: &mut TacticStyle, toggle: &StyleToggl
     }
 }
 
-/// The "Automatic settings" group: the substitution byte as stored, the
-/// offside trap, the preset change and the attack/defence levels. The
-/// row wraps on the measured `cell` for the label's pair, so a narrow
-/// pane wraps the last checkbox below rather than clipping it.
-fn automatic_settings(ui: &mut egui::Ui, auto: &mut TeamAutoFlags) {
-    ui.strong("Automatic settings");
-    ui.horizontal_wrapped(|ui| {
-        cell(ui, sub_cell_width(ui), |ui| {
-            ui.label(SUBSTITUTION_LABEL);
-            match &mut auto.substitution {
-                Some(substitution) => {
-                    ui.add(egui::DragValue::new(substitution).range(0..=u8::MAX))
-                        .on_hover_text(
-                            "The automatic substitution setting as the save stores it: 0 is off; \
-                             on PES 2021, 1 is very late, 2 flexible and 3 very early",
-                        );
-                }
-                None => {
-                    ui.add_enabled(
-                        false,
-                        egui::Button::new("-").min_size(ui.spacing().interact_size),
-                    )
-                    .on_disabled_hover_text(gate_tip(TacticsField::AutoSubstitution));
-                }
-            }
-        });
-        auto_flag(
-            ui,
-            OFFSIDE_TRAP_LABEL,
-            &mut auto.offside_trap,
-            TacticsField::AutoOffsideTrap,
-        );
-        auto_flag(
-            ui,
-            PRESET_CHANGE_LABEL,
-            &mut auto.preset_change,
-            TacticsField::AutoPresetChange,
-        );
-        auto_flag(
-            ui,
-            ATTACK_DEFENCE_LABEL,
-            &mut auto.attack_defence_levels,
-            TacticsField::AutoAttackDefenceLevels,
-        );
+/// The "Advanced instructions" panel (the draft's `.group` over
+/// `instrGrid`): the four rows' instruction and target combos of the
+/// preset on screen (`instructions::instruction_table`). Answers `true`
+/// only when `tactics` changed this frame.
+pub fn advanced_instructions(
+    ui: &mut egui::Ui,
+    version: PesVersion,
+    tactics: &mut TeamTactics,
+    view: &TacticsView,
+    roster: &[RosterRow<'_>],
+) -> bool {
+    let TeamTactics {
+        presets,
+        starting_eleven,
+        ..
+    } = tactics;
+    let preset = &mut presets[view.preset.min(2)];
+    let before = preset.clone();
+    panel(ui, "Advanced instructions", |ui| {
+        instructions::instruction_table(ui, version, preset, starting_eleven, roster);
     });
+    *preset != before
+}
+
+/// The "Player assignments" panel (the draft's `#tac-side` group): the
+/// set-piece takers', the captain's and the join-attack chips
+/// (`assignments::player_assignments`). They arm `view`'s mode, never
+/// write the record — the answer is `true` only when `tactics` changed
+/// this frame.
+pub fn player_assignments(
+    ui: &mut egui::Ui,
+    tactics: &mut TeamTactics,
+    view: &mut TacticsView,
+    roster: &[RosterRow<'_>],
+) -> bool {
+    let TeamTactics {
+        set_pieces,
+        players_to_join_attack,
+        ..
+    } = tactics;
+    let before = (set_pieces.clone(), *players_to_join_attack);
+    panel(ui, "Player assignments", |ui| {
+        assignments::player_assignments(ui, set_pieces, players_to_join_attack, view, roster);
+    });
+    (tactics.set_pieces.clone(), tactics.players_to_join_attack) != before
+}
+
+/// The "Automatic settings" panel (the draft's `#tac-auto` group): the
+/// substitution byte as stored, the offside trap, the preset change and
+/// the attack/defence levels. The row wraps on the measured `cell` for
+/// the label's pair, so a narrow pane wraps the last checkbox below
+/// rather than clipping it. Answers `true` only when `tactics` changed
+/// this frame.
+pub fn automatic_settings(ui: &mut egui::Ui, tactics: &mut TeamTactics) -> bool {
+    let auto = &mut tactics.auto;
+    let before = auto.clone();
+    panel(ui, "Automatic settings", |ui| {
+        ui.horizontal_wrapped(|ui| {
+            cell(ui, sub_cell_width(ui), |ui| {
+                ui.label(SUBSTITUTION_LABEL);
+                match &mut auto.substitution {
+                    Some(substitution) => {
+                        ui.add(egui::DragValue::new(substitution).range(0..=u8::MAX))
+                            .on_hover_text(
+                                "The automatic substitution setting as the save stores it: 0 is \
+                                 off; on PES 2021, 1 is very late, 2 flexible and 3 very early",
+                            );
+                    }
+                    None => {
+                        ui.add_enabled(
+                            false,
+                            egui::Button::new("-").min_size(ui.spacing().interact_size),
+                        )
+                        .on_disabled_hover_text(gate_tip(TacticsField::AutoSubstitution));
+                    }
+                }
+            });
+            auto_flag(
+                ui,
+                OFFSIDE_TRAP_LABEL,
+                &mut auto.offside_trap,
+                TacticsField::AutoOffsideTrap,
+            );
+            auto_flag(
+                ui,
+                PRESET_CHANGE_LABEL,
+                &mut auto.preset_change,
+                TacticsField::AutoPresetChange,
+            );
+            auto_flag(
+                ui,
+                ATTACK_DEFENCE_LABEL,
+                &mut auto.attack_defence_levels,
+                TacticsField::AutoAttackDefenceLevels,
+            );
+        });
+    });
+    *auto != before
 }
 
 /// One automatic-settings flag's checkbox; a version that does not store

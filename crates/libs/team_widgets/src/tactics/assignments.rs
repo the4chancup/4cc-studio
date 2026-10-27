@@ -1,8 +1,9 @@
 //! The "Player assignments" palette and the armed click-to-assign modes
 //! (`plans/save_editor.md` "Tactics editor", the click-to-assign bullet
 //! and "What the controls write"): the six set-piece takers, the captain
-//! and the join-attack pick as chips that arm a pitch click, and the note
-//! a host draws while one is armed.
+//! and the join-attack pick as chips that arm a pitch click. No note
+//! explains an armed mode: the highlighted chip and the candidates'
+//! corner brackets on the pitch say it.
 
 use pes_savefile::model::tactics::{SetPieceTakers, TeamTactics};
 use pes_savefile::schema::fields::TacticsField;
@@ -17,7 +18,7 @@ pub(crate) enum Assign {
     /// click writes the clicked starter's roster slot and disarms.
     Role(usize),
     /// The players joining the attack: each click toggles the clicked
-    /// starter's membership; armed until Done.
+    /// starter's membership; armed until the chip's click disarms.
     Join,
 }
 
@@ -138,11 +139,12 @@ pub(super) fn role_label(field: TacticsField) -> Option<&'static str> {
         .map(|role| role.label)
 }
 
-/// The "Player assignments" group (the draft's role palette): one chip
-/// per role — "<label>: <holder's name or Unassigned>" — and the
-/// join-attack chip listing its members' names, "none" when empty. A
-/// click arms the mode and closes the slot popover; a click on the armed
-/// chip disarms it (the draft's `roleChip`/`joinChip`).
+/// The "Player assignments" group's chips (the draft's role palette):
+/// one chip per role — "<label>: <holder's name or Unassigned>" — and
+/// the join-attack chip listing its members' names, "none" when empty.
+/// A click arms the mode and closes the slot popover; a click on the
+/// armed chip disarms it (the draft's `roleChip`/`joinChip`). The
+/// panel's heading is the caller's `panel`.
 pub(super) fn player_assignments(
     ui: &mut egui::Ui,
     set_pieces: &SetPieceTakers,
@@ -150,7 +152,6 @@ pub(super) fn player_assignments(
     view: &mut TacticsView,
     roster: &[RosterRow<'_>],
 ) {
-    ui.strong("Player assignments");
     ui.horizontal_wrapped(|ui| {
         for (index, role) in SET_PIECES.iter().enumerate() {
             let holder = (role.get)(set_pieces);
@@ -193,33 +194,6 @@ pub(super) fn player_assignments(
         {
             view.assign = (!armed).then_some(Assign::Join);
             view.popover = None;
-        }
-    });
-}
-
-/// The armed mode's note (the draft's `assignnote`): what the next pitch
-/// click does, and Cancel — join's Done — disarming it. A host draws it
-/// inside the settings column, under the preset bar (the draft's `note`
-/// in `tac-settings`).
-pub fn assign_note(ui: &mut egui::Ui, view: &mut TacticsView) {
-    let Some(assign) = view.assign else {
-        return;
-    };
-    ui.horizontal_wrapped(|ui| match assign {
-        Assign::Role(index) => {
-            ui.label(format!(
-                "Click the pitch player for {}.",
-                SET_PIECES[index].label.to_lowercase()
-            ));
-            if ui.button("Cancel").clicked() {
-                view.assign = None;
-            }
-        }
-        Assign::Join => {
-            ui.label("Click pitch players to join or leave the attack (up to three).");
-            if ui.button("Done").clicked() {
-                view.assign = None;
-            }
         }
     });
 }

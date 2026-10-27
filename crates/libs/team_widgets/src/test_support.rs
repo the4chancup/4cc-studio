@@ -8,7 +8,34 @@ use pes_savefile::model::names::display_name;
 use pes_savefile::model::tactics::TeamTactics;
 use pes_version::PesVersion;
 
-use crate::tactics::RosterRow;
+use crate::tactics::{
+    RosterRow, TacticsView, advanced_instructions, automatic_settings, formation_settings,
+    player_assignments,
+};
+
+/// The four panels in the draft's order, for tests that drive them
+/// together (the tests are its only callers): Formation settings,
+/// Advanced instructions, Player assignments and Automatic settings.
+/// `roster` gives each roster slot's row, indexed by slot. Answers
+/// `true` only when `tactics` changed this frame.
+pub(crate) fn tactics_settings(
+    ui: &mut egui::Ui,
+    id_salt: impl egui::AsIdSalt,
+    version: PesVersion,
+    tactics: &mut TeamTactics,
+    view: &mut TacticsView,
+    roster: &[RosterRow<'_>],
+) -> bool {
+    ui.push_id(id_salt, |ui| {
+        // `|` evaluates every panel: a `||` chain would skip the rest on
+        // the frame the first reports a change.
+        formation_settings(ui, tactics, view)
+            | advanced_instructions(ui, version, tactics, view, roster)
+            | player_assignments(ui, tactics, view, roster)
+            | automatic_settings(ui, tactics)
+    })
+    .inner
+}
 
 /// A headless window: one egui context with AccessKit on, run a frame at a
 /// time over an 800 by 600 screen, for drawing a bare `Ui`'s widgets.

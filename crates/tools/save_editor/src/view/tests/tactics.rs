@@ -27,9 +27,26 @@ fn menu_items(nodes: &[accesskit::Node]) -> Vec<String> {
         .collect()
 }
 
+/// The `index`th "Copy/swap" menu button, left to right (both bars carry
+/// one: the preset bar's first, the formation bar's second).
+fn copy_swap_button(nodes: &[accesskit::Node], index: usize) -> &accesskit::Node {
+    let mut menus: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| node.role() == Role::Button && node.label() == Some("Copy/swap"))
+        .collect();
+    menus.sort_by(|a, b| {
+        let x = |node: &&accesskit::Node| node.bounds().expect("menu bounds").x0;
+        x(a).partial_cmp(&x(b)).expect("ordered bounds")
+    });
+    menus
+        .get(index)
+        .copied()
+        .unwrap_or_else(|| panic!("no Copy/swap button {index}"))
+}
+
 // SE-GUI-25
 #[test]
-fn the_tactics_menus_copy_presets_and_swap_formations_as_undoable_edits() {
+fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
     let path = fixture(PesVersion::Pes21, "tactics_copy_swap");
     // Distinct sliders per preset and coordinates per formation, so the
     // copy and the swap are real changes (the fixture's are placeholders).
@@ -55,17 +72,19 @@ fn the_tactics_menus_copy_presets_and_swap_formations_as_undoable_edits() {
         "premise: presets 1 and 2 differ"
     );
 
-    // Copy preset 1 to 2, from the editor's Copy/swap preset menu.
+    // The preset bar's Copy/swap (the first menu button): the other two
+    // presets ascending, a copy to then a swap with each.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    click(
-        &mut window,
-        node_labeled(&nodes, Role::Button, "Copy/swap preset"),
-        &mut view,
+    click(&mut window, copy_swap_button(&nodes, 0), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        menu_items(&nodes),
+        ["Copy to 2", "Copy to 3", "Swap with 2", "Swap with 3"],
+        "the preset menu's entries on preset 1"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
-        node_labeled(&nodes, Role::Button, "Copy preset 1 to 2"),
+        node_labeled(&nodes, Role::Button, "Copy to 2"),
         &mut view,
     );
     assert_eq!(
@@ -74,18 +93,24 @@ fn the_tactics_menus_copy_presets_and_swap_formations_as_undoable_edits() {
         "preset 2 equals preset 1 as it was"
     );
 
-    // Swap Kick-off and In-possession, from the Copy/swap formation menu
-    // (preset 1 is on screen).
+    // The formation bar's Copy/swap, on Kick-off: the other two
+    // formations in order.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    click(
-        &mut window,
-        node_labeled(&nodes, Role::Button, "Copy/swap formation"),
-        &mut view,
+    click(&mut window, copy_swap_button(&nodes, 1), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        menu_items(&nodes),
+        [
+            "Copy to In-possession",
+            "Copy to Out-of-possession",
+            "Swap with In-possession",
+            "Swap with Out-of-possession",
+        ],
+        "the formation menu's entries on Kick-off"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
-        node_labeled(&nodes, Role::Button, "Swap Kick-off and In-possession"),
+        node_labeled(&nodes, Role::Button, "Swap with In-possession"),
         &mut view,
     );
     let formations = &team_entry(&view, 701).tactics.presets[0].formations;
@@ -197,97 +222,118 @@ fn the_preset_selector_writes_nothing() {
     assert!(!session.can_undo());
 }
 
-// plans/save_editor.md "Tactics editor" (the copy/swap menus, the draft's
-// `formationMenu` and `presetMenu`): each menu's items are the six copies
-// then three swaps, in its order; a copy of the shown formation is one
-// undoable edit.
+// plans/save_editor.md "Tactics editor" (the Copy/swap bullet and the
+// preset bar, the draft's `presetSel`, `fluid`, `presetMenu`): on preset
+// 2 the menu lists the other two presets ascending, a copy to then a
+// swap with each, and Copy to 3 makes preset 3 equal preset 2 — one
+// undoable edit. The bar's Fluid formation checkbox toggles the shown
+// preset's flag — one undoable edit — and draws disabled with its gate
+// tooltip on a version whose schema stores none (PES 2015).
 #[test]
-fn the_copy_swap_menus_items_and_the_formation_copy() {
-    let path = fixture(PesVersion::Pes21, "tactics_menu_items");
-    // Distinct coordinates per formation, so the copy is a real change.
+fn the_preset_bars_menu_and_fluid_checkbox() {
+    let path = fixture(PesVersion::Pes21, "tactics_preset_bar");
+    // Distinct sliders per preset (the copy is a real change), preset 2's
+    // fluid flag unset (the checkbox toggles it on).
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
-    for (formation, x) in [(0, 10), (1, 20), (2, 30)] {
-        file.team_mut(701).unwrap().tactics.presets[0].formations[formation].players[0].x = x;
+    for (preset, value) in [(0, 7), (1, 5), (2, 1)] {
+        file.team_mut(701).unwrap().tactics.presets[preset]
+            .sliders
+            .support_range = value;
     }
+    file.team_mut(701).unwrap().tactics.presets[1].style.fluid = Some(false);
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(1100.0, 900.0);
     open_team_view(&mut window, &mut view, 701);
-    let formations_before = team_entry(&view, 701).tactics.presets[0].formations.clone();
-    assert_ne!(
-        formations_before[0], formations_before[2],
-        "premise: kick-off and out-of-possession differ"
-    );
-
-    // The Copy/swap formation menu: six copies, then three swaps.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
-        node_labeled(&nodes, Role::Button, "Copy/swap formation"),
+        node_labeled(&nodes, Role::Button, "2"),
         &mut view,
     );
+    assert_eq!(view.tactics.preset, 1, "preset 2 is on screen");
+    let preset2_before = team_entry(&view, 701).tactics.presets[1].clone();
+    let preset3_before = team_entry(&view, 701).tactics.presets[2].clone();
+    assert_ne!(preset2_before, preset3_before, "premise: presets differ");
+
+    // The preset menu on preset 2: the other two ascending.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, copy_swap_button(&nodes, 0), &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
         menu_items(&nodes),
-        [
-            "Copy Kick-off to In-possession",
-            "Copy Kick-off to Out-of-possession",
-            "Copy In-possession to Kick-off",
-            "Copy In-possession to Out-of-possession",
-            "Copy Out-of-possession to Kick-off",
-            "Copy Out-of-possession to In-possession",
-            "Swap Kick-off and In-possession",
-            "Swap Kick-off and Out-of-possession",
-            "Swap In-possession and Out-of-possession",
-        ],
-        "the formation menu's items in the draft's order"
+        ["Copy to 1", "Copy to 3", "Swap with 1", "Swap with 3"],
+        "the preset menu's entries on preset 2"
     );
-
-    // Copy Out-of-possession to Kick-off: preset 1's kick-off becomes its
-    // out-of-possession, in one undo entry.
     click(
         &mut window,
-        node_labeled(&nodes, Role::Button, "Copy Out-of-possession to Kick-off"),
+        node_labeled(&nodes, Role::Button, "Copy to 3"),
         &mut view,
     );
-    let formations = &team_entry(&view, 701).tactics.presets[0].formations;
     assert_eq!(
-        formations[0], formations_before[2],
-        "kick-off is now out-of-possession's"
-    );
-    assert_eq!(
-        formations[1], formations_before[1],
-        "in-possession untouched"
+        team_entry(&view, 701).tactics.presets[2],
+        preset2_before,
+        "preset 3 equals preset 2 as it was"
     );
     assert_eq!(
         undo_entries(&mut window, &mut view),
         1,
         "the copy was one undo entry"
     );
+    // Undo it for the fluid half's count.
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
 
-    // The Copy/swap preset menu: six copies, then three swaps.
+    // The bar's Fluid formation checkbox toggles the shown preset's flag:
+    // one undo entry, the session marked.
+    let fluid1_before = team_entry(&view, 701).tactics.presets[0].style.fluid;
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    click(
-        &mut window,
-        node_labeled(&nodes, Role::Button, "Copy/swap preset"),
-        &mut view,
-    );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let fluid = node_labeled(&nodes, Role::CheckBox, "Fluid formation");
+    assert_eq!(fluid.toggled(), Some(accesskit::Toggled::False));
+    click(&mut window, fluid, &mut view);
     assert_eq!(
-        menu_items(&nodes),
-        [
-            "Copy preset 1 to 2",
-            "Copy preset 1 to 3",
-            "Copy preset 2 to 1",
-            "Copy preset 2 to 3",
-            "Copy preset 3 to 1",
-            "Copy preset 3 to 2",
-            "Swap presets 1 and 2",
-            "Swap presets 1 and 3",
-            "Swap presets 2 and 3",
-        ],
-        "the preset menu's items in the draft's order"
+        team_entry(&view, 701).tactics.presets[1].style.fluid,
+        Some(true),
+        "the shown preset's flag toggled"
+    );
+    assert_eq!(
+        team_entry(&view, 701).tactics.presets[0].style.fluid,
+        fluid1_before,
+        "preset 1 untouched"
+    );
+    assert!(
+        view.session.as_ref().unwrap().is_dirty(),
+        "the toggle marked the team changed"
+    );
+    assert_eq!(
+        undo_entries(&mut window, &mut view),
+        1,
+        "the fluid toggle was one undo entry"
+    );
+}
+
+// The same bar on PES 2015, the version whose schema stores no fluid
+// flag: the checkbox stays in place, disabled with its `PES NN+`
+// tooltip.
+#[test]
+fn the_fluid_checkbox_is_gated_on_pes15() {
+    let path = fixture(PesVersion::Pes15, "tactics_fluid_gated");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 900.0);
+    window
+        .ctx
+        .all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
+    open_team_view(&mut window, &mut view, 701);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let fluid = node_labeled(&nodes, Role::CheckBox, "Fluid formation");
+    assert!(fluid.is_disabled(), "the flag is disabled on PES 15");
+    assert_eq!(
+        tooltip_after_hover(&mut window, &mut view, centre(fluid)),
+        Some("PES 16+".to_owned()),
+        "the gate tooltip names the first version with the flag"
     );
 }
 
@@ -454,205 +500,171 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     );
 }
 
-// The draft's `.row` (flex-wrap) on the Formation settings cells: the
-// host scrolls only vertically, so at a narrow window every slider and
-// every style choice must land inside the width, the cells wrapping.
-#[test]
-fn the_formation_settings_wrap_inside_a_narrow_window() {
-    let path = fixture(PesVersion::Pes21, "tactics_wrap");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(800.0, 1400.0);
-    open_team_view(&mut window, &mut view, 701);
-
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let sliders: Vec<&accesskit::Node> = nodes
+/// The stroked rects the frame drew (the panels' `Frame::group` boxes
+/// and the pitch's border — transparent fill, a visible stroke), in
+/// (y, x) order, `min_height` tall or more (badges, checkboxes and
+/// buttons never reach it).
+fn stroked_rects(shapes: &[egui::epaint::ClippedShape], min_height: f32) -> Vec<egui::Rect> {
+    let mut rects: Vec<egui::Rect> = shapes
         .iter()
-        .filter(|node| node.role() == Role::Slider)
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape)
+                if shape.fill == egui::Color32::TRANSPARENT
+                    && !shape.stroke.is_empty()
+                    && shape.rect.height() >= min_height =>
+            {
+                Some(shape.rect)
+            }
+            _ => None,
+        })
         .collect();
-    assert_eq!(sliders.len(), 5, "the five sliders are drawn");
-    for slider in sliders {
-        assert!(
-            slider.bounds().expect("slider bounds").x1 <= 800.0,
-            "a slider inside the window's width"
-        );
-    }
-    for label in [
-        "Counter Attack",
-        "Possession",
-        "Centre",
-        "Long Pass",
-        "Short Pass",
-        "Maintain",
-        "Flexible",
-        "Frontline Pressure",
-        "All Out Defence",
-        "Middle",
-        "Aggressive",
-        "Conservative",
-    ] {
-        let choice = node_labeled(&nodes, Role::Button, label);
-        assert!(
-            choice.bounds().expect("choice bounds").x1 <= 800.0,
-            "{label} inside the window's width"
-        );
-    }
-    let wides: Vec<&accesskit::Node> = nodes
-        .iter()
-        .filter(|node| node.role() == Role::Button && node.label() == Some("Wide"))
-        .collect();
-    assert_eq!(
-        wides.len(),
-        2,
-        "the attacking zone's and the containment area's Wide"
-    );
-    for wide in wides {
-        assert!(
-            wide.bounds().expect("choice bounds").x1 <= 800.0,
-            "Wide inside the window's width"
-        );
-    }
+    rects.sort_by(|a, b| {
+        (a.min.y, a.min.x)
+            .partial_cmp(&(b.min.y, b.min.x))
+            .expect("ordered bounds")
+    });
+    rects
 }
 
-// plans/save_editor.md "Tactics editor" (the "pitch is the editor"
-// bullet's three columns): at the default pane (1224 x 776) the settings
-// column sits beside the lists — the Formation settings heading right of
-// the lists column's 200, its top beside the canvas — the 456-point
-// column holds the preset bar on one line and the formation grid one
-// pair a row (labels and controls each sharing one x0), every control
-// inside the pane.
+/// The stroked rect (a panel's box or the pitch's border) whose left
+/// edge is `left` within `tol`.
+fn box_at(rects: &[egui::Rect], left: f64, tol: f64) -> egui::Rect {
+    *rects
+        .iter()
+        .find(|rect| (f64::from(rect.min.x) - left).abs() <= tol)
+        .unwrap_or_else(|| panic!("no stroked rect at left {left} (have {rects:?})"))
+}
+
+// plans/save_editor.md "Tactics editor" (the grid of the "pitch is the
+// editor" bullet, the draft's `.tacgrid`): at the default pane (1224 x
+// 776) the editor is one grid of three columns and three rows — the
+// settings panels' boxes at the column's 414 width, the pitch's border
+// 10 points past them, the Player assignments box 10 past the pitch's
+// right and out to the pane's edge; the preset bar and the formation bar
+// share one line's centre, the formation bar's first button on the
+// pitch's left; row 3's panels top 6 under row 2's bottom, the two
+// lists halves of columns 2-3 less a 6-point gap.
 #[test]
-fn the_tactics_editor_is_three_columns_at_the_default_pane() {
-    let path = fixture(PesVersion::Pes21, "tactics_three_columns");
+fn the_tactics_editor_is_one_grid_at_the_default_pane() {
+    let path = fixture(PesVersion::Pes21, "tactics_grid");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    let settings = label_bounds(&nodes, "Formation settings");
-    let bench = label_bounds(&nodes, "Bench");
+    let rects = stroked_rects(&shapes, 60.0);
+    // The settings column's left and width: the Formation settings box
+    // holds the heading's label at its inner edge (the group margin and
+    // stroke in).
+    let heading = label_bounds(&nodes, "Formation settings");
+    let settings_left = heading.x0 - 7.0;
+    let panels: Vec<egui::Rect> = rects
+        .iter()
+        .copied()
+        .filter(|rect| (f64::from(rect.min.x) - settings_left).abs() < 1.0)
+        .collect();
+    assert_eq!(
+        panels.len(),
+        3,
+        "Formation settings, Advanced instructions and Automatic settings on column 1 ({panels:?})"
+    );
+    for box_ in &panels {
+        assert!(
+            (f64::from(box_.width()) - 414.0).abs() <= 1.0,
+            "a settings panel 414 wide ({box_:?})"
+        );
+    }
+    let pitch_left = settings_left + 414.0 + 10.0;
     let canvas = canvas_of(&nodes);
     assert!(
-        settings.x0 > bench.x0 + 200.0,
-        "the settings column right of the lists' 200 (settings {settings:?}, bench {bench:?})"
+        (canvas.x0 - 1.0 - pitch_left).abs() <= 1.0,
+        "the pitch's box left 10 past the settings column (canvas {canvas:?})"
+    );
+    let assigns_left = pitch_left + f64::from(team_widgets::pitch::PITCH_BOX.x) + 10.0;
+    let pane_right = f64::from(DEFAULT_PANE.x - 2.0 * PANEL_MARGIN);
+    let assigns = box_at(&rects, assigns_left, 1.0);
+    assert!(
+        (f64::from(assigns.max.x) - pane_right).abs() <= 1.0,
+        "Player assignments' right at the pane's ({assigns:?}, pane right {pane_right})"
+    );
+
+    // The bars on one line: preset 2's and Kick-off's centres within a
+    // point; Kick-off's left at the pitch's.
+    let two = node_labeled(&nodes, Role::Button, "2");
+    let kick_off = node_labeled(&nodes, Role::Button, "Kick-off");
+    let centre_y = |node: &accesskit::Node| {
+        let b = node.bounds().expect("bounds");
+        (b.y0 + b.y1) / 2.0
+    };
+    assert!(
+        (centre_y(two) - centre_y(kick_off)).abs() <= 0.5,
+        "the two bars' centres on one line ({:?} vs {:?})",
+        two.bounds(),
+        kick_off.bounds()
     );
     assert!(
-        settings.y0 < canvas.y1,
-        "its top beside the canvas (settings {settings:?}, canvas {canvas:?})"
+        (kick_off.bounds().expect("bounds").x0 - pitch_left).abs() <= 1.0,
+        "the formation bar starts at the pitch's left ({:?})",
+        kick_off.bounds()
+    );
+    // And the bar fits its span at the design width: the Scroll names
+    // checkbox, its last item, ends inside the pane's right edge.
+    let scroll_names = node_labeled(&nodes, Role::CheckBox, "Scroll names");
+    assert!(
+        scroll_names.bounds().expect("bounds").x1 <= pane_right,
+        "Scroll names ends inside the pane's right edge ({:?})",
+        scroll_names.bounds()
     );
 
-    // The formation grid at the column's width: one pair a row — the
-    // twelve labels share one x0 and each pair's control one x0.
-    let labels_x0 = label_bounds(&nodes, "Support range").x0;
-    let controls_x0 = control_right_of(&nodes, "Support range")
-        .bounds()
-        .expect("bounds")
-        .x0;
-    for label in [
-        "Defensive line",
-        "Compactness",
-        "Numbers in attack",
-        "Numbers in defence",
-        "Attacking style",
-        "Attacking zone",
-        "Buildup",
-        "Positioning",
-        "Defensive style",
-        "Containment area",
-        "Pressure",
-    ] {
-        let label_bounds = label_bounds(&nodes, label).x0;
-        assert_eq!(label_bounds, labels_x0, "{label} shares the labels' x0");
-        assert_eq!(
-            control_right_of(&nodes, label).bounds().expect("bounds").x0,
-            controls_x0,
-            "{label}'s control shares the controls' x0"
-        );
-    }
+    // Row 3's tops 6 under row 2's bottom: row 2's bottom is the deepest
+    // of the settings box, the pitch's and the assignments'.
+    let settings_box = box_at(&rects, settings_left, 1.0);
+    let pitch_box = box_at(&rects, pitch_left, 1.0);
+    let row2_bottom = f64::from(settings_box.max.y.max(pitch_box.max.y).max(assigns.max.y));
+    let row3_top = row2_bottom + 6.0;
+    // The two lists over columns 2-3, halves less the 6-point gap.
+    let span = pane_right - pitch_left;
+    let half = (span - 6.0) / 2.0;
+    let mut lists: Vec<egui::Rect> = rects
+        .iter()
+        .copied()
+        .filter(|rect| (f64::from(rect.min.y) - row3_top).abs() <= 1.0)
+        .collect();
+    lists.sort_by(|a, b| a.min.x.total_cmp(&b.min.x));
+    assert_eq!(
+        lists.len(),
+        3,
+        "the stack's and the two lists' boxes in row 3 ({lists:?})"
+    );
+    let eleven = lists[1];
+    let bench = lists[2];
+    assert!(
+        (f64::from(eleven.min.x) - pitch_left).abs() <= 1.0,
+        "the eleven's left at column 2 ({eleven:?})"
+    );
+    assert!(
+        (f64::from(eleven.width()) - half).abs() <= 1.0,
+        "the eleven half of the span less 6 ({eleven:?}, half {half})"
+    );
+    assert!(
+        (f64::from(bench.min.x) - (pitch_left + half + 6.0)).abs() <= 1.0,
+        "the bench's left a half and a gap later ({bench:?})"
+    );
+    assert!(
+        (f64::from(bench.max.x) - pane_right).abs() <= 1.0,
+        "the bench's right at the pane's ({bench:?})"
+    );
 
-    // The preset bar on one line at this pane (it wraps only at the
-    // narrowest three-column pane, the sibling test's): the six bar
-    // widgets share one row's top.
-    let bar_y = label_bounds(&nodes, "Preset").y0;
-    for label in ["1", "2", "3", "Copy/swap preset", "Copy/swap formation"] {
-        let button = node_labeled(&nodes, Role::Button, label);
+    // No "Starting eleven" or "Bench" headings (the lists' labels are
+    // gone): the labels are nowhere in the tree.
+    for heading in ["Starting eleven", "Bench"] {
         assert!(
-            (button.bounds().expect("bounds").y0 - bar_y).abs() < 0.5,
-            "{label} shares the bar's one line ({:?})",
-            button.bounds()
-        );
-    }
-
-    // The view's controls (right of the player list's edge: the list's
-    // own scrolled-off rows are no view's business) end inside the pane's
-    // content on both axes — its right and its bottom, each less the two
-    // `CentralPanel` margins: the 456-point settings column fits, the
-    // deepest control inside. The deepest is named, so the check is the
-    // column's own bottom (the Automatic settings' last checkbox).
-    let deepest = node_labeled(&nodes, Role::CheckBox, "Attack/defence levels");
-    assert!(
-        deepest.bounds().expect("bounds").y1 <= f64::from(DEFAULT_PANE.y - 2.0 * PANEL_MARGIN),
-        "the deepest settings control inside the pane's bottom content edge ({:?})",
-        deepest.bounds()
-    );
-    for role in [Role::Slider, Role::Button, Role::ComboBox, Role::CheckBox] {
-        for node in nodes.iter().filter(|node| node.role() == role) {
-            let bounds = node
-                .bounds()
-                .unwrap_or_else(|| panic!("{role:?} has no bounds"));
-            assert!(
-                bounds.x0 < canvas.x0 - 1.0
-                    || bounds.x1 <= f64::from(DEFAULT_PANE.x - 2.0 * PANEL_MARGIN),
-                "{role:?} {} ends outside the pane's right content edge ({bounds:?})",
-                node.label().or(node.value()).unwrap_or("?")
-            );
-            assert!(
-                bounds.x0 < canvas.x0 - 1.0
-                    || bounds.y1 <= f64::from(DEFAULT_PANE.y - 2.0 * PANEL_MARGIN),
-                "{role:?} {} ends outside the pane's bottom content edge ({bounds:?})",
-                node.label().or(node.value()).unwrap_or("?")
-            );
-        }
-    }
-}
-
-// plans/save_editor.md "Tactics editor" ("wrapping inside it"): at the
-// narrowest three-column pane the 360-point settings column wraps the
-// preset bar to a second line rather than clipping it — the last menu
-// button opens the second line, and every bar widget ends inside the
-// column's right edge (the pane's right less the two `CentralPanel`
-// margins).
-#[test]
-fn the_preset_bar_wraps_inside_the_settings_column() {
-    let path = fixture(PesVersion::Pes21, "preset_bar_wrap");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let pane = three_columns_width() + VIEW_AREA_OFFSET;
-    let mut window = Headless::sized(pane, DEFAULT_PANE.y);
-    open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-
-    let settings_left = label_bounds(&nodes, "Formation settings").x0;
-    let preset = label_bounds(&nodes, "Preset");
-    assert!(
-        (preset.x0 - settings_left).abs() < 1.0,
-        "the bar starts the settings column"
-    );
-    // The wrap: the "Copy/swap formation" menu opens the second line,
-    // below the "Preset" label's.
-    let formation_menu = node_labeled(&nodes, Role::Button, "Copy/swap formation");
-    assert!(
-        formation_menu.bounds().expect("bounds").y0 > preset.y1 - 1.0,
-        "the bar wraps to a second line ({:?} vs {preset:?})",
-        formation_menu.bounds()
-    );
-    for label in ["1", "2", "3", "Copy/swap preset", "Copy/swap formation"] {
-        let button = node_labeled(&nodes, Role::Button, label);
-        assert!(
-            button.bounds().expect("bounds").x1 <= f64::from(pane - 2.0 * PANEL_MARGIN),
-            "{label} ends inside the settings column's right edge ({:?})",
-            button.bounds()
+            !nodes
+                .iter()
+                .any(|node| node.role() == Role::Label && node.value() == Some(heading)),
+            "no {heading:?} heading"
         );
     }
 }
@@ -699,62 +711,13 @@ fn the_target_combo_stays_inside_the_settings_column() {
         Some("3 3DSMAX HAS STOPPED WORKING"),
         "premise: the target names the player"
     );
+    // The settings column's right edge: the column's left and 414.
+    let column_right = label_bounds(&nodes, "Formation settings").x0 - 7.0 + 414.0;
     assert!(
-        target.bounds().expect("bounds").x1 <= f64::from(DEFAULT_PANE.x - 2.0 * PANEL_MARGIN),
+        target.bounds().expect("bounds").x1 <= column_right,
         "the capped combo ends inside the settings column ({:?})",
         target.bounds()
     );
-}
-
-// Below the three-column width (a pane tighter than the smallest
-// default's 981 x 624, 877 wide — taller here so the settings' nodes
-// below the fold are still drawn): the settings column draws under the
-// pitch and the lists, its heading below the canvas' bottom and the
-// last bench row, every control inside the pane's width.
-#[test]
-fn the_tactics_editor_stacks_the_settings_below_at_the_smallest_pane() {
-    let path = fixture(PesVersion::Pes21, "tactics_stacked");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(877.0, 1600.0);
-    open_team_view(&mut window, &mut view, 701);
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    // A second frame: the scroll area's claimed region lands a frame late
-    // — an over-wide claim would widen the content's own rect on this
-    // one, giving the columns the three-column width back.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-
-    let settings = label_bounds(&nodes, "Formation settings");
-    let canvas = canvas_of(&nodes);
-    assert!(
-        settings.y0 > canvas.y1,
-        "the settings column below the canvas (settings {settings:?}, canvas {canvas:?})"
-    );
-    // And below the bench list's bottom edge as drawn: its last row's
-    // bottom (the bench shows the players only, so it never scrolls).
-    let bench_bottom = lineup_names(&nodes)[11..]
-        .iter()
-        .filter_map(|node| node.bounds())
-        .map(|bounds| bounds.y1)
-        .fold(0.0, f64::max);
-    assert!(bench_bottom > 0.0, "the bench rows are drawn (premise)");
-    assert!(
-        settings.y0 > bench_bottom,
-        "and below the last bench row in view (settings {settings:?}, bench list bottom {bench_bottom})"
-    );
-
-    for role in [Role::Slider, Role::Button, Role::ComboBox, Role::CheckBox] {
-        for node in nodes.iter().filter(|node| node.role() == role) {
-            let bounds = node
-                .bounds()
-                .unwrap_or_else(|| panic!("{role:?} has no bounds"));
-            assert!(
-                bounds.x1 <= 877.0,
-                "{role:?} {} clips the pane's right edge ({bounds:?})",
-                node.label().or(node.value()).unwrap_or("?")
-            );
-        }
-    }
 }
 
 // plans/save_editor.md "Tactics editor" (the "Portraits" sub-bullet):
@@ -838,183 +801,62 @@ fn the_pitch_draws_a_starter_s_portrait_from_the_selected_game() {
     );
 }
 
-// The same wrap on the Automatic settings row and the armed mode's note:
-// the Substitution pair, the three checkboxes and the note's button all
-// land inside the width (the row fits 800 either way; the wrap itself is
-// `the_automatic_settings_and_the_note_wrap_at_a_narrow_pane`'s case,
-// inside the widget's own pane where a narrower width reaches it).
+// The Automatic settings row wraps inside the settings column (the
+// draft's `.row`): the Substitution pair and the three checkboxes each
+// end inside the column's 414 width. And the armed mode draws no note
+// (the plan's "No note explains the armed mode"): no Cancel, no Done,
+// no "Click the pitch player" line while a mode is armed — the armed
+// chip and the candidates' corner brackets say it.
 #[test]
-fn the_automatic_settings_and_the_note_wrap_inside_a_narrow_window() {
+fn the_automatic_settings_wrap_inside_the_column_and_armed_draws_no_note() {
     let path = fixture(PesVersion::Pes21, "tactics_wrap2");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(800.0, 1400.0);
-    open_team_view(&mut window, &mut view, 701);
-
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let substitution = control_right_of(&nodes, "Substitution");
-    assert!(
-        substitution.bounds().expect("field bounds").x1 <= 800.0,
-        "the Substitution field inside the window's width"
-    );
-    for label in ["Offside trap", "Preset change", "Attack/defence levels"] {
-        let checkbox = node_labeled(&nodes, Role::CheckBox, label);
-        assert!(
-            checkbox.bounds().expect("checkbox bounds").x1 <= 800.0,
-            "{label} inside the window's width"
-        );
-    }
-
-    // Arm join: the note draws its longer line; its button lands inside.
-    click(&mut window, chip(&nodes, "Join attack:"), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let done = node_labeled(&nodes, Role::Button, "Done");
-    assert!(
-        done.bounds().expect("button bounds").x1 <= 800.0,
-        "the note's button inside the window's width"
-    );
-}
-
-// The settings column's widgets keep their ids across `three_columns`
-// (the same class as the width thresholds' ids: the column draws in one
-// salted child `Ui` at the same call position in both arrangements, so a
-// field's AccessKit id is equal at the default pane and at the smallest).
-#[test]
-fn the_settings_widgets_keep_their_ids_across_three_columns() {
-    let path = fixture(PesVersion::Pes21, "settings_ids");
-    let mut view = SaveView::new();
-    view.open(&path);
-
-    let mut wide = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
-    open_team_view(&mut wide, &mut view, 701);
-    let (_, ids, _) = wide.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let support_range = node_id_right_of(&ids, "Support range", Role::Slider);
-
-    let mut narrow = Headless::sized(877.0, 624.0);
-    let (_, ids, _) = narrow.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert_eq!(
-        node_id_right_of(&ids, "Support range", Role::Slider),
-        support_range,
-        "the slider's id across the three-column break"
-    );
-}
-
-/// The Tactics editor's three-column break width: `PITCH.x` plus
-/// `LISTS_WIDTH` plus `SETTINGS_MIN` plus two item gaps — `tactics.rs`
-/// computes the same from the same constants; the gap is read off a
-/// `Headless` frame.
-fn three_columns_width() -> f32 {
-    let mut gap = 0.0;
-    Headless::new().frame(Vec::new(), |ui| gap = ui.spacing().item_spacing.x);
-    team_widgets::pitch::PITCH.x
-        + crate::view::tactics::LISTS_WIDTH
-        + crate::view::tactics::SETTINGS_MIN
-        + 2.0 * gap
-}
-
-// `three_columns`' edge: the pane whose view area is exactly
-// `PITCH.x + LISTS_WIDTH + SETTINGS_MIN + 2 gaps` (the constant plus
-// `VIEW_AREA_OFFSET`) is three columns, and one point narrower stacks
-// the settings below.
-#[test]
-fn the_tactics_editor_switches_arrangement_at_three_columns() {
-    let three_columns = three_columns_width();
-    for (width, three) in [
-        (three_columns + VIEW_AREA_OFFSET, true),
-        (three_columns + VIEW_AREA_OFFSET - 1.0, false),
-    ] {
-        let path = fixture(PesVersion::Pes21, "three_columns_edge");
-        let mut view = SaveView::new();
-        view.open(&path);
-        let mut window = Headless::sized(width, 1400.0);
-        open_team_view(&mut window, &mut view, 701);
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-        let settings = label_bounds(&nodes, "Formation settings");
-        let canvas = canvas_of(&nodes);
-        if three {
-            assert!(
-                settings.y0 < canvas.y1,
-                "width {width}: the settings beside the canvas ({settings:?} vs {canvas:?})"
-            );
-        } else {
-            assert!(
-                settings.y0 > canvas.y1,
-                "width {width}: the settings below the canvas ({settings:?} vs {canvas:?})"
-            );
-        }
-    }
-}
-
-// The lists column's left edge is the canvas' right edge plus one
-// `item_spacing.x` — the editor draws the lists hard at 200 wide past it.
-#[test]
-fn the_lists_start_one_gap_right_of_the_canvas() {
-    let path = fixture(PesVersion::Pes21, "lists_left_edge");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_team_view(&mut window, &mut view, 701);
-    let (gap, nodes, _) = window.frame(Vec::new(), |ui| {
-        let gap = ui.spacing().item_spacing.x;
-        show(ui, &mut view, &|| Vec::new(), None);
-        gap
-    });
-    let canvas = canvas_of(&nodes);
-    assert_eq!(
-        label_bounds(&nodes, "Starting eleven").x0 - canvas.x1,
-        f64::from(gap),
-        "the lists' left edge is the canvas' right edge plus one item gap"
-    );
-}
 
-// Below the columns' width the settings' first widget starts one
-// `item_spacing.y` below the pitch-and-lists block's bottom — the bench
-// list's frame ends it (the scroll's track bottom plus its group
-// frame's margin).
-#[test]
-fn the_stacked_settings_start_one_gap_below_the_columns() {
-    let path = fixture(PesVersion::Pes21, "stacked_top_gap");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(877.0, 624.0);
-    open_team_view(&mut window, &mut view, 701);
-    let ((margin, spacing_y), nodes, _) = window.frame(Vec::new(), |ui| {
-        let margin = egui::Frame::group(ui.style()).total_margin().bottom;
-        let spacing_y = ui.spacing().item_spacing.y;
-        show(ui, &mut view, &|| Vec::new(), None);
-        (margin, spacing_y)
-    });
-
-    let canvas = canvas_of(&nodes);
-    // The bench list's scroll bar (the lists' inner scroll — the view's
-    // own bar would sit at the pane's right edge, past the column).
-    let bench_bottom = nodes
-        .iter()
-        .filter(|node| node.role() == Role::ScrollBar)
-        .filter_map(|node| node.bounds())
-        .filter(|bounds| bounds.x0 > canvas.x1 && bounds.x0 < canvas.x1 + 260.0)
-        .map(|bounds| bounds.y1)
-        .fold(0.0, f64::max);
-    assert!(bench_bottom > 0.0, "the bench list scrolls (premise)");
-    let preset = label_bounds(&nodes, "Preset");
-    // The group frame's bottom total margin (its inner margin plus
-    // stroke) under the viewport's bottom and the one item gap the
-    // settings sit below the block's bottom, measured 10 at this pane.
-    let gap = f64::from(margin) + f64::from(spacing_y);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let column_right = label_bounds(&nodes, "Formation settings").x0 - 7.0 + 414.0;
+    let substitution = control_right_of(&nodes, "Substitution");
     assert!(
-        (preset.y0 - bench_bottom - gap).abs() < 0.5,
-        "the settings' top is one frame margin and one item gap below the lists' \
-         (Preset {preset:?}, bench viewport bottom {bench_bottom}, margin {margin}, gap {spacing_y})"
+        substitution.bounds().expect("field bounds").x1 <= column_right,
+        "the Substitution field inside the settings column"
+    );
+    for label in ["Offside trap", "Preset change", "Attack/defence levels"] {
+        let checkbox = node_labeled(&nodes, Role::CheckBox, label);
+        assert!(
+            checkbox.bounds().expect("checkbox bounds").x1 <= column_right,
+            "{label} inside the settings column"
+        );
+    }
+
+    // Arm join: no note and no Cancel or Done anywhere in the tree.
+    click(&mut window, chip(&nodes, "Join attack:"), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    for label in ["Cancel", "Done"] {
+        assert!(
+            !nodes
+                .iter()
+                .any(|node| node.role() == Role::Button && node.label() == Some(label)),
+            "no {label} button while armed"
+        );
+    }
+    assert!(
+        !nodes.iter().any(|node| {
+            node.role() == Role::Label
+                && node
+                    .value()
+                    .is_some_and(|value| value.starts_with("Click the pitch player"))
+        }),
+        "no note's text while armed"
     );
 }
 
-// The scroll's content size is the advance rect the view claims: at the
-// smallest pane the view still scrolls to the deepest settings control
-// (its bottom inside the viewport) — the settings column's claimed
-// height and width both feed the scroll extent.
+// The scroll's content size is the advance rect the view claims: the
+// view still scrolls to the grid's deepest control (its bottom inside
+// the viewport) — the grid's claimed height feeds the scroll extent.
 #[test]
-fn the_stacked_view_scrolls_to_its_last_control() {
+fn the_view_scrolls_to_the_grids_last_control() {
     let path = fixture(PesVersion::Pes21, "stacked_scroll_bottom");
     let mut view = SaveView::new();
     view.open(&path);
@@ -1074,10 +916,13 @@ fn every_view_fits_the_pane_the_minimum_window_leaves() {
     let pane = egui::vec2(960.0 - 56.0, 600.0 - 24.0);
     let edge = f64::from(pane.x - PANEL_MARGIN);
     // Each selection kind: the player view (the Appearance section closed
-    // as it opens, then open) and the team view.
+    // as it opens, then open). The team view's grid lays out at the
+    // design width — below it the window's width zoom is what fits it
+    // (the core plan, "Scaling with the width"), so the raw-pane check is
+    // the player view's alone.
     for version in [PesVersion::Pes21, PesVersion::Pes17] {
         let path = fixture(version, "min_pane_fit");
-        for name in ["player", "appearance", "team"] {
+        for name in ["player", "appearance"] {
             let mut view = SaveView::new();
             view.open(&path);
             // A Fox save with some players stripped and some restored opens
@@ -1116,4 +961,72 @@ fn every_view_fits_the_pane_the_minimum_window_leaves() {
             }
         }
     }
+}
+
+// The formation bar's Scroll names checkbox (the plan's marker bullet,
+// `TacticsView::scroll_names`): a view setting, not an edit — on by
+// default, its toggle marks no unsaved change and pushes no undo entry,
+// it writes `scroll_names` to the tool's settings, and a fresh Tool on
+// the same settings reads it back.
+#[test]
+fn scroll_names_is_a_remembered_view_setting() {
+    use studio_core::StudioTool;
+
+    let save_path = fixture(PesVersion::Pes21, "scroll_names_setting");
+    let dir = save_path.parent().expect("the scratch dir").to_path_buf();
+    let mut tool = crate::Tool::new();
+    tool.view.open(&save_path);
+    let mut settings = studio_core::Settings::default();
+    let mut table = tool.default_settings();
+    table.insert("unread_key".to_owned(), toml::Value::Integer(3));
+    settings.set_tool("save-editor", table);
+    let (ctx, _events_rx, _requests_rx) = tool_context(&dir, settings);
+    // The design pane: the grid is laid out at 1280, and a narrower
+    // window scales (the core plan, "Scaling with the width"), so the
+    // checkbox sits inside the pane here (below it, the bar's content
+    // runs past the clip).
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_team_view(&mut window, &mut tool.view, 701);
+
+    // On by default; the toggle writes the setting false, the tool's
+    // other keys untouched, and leaves the session clean (a view
+    // setting, not an edit).
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    let checkbox = node_labeled(&nodes, Role::CheckBox, "Scroll names");
+    assert_eq!(
+        checkbox.toggled(),
+        Some(accesskit::Toggled::True),
+        "on by default"
+    );
+    press_release(&mut window, centre(checkbox), |ui| tool.view(ui, &ctx));
+    assert!(
+        !tool.view.tactics.scroll_names,
+        "the pointer toggle flipped the checkbox"
+    );
+    let table = ctx.tool_settings("save-editor");
+    assert_eq!(
+        table["scroll_names"].as_bool(),
+        Some(false),
+        "the toggle wrote the setting off"
+    );
+    assert_eq!(
+        table["unread_key"].as_integer(),
+        Some(3),
+        "the tool's other keys survive"
+    );
+    let session = tool.view.session.as_ref().unwrap();
+    assert!(!session.is_dirty(), "a view setting marks nothing");
+    assert!(!session.can_undo(), "and pushes no undo entry");
+
+    // A fresh tool on the same settings: off on the first frame.
+    let mut tool2 = crate::Tool::new();
+    tool2.view.open(&save_path);
+    open_team_view(&mut window, &mut tool2.view, 701);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool2.view(ui, &ctx));
+    let checkbox = node_labeled(&nodes, Role::CheckBox, "Scroll names");
+    assert_eq!(
+        checkbox.toggled(),
+        Some(accesskit::Toggled::False),
+        "the restart reads it back"
+    );
 }

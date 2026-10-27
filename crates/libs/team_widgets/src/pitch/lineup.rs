@@ -11,16 +11,30 @@ use super::{LineupDrag, position_label};
 use crate::names::append_name;
 use crate::tactics::{RosterRow, TacticsView, raw_name_at};
 
-/// The draft's `tacticsTab` beside the pitch: the "Starting eleven" and
-/// "Bench" lists, each row a drag handle, a position and a name (the
-/// positions are `view.formation`'s; the selector heads `pitch`, as the
-/// draft heads the pitch with it). Drops: a starter on a starter
-/// exchanges the two, a bench row on a starter (or a starter on a bench
-/// row) swaps them in `swap_in`'s sense, a bench row on a bench row
-/// moves the dragged entry to the dropped row's place. `roster` gives each
-/// roster slot's row, indexed by slot; a `bench_order` entry whose roster
-/// slot holds no player draws no row, so the eleven never gains an empty
-/// slot either (no row takes a starter).
+/// The gap between the two lists (the draft's `#tac-lists` `gap: 6px`).
+const LIST_GAP: f32 = 6.0;
+/// A row's height (the draft's `.lrow`).
+const ROW_HEIGHT: f32 = 18.0;
+/// The lists' viewport height: twelve rows (the draft's `#tac-lists
+/// .llist` — the eleven whole with a row to spare, which the bench uses
+/// for its twelfth player).
+const LIST_HEIGHT: f32 = 12.0 * ROW_HEIGHT;
+/// The padding above and below a list's rows (`#tac-lists .llist`'s
+/// `padding: 4px 0`).
+const LIST_PADDING: f32 = 4.0;
+
+/// The draft's `#tac-lists` beside the pitch: the starting eleven and
+/// the bench, each list half of the span it is given less `LIST_GAP`,
+/// twelve 18-point rows tall plus `LIST_PADDING` top and bottom, framed
+/// — no headings, so every panel of the grid's row lines up (the
+/// maintainer, 2026-10-26). Each row a drag handle, a position and a
+/// name (the positions are `view.formation`'s). Drops: a starter on a
+/// starter exchanges the two, a bench row on a starter (or a starter on
+/// a bench row) swaps them in `swap_in`'s sense, a bench row on a bench
+/// row moves the dragged entry to the dropped row's place. `roster`
+/// gives each roster slot's row, indexed by slot; a `bench_order` entry
+/// whose roster slot holds no player draws no row, so the eleven never
+/// gains an empty slot either (no row takes a starter).
 /// `version` is the open save's (`swap_in`'s instruction decode).
 /// Answers `true` only when `tactics` changed this frame
 /// (`tactics_settings`' contract).
@@ -38,37 +52,71 @@ pub fn lineup(
         let positions = tactics.presets[view.preset.min(2)].formations[view.formation.min(2)]
             .players
             .map(|slot| slot.position);
-        ui.strong("Starting eleven");
-        egui::Frame::group(ui.style()).show(ui, |ui| {
-            egui::ScrollArea::vertical()
-                .id_salt("starting eleven")
-                .max_height(300.0)
-                .show(ui, |ui| {
-                    for (index, position) in positions.iter().enumerate() {
-                        starter_row(ui, version, tactics, roster, *position, index);
-                    }
-                });
+        // Each list its own child of `half` wide, so its frame fills the
+        // column's share rather than hugging the rows.
+        let top = ui.cursor().min;
+        let right = ui.max_rect().right();
+        let bottom = ui.max_rect().bottom();
+        let half = (right - top.x - LIST_GAP) / 2.0;
+        let cell = |ui: &mut egui::Ui, left: f32| {
+            ui.new_child(
+                egui::UiBuilder::new()
+                    .max_rect(egui::Rect::from_min_max(
+                        egui::pos2(left, top.y),
+                        egui::pos2(left + half, bottom),
+                    ))
+                    .layout(egui::Layout::top_down(egui::Align::LEFT)),
+            )
+        };
+        let mut eleven = cell(ui, top.x);
+        list(&mut eleven, "starting eleven", |ui| {
+            for (index, position) in positions.iter().enumerate() {
+                starter_row(ui, version, tactics, roster, *position, index);
+            }
         });
-        ui.strong("Bench");
-        egui::Frame::group(ui.style()).show(ui, |ui| {
-            egui::ScrollArea::vertical()
-                .id_salt("bench")
-                .max_height(300.0)
-                .show(ui, |ui| {
-                    // The players only: a `bench_order` entry whose roster
-                    // slot holds no player draws no row (a 4cc team's 21
-                    // entries show its 12 players).
-                    for index in 0..tactics.bench_order.len() {
-                        if bench_is_empty(tactics, roster, index) {
-                            continue;
-                        }
-                        bench_row(ui, version, tactics, roster, index);
-                    }
-                });
+        let mut bench = cell(ui, top.x + half + LIST_GAP);
+        list(&mut bench, "bench", |ui| {
+            // The players only: a `bench_order` entry whose roster slot
+            // holds no player draws no row (a 4cc team's 21 entries show
+            // its 12 players).
+            for index in 0..tactics.bench_order.len() {
+                if bench_is_empty(tactics, roster, index) {
+                    continue;
+                }
+                bench_row(ui, version, tactics, roster, index);
+            }
         });
+        let height = eleven.min_rect().max.y.max(bench.min_rect().max.y) - top.y;
+        ui.advance_cursor_after_rect(egui::Rect::from_min_size(
+            top,
+            egui::vec2(right - top.x, height),
+        ));
         *tactics != before
     })
     .inner
+}
+
+/// One of the two lists (the draft's `.llist`): the framed box, its
+/// scroll area `LIST_HEIGHT` of rows with `LIST_PADDING` above and
+/// below; the rows draw through `add`.
+fn list(ui: &mut egui::Ui, id_salt: &'static str, add: impl FnOnce(&mut egui::Ui)) {
+    egui::Frame::group(ui.style()).show(ui, |ui| {
+        // No gaps between the padding and the scroll either: the inner
+        // height is exactly `LIST_HEIGHT` plus the two pads.
+        ui.spacing_mut().item_spacing.y = 0.0;
+        ui.add_space(LIST_PADDING);
+        egui::ScrollArea::vertical()
+            .id_salt(id_salt)
+            .auto_shrink([false, false])
+            .max_height(LIST_HEIGHT)
+            .show(ui, |ui| {
+                // 18-point rows back to back (the draft's `.lrow`): no
+                // row gap, the handle row's own height the draft's 18.
+                ui.spacing_mut().interact_size.y = ROW_HEIGHT;
+                add(ui);
+            });
+        ui.add_space(LIST_PADDING);
+    });
 }
 
 /// One starting-eleven row (the draft's XI `lrow`): the formation slot's
@@ -515,6 +563,76 @@ mod tests {
         expect[3] = before[4];
         expect[4] = before[1];
         assert_eq!(tactics.bench_order, expect, "row 1 landed at 4");
+    }
+
+    // The draft's `#tac-lists .llist`: no "Starting eleven" or "Bench"
+    // headings; each list half of the span less the 6-point gap, its
+    // inner height twelve 18-point rows plus 4 of padding top and
+    // bottom.
+    #[test]
+    fn the_lists_are_untitled_halves_of_twelve_18_point_rows() {
+        let mut window = Headless::sized(900.0, 1100.0);
+        let mut tactics = fixture_tactics(PesVersion::Pes21);
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(PesVersion::Pes21);
+        let roster = roster_rows(&rows);
+        let mut margin = 0.0;
+        window.frame(vec![], |ui| {
+            let frame = egui::Frame::group(ui.style());
+            margin = f64::from(frame.total_margin().top + frame.total_margin().bottom);
+        });
+        let (nodes, shapes) =
+            window.lineup_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+
+        for heading in ["Starting eleven", "Bench"] {
+            assert!(
+                !nodes
+                    .iter()
+                    .any(|node| node.role() == Role::Label && node.value() == Some(heading)),
+                "no {heading:?} heading"
+            );
+        }
+        // Each framed box a half of the 900-wide span less the gap; its
+        // inner height 12 * 18 + 8.
+        let mut boxes: Vec<egui::Rect> = shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Rect(shape)
+                    if shape.fill == egui::Color32::TRANSPARENT
+                        && !shape.stroke.is_empty()
+                        && shape.rect.height() > 100.0 =>
+                {
+                    Some(shape.rect)
+                }
+                _ => None,
+            })
+            .collect();
+        boxes.sort_by(|a, b| a.min.x.total_cmp(&b.min.x));
+        assert_eq!(boxes.len(), 2, "the two framed lists ({boxes:?})");
+        let half = (900.0 - LIST_GAP) / 2.0;
+        for (index, list) in boxes.iter().enumerate() {
+            assert!(
+                (list.width() - half).abs() <= 1.0,
+                "list {index} a half less the gap ({list:?})"
+            );
+            assert!(
+                (f64::from(list.height()) - (12.0 * 18.0 + 8.0) - margin).abs() <= 1.0,
+                "list {index}'s inner height twelve rows plus the padding ({list:?})"
+            );
+        }
+        assert!(
+            (boxes[1].min.x - (boxes[0].min.x + half + LIST_GAP)).abs() <= 1.0,
+            "the second list a half and a gap later ({boxes:?})"
+        );
+        // Rows 18 points back to back: the first two rows' tops.
+        let row_ys: Vec<f64> = lineup_rows(&nodes)[..2]
+            .iter()
+            .map(|row| row[0].bounds().expect("row bounds").y0)
+            .collect();
+        assert!(
+            (row_ys[1] - row_ys[0] - 18.0).abs() <= 0.5,
+            "18-point rows back to back ({row_ys:?})"
+        );
     }
 
     // plans/save_editor.md "Editing UI", "The team view" bullet: the bench

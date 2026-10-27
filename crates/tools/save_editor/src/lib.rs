@@ -118,6 +118,7 @@ impl StudioTool for Tool {
             session::rules::rules_file(&tool_settings.aatf_rules, ctx.paths().data_dir.as_deref());
         self.view.live_aatf = tool_settings.live_aatf;
         self.view.aesthetics_from_exports = tool_settings.aesthetics_from_exports;
+        self.view.tactics.scroll_names = tool_settings.scroll_names;
         let common = ctx.common();
         self.view.hide_ids = common.fpc_hide_ids();
         self.view
@@ -129,14 +130,20 @@ impl StudioTool for Tool {
         if let Some(notice) = self.view.notice.take() {
             ctx.notify(notice);
         }
-        // The toolbar's toggle is a setting: the table as read with only
-        // `live_aatf` replaced, so any other key survives (as
-        // `settings_view` writes `aatf_rules`).
-        if self.view.live_aatf != tool_settings.live_aatf {
+        // The toolbar's toggle and the formation bar's Scroll names are
+        // settings: the table as read with only those keys replaced, so
+        // any other key survives (as `settings_view` writes `aatf_rules`).
+        if self.view.live_aatf != tool_settings.live_aatf
+            || self.view.tactics.scroll_names != tool_settings.scroll_names
+        {
             let mut table = table;
             table.insert(
                 "live_aatf".to_owned(),
                 toml::Value::Boolean(self.view.live_aatf),
+            );
+            table.insert(
+                "scroll_names".to_owned(),
+                toml::Value::Boolean(self.view.tactics.scroll_names),
             );
             ctx.set_tool_settings(TOOL_ID, table);
         }
