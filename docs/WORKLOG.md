@@ -3441,8 +3441,13 @@ briefs, review loops, gates and mutation runs as for any step.
       made to fail on the wrong code; the brief's off-canvas guard dropped as unreachable
       (markers are clamped inside the canvas). Files: `team_widgets/src/pitch/{mod.rs,tests/
       {drops,paint,popover}.rs}`, `tactics/instructions/tests.rs`, `save_editor/src/view/
-      {portraits,tactics}.rs`, `view/tests/tactics.rs`, `help/08_tactics.md`. Next: a SWE-2
-      loop over the rework, then round A2
+      {portraits,tactics}.rs`, `view/tests/tactics.rs`, `help/08_tactics.md`
+    - [ ] round S4 over the A1 rework (SWE-2, two parts): 4 of 5 accepted, ending the post-Astra
+      SWE-2 loop (a lineup row's drop target only its content, where the draft's row spans the
+      list; three test premises unchecked); a row's near miss within egui's 5 points rejected
+      (no other target there). Rework briefed (`brief_tac_s4_rework.md`, after m2), then
+      Astra round A2 over the whole surface, then the surface's one mutation run
+      (`just mutants-diff 3d39aff3`) at its loop's end
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";
