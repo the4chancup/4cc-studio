@@ -490,11 +490,16 @@ fn the_fluid_checkbox_is_gated_on_pes15() {
 fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     let path = fixture(PesVersion::Pes21, "tactics_pitch");
     // The join-attack list starts empty so the scenario's clicks alone
-    // fill it, and the eleven is shuffled so a pick's roster slot never
-    // equals its position index (an index-writing arm would look right
-    // on the fixture's [0, 1, ...]).
+    // fill it, and the eleven is shuffled so a pick's or the dragged
+    // marker's roster slot never equals its position index (an arm that
+    // confuses the two would look right on the fixture's [0, 1, ...]).
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
     file.team_mut(701).unwrap().tactics.players_to_join_attack = [u8::MAX; 3];
+    file.team_mut(701)
+        .unwrap()
+        .tactics
+        .starting_eleven
+        .swap(4, 9);
     file.team_mut(701)
         .unwrap()
         .tactics
@@ -512,6 +517,11 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     open_team_view(&mut window, &mut view, 701);
     let index = 4;
     let before = team_entry(&view, 701).tactics;
+    assert_ne!(
+        usize::from(before.starting_eleven[index]),
+        index,
+        "premise: the dragged marker's slot differs from its index"
+    );
     let slot_before = before.presets[0].formations[0].players[index];
 
     // A pitch player dragged to another spot: the slot's x and y are the
@@ -2107,42 +2117,20 @@ fn medal_letter(
         .next()
 }
 
-// plans/save_editor.md "Tactics editor" ("A starter's badge names his
-// medal tier"): each starter's badge shows his tier's initial at the
-// badge's right end — a gold `G`, a silver `S` or a bronze `B` in the
-// tier's colour — and nothing for any other tier, no tier or a failed
-// check; the tiers are read through `player_tier` under the active
-// ruleset, not typed.
-#[test]
-fn the_badges_name_the_starters_medal_tiers() {
-    use team_widgets::tactics::Medal::{Gold, Silver};
-    let path = fixture(PesVersion::Pes17, "tactics_medals");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(1600.0, 1400.0);
-    view.selected = Some(Selection::Team(734));
-    // Each starter's medal under the official ruleset, as the AATF check
-    // reads this fixture's team: two silvers and two golds, the other
-    // seven no medal tier.
-    let tactics = team_entry(&view, 734).tactics;
-    let medals = [
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        Some(Silver),
-        None,
-        Some(Gold),
-        Some(Silver),
-        Some(Gold),
-    ];
-
+/// Asserts each starter's badge on a frame of `view` (the rules file
+/// `rules_file`) draws `medals[index]`'s letter in its tier's colour,
+/// or none for `None`; `when` names the step in the messages.
+fn assert_medal_letters(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules_file: Option<&std::path::Path>,
+    medals: [Option<team_widgets::tactics::Medal>; 11],
+    when: &str,
+) {
     let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules_file));
     let canvas = canvas_of(&nodes);
-    let players = tactics.presets[0].formations[0].players;
+    let players = team_entry(view, 734).tactics.presets[0].formations[0].players;
     for (index, medal) in medals.iter().enumerate() {
         let badge = egui::Rect::from_center_size(
             clamped_centre(canvas, players[index]),
@@ -2162,24 +2150,85 @@ fn the_badges_name_the_starters_medal_tiers() {
                     }
                 };
                 let shape = medal_letter(&shapes, badge).unwrap_or_else(|| {
-                    panic!("starter {index}: no letter at his badge's right end")
+                    panic!("{when}: starter {index}: no letter at his badge's right end")
                 });
                 assert_eq!(
                     shape.galley.job.text, letter,
-                    "starter {index}'s tier letter"
+                    "{when}: starter {index}'s tier letter"
                 );
                 assert_eq!(
                     galley_color(shape),
                     colour,
-                    "starter {index}'s letter in the tier's colour"
+                    "{when}: starter {index}'s letter in the tier's colour"
                 );
             }
             None => assert!(
                 medal_letter(&shapes, badge).is_none(),
-                "starter {index} carries no letter"
+                "{when}: starter {index} carries no letter"
             ),
         }
     }
+}
+
+// plans/save_editor.md "Tactics editor" ("A starter's badge names his
+// medal tier"): each starter's badge shows his tier's initial at the
+// badge's right end — a gold `G`, a silver `S` or a bronze `B` in the
+// tier's colour — and nothing for any other tier, no tier or a failed
+// check; the tiers are read through `player_tier` under the active
+// ruleset, not typed. One view throughout, so the letters follow an
+// edit, its undo and a rules file that stops loading, not only a
+// fresh view's first frame.
+#[test]
+fn the_badges_name_the_starters_medal_tiers() {
+    use team_widgets::tactics::Medal::{Gold, Silver};
+    let path = fixture(PesVersion::Pes17, "tactics_medals");
+    let broken = path.with_file_name("broken.4ccrules");
+    std::fs::write(&broken, "definitely not a rules file").unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1600.0, 1400.0);
+    view.selected = Some(Selection::Team(734));
+    // Each starter's medal under the official ruleset, as the AATF check
+    // reads this fixture's team: two silvers and two golds, the other
+    // seven no medal tier.
+    let mut medals = [
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(Silver),
+        None,
+        Some(Gold),
+        Some(Silver),
+        Some(Gold),
+    ];
+    assert_medal_letters(&mut window, &mut view, None, medals, "the first frame");
+
+    // Starter 6, a silver, edited to Speed 99: the ruleset's tier is
+    // read from the best of its rating stats, Speed among them, and 99
+    // is gold's rate.
+    let team = team_entry(&view, 734);
+    let slot = usize::from(team.tactics.starting_eleven[6]);
+    let mut edited = player_entry(&view, team.roster[slot].player_id);
+    assert_ne!(edited.stats.speed, 99, "premise: a real change");
+    edited.stats.speed = 99;
+    view.session.as_mut().unwrap().edit_player(1, edited);
+    medals[6] = Some(Gold);
+    assert_medal_letters(&mut window, &mut view, None, medals, "after the edit");
+
+    assert!(view.session.as_mut().unwrap().undo(), "the edit is undone");
+    medals[6] = Some(Silver);
+    assert_medal_letters(&mut window, &mut view, None, medals, "after the undo");
+
+    assert_medal_letters(
+        &mut window,
+        &mut view,
+        Some(broken.as_path()),
+        [None; 11],
+        "under a rules file that does not load",
+    );
 }
 
 // The same bullet's other half: while the rules file does not load, no

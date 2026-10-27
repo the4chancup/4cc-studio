@@ -2708,3 +2708,5 @@ worklog passed 7,000 lines.
   fill), Reset window, no team name on player rows, a positions label sets the registered position; the font trial gains three fits.
 - **2026-10-27** — 0.0.1cm3: the comments of `studio_core`, `export_upgrader` and `ruleset_editor` stand on their own (comment lines
   only, each added reason checked against its source; tests, clippy, fmt green); 282 left for cm4.
+- **2026-10-27** — 0.0.1s5: Astra A3 over the Tactics surface, 4 of 4 accepted (all tests passing on a wrong implementation), Astra's
+  loop ends; the rework makes each fail under its perturbation.

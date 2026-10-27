@@ -982,6 +982,19 @@ fn a_press_outside_closes_the_popover_but_a_press_inside_does_not() {
         Some(other),
         "the press closed it and the click opened the other's"
     );
+
+    // Its Close button, a press inside it, closes it and writes nothing.
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let close = centre(entry(&nodes, Role::Button, "Close"));
+    let before = tactics.clone();
+    window.click_pitch(close, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    assert_eq!(view.popover, None, "Close closed it");
+    assert!(
+        nodes.iter().all(|node| node.label() != Some("Close")),
+        "no popover is drawn on the next frame"
+    );
+    assert_eq!(tactics, before, "Close wrote nothing");
 }
 
 // Any button's press outside the popover closes it, not only the

@@ -9,7 +9,9 @@ use super::*;
 use crate::test_support::{Headless, fixture_rows, fixture_tactics, roster_rows};
 
 // The draft's "Move on pitch": a marker released on the grass writes
-// the snapped drop point to its slot's x and y, and only there.
+// the snapped drop point to its slot's x and y, and only there. The
+// dragged starter is off his own roster slot, so a write keyed by his
+// roster slot moves another slot's spot.
 #[test]
 fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -17,8 +19,15 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     let mut view = TacticsView::default();
     let rows = fixture_rows(PesVersion::Pes21);
     let roster = roster_rows(&rows);
-    let formation = tactics.presets[0].formations[0].clone();
     let index = 4;
+    tactics.starting_eleven.swap(index, 9);
+    assert_ne!(
+        usize::from(tactics.starting_eleven[index]),
+        index,
+        "premise: the dragged starter is off his own roster slot"
+    );
+    let before = tactics.clone();
+    let formation = tactics.presets[0].formations[0].clone();
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     let centres = centres_of(canvas, &formation.players);
@@ -61,18 +70,16 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
         &roster,
     );
     assert!(changed, "the drop changed the record");
-    let mut expect = formation.clone();
-    expect.players[index].x = x;
-    expect.players[index].y = y;
-    assert_eq!(
-        tactics.presets[0].formations[0], expect,
-        "only the dragged slot's x and y moved"
-    );
+    let mut expect = before;
+    expect.presets[0].formations[0].players[index].x = x;
+    expect.presets[0].formations[0].players[index].y = y;
+    assert_eq!(tactics, expect, "only the dragged slot's x and y moved");
 
     // A second drop below the half-mark on both axes: `+vec2(0.85,
     // -2.04)` past a free grid point is 0.30 of a unit each way, so the
     // written unit is that point's own (x, y), which a `.ceil()` snap
     // would read (x + 1, y + 1).
+    let before = tactics.clone();
     let formation = tactics.presets[0].formations[0].clone();
     let centres = centres_of(canvas, &formation.players);
     let from = marker_point(&nodes, &formation.players, index);
@@ -115,13 +122,10 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
         &roster,
     );
     assert!(changed, "the second drop changed the record");
-    let mut expect = formation;
-    expect.players[index].x = x;
-    expect.players[index].y = y;
-    assert_eq!(
-        tactics.presets[0].formations[0], expect,
-        "the point below the half-mark rounds down"
-    );
+    let mut expect = before;
+    expect.presets[0].formations[0].players[index].x = x;
+    expect.presets[0].formations[0].players[index].y = y;
+    assert_eq!(tactics, expect, "the point below the half-mark rounds down");
 }
 
 // The decision "A pitch player dropped on another swaps the two slots in
@@ -988,48 +992,57 @@ fn a_release_on_a_marker_under_the_dragged_ones_spot_swaps() {
 // byte repoints only where the version's decoded instruction takes one
 // of ours (`takes_player`) — a byte under an instruction that takes none
 // (as real saves hold) or a held Tight Marking (an opponent's) stays.
+// Each version reads its own table: PES 17 stores Counter Target as a
+// value PES 21 reads as another instruction.
 #[test]
 fn a_swap_repoints_only_targets_of_instructions_that_take_a_player() {
-    let mut tactics = fixture_tactics(PesVersion::Pes21);
-    let out = tactics.starting_eleven[5];
-    let inn = tactics.bench_order[0];
-    assert_ne!(out, inn, "premise: two different slots");
-    let encode = |inst| instruction::encode(PesVersion::Pes21, inst).expect("PES 21 stores it");
-    let attack = tactics.presets[0]
-        .attack_instructions
-        .as_mut()
-        .expect("PES 21 has instructions");
-    attack[0].instruction = encode(Instruction::CounterTarget);
-    attack[0].player = out;
-    attack[1].instruction = encode(Instruction::TikiTaka);
-    attack[1].player = out;
-    let defence = tactics.presets[0]
-        .defence_instructions
-        .as_mut()
-        .expect("PES 21 has instructions");
-    defence[0].instruction = encode(Instruction::TightMarking);
-    defence[0].player = out;
+    assert_ne!(
+        instruction::encode(PesVersion::Pes17, Instruction::CounterTarget),
+        instruction::encode(PesVersion::Pes21, Instruction::CounterTarget),
+        "premise: PES 17 and PES 21 store Counter Target differently"
+    );
+    for version in [PesVersion::Pes17, PesVersion::Pes18, PesVersion::Pes21] {
+        let mut tactics = fixture_tactics(version);
+        let out = tactics.starting_eleven[5];
+        let inn = tactics.bench_order[0];
+        assert_ne!(out, inn, "premise: two different slots ({version:?})");
+        let encode = |inst| instruction::encode(version, inst).expect("the version stores it");
+        let attack = tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("the version has instructions");
+        attack[0].instruction = encode(Instruction::CounterTarget);
+        attack[0].player = out;
+        attack[1].instruction = encode(Instruction::TikiTaka);
+        attack[1].player = out;
+        let defence = tactics.presets[0]
+            .defence_instructions
+            .as_mut()
+            .expect("the version has instructions");
+        defence[0].instruction = encode(Instruction::TightMarking);
+        defence[0].player = out;
 
-    swap_in(PesVersion::Pes21, &mut tactics, 5, 0);
+        swap_in(version, &mut tactics, 5, 0);
 
-    let attack = &tactics.presets[0]
-        .attack_instructions
-        .as_ref()
-        .expect("instructions");
-    assert_eq!(
-        attack[0].player, inn,
-        "a Counter Target's target follows the swap"
-    );
-    assert_eq!(
-        attack[1].player, out,
-        "Tiki-Taka takes no player: the byte stays"
-    );
-    let defence = &tactics.presets[0]
-        .defence_instructions
-        .as_ref()
-        .expect("instructions");
-    assert_eq!(
-        defence[0].player, out,
-        "a held Tight Marking marks an opponent: it stays"
-    );
+        let attack = &tactics.presets[0]
+            .attack_instructions
+            .as_ref()
+            .expect("instructions");
+        assert_eq!(
+            attack[0].player, inn,
+            "a Counter Target's target follows the swap ({version:?})"
+        );
+        assert_eq!(
+            attack[1].player, out,
+            "Tiki-Taka takes no player: the byte stays ({version:?})"
+        );
+        let defence = &tactics.presets[0]
+            .defence_instructions
+            .as_ref()
+            .expect("instructions");
+        assert_eq!(
+            defence[0].player, out,
+            "a held Tight Marking marks an opponent: it stays ({version:?})"
+        );
+    }
 }

@@ -3529,6 +3529,15 @@ briefs, review loops, gates and mutation runs as for any step.
       perturbation): the eleven shuffled with its premise asserted, the name located under
       marker 3's badge, `Headless::type_in_spin_field`. Files: `team_widgets/src/pitch/
       {lineup.rs,popover.rs,tests/{mod,paint,popover}.rs}`. Next: Astra A3
+    - [x] Astra round A3 over the whole surface (two parts at `bf2c7eef`, Devin work): 4 of 4
+      accepted, under five, so Astra's loop ends (`.tmp/0_0_1s/tac_rulings.md` "Round A3": a
+      grass drop on the identity eleven, the instruction repoint tested on PES 21 alone where
+      PES 17 stores Counter Target as PES 21's Deep Defensive Line, the popover's Close never
+      clicked, the medal letters never followed across an edit). Rework done 2026-10-27 (Opus,
+      `.tmp/0_0_1s/tac_a3_rework_report.md`; test code only, each test seen failing under its
+      perturbation). Files: `team_widgets/src/pitch/tests/{drops,popover}.rs`,
+      `save_editor/src/view/tests/tactics.rs`. Next: the post-Astra SWE-2 loop over it, then
+      `gates-changed c244e6e4` and `mutants-diff 3d39aff3`
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";
