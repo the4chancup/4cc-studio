@@ -21,7 +21,7 @@ use crossbeam_channel::{Receiver, Sender, unbounded};
 use pes_savefile::interchange::aesthetics_patch::{AestheticsPatch, PatchTeam};
 use pes_version::PesVersion;
 use pipeline::{Cancelled, CpkStem, MemoryBudget, Permit};
-use studio_core::{Disposition, ExportId, Message, Scope, Severity, ToolContext};
+use studio_core::{Disposition, ExportId, Message, RunningPes, Scope, Severity, ToolContext};
 
 use crate::bins::WorkingBins;
 use crate::bins::installed::{self, InstalledPaths};
@@ -84,12 +84,23 @@ impl OutputMode {
     }
 }
 
+/// How the savefile step treats the compile target's game running (`pipeline.md` "6.
+/// Post-processing"): the running-PES probe it asks, and whether the member said the game's
+/// Edit mode is closed (`--edit-mode-closed`), which lets the step write the save while the
+/// game runs.
+pub(crate) struct RunningGame {
+    pub(crate) probe: fn() -> Vec<RunningPes>,
+    pub(crate) edit_mode_closed: bool,
+}
+
 /// The two destinations a run's outputs go to, resolved on the command line (`settings.md`
 /// "Path resolution"): the output folder, and the local save the `aesthetics_patch.toml` is
-/// applied to when the game loads the run's output.
+/// applied to when the game loads the run's output; with how the savefile step treats the
+/// compile target's game running.
 pub(crate) struct RunPaths {
     pub(crate) output_folder: PathBuf,
     pub(crate) savefile_path: SavefilePath,
+    pub(crate) game: RunningGame,
 }
 
 /// The CPKs a normal compile writes (`pipeline.md` "5. Writer", steps 5 and 6), decided on
@@ -638,7 +649,8 @@ fn build(
                             savefile::locate(savefile_path, || {
                                 pes_savefile::discovery::discover_savefiles(version)
                             }),
-                            &studio_core::running_pes(),
+                            &(paths.game.probe)(),
+                            paths.game.edit_mode_closed,
                             &output_folder.join(patch::FILE_NAME),
                             patch,
                         )
@@ -2044,6 +2056,10 @@ mod tests {
             let paths = RunPaths {
                 output_folder: output.clone(),
                 savefile_path: SavefilePath::Path(root.join("save/EDIT00000000")),
+                game: RunningGame {
+                    probe: Vec::new,
+                    edit_mode_closed: false,
+                },
             };
             run(&inputs, &layout, None, &paths, &normal, &ctx).unwrap();
             let previous = fs::read(&cpk).unwrap();

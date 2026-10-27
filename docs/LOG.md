@@ -2582,3 +2582,6 @@ worklog passed 7,000 lines.
 - **2026-10-27** — 8.29c4e3: the Export upgrader's help chapter audited for facts: 12 passages made true to the code
   (the report line's path, the referee fold's clashes, exit code 3's aborts, letter case); the spec's report line
   brought to the code. 8.29c is done but c6, outside side-lead U's locks.
+- **2026-10-27** — 8.9l5b (TC-SAV-17): `compile --edit-mode-closed` writes the save while its PES runs; without it the skip's
+  line names the flag. The running-PES probe is the tool's, so no test reads the machine's processes; TC-SAV-17
+  replaces TC-SAV-10 in the spec.

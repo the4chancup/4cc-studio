@@ -470,9 +470,10 @@ pub(crate) enum Code {
     /// `path` when a configured path names nothing, and `command`, the save editor's
     /// `apply-patch` for applying it by hand); the patch is the run's only savefile output.
     SavefileMissing,
-    /// Savefile changes pending but the compile target's PES is running (a PES of another
-    /// version does not count; context: `path`, `version`): the game writes its own save back
-    /// when it closes, over this one; applied by the next compile with PES closed.
+    /// Savefile changes pending, the compile target's PES running and `compile` not given
+    /// `--edit-mode-closed` (a PES of another version does not count; context: `path`,
+    /// `version`, `flag`): the game writes the save it holds over this one when the member
+    /// leaves Edit mode; applied by the next compile given the flag or made with PES closed.
     SavefileSkippedPesRunning,
     /// The savefile could not be updated: the patch's `apply` refused it, or `EditFile`
     /// could not write it back (context: `path`, `error`); Fatal (`AbortRun`) after a

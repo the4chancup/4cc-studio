@@ -10,10 +10,12 @@ use anyhow::anyhow;
 use clap::{Args, Command, FromArgMatches, Subcommand, ValueEnum};
 use pes_version::PesVersion;
 use pipeline::CpkStem;
-use studio_core::{AppPaths, CliError, CommonSettings, SETTINGS_FILE_NAME, Severity, ToolContext};
+use studio_core::{
+    AppPaths, CliError, CommonSettings, RunningPes, SETTINGS_FILE_NAME, Severity, ToolContext,
+};
 use teams_list::TeamsList;
 
-use crate::compile::{CpkLayout, OutputMode, RunPaths};
+use crate::compile::{CpkLayout, OutputMode, RunPaths, RunningGame};
 use crate::messages::TOOL_ID;
 use crate::output::deploy;
 use crate::reader::is_archive;
@@ -66,6 +68,9 @@ struct CompileArgs {
     /// Build the CPKs into the output folder without installing them.
     #[arg(long)]
     no_deploy: bool,
+    /// The game's Edit mode is closed: write the savefile even while its PES runs.
+    #[arg(long)]
+    edit_mode_closed: bool,
 }
 
 /// The output mode of a compile.
@@ -104,8 +109,14 @@ pub(crate) fn command() -> Command {
     TeamCompilerCommand::augment_subcommands(Command::new(TOOL_ID).subcommand_required(true))
 }
 
-/// Runs a parsed `team-compiler` command: the preflight, then the command.
-pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, CliError> {
+/// Runs a parsed `team-compiler` command: the preflight, then the command. `running` is the
+/// running-PES probe `compile`'s savefile step asks (`pipeline.md` "6. Post-processing"): the
+/// real process list, or a test's.
+pub(crate) fn run(
+    matches: &clap::ArgMatches,
+    ctx: &ToolContext,
+    running: fn() -> Vec<RunningPes>,
+) -> Result<u8, CliError> {
     let command = TeamCompilerCommand::from_arg_matches(matches)
         .map_err(|error| CliError::new(INVALID, error))?;
     match command {
@@ -135,9 +146,13 @@ pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, C
                     SavefilePath::Auto => SavefilePath::Auto,
                     SavefilePath::Path(path) => SavefilePath::Path(ctx.paths().exe_dir.join(path)),
                 },
+                game: RunningGame {
+                    probe: running,
+                    edit_mode_closed: args.edit_mode_closed,
+                },
             };
-            // Probed before any export is read, so a run never does the work and then fails
-            // to write it.
+            // The output folder is probed before any export is read, so a run never does the
+            // work and then fails to write it.
             deploy::prepare_output_folder(&paths.output_folder)
                 .map_err(|error| CliError::new(ABORTED, error))?;
             create_teams_list(&settings.teams_list_path, ctx.paths().data_dir.as_deref());
@@ -544,6 +559,7 @@ fn prepare_exports_root(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::output::savefile::EDIT_MODE_CLOSED_FLAG;
     use crate::testing::scratch;
 
     fn parse(args: &[&str]) -> TeamCompilerCommand {
@@ -562,10 +578,25 @@ mod tests {
         };
         assert_eq!(args.mode, Mode::Normal);
         assert!(!args.no_deploy);
+        assert!(!args.edit_mode_closed);
         assert_eq!(args.source.exports_root, Some(PathBuf::from("root")));
         assert_eq!(
             args.source.exports,
             [PathBuf::from("a"), PathBuf::from("b.zip")]
+        );
+    }
+
+    // `--edit-mode-closed` is `compile`'s alone: `check` writes no save for it to open.
+    #[test]
+    fn only_compile_takes_the_edit_mode_closed_flag() {
+        let TeamCompilerCommand::Compile(args) = parse(&["compile", EDIT_MODE_CLOSED_FLAG]) else {
+            panic!("not compile");
+        };
+        assert!(args.edit_mode_closed);
+        assert!(
+            command()
+                .try_get_matches_from(["team-compiler", "check", EDIT_MODE_CLOSED_FLAG])
+                .is_err()
         );
     }
 

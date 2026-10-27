@@ -420,7 +420,7 @@ version), the placeholder views (issue of 2026-10-16), the phase's other open is
 
 The phase's manual checks:
 
-TC-SAV-10 manual: checked 2026-10-15, against a stripped copy of the maintainer's save
+TC-SAV-10 (withdrawn at 8.9l5b for TC-SAV-17, which tests prove), checked by hand 2026-10-15, against a stripped copy of the maintainer's save
 and a sandbox PES folder (`.tmp/5_5/studio_sl/`): with PES 21 running, sideload compile
 exit 0, the patch's `cpks = []`, `savefile_skipped_pes_running`, the copy byte-identical;
 with only PES 17 running, `savefile_written` and the copy's `.bak` kept
@@ -1790,10 +1790,25 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         PES 2021, the file unchanged, the live save equal to its backup after) is replaced by
         the Edit mode question ("Writing a save while its game runs", DECISIONS 2026-10-25):
         the check is redone on l2's build, Edit mode's Load included
-      - [ ] l5 the same rule for the command line and the compiler: the Save editor's writing
-        commands take `--edit-mode-closed` (SE-CLI-03, replacing SE-CLI-02 in the spec once
-        built), the Team compiler's `compile` the same flag for its savefile step (TC-SAV-17,
-        replacing TC-SAV-10), `savefile_skipped_pes_running`'s text naming it
+      - [ ] l5 the same rule for the command line and the compiler
+        - [ ] l5a the Save editor's writing commands take `--edit-mode-closed` (SE-CLI-03,
+          replacing SE-CLI-02 in the spec once built), its message in the words
+          `spec/team_compiler/pipeline.md` "6. Post-processing" gives both tools
+        - [x] l5b 2026-10-27 (side-lead U, SWE-2): the Team compiler's `compile` takes
+          `--edit-mode-closed`, and with it the savefile step writes the save while the target's
+          PES runs; without it `savefile_skipped_pes_running` skips as before, its line naming
+          the flag (`flag=--edit-mode-closed`) and its catalog text and the help chapter saying
+          to close Edit mode and compile again with it. The running-PES probe is the tool's
+          (`Tool::with_running_probe`), so no test reads the machine's processes (the live
+          probe failed nine savefile tests while PES 2021 ran). TC-SAV-17 built and moved to
+          the spec in TC-SAV-10's place. The window's Edit mode question stays Phase 8's
+          (`plans/team_compiler/gui.md`). Files: `team_compiler/src/{lib,cli,compile,gui_run,
+          messages,messages/catalog,output/savefile}.rs`, `team_compiler/tests/{common/mod,
+          cli/savefile}.rs`, `team_compiler/help/01_command_line.md`,
+          `spec/team_compiler/{pipeline,settings,messages,README}.md`,
+          `plans/team_compiler/{pipeline,gui,README}.md`. Review: SWE-2 S1 (6 accepted, 4 of
+          them routed to the top lead) and S2 (1 accepted), `.tmp/tc_sav_17/rulings.md` on
+          side-lead U's worktree
   - [ ] 8.10 after 0.0.1: the progress grid (with the log panel's cross-link: a warning or
     error line's click highlights its grid cell, `plans/core/gui.md` "Log panel", which 8.6d3 leaves for
     the grid), the run strip, the exports folder watcher and check cache, cancellation, the launcher (`quick_compile.bat` to its `--gui` form, `quick_upgrade.bat` dropped once the upgrader's view lands), the Team

@@ -108,7 +108,7 @@ resolved export source.
 ### CLI
 
 ```text
-4cc-studio team-compiler compile [exports-root] [--mode normal|test|sideload] [--export <path>]... [--no-deploy]
+4cc-studio team-compiler compile [exports-root] [--mode normal|test|sideload] [--export <path>]... [--no-deploy] [--edit-mode-closed]
 4cc-studio team-compiler check [exports-root] [--export <path>]...
 4cc-studio team-compiler upgrade-dpfl [--yes]      # replace the installed DpFileList with the bundled official one
 ```
@@ -139,6 +139,15 @@ resolve beside the executable or in the data directory ("Path resolution").
 DLC-production flag and the build-box flag, not something a regular user should find and leave on.
 It is rejected together with `--mode test|sideload`, which have no deployment to skip.
 
+`--edit-mode-closed` is the member's word that the compile target's game has its Edit mode
+closed: with it the savefile step writes the save even while that PES runs, where without it
+the step is skipped (`savefile_skipped_pes_running`; `pipeline.md` "6. Post-processing"). It
+is `compile`'s alone (`check` writes no save) and has no settings counterpart: a standing "yes"
+would answer a question about the game's state now before it is asked. A run that writes no
+save (`--no-deploy`, `--mode test`) accepts it and changes nothing: the member's word about
+Edit mode is not wrong there, only unused, and refusing it would break a launcher line that
+always passes it.
+
 `--export <path>` (repeatable) restricts the run to the named exports — a path to an export folder
 or archive, anywhere on disk, not necessarily under the exports root. A path that does not exist,
 or is a file other than a `.zip`/`.7z`, is an invalid invocation (exit code 2, naming the path),
@@ -168,8 +177,9 @@ promoted to `output/`) exits 1 and an aborted deployment 3, as the mapping alrea
 caller special-cases deployment. The CLI is a separate process with its own run
 and does not require the GUI to be closed. In sideload mode the bins land at
 their game paths inside `livecpk/` ("Output-mode artifact routing" under `pipeline.md` "Resolved
-decisions"). A sideload-mode run with PES open skips the savefile step
-(`savefile_skipped_pes_running`, see `pipeline.md` "Post-processing") — the model iteration lands
-through sideloading and the savefile catches up on the first compile after PES is closed.
+decisions"). A sideload-mode run with PES open skips the savefile step unless given
+`--edit-mode-closed` (`savefile_skipped_pes_running`, see `pipeline.md` "Post-processing"): the
+model iteration lands through sideloading, and the savefile catches up on a compile given the
+flag or made with PES closed.
 
 ---

@@ -2617,11 +2617,8 @@ TC-SAV-09  GIVEN an output folder in which aesthetics_patch.toml cannot be writt
            WHEN the export is compiled
            THEN patch_write_failed is reported, the PES folder holds the CPK it held before the
                 run, the savefile is byte-identical, and the exit code is 3
-TC-SAV-10  manual  GIVEN a running PES of the compile target's version with a savefile present
-                   WHEN the export is compiled in sideload mode
-                   THEN the patch is written naming no CPK, savefile_skipped_pes_running is
-                        reported, the savefile is byte-identical, and the exit code is 0; with only
-                        a PES of another version running, the savefile is written
+TC-SAV-10  withdrawn: restated as TC-SAV-17, the savefile written while the game runs
+           when compile is given --edit-mode-closed (step 8.9l5b)
 TC-SAV-11  GIVEN the installed copy of the output CPK held open without delete sharing
                 (TC-DEP-02's degraded run)
            WHEN the export is compiled
@@ -2648,6 +2645,14 @@ TC-SAV-16  GIVEN a PES 21 savefile present and an export whose settings.toml set
            WHEN it is compiled with --no-deploy, and again in --mode test
            THEN no savefile_ finding is reported, the savefile is byte-identical, and each exit
                 code is 0
+TC-SAV-17  GIVEN a running PES of the compile target's version (the tests' running-PES probe)
+                 with a savefile present
+           WHEN the export is compiled in sideload mode
+           THEN without --edit-mode-closed the patch is written naming no CPK,
+                savefile_skipped_pes_running is reported naming the game and the flag, the
+                savefile is byte-identical, and the exit code is 0; with it, the savefile is
+                written (savefile_written); with no PES of the target's version running (none at
+                all, or only another version's), it is written without the flag
 ```
 
 **Shared IDs across a Midcup**

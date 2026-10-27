@@ -2,9 +2,10 @@
 //! output the game now loads applies the `aesthetics_patch.toml` it
 //! just wrote to the local savefile through `AestheticsPatch::apply`: the compiler has no
 //! second savefile write path, so the local result and the savefile builder's later
-//! `apply-patch` are the same bytes by construction. The save is never written while the
-//! compile target's PES runs (the game would write its own save back over this one on
-//! exit), and every outcome is a finding.
+//! `apply-patch` are the same bytes by construction. The save is skipped while the compile
+//! target's PES runs, unless the run was given `--edit-mode-closed`: the game writes the
+//! save it holds over the file when the member leaves Edit mode, so a write made with it
+//! closed stands. Every outcome is a finding.
 
 use std::path::{Path, PathBuf};
 
@@ -23,6 +24,10 @@ use crate::settings::SavefilePath;
 /// for the user who applies it by hand.
 pub(crate) const APPLY_COMMAND: &str =
     concat!(studio_core::exe_name!(), " save-editor apply-patch");
+
+/// The `compile` flag by which the member says the game's Edit mode is closed, which
+/// `savefile_skipped_pes_running` names for the member to compile again with.
+pub(crate) const EDIT_MODE_CLOSED_FLAG: &str = "--edit-mode-closed";
 
 /// Where the step reads and writes the save.
 #[derive(Debug, PartialEq)]
@@ -64,8 +69,8 @@ pub(crate) fn locate(
     }
 }
 
-/// The save editor's `refuse_while_running` rule (`spec/save_editor.md` "Writing a save"): only
-/// the target version's game counts: another version's never writes this save back.
+/// Only the target version's game counts, as in the Save editor's writing commands
+/// (`spec/save_editor.md` "Writing a save"): another version's never writes this save back.
 fn target_running(running: &[RunningPes], version: PesVersion) -> bool {
     running.iter().any(|game| game.version == version)
 }
@@ -83,17 +88,18 @@ pub(crate) struct SavefileFailure {
 
 /// Applies `patch` (the `aesthetics_patch.toml` at `patch_path` the run just wrote) to the
 /// save `located` names, reporting every outcome as a `Keep` finding but the two the caller
-/// emits: no save is the warning `savefile_missing`, a save the target's running game owns is
-/// skipped, a patch team or player the save lacks a per-item error with the rest applied (a
-/// save holding none of the patch's players is not rewritten), a compiled player whose
-/// appearance id the save still sets a warning, and the save written, its previous file kept
-/// as `.bak`, the info `savefile_written`. An unreadable or wrong-version save is
-/// `Err`(`savefile_invalid`) and a failed `apply` or write `Err`(`savefile_write_failed`),
-/// neither emitted here.
+/// emits: no save is the warning `savefile_missing`, a save skipped while the target's game
+/// runs unless `edit_mode_closed`, a patch team or player the save lacks a per-item error
+/// with the rest applied (a save holding none of the patch's players is not rewritten), a
+/// compiled player whose appearance id the save still sets a warning, and the save written,
+/// its previous file kept as `.bak`, the info `savefile_written`. An unreadable or
+/// wrong-version save is `Err`(`savefile_invalid`) and a failed `apply` or write
+/// `Err`(`savefile_write_failed`), neither emitted here.
 pub(crate) fn update(
     events: &mut RunEvents,
     located: Located,
     running: &[RunningPes],
+    edit_mode_closed: bool,
     patch_path: &Path,
     patch: &AestheticsPatch,
 ) -> Result<(), SavefileFailure> {
@@ -123,13 +129,14 @@ pub(crate) fn update(
             path.clone()
         }
     };
-    if target_running(running, patch.pes_version) {
+    if !edit_mode_closed && target_running(running, patch.pes_version) {
         report(
             events,
             Code::SavefileSkippedPesRunning,
             vec![
                 ("path", path.display().to_string()),
                 ("version", patch.pes_version.to_string()),
+                ("flag", EDIT_MODE_CLOSED_FLAG.to_owned()),
             ],
         );
         return Ok(());
@@ -386,6 +393,7 @@ mod tests {
             &mut events,
             Located::Configured(save.clone()),
             &running,
+            false,
             &temp.path().join("aesthetics_patch.toml"),
             &empty_patch(),
         )
@@ -400,10 +408,53 @@ mod tests {
             context.as_slice(),
             [
                 ("path".to_owned(), save.display().to_string()),
-                ("version".to_owned(), "PES 2021".to_owned())
+                ("version".to_owned(), "PES 2021".to_owned()),
+                ("flag".to_owned(), "--edit-mode-closed".to_owned())
             ]
         );
         assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
+    }
+
+    #[test]
+    fn update_writes_the_save_while_the_target_runs_given_edit_mode_closed() {
+        let temp = scratch("savefile_edit_mode_closed");
+        let save = temp.path().join("EDIT00000000");
+        fs::write(&save, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+        let before = fs::read(&save).unwrap();
+        let running = [RunningPes {
+            version: PesVersion::Pes21,
+            exe: None,
+        }];
+        let mut patch = empty_patch();
+        patch.teams.push(PatchTeam {
+            id: 714,
+            name: "/co/".to_owned(),
+            players: BTreeMap::from([(
+                5,
+                PatchPlayer {
+                    name: None,
+                    shirt_name: None,
+                    motion: MotionSettings::default().resolved(PesVersion::Pes21),
+                },
+            )]),
+        });
+        let (mut events, rx) = events();
+
+        update(
+            &mut events,
+            Located::Configured(save.clone()),
+            &running,
+            true,
+            &temp.path().join("aesthetics_patch.toml"),
+            &patch,
+        )
+        .unwrap();
+
+        let messages = messages(&rx);
+        let codes: Vec<&str> = messages.iter().map(|(code, _)| code.as_str()).collect();
+        // The fixture is not stripped: 71405 is reported, then the save is written.
+        assert_eq!(codes, ["savefile_player_not_stripped", "savefile_written"]);
+        assert_ne!(fs::read(&save).unwrap(), before, "the save is written");
     }
 
     #[test]
@@ -428,6 +479,7 @@ mod tests {
             &mut events,
             Located::Configured(save.clone()),
             &[],
+            false,
             &temp.path().join("aesthetics_patch.toml"),
             &patch,
         )
@@ -476,6 +528,7 @@ mod tests {
             &mut events,
             Located::Configured(save.clone()),
             &[],
+            false,
             &temp.path().join("aesthetics_patch.toml"),
             &patch,
         )
@@ -535,6 +588,7 @@ mod tests {
             &mut events,
             Located::Configured(save.clone()),
             &[],
+            false,
             &temp.path().join("aesthetics_patch.toml"),
             &patch,
         )
@@ -586,6 +640,7 @@ mod tests {
             &mut events,
             Located::Configured(save.clone()),
             &[],
+            false,
             &temp.path().join("aesthetics_patch.toml"),
             &patch,
         )

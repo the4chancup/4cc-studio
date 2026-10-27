@@ -11549,3 +11549,27 @@ tiers and the card limits as well as the check, and the prefix ties it to the su
 Plan: `plans/aatf_rules.md` "The rules file" (new); `plans/save_editor.md` the rules file's
 row and SE-GUI-15; `plans/ruleset_editor.md` "CLI", RE-FILE-05, RE-CLI-04;
 `plans/core/development_plan.md` "Divegrass Before Christmas".
+
+## 2026-10-27 — team_compiler — `--edit-mode-closed` reaches the line as `flag`; the tests set the tool's probe
+Decision: `savefile_skipped_pes_running`'s line carries the flag as a context entry,
+`flag=--edit-mode-closed`, after `path` and `version`; the flag has no settings counterpart;
+the words the compiler shares with the Save editor's writing commands (the flag's `--help`
+line, the message's "Close the game's Edit mode, then <run> again with `--edit-mode-closed`.
+The save is then written, and Edit mode's Load reads it in without restarting the game.") are
+written in the spec. The running-PES probe is a field of the tool (`fn() -> Vec<RunningPes>`):
+`Tool::new()` takes the real process list (a unit test's build, none), and a new `pub fn
+Tool::with_running_probe` lets the in-process command-line tests set it, the default sandbox
+reporting no game. The flag is accepted in a run that writes no save (`--no-deploy`,
+`--mode test`) and changes nothing there.
+Why: a console line prints a finding's code and context, never the catalog's text, so a flag
+named only in the catalog is not on the line TC-SAV-17 reads; `savefile_missing` already
+carries its command the same way. A setting would be a standing "yes" to a question about the
+game's state at each compile, answered before it is asked. Accepted where unused rather
+than refused as `--no-deploy` is with the loose-file modes: the member's word about Edit
+mode is not wrong in any mode, and a refusal would break a launcher line that always passes
+it. The probe on the tool, not a
+`#[cfg(test)]` stub alone: an integration test links the crate without `cfg(test)`, and the
+live probe made nine savefile tests fail while PES 2021 ran on the developer's machine.
+Plan: `spec/team_compiler/pipeline.md` "6. Post-processing" (the plan's "Savefile step while
+the game runs" moved there), `spec/team_compiler/settings.md` "CLI", `spec/team_compiler/README.md`
+TC-SAV-17 (replacing TC-SAV-10), `plans/team_compiler/gui.md` the save findings' bullet.

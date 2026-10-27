@@ -34,7 +34,9 @@ mod user_face_xml;
 mod validation;
 mod view;
 
-use studio_core::{CliError, HelpSection, HelpTopic, LogPanel, StudioTool, ToolContext};
+use studio_core::{
+    CliError, HelpSection, HelpTopic, LogPanel, RunningPes, StudioTool, ToolContext,
+};
 
 use crate::gui_run::RunLog;
 use crate::messages::TOOL_ID;
@@ -45,14 +47,26 @@ use crate::messages::TOOL_ID;
 pub struct Tool {
     run_log: RunLog,
     log_panel: LogPanel,
+    /// The running-PES probe the savefile step asks: the real process list in
+    /// production, a stub reporting no game under `cargo test` (`running_probe`),
+    /// the in-process command-line tests' probe through `with_running_probe`.
+    running: fn() -> Vec<RunningPes>,
 }
 
 impl Tool {
     /// The tool with no run started. The log panel's egui state keys on the tool id.
     pub fn new() -> Tool {
+        Tool::with_running_probe(running_probe())
+    }
+
+    /// The tool with `running` as its running-PES probe in place of the real process list: the
+    /// in-process command-line tests' probe (`spec/team_compiler/README.md` TC-SAV-17), so no test
+    /// reads the machine's processes.
+    pub fn with_running_probe(running: fn() -> Vec<RunningPes>) -> Tool {
         Tool {
             run_log: RunLog::default(),
             log_panel: LogPanel::new(TOOL_ID),
+            running,
         }
     }
 }
@@ -61,6 +75,20 @@ impl Default for Tool {
     fn default() -> Tool {
         Tool::new()
     }
+}
+
+/// The running-PES probe: the real process list (`studio_core::running_pes`).
+#[cfg(not(test))]
+fn running_probe() -> fn() -> Vec<RunningPes> {
+    studio_core::running_pes
+}
+
+/// `running_probe` under `cargo test`: no game at all — a unit test never reads
+/// the real process list, which would skip the savefile step on a machine with
+/// the fixture's PES running.
+#[cfg(test)]
+fn running_probe() -> fn() -> Vec<RunningPes> {
+    || Vec::new()
 }
 
 impl StudioTool for Tool {
@@ -78,7 +106,7 @@ impl StudioTool for Tool {
 
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
         if view::show(ui, ctx, &self.run_log, &mut self.log_panel) {
-            self.run_log.start_compile(ctx);
+            self.run_log.start_compile(ctx, self.running);
         }
     }
 
@@ -111,7 +139,7 @@ impl StudioTool for Tool {
     }
 
     fn cli_run(&self, matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, CliError> {
-        cli::run(matches, ctx)
+        cli::run(matches, ctx, self.running)
     }
 }
 

@@ -3,7 +3,7 @@ The Team compiler also runs without its window, from a terminal opened in the fo
 
 ```text
 UnlimitedToolWorks team-compiler check [exports-root] [--export <path>]...
-UnlimitedToolWorks team-compiler compile [exports-root] [--mode normal|test|sideload] [--export <path>]... [--no-deploy]
+UnlimitedToolWorks team-compiler compile [exports-root] [--mode normal|test|sideload] [--export <path>]... [--no-deploy] [--edit-mode-closed]
 UnlimitedToolWorks team-compiler upgrade-dpfl [--yes]
 ```
 
@@ -943,10 +943,14 @@ under `Documents\KONAMI` for the PES version you compile for, and picks the save
 last when the game has more than one account folder (the note `savefile_autodetected`
 names it). Give a path yourself to use another save, a cup's template save for one.
 
-The save is never written while that PES version is running, since the game would write
-its own save back over it on exit. The warning `savefile_skipped_pes_running` says so, and
-the next compile run with the game closed applies the patch then. When the save is
-written, the one you had is kept beside it with `.bak` added to its name
+While that PES version is running, the game writes the save it holds over the file when you
+leave its Edit mode, so a save written while Edit mode is open is lost then. `compile`
+therefore writes the save while the game runs only when you add `--edit-mode-closed`, which
+says you have closed Edit mode. Without it, the save step is skipped with the warning
+`savefile_skipped_pes_running`, which names the game and the flag: close Edit mode, then
+compile again with `--edit-mode-closed`. The save is then written, and Edit mode's Load reads
+it in without restarting the game. A PES of another version running does not count. When the
+save is written, the one you had is kept beside it with `.bak` added to its name
 (`EDIT00000000.bak`). A save that cannot be read, is for a PES version other than the one
 compiled for, or cannot take the patch or be written (`savefile_invalid`,
 `savefile_write_failed`) stops the
