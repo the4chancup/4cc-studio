@@ -12025,3 +12025,24 @@ Why: the maintainer's answer: "A popup is better, it only needs to provide a qui
 list is read and dismissed, not worked against as the four panels' results are.
 Plan: lands with 8.31's plan text when its draft is approved (worklog 8.31; the proposed text
 in `side/drafts2`'s `.tmp/8_31/look.md`).
+
+## 2026-10-27 — core — Buttons stay padded 4 × 1; the drafts follow
+Decision: the theme keeps egui 0.36's `button_padding`, 4 × 1, and the drafts' stylesheet pads
+a button 4 × 1 too (`docs/prototypes/index.html`, `button`), where it had padded 6 a side. The
+role chips keep their own 6 (`CHIP_PADDING` and the draft's `.rolechip`).
+Why: the maintainer's answer to the side-by-side render of both: "4 is fine if it's the default
+already". With the drafts' text sizes pinned, the 6 made every draft button 4 points wider
+than the app's (Kit slots… 64.3 against 60.3); one value in both keeps the drafts the app's
+specification.
+Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row.
+
+## 2026-10-27 — save_editor — The changes table's colours draw a swatch; the list has no footer line
+Decision: in the table of changes (the toolbar's changes list, 8.31, and the close prompt,
+which share it), a colour's old and new values draw a 12 × 12 swatch before the hex. The
+changes list's popup holds the table alone: the line under it ("Compared with the file as
+opened or last saved.") goes. Drafted on `side/drafts2` (`30842fa2`); built with 8.31, whose
+rows then carry the colour typed rather than as a string.
+Why: the maintainer's answers to the rendered options (the hex alone, the team view's 26 × 15
+box, a 12 × 12 swatch): the small swatch; and the line "is obvious enough that we can remove
+it". The prompt shows the same table, so it draws the same swatch: one table, one rule.
+Plan: lands with 8.31's plan text when its draft is approved (worklog 8.31).

@@ -298,7 +298,8 @@
   /* egui's floor under a widget's height, interact_size.y: a button's, a combo's, a drag
      value's and a checkbox row's (its text alone is 15 at the body's 1.2 line). */
   button, select, input[type=number], label.cb { min-height: 18px; }
-  button { background: var(--widget); border: 0; border-radius: 2px; padding: 1px 6px; cursor: default; }
+  /* egui's button_padding as theme.rs pins it, 4 x 1. */
+  button { background: var(--widget); border: 0; border-radius: 2px; padding: 1px 4px; cursor: default; }
   button:hover:not(:disabled) { background: var(--hover); color: #f0f0f0; }
   button:active:not(:disabled) { background: var(--active); }
   button:disabled { color: #5a5a5a; }

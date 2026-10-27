@@ -2629,3 +2629,5 @@ worklog passed 7,000 lines.
   press, the keeper's release opens his box, the changes list words values as the controls (0.0.1s5).
 - **2026-10-27** — The app draws Selawik, the suite's symbols font and the menus' ⏷, at the drafts' text sizes (12.5, not
   egui's 13: the app had drawn 4% wider than every draft); seven layout tests ruled against the drafts (0.0.1w2).
+- **2026-10-27** — The maintainer's answers: buttons stay padded 4 (the drafts' stylesheet now pads 4 too); the changes table
+  draws a 12-point swatch before a colour's hex and the changes list drops its footer line (8.31's draft).

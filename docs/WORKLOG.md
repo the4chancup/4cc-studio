@@ -2133,7 +2133,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     (`plans/save_editor.md`, the "Closing, or opening another save" bullet: Item, Old value,
     New value) without its save, discard and cancel. Drafted first, then the plan. A popup,
     not a window (the maintainer, 2026-10-27; DECISIONS "The changes list is a popup under the
-    unsaved-changes label"); the colour row's swatch is in QUESTIONS
+    unsaved-changes label"); a colour's values draw a 12 × 12 swatch in the shared table (the
+    close prompt's too) and the list has no footer line (DECISIONS "The changes table's colours
+    draw a swatch; the list has no footer line"; draft `side/drafts2` `30842fa2`)
   - [ ] 8.32 after 0.0.1 (the maintainer, 2026-10-27): the pitch draws the formation's name
     (`4-3-3`) in its corner, exactly as PES's formation screen draws it. First: the game's
     rule for the name from the slots' positions and the label's look, from in-game captures
@@ -3315,7 +3317,8 @@ briefs, review loops, gates and mutation runs as for any step.
     advance, as the draft places them, the cross after "Registered position" by ink; the
     rules error's line two rows across the panel, as the draft; Skills 50 after General
     info's fields (the draft's 50); `TEAM_ROW` re-measured (Kit slots 60.3 against the draft's
-    64.3: its buttons padded 6, the app's 4, a question in QUESTIONS) → verified: every
+    64.3: its buttons padded 6, the app's 4; the maintainer kept 4 and the drafts follow,
+    DECISIONS "Buttons stay padded 4 × 1; the drafts follow") → verified: every
     symbol has a glyph after `install` in both families (red: 18 missing); the families and
     sizes pinned by tests (red: Small 9); `just gates-changed c96dbde5`; the built window
     (release build of `819baf39`, the real PES 2021 save's copy): Selawik, the menus' ⏷, ▶,

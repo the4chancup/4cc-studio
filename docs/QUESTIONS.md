@@ -33,6 +33,10 @@ names where the question came from so the context can be read there.
   with the rule the in-game captures gave (LMF and RMF count with the AMF, not the CMF), its
   plan text written (`plans/save_editor.md` "The formation's name"); look at the pitch's
   bottom-left corner in the Save editor's Tactics tab of `docs/prototypes/index.html`.
+  8.31 (the changes list) is revised with your three answers of 2026-10-27 (a popup, the
+  12-point swatch, no line under the table; `side/drafts2` `30842fa2`, renders
+  `wt-drafts2/.tmp/8_31/8_31_{popup,prompt}_answered.png`): approve it or change it like the
+  others.
 - **The Tactics pitch's drop on another player (0.0.1y)**, as the game's drag now: the two
   swap places in the shown formation alone, while dragging an XI row onto another swaps the
   two players in every preset, as the game's select-one-then-the-other does (DECISIONS
@@ -43,23 +47,6 @@ names where the question came from so the context can be read there.
 
 ## Small confirmations
 
-- **The changes list (8.31): should a colour row draw a swatch before its hex?** (worklog 8.31;
-  the draft and its notes: branch `side/drafts2`,
-  `C:/Data/4cc/Tools_Mine/4cc-studio-temp/wt-drafts2/.tmp/8_31/look.md`.) It is a popup, as you
-  answered. Rendered side by side in `.tmp/0_0_1w/swatch_compare.png`: the hex alone (the
-  draft now), the team view's 26 × 15 box before each hex, a 12 × 12 swatch before each. The
-  rows are strings today; a swatch needs a typed value per row.
-- **Buttons padded 6 points a side, as the drafts draw them, or 4 as now?** (worklog 0.0.1w2r1;
-  DECISIONS 2026-10-26 "The theme pins egui 0.36's spacing and corner radii".) That ruling
-  pinned egui 0.36's button padding, 4 × 1, as the look the drafts were reviewed at, but the
-  drafts' stylesheet pads every button 6 × 1 (`docs/prototypes/index.html`, `button`). With
-  the text sizes now the drafts' (DECISIONS 2026-10-27 "The app pins the drafts' text sizes"),
-  every app button is 4 points narrower than its draft: Kit slots… 60.3 against 64.3. Heights
-  are unaffected (18 either way). 6 makes the buttons the drafts' width (the combos and number
-  boxes, padded by the same setting in egui, would widen 4 too unless their widths are fixed);
-  4 keeps the app as it is and the drafts change to 4. Rendered side by side in
-  `.tmp/0_0_1w/padding_compare.png` (the toolbar, the team header and the Tactics bars, 6 over
-  4, both drawn by the draft; the 4 row measures Kit slots… at the app's own 60.28).
 - **Which icon does each tool get?** (worklog 8.14.) Open `docs/prototypes/icons.html`,
   click one candidate per tool (the rail at the top shows the picks together), then copy the
   "Picks" box. The font build and the glyph constants wait on it. The Team compiler's is
