@@ -2565,3 +2565,5 @@ worklog passed 7,000 lines.
   sentences that flow (20 texts); the window's settings note now points at the settings menu, which had shipped.
 - **2026-10-27** — 8.29c4b: the first half of the Team compiler's help chapter reread for flow (55 passages, its
   long sentences split and pronouns named); two `.mtl` search facts brought to the spec.
+- **2026-10-27** — 8.29c4c: the second half of the Team compiler's help chapter reread for flow (62 passages), its
+  restated catalog rows brought to the catalog's wording (`old_cpk_locked`, the sideload `livecpk` files).

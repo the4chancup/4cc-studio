@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 to c3, c4a and c4b done; 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 to c3 and c4a to c4c done; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2223,9 +2223,19 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           Tables `.tmp/8_29/c4b_table.md` and `c4b_s{1,...,7}_table.md`, checked against the diff by `.tmp/8_29/prose_table_check.py`
           (side/text worktree). Files:
           `team_compiler/help/01_command_line.md`
-        - [ ] c4c `help/01_command_line.md`, its second half; the catalog slices' notes on its
-          prose (lines 177, 217, 513, 563, 589, 602, 707, 727, 740, 855: wording the catalog
-          now says differently) are in side-lead U's notes file
+        - [x] c4c `help/01_command_line.md`, its second half (lines 467 to the end, from the
+          CPK's install to "The aesthetics patch and your save"): 62 passages rewritten, mostly
+          a colon or semicolon made a new sentence, a garden path ("the kits the game lists for
+          the team that the export does not hold") reordered, and "record" now the save data
+          or the appearance a member sees (the lead retouched six: two pronouns named, "a CPK
+          listed before the CPK being compiled" as the paragraph above says it, `auto` named
+          before what it does). The catalog's wording followed: `old_cpk_locked` "most likely
+          because PES is running", the `livecpk` files, the default face a bad
+          `ingame_face.toml` leaves. SWE-2 round S1: 3 concerns, 2 accepted (a missing save
+          "only" a warning again, a kept clause saying the number textures are never touched
+          beside the sentence that re-arranges them), 1 nit, the loop's end. Tables
+          `.tmp/8_29/c4c_table.md` and `c4c_s1_table.md` (side/text worktree).
+          Files: `team_compiler/help/01_command_line.md`
         - [ ] c4d the crate's other texts a member reads on the terminal: the `with_context` and
           `bail!` texts of `upgrade.rs`, `compile.rs` and the like, printed as `error: ...`
           beside the refusals c4a rewrote (`{}: cannot rename {from} to it: the file already
@@ -2236,7 +2246,10 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           (side-lead U's rulings, `.tmp/8_29/rulings.md` "Round S6c4b", routed: pre-Fox
           `Common` subfolders, a shared folder's subfolder rules, the PES 2021 skeleton default's
           reason, the pre-Fox merge twin of `fmdl_merged`, how a `.skl` is packed); the second
-          half (c4c) likely holds as many
+          half (c4c) likely holds as many. c4c's sidekick found two: an installed
+          `DpFileList.bin` that cannot be read stops the compile (`installed_bin_unreadable`),
+          which the bins paragraph does not say, and `savefile_missing` excludes a configured
+          path naming a folder (`savefile_invalid`), which the patch section does not say
       - [ ] c5 the Export upgrader's catalog (its own `effect`s and rows), `cli.rs` and
         `help/01_command_line.md`
       - [ ] c6 the injected comments: they live in `pes_savefile` (`settings_toml/`, the

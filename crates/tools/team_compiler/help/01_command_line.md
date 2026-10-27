@@ -464,21 +464,21 @@ command with exit code 2. `--mode test` and `--mode sideload` write the referees
 the others' and have no referees CPK; `--mode sideload` writes the referee kits and appearance
 file with them, and `--mode test` does not, since they come from no export.
 
-`compile` installs the CPK into the game: it copies it into the `download` folder of the game
+`compile` installs the CPK into the game. It copies the CPK into the `download` folder of the game
 folder (the `pes_folder_path` setting) and then puts it in the place of the old one, so the game
 finds either the old CPK or the whole new one, and nothing is left in the output folder. Before it
-reads any export, it checks that it can: when it cannot, or when the old CPK cannot be replaced
+reads any export, it checks that it can. When it cannot, or when the old CPK cannot be replaced
 at the end, it says why with an error (listed below, after `--no-deploy`), leaves the CPK in the
 output folder instead, and ends with exit code 1.
 
 An export may hold a `notes.txt` at its root, a note for whoever compiles the cup. `compile`
 gathers the notes of every export it compiles into one file, `teamnotes.txt` in the output
 folder, one section per team headed by its name (`--- /co/ ---`, `--- /refs/ ---` for the
-referees), in the order of the exports;
-the note of a skipped export is left out. A compile with no notes to gather removes an older
-`teamnotes.txt`, so the file never shows notes of exports the last compile did not build, and a
-compile that writes no CPK leaves it as it was. When `teamnotes.txt` cannot be written, the
-error `teamnotes_write_failed` names it, and the CPK is still in place.
+referees), in the order of the exports. The note of a skipped export is left out. A compile
+with no notes to gather removes an older `teamnotes.txt`, so the file never shows notes of
+exports the last compile did not build. A compile that writes no CPK leaves it as it was. When
+`teamnotes.txt` cannot be written, the error `teamnotes_write_failed` names it, and the CPK is
+still in place.
 
 A folder named `overrides` beside the settings file (the data folder) holds files that
 `compile` puts into the CPK as they are, each at its path below that folder:
@@ -486,7 +486,7 @@ A folder named `overrides` beside the settings file (the data folder) holds file
 a file no export provides, or a fixed version of one an export gets wrong. `compile` reports the
 note `overrides_active`, naming the folder and how many files it holds, and writes the CPK even
 when no export is compiled. A file in `overrides` wins over the same file from an export or
-from the compiler (the team color file, for one): the warning `duplicate_path` names each file
+from the compiler (the team color file, for one). The warning `duplicate_path` names each file
 replaced that way, and the rest of that export is still built. A file in `overrides` that
 cannot be read stops the CPK from being written, with the line `cpk_write_failed` naming it,
 and the previous CPK stays as it was. `check` does not read the folder.
@@ -498,8 +498,8 @@ the teams list (`team=referees` for a `refs` export).
 
 The second word of an export's name says what the export covers: `Full` or `Midcup`, in any
 letter case (`co Full Spring 2026`, `co midcup day 5`). A full export is the team's whole set,
-everything it has for the cup; a midcup export brings additions to what is already installed. So
-a full export replaces the team's kits in the game's kit list: a kit of a past cup that the
+everything it has for the cup. A midcup export brings additions to what is already installed. So
+a full export replaces the team's kits in the game's kit list. A kit of a past cup that the
 export does not hold is no longer offered, and the team's installed kit configs of kits the
 export does not hold are removed. Every team needs a player kit and a goalkeeper kit,
 so a full export with no player kit, or no goalkeeper kit, gets an empty one (`p1` or `g1`),
@@ -510,13 +510,13 @@ installed: a folder without `config.toml` keeps the installed kit config (the te
 where there is none), one holding no `kit` texture keeps the installed textures, and one
 holding neither it nor a `colors.txt` keeps the kit's installed menu colors. Only the second word counts, so a `Full` later in the name changes
 nothing. A team export whose second word is neither is skipped with the error
-`export_tag_missing`, naming the export: rename it `<team> Full …` or `<team> Midcup …`. A
+`export_tag_missing`, naming the export. Rename it `<team> Full …` or `<team> Midcup …`. A
 referee export needs no tag. An export still in the old layout (a root folder named `Kit
 Configs`, `Kit Textures` or `Other`) is skipped with the one error `export_layout_old`,
-naming the folder, and nothing else is reported about it: run it through the Export
+naming the folder, and nothing else is reported about it. Run it through the Export
 upgrader once. A referee export's player folder sorted into `face`, `boots`, `gloves` or
 `common` subfolders, the layout of older referee exports, is left out with the one error
-`player_layout_proto`, naming the subfolder, and nothing else is reported about it: run the
+`player_layout_proto`, naming the subfolder, and nothing else is reported about it. Run the
 export through the Export upgrader once. In a team export those names are ordinary
 subfolders.
 
@@ -524,9 +524,9 @@ Both commands also read every `.fmdl` and `.model` model and every `.mtl` materi
 export, an archive's included, and report what is wrong or suspicious in each, one line per file
 and problem, naming the file and how many faces, vertices or bones are concerned. A
 problem the game cannot live with (a mesh over a hard limit, a face naming a vertex that does not
-exist) is an Error: the folder is left out (a file in `Common`, only that file), unless
+exist) is an Error. The folder is left out (a file in `Common` is left out alone), unless
 `pass_through` is on, which keeps it as it is. A Warning or an Info leaves everything in. A model
-with a vertex more than 5000 units from the origin lags the game for the whole matchday: it is
+with a vertex more than 5000 units from the origin lags the game for the whole matchday. It is
 reported as `vertex_too_far_from_origin` and its folder is left out even when `pass_through` is
 on. So is a file that cannot be read as a model or a material file at all, reported as
 `model_broken` or `mtl_broken`. A player linking a shared folder or `Common` model left out this
@@ -535,10 +535,10 @@ way is left out too, with the line `link_target_dropped`.
 Both commands also read each player's `settings.toml`, and his `ingame_face.toml` when he
 has one. One that cannot be read (not UTF-8 text, a key it does not know, a value of the
 wrong type or out of range) is reported as `settings_toml_invalid` or
-`ingame_face_toml_invalid`, naming the error: the file is ignored, even with `pass_through`
-on (a bad `ingame_face.toml` still marks the in-game face, at the game's default face), and
-the player's models are still built. The in-game face's keys (`iris_color`, `[face]` and
-`[hair]`) are `ingame_face.toml`'s: one left in `settings.toml` under its old name
+`ingame_face_toml_invalid`, naming the error. The file is ignored, even with `pass_through`
+on (a bad `ingame_face.toml` still marks the in-game face, so the player wears the game's
+default face), and the player's models are still built. The in-game face's keys (`iris_color`,
+`[face]` and `[hair]`) are `ingame_face.toml`'s. One left in `settings.toml` under its old name
 (`[appearance.face]`, `[appearance.hair]`) is an unknown key there.
 
 The socks are laid out differently on a kit's main texture in PES 2015 to 2017 and in PES 2018
@@ -547,12 +547,12 @@ empty file named `pre-fox` or `fox` in a kit folder says which games the kit's m
 drawn for: `pre-fox` for PES 2015 to 2017, `fox` for PES 2018 to 2021. With no such file the
 compiler takes the kit as drawn for the game it compiles for. When the file names the other
 games, `compile` moves the socks to the layout of the game it compiles for, on the kit's
-`kit_mask` (PES 2015 to 2017) or `kit_srm` (PES 2018 to 2021) too, and says so with the note
+`kit_mask` (PES 2015 to 2017) or `kit_srm` (PES 2018 to 2021) too. It says so with the note
 `kit_layout_converted`, naming both layouts. The shirt, sleeves and shorts are laid out the
-same in every version and are not touched, and neither are the number and name textures. A
+same in every version and are not touched. A
 number texture (`kit_back`, `kit_chest`, `kit_leg`) made for the other games, its ten digits in
 a column for PES 2015 to 2017 or in a row for PES 2018 to 2021, is re-arranged by `compile` for
-the game it compiles for, told apart by its shape whatever the marker says; the name texture
+the game it compiles for, told apart by its shape, whatever the marker says. The name texture
 (`kit_name`) is left as it is.
 
 A kit folder may hold a `colors.txt` giving the kit's two menu colors, and the export's root a
@@ -565,14 +565,14 @@ A kit folder may hold a `colors.txt` giving the kit's two menu colors, and the e
 162 62 77
 ```
 
-Both commands read these files and report each line that does not give exactly one color (two
+Both commands read these files. Each line that does not give exactly one color (two
 colors on one line, the way an old Team Note kit entry writes them, a number over 255, a hex
 color without its `#`), and each color past the second in a kit's file or the fourth in the
-root one, as the warning `color_entry_invalid`, naming the line and the reason. The line is
-skipped and the rest of the file is still read. `compile` writes the team's colors into the
-game's team color file, which the menus and the scoreboard show; a color the file does not
-give keeps the one the team had. A team export with no root `colors.txt` keeps all the colors
-the team had, and `compile` says so with the note `team_colors_missing`.
+root one, is reported as the warning `color_entry_invalid`, naming the line and the reason.
+The line is skipped and the rest of the file is still read. `compile` writes the team's
+colors into the game's team color file, which the menus and the scoreboard show. A color the
+file does not give keeps the one the team had. A team export with no root `colors.txt` keeps
+all the colors the team had, and `compile` says so with the note `team_colors_missing`.
 
 `compile` also writes each kit's two colors and its icon into the game's kit color file, which
 the kit selection menu and the scoreboard show. The icon is the number of the kit's `icon_<N>`
@@ -592,13 +592,13 @@ teams. Those teams' colors may be wrong until their exports are compiled again.
 those of the CPKs your `DpFileList.bin` lists before the CPK being compiled, the nearest first.
 It says which CPK each file came from (`bin_source`). A file none of those CPKs holds starts
 from the copy built into the compiler, and so does every file when the PES folder has no
-`DpFileList.bin` (`dpfilelist_missing`) or the list does not name the CPK being compiled. A
-listed CPK, or a file in it, that cannot be read, or is not a valid file of its kind, stops the
-compile before any export is read (`installed_bin_unreadable`), so the CPK you had is kept.
+`DpFileList.bin` (`dpfilelist_missing`) or the list does not name the CPK being compiled. When
+a listed CPK, or a file in it, cannot be read or is not a valid file of its kind, the compile
+stops before any export is read (`installed_bin_unreadable`), so the CPK you had is kept.
 
 On PES 2018 to 2021 the boots list, the gloves list and the player appearance table also come
 from those CPKs, and `compile` points each compiled player whose boots or gloves it built at
-them. The compiler has no copy of these files: a list none of those CPKs has is not
+them. The compiler has no copy of these files. A list none of those CPKs has is not
 written, so those players' new boots or gloves do not show in the game, and `compile` says so
 with the warning `player_table_missing`, naming the list and how many players were left out. A
 list of only this compile's players would take every other player's boots or gloves away.
@@ -606,32 +606,32 @@ list of only this compile's players would take every other player's boots or glo
 On PES 2018 to 2021, a texture a model names in the team's Common folder must be in the
 export's `Common` folder or in a CPK your `DpFileList.bin` lists before the CPK being compiled
 (a midcup export can use Common textures compiled into an earlier midcup CPK). A CPK listed
-after it does not count: removing it must not break this one. Otherwise that model's face,
+after it does not count, because removing it must not break this one. Otherwise that model's face,
 boots or gloves is left out of the CPK, and `compile` reports `fmdl_texture_not_found` with the
 model and the texture. When there is no PES folder or no `DpFileList.bin`, or the list does not
 name the CPK being compiled, the texture may still be there, so the model is kept and the line
-is a warning. A texture whose name starts with `dummy_` is never looked for: the game puts its
+is a warning. A texture whose name starts with `dummy_` is never looked for. The game puts its
 own in its place. `check` does not look for these textures, only `compile` does. A texture in
 the game's own kit texture folder (`/Assets/pes16/model/character/uniform/texture/`) is not
-looked for either: the modded exe swaps the files there for every match, so the model would show
+looked for either. The modded exe swaps the files there for every match, so the model would show
 whichever kit is being worn. Its path is kept and `compile` reports the warning
 `fmdl_texture_kit_path`. A part that should follow the kit uses the `dummy_kit` textures or a
-`kitN` texture of its own; a part that should not uses a texture of the player's folder or of
+`kitN` texture of its own. A part that should not uses a texture of the player's folder or of
 `Common`. A texture
-link (`hair.dds.common`) may also name a texture such an earlier CPK holds in the team's Common
-folder when the export's `Common` folder has no `hair.dds`, and for these links `check` looks in
-those CPKs too.
+link (`hair.dds.common`) may also name a texture that such an earlier CPK holds in the team's
+Common folder, when the export's `Common` folder has no `hair.dds`. For these links `check`
+looks in those CPKs too.
 
 On PES 2015 to 2017, `check` and `compile` both look for the textures a `.mtl` names, and
-report what they find alike. A `./` path must name a texture of the player's folder (his
-linked shared face's count too), and a path into the team's Common folder
-(`model/character/uniform/common/XXX/...`) a texture of `Common` or of a CPK listed earlier, as
-above. A missing texture that a mesh uses is the warning `mtl_texture_not_found`: the folder
-is still compiled, since the game shows some such faces as they were made, but look at the
-player in the game. One that only a material no mesh uses names is an info line,
+report their findings the same way. A `./` path must name a texture of the player's folder (his
+linked shared face's textures count too), and a path into the team's Common folder
+(`model/character/uniform/common/XXX/...`) a texture of `Common` or of a CPK listed before the
+CPK being compiled, as above. A missing texture that a mesh uses is the warning
+`mtl_texture_not_found`. The folder is still compiled, since the game shows some such faces as they were made, but look
+at the player in the game. One that only a material no mesh uses names is an info line,
 `mtl_texture_unused_missing`. Paths into the game's own folders are not looked for. On PES
 2018 to 2021 the same goes for the `.mtl` of a `.model` the compiler converts (one with no
-`.fmdl` of its name beside it); a `.mtl` no such model uses is not read at all.
+`.fmdl` of its name beside it). A `.mtl` no such model uses is not read at all.
 
 A folder named `templates` in the data folder holds files that replace the compiler's built-in
 copies of the same name, so a cup can swap one without a new version of the compiler. The names,
@@ -646,30 +646,31 @@ face gets when its folder has none), `DpFileList.bin` (the cup's official list, 
 compile compares the game's with and `upgrade-dpfl` installs), and `placeholder.cpk` (the
 empty CPK `upgrade-dpfl` writes for a CPK of the list that is not in the `download` folder).
 Its folder `referees_fox` holds files that replace those of the referee kits and
-appearance a PES 2018 to 2021 referees CPK holds, and its folder `referees_prefox` those a PES
-2015 to 2017 referees CPK holds: a file there at the path it has in the CPK, spelled exactly,
-replaces that one file (for example
+appearance file a PES 2018 to 2021 referees CPK holds, and its folder `referees_prefox` those a
+PES 2015 to 2017 referees CPK holds. A file there at the path it has in the CPK, spelled
+exactly, replaces that one file (for example
 `templates/referees_fox/common/character0/model/character/appearance/RefereeAppearance.bin`).
-Any other file in the folder is ignored. `compile` and `upgrade-dpfl` name each file they used with the
-note `template_override_active`. A file they cannot read, or one of the four kit and color files
-or `DpFileList.bin` that is not a valid file of its kind, stops the command before it does
-anything else (`template_override_unreadable`), so the CPK you had is kept.
+Any other file in the folder is ignored. `compile` and `upgrade-dpfl` name each file they used
+with the note `template_override_active`. When they cannot read one of these files, or one of
+the four kit and color files or `DpFileList.bin` is not a valid file of its kind, the command
+stops before it does anything else (`template_override_unreadable`), so the CPK you had is kept.
 
 An FPC player's body is hidden only when every kit config of the team, the goalkeeper kit's
 included, carries the FPC values (shirt model 176, shorts model 16, collar 105, winter collar
 105). So when any player folder of an export holds the marker `fpc_on`, `compile` builds every
-kit config the export supplies with these values, and for each `config.toml` that lacked them
-says so with the note `kit_config_fpc_adjusted` (your file is not changed). A kit without a
-`config.toml` gets them anyway. A midcup export with `fpc_on` also gives these values to the
-team's installed kit configs of the kits the game lists for the team that the export does not
-hold, and names each kit it changed with the same note. A kit the game lists with no installed
-config to change is reported as the warning `kit_config_fpc_unpatched`, naming the kit: send that
-kit in an export. A midcup export's collar is given to those kits in the same way, after the FPC
-values, and a kit the game lists with no installed config to wear it is reported as the warning
-`kit_config_collar_unpatched`, naming the kit, unless `kit_config_fpc_unpatched` has named it
-already: it keeps its own collar until you send it in an export. The compiler never removes FPC
-values from a kit config: an export without `fpc_on` has its configs built as they are, FPC
-values or not, and taking a team off FPC is an edit you make in the configs yourself.
+kit config the export supplies with these values, and says so with the note
+`kit_config_fpc_adjusted` for each `config.toml` that lacked them (your file is not changed). A
+kit without a `config.toml` gets them anyway. A midcup export with `fpc_on` also gives these
+values to the team's installed kit configs of the kits the export does not hold but the game
+lists for the team, and names each kit it changed with the same note. A kit the game lists
+with no installed config to change is reported as the warning `kit_config_fpc_unpatched`,
+naming the kit. Send that kit in an export. A midcup export's collar is given to those kits in
+the same way, after the FPC values, and a kit the game lists with no installed config to wear
+it is reported as the warning `kit_config_collar_unpatched`, naming the kit, unless
+`kit_config_fpc_unpatched` has named it already. That kit keeps its own collar until you send
+it in an export. The compiler never removes FPC values from a kit config. An export without `fpc_on`
+has its configs built as they are, FPC values or not, and taking a team off FPC is an edit you
+make in the configs yourself.
 
 A kit config value the chosen PES version cannot hold (a name position `y` over 33 before PES
 2021 or over 39 on PES 2021, or a shirt pattern of 12 or 13 on PES 2015) is lowered to one the
@@ -688,16 +689,16 @@ options is reported with model 176, the model it is built with.
 
 Both commands read every export in the exports folder from the settings (`exports/` beside
 `UnlimitedToolWorks.exe` unless you changed it). To use another folder for one run, give its path
-as `exports-root`; the setting is not changed. The `exports/` folder beside
-`UnlimitedToolWorks.exe` is created for you when it is missing; a folder you named yourself, in
+as `exports-root`. The setting is not changed. The `exports/` folder beside
+`UnlimitedToolWorks.exe` is created for you when it is missing. A folder you named yourself, in
 the `exports_folder_path` setting or as `exports-root`, must already exist, or the command stops
 before anything runs and tells you so. An exports folder with no export in it is reported as `no_exports_found`, naming the folder,
 and nothing is checked or compiled.
 
-An export can be a folder, a `.zip` or a `.7z`, read where it is: nothing is extracted. An archive
+An export can be a folder, a `.zip` or a `.7z`, read where it is. Nothing is extracted. An archive
 that cannot be read (damaged, password-protected, or holding two files whose names differ only in
 case) is reported as `export_extract_failed` and left out of the run. A folder whose name ends in
-`.upgrading` is not an export: an upgrade that did not finish left it there, and both commands
+`.upgrading` is not an export. An upgrade that did not finish left it there, and both commands
 report it as the warning `export_upgrade_unfinished`, naming it. Remove it, then upgrade the old
 export again.
 
@@ -730,13 +731,13 @@ the output folder where it was left instead (`output=...`):
 - `deploy_target_unwritable`: the `download` folder cannot be written, usually because the game
   is installed under `Program Files`. Run Unlimited Tool Works as administrator and compile
   again.
-- `old_cpk_locked`: the old CPK could not be replaced because PES is running. Close PES and
-  compile again.
+- `old_cpk_locked`: the old CPK could not be replaced, most likely because PES is running. Close
+  PES and compile again.
 
 Two warnings about the game's `DpFileList.bin` do not stop the install. `dpfilelist_not_official`
-says the list is not the cup's official one: the line names the entries it is missing, the
+says the list is not the cup's official one. The line names the entries it is missing, the
 entries the official list does not have, or says that the order differs.
-`dpfilelist_cpk_missing` names CPKs the list has that are not in the `download` folder: the game
+`dpfilelist_cpk_missing` names CPKs the list has that are not in the `download` folder. The game
 then loads none of the CPKs there. Both lines name `UnlimitedToolWorks team-compiler
 upgrade-dpfl`, which installs the official list.
 
@@ -744,7 +745,7 @@ A game folder with no `DpFileList.bin` in its `download` folder is the error
 `dpfilelist_missing`, and the CPK is left in the output folder the same way.
 
 `upgrade-dpfl` installs the cup's official `DpFileList.bin` in the `download` folder of the game
-folder (the `pes_folder_path` setting). It asks no question: run without `--yes`, it writes
+folder (the `pes_folder_path` setting). It asks no question. Without `--yes` it writes
 nothing and only prints, one line each, what `--yes` would do, then
 `dpfilelist_upgrade_planned`, which names the command to run with `--yes`. With `--yes` it does
 those things in this order, printing each line once it is done:
@@ -758,24 +759,24 @@ those things in this order, printing each line once it is done:
   the official list that is not in the folder, since the game loads none of the CPKs there when
   one it lists is missing. A file that is there is never overwritten.
 - `dpfilelist_replaced` (`path=...`): the list replaced by the official one. Your old list is
-  kept beside it as `DpFileList.bin.bak` (`backup=...`), replacing an older backup. A list that
-  is not a valid list is replaced the same way, the line saying why it could not be read
-  (`unreadable=...`), and nothing is renamed. A folder with no list gets the official one, and
+  kept beside it as `DpFileList.bin.bak` (`backup=...`), replacing an older backup. An old
+  list that cannot be read is replaced the same way, the line saying why (`unreadable=...`),
+  and nothing is renamed. A folder with no list gets the official one, and
   no backup.
 - `dpfilelist_cpk_dropped`, a warning (`cpk=...`, `size=...`): a CPK of your old list that the
   official list does not have and that could not be renamed (no official name of its kind left
   for it, a name not of the `4cc_NN_kind.cpk` shape, or its new name taken by another file). The
-  game no longer loads it. The command never deletes a CPK: the line gives the file's size (no
+  game no longer loads it. The command never deletes a CPK. The line gives the file's size (no
   size when the file is not there), and removing it is up to you.
 
 When the list already is the official one and every CPK it names is in the folder, the only
 line is `dpfilelist_up_to_date`, and nothing is written.
 
 `upgrade-dpfl` refuses to run (exit code 2) when the game folder or its `download` folder does
-not exist: set `pes_folder_path` to the folder PES is installed in. When a file cannot be
+not exist. Set `pes_folder_path` to the folder PES is installed in. When a file cannot be
 renamed or written (PES is running and holds the CPK, or the folder needs administrator
 rights), it stops with exit code 3, naming the file. What it did before stays done, and the list
-is replaced last, so the game keeps your old list until the end: close PES, or run Unlimited
+is replaced last, so the game keeps your old list until the end. Close PES, or run Unlimited
 Tool Works as administrator, and run the command again to finish. A CPK it already renamed is not renamed
 again.
 
@@ -783,7 +784,7 @@ again.
 what the CPK would hold as loose files in the `livecpk` folder of the game folder (the
 `pes_folder_path` setting), replacing everything that was there, for FoxDen (PES 2018 to 2021)
 or Sider (PES 2017) to load while the game runs. The folder is replaced only once the whole
-compile is written: a compile that fails, or writes nothing, leaves it as it was. Nothing is
+compile is written. A compile that fails, or writes nothing, leaves it as it was. Nothing is
 installed into the game's `download` folder, so a missing `DpFileList.bin` is only a warning.
 `--mode sideload` is refused for PES 2015 and 2016, which nothing can sideload into, and when the
 game folder does not exist.
@@ -794,22 +795,22 @@ the export is (an archive's with its extension), each file in the folder of the 
 from: a player's models unpacked from their packages beside his converted textures, a kit's
 files in its kit folder. The bins go in `test_output/_bins`, at the paths they have in a CPK.
 Nothing is installed into the game, and the `overrides` folder is not applied, since its files
-are not an export's. The folder is replaced only once the whole compile is written: a compile
+are not an export's. The folder is replaced only once the whole compile is written. A compile
 that fails, or writes nothing, leaves it as it was.
 
 The `multicpk_mode` setting is for the cup maintainers building the whole cup's DLC. With it on,
 `compile` writes several CPKs instead of `<cpk_name>.cpk`. The teams go into the numbered CPKs
 the cup's official `DpFileList.bin` has for the `teams_cpk_name` setting (`teams` gives
 `4cc_41_teams.cpk` to `4cc_45_teams.cpk`, filled in that order), whole teams in the order of the
-exports: a CPK takes teams until the next one would make it larger than `cpk_part_max_size`
+exports. A CPK takes teams until the next one would make it larger than `cpk_part_max_size`
 bytes (3 GiB unless you changed it), and that team starts the next CPK. A team is never split
 between two CPKs. Every one of these CPKs the teams do not need is written as the empty
 placeholder CPK, so a CPK left from an earlier, bigger compile does not stay behind. The files
 the compiler builds for every team (team colors, kit colors, kit configs, the boots and gloves
 lists) and the files of the `overrides` folder go into the CPK named by the `bins_cpk_name`
 setting (`4cc_08_bins.cpk`). Every one of these CPKs is installed into the game's `download`
-folder, or none is: the game's `DpFileList.bin` must have all of them (a list without the
-`teams` CPKs is one `dpfilelist_outdated` line naming them), and when one cannot be installed
+folder, or none is. The game's `DpFileList.bin` must have all of them (a list without the
+`teams` CPKs is one `dpfilelist_outdated` line naming them). When one cannot be installed
 (PES holds it open, or the folder cannot be written), the old CPKs stay as they were and every
 CPK of the compile is left in the output folder (`output=...` names the folder). With
 `--no-deploy` every CPK is left in the output folder, with one `deploy_skipped_by_flag` line
@@ -827,15 +828,15 @@ output folder stay as they were:
   `cpk_part_max_size`, and a team is never split. Raise `cpk_part_max_size`.
 
 A compile of one CPK is never split. When `<cpk_name>.cpk` is larger than `cpk_part_max_size`,
-the warning `cpk_size_over_limit` (`cpk=...`, `size=...`, `cap=...`) says so: the game loads it
+the warning `cpk_size_over_limit` (`cpk=...`, `size=...`, `cap=...`) says so. The game loads it
 as it is and the CPK is written whole, but the cup DLC's repository cannot hold a file that
 large.
 
 For PES 2015 to 2017, the `dds_compression` setting zlib-compresses every `.dds` file `compile`
 writes, the way the game's own compressed files are, which the game reads as it reads a plain
-one and which makes the DLC smaller; a `.dds` of the export that is already compressed this
-way, in a format the version reads, is written as it is. It is `auto` unless you changed it,
-which compresses when `multicpk_mode` is on and not otherwise, `true` always compresses and
+one and which makes the DLC smaller. A `.dds` of the export that is already compressed this
+way, in a format the version reads, is written as it is. It is `auto` unless you changed it.
+`auto` compresses when `multicpk_mode` is on and not otherwise, `true` always compresses and
 `false` never does. PES 2018 to 2021 ignore it, since their textures are `.ftex` files.
 
 A relative path typed in the terminal is taken from the folder the terminal is in.
@@ -855,7 +856,7 @@ On PES 2018 to 2021, every `compile` that builds players also writes `aesthetics
 in the output folder. It holds each compiled player's motions, taken from his
 `settings.toml` (a motion the file does not set gets the game's default), and, only for an
 export whose root holds the `write_names` marker file, his name and shirt name. The cup's
-official save is built with that file: the cup maintainer compiles the exports and hands
+official save is built with that file. The cup maintainer compiles the exports and hands
 over the CPKs and the patch, and the save builder applies the patch with `UnlimitedToolWorks
 save-editor apply-patch`.
 
@@ -866,23 +867,22 @@ into the game's `download` folder, and in `--mode sideload`. It is not applied w
 output folder, or when `dpfilelist_cpk_missing` warns that the game will run without the
 `download` folder's CPKs at all.
 
-The `savefile_path` setting says which save is yours: `auto`, the default, looks for it
+The `savefile_path` setting says which save is yours. `auto`, the default, looks for it
 under `Documents\KONAMI` for the PES version you compile for, and picks the save written
 last when the game has more than one account folder (the note `savefile_autodetected`
 names it). Give a path yourself to use another save, a cup's template save for one.
 
 The save is never written while that PES version is running, since the game would write
-its own save back over it on exit: the warning `savefile_skipped_pes_running` says so, and
+its own save back over it on exit. The warning `savefile_skipped_pes_running` says so, and
 the next compile run with the game closed applies the patch then. When the save is
 written, the one you had is kept beside it as `EDIT00000000.bak`. A save that cannot be
 read or cannot be written (`savefile_invalid`, `savefile_write_failed`) stops the run with
-exit code 3: the new CPKs come out of the game again and are left in the output folder,
+exit code 3. The new CPKs come out of the game again and are left in the output folder,
 and the CPKs the game had go back in. In `--mode sideload` the same findings are errors
-instead: the exit code is 1 and the new `livecpk/` tree stays in place. The warning
-`savefile_player_not_stripped` names a
-compiled player whose record in your save still has an appearance of its own (a save never
-stripped, or one the game's Edit mode gave one again): the game shows his record, not the
-compiled one. `UnlimitedToolWorks save-editor strip-and-seed` strips a save that never was,
-and `UnlimitedToolWorks save-editor check-stripped` with `--strip-again` and `--out` clears
-the records Edit mode brought back. No save found at all is only the warning
-`savefile_missing`, which names the patch file so you can apply it by hand.
+instead. The exit code is 1 and the new `livecpk` files stay in place. The warning
+`savefile_player_not_stripped` names a compiled player in your save who still has an appearance
+of his own (the save was never stripped, or the game's Edit mode restored it). The game shows
+his save data, not the compiled one. `UnlimitedToolWorks save-editor strip-and-seed` strips a
+save never stripped, and `UnlimitedToolWorks save-editor check-stripped` with `--strip-again`
+and `--out` clears the appearances Edit mode brought back. When no save is found at all, that is
+only the warning `savefile_missing`, which names the patch file so you can apply it by hand.
