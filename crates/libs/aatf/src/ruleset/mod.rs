@@ -732,6 +732,13 @@ impl Position {
     pub fn label(self) -> &'static str {
         POSITIONS[usize::from(self.0)]
     }
+
+    /// The stored position byte — the position's index in
+    /// `labels::POSITIONS`, what a formation slot's `position` field
+    /// holds.
+    pub fn byte(self) -> u8 {
+        self.0
+    }
 }
 
 impl TryFrom<String> for Position {

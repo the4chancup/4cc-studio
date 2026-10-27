@@ -84,6 +84,29 @@ pub struct RosterRow<'a> {
     /// pitch markers draw its letter at the badge's right end); `None`
     /// for a slot with no medal or a host that reads none.
     pub medal: Option<Medal>,
+    /// The slot's `FieldedNotA` marks (the pitch paints a `✖` left of
+    /// the starter's badge on the formation a mark names); empty for a
+    /// slot with none or a host that reads none.
+    pub fielded: &'a [FieldedMark],
+}
+
+/// One `FieldedNotA` violation on the roster slot, as the pitch's cross
+/// needs it (the Live AATF bullet's field-a-violation-is-about
+/// sub-bullet): which preset and position it names, its severity's
+/// colour and its line for the tooltip.
+#[derive(Debug, Clone, PartialEq)]
+pub struct FieldedMark {
+    /// The violation's preset minus 1, 0 to 2 as `view.preset` counts.
+    pub preset: usize,
+    /// The position the violation fields him at: the stored position
+    /// byte a formation slot's `position` holds.
+    pub position: u8,
+    /// The violation is an Error (`error_fg_color`); else a Warning
+    /// (`warn_fg_color`).
+    pub error: bool,
+    /// Its `violation_line`: the cross's tooltip shows the marks' lines,
+    /// one per line.
+    pub line: String,
 }
 
 /// A starter's medal tier (the plan's "A starter's badge names his medal

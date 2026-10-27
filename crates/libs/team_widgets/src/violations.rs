@@ -4,6 +4,17 @@
 //! per player, a row's click reporting the player to select. The AATF panel,
 //! the Live AATF dock and the Team creator all draw this list.
 
+/// The failing glyph (`✖`, U+2716): egui's bundled emoji fonts hold
+/// it, and the theme keeps those fonts in the fallback chain
+/// (DECISIONS.md "Live AATF's marks: where they sit and their
+/// glyphs").
+pub const CROSS: char = '\u{2716}';
+
+/// The gap between a cross and what it sits beside (a field's box, a
+/// label's text, a pitch badge): one figure so every mark's spacing
+/// agrees.
+pub const MARK_GAP: f32 = 2.0;
+
 /// A rostered player as the list's group header shows him.
 pub struct ListedPlayer<'a> {
     /// The roster slot.
@@ -38,6 +49,20 @@ pub struct SelectedPlayer {
     pub team_id: u32,
     /// His roster slot.
     pub slot: u8,
+    /// The `FieldedNotA` violation's own fields when the row's kind is
+    /// it (the click selects his team's row on the named preset's first
+    /// fielded formation holding the position); `None` otherwise.
+    pub fielded: Option<FieldedAt>,
+}
+
+/// Where a `FieldedNotA` row's click takes the team view: the
+/// violation's own fields.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FieldedAt {
+    /// The named preset (1 to 3).
+    pub preset: u8,
+    /// The position the violation fields him at.
+    pub position: aatf::Position,
 }
 
 /// The AATF results of `teams`, grouped per player; suggestions only when
@@ -216,7 +241,16 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
         },
     );
     let label = violation_line(violation, team_id);
-    let select = violation.slot.map(|slot| SelectedPlayer { team_id, slot });
+    let fielded = if let aatf::ViolationKind::FieldedNotA { preset, position } = violation.kind {
+        Some(FieldedAt { preset, position })
+    } else {
+        None
+    };
+    let select = violation.slot.map(|slot| SelectedPlayer {
+        team_id,
+        slot,
+        fielded,
+    });
     row_paint(
         ui,
         response,
@@ -706,7 +740,8 @@ mod tests {
             selected,
             Some(SelectedPlayer {
                 team_id: 701,
-                slot: 3
+                slot: 3,
+                fielded: None,
             })
         );
         let (_, _, selected) = window.list(&teams, false, vec![]);
@@ -1106,6 +1141,75 @@ mod tests {
         assert!(
             !drawn_lines(&nodes).iter().any(|line| line == "Suggestions"),
             "a team with violations but no suggestion draws no Suggestions header"
+        );
+    }
+
+    /// A `FieldedNotA` row's click returns the violation's own fields in
+    /// `fielded` (the host jumps to the team's row on the named preset's
+    /// first fielded formation holding the position); another kind's
+    /// `None`.
+    #[test]
+    fn a_fielded_rows_click_returns_its_fielded_at() {
+        let violations = [
+            violation(
+                Some(3),
+                aatf::Severity::Error,
+                aatf::ViolationKind::FieldedNotA {
+                    preset: 1,
+                    position: position("AMF"),
+                },
+            ),
+            violation(
+                Some(3),
+                aatf::Severity::Error,
+                aatf::ViolationKind::Height { height: 185 },
+            ),
+        ];
+        let players = [listed(3, 70103, 3, "NAME")];
+        let teams = [TeamViolations {
+            team_id: 701,
+            team_name: "/3/",
+            players: &players,
+            violations: &violations,
+        }];
+        let mut window = Headless::new();
+        let (nodes, _, _) = window.list(&teams, false, vec![]);
+        let fielded_row = nodes
+            .iter()
+            .find(|node| {
+                node.role() == Role::Button
+                    && node.label()
+                        == Some("FieldedNotA: fielded at AMF in preset 1 without an A rating")
+            })
+            .expect("the FieldedNotA row");
+        let (_, _, selected) = window.click_list(centre(fielded_row), &teams, false);
+        assert_eq!(
+            selected,
+            Some(SelectedPlayer {
+                team_id: 701,
+                slot: 3,
+                fielded: Some(FieldedAt {
+                    preset: 1,
+                    position: position("AMF"),
+                }),
+            })
+        );
+        let (nodes, _, _) = window.list(&teams, false, vec![]);
+        let height_row = nodes
+            .iter()
+            .find(|node| {
+                node.role() == Role::Button
+                    && node.label() == Some("Height: height 185 takes no bracket")
+            })
+            .expect("the Height row");
+        let (_, _, selected) = window.click_list(centre(height_row), &teams, false);
+        assert_eq!(
+            selected,
+            Some(SelectedPlayer {
+                team_id: 701,
+                slot: 3,
+                fielded: None,
+            })
         );
     }
 }

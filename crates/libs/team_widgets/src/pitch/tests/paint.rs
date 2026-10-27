@@ -5,8 +5,9 @@
 use pes_version::PesVersion;
 
 use super::*;
-use crate::tactics::Medal;
+use crate::tactics::{FieldedMark, Medal};
 use crate::test_support::{Headless, fixture_rows, fixture_tactics, painted_color, roster_rows};
+use crate::violations::{CROSS, MARK_GAP};
 
 /// An outfield slot at (`x`, `y`), for the pure mapping tests.
 fn outfield(x: u8, y: u8) -> FormationSlot {
@@ -1434,5 +1435,252 @@ fn a_medal_letter_paints_at_the_badges_right_end() {
             .count(),
         1,
         "one letter, on the medal's slot alone"
+    );
+}
+
+/// A `FieldedMark` on `preset` (0-based) at `position` byte, its severity
+/// and tooltip line.
+fn fielded(preset: usize, position: u8, error: bool, line: &str) -> FieldedMark {
+    FieldedMark {
+        preset,
+        position,
+        error,
+        line: line.to_owned(),
+    }
+}
+
+/// The frame's `✖` text shapes, in paint order.
+fn crosses(shapes: &[egui::epaint::ClippedShape]) -> Vec<&egui::epaint::TextShape> {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) if shape.galley.job.text == CROSS.to_string() => Some(shape),
+            _ => None,
+        })
+        .collect()
+}
+
+// Live AATF's `FieldedNotA` cross (the plan's field-a-violation-is-about
+// sub-bullet's `FieldedNotA` parenthesis; DECISIONS "Live AATF's pitch
+// cross"): a starter whose row's `fielded` marks his spot on the shown
+// formation carries one `✖` `MARK_GAP` left of his badge, centred on
+// it, in the error colour when one mark there is an Error — painted
+// after every marker, so a marker drawn later cannot cover it.
+#[test]
+fn a_fielded_mark_paints_a_cross_left_of_the_starters_badge() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    assert_eq!(
+        tactics.presets[0].style.fluid,
+        Some(false),
+        "premise: the shown preset is not fluid"
+    );
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    let index = 4;
+    let slot = usize::from(tactics.starting_eleven[index]);
+    let position = tactics.presets[0].formations[0].players[index].position;
+    let marks = [fielded(
+        0,
+        position,
+        true,
+        "FieldedNotA: fielded at AMF in preset 1 without an A rating",
+    )];
+    roster[slot].fielded = &marks;
+    let players = tactics.presets[0].formations[0].players;
+
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let canvas = canvas_rect(&nodes);
+    let badge =
+        egui::Rect::from_center_size(centres_of(canvas, &players)[index], egui::vec2(50.0, 14.0));
+    let found = crosses(&shapes);
+    let [cross] = found.as_slice() else {
+        panic!("expected one cross, got {}", found.len())
+    };
+    assert_eq!(
+        painted_color(cross),
+        window
+            .ctx
+            .style_of(window.ctx.theme())
+            .visuals
+            .error_fg_color,
+        "the error colour"
+    );
+    let rect = cross.visual_bounding_rect();
+    assert!(
+        (rect.max.x - (badge.left() - MARK_GAP)).abs() <= 0.5,
+        "the right edge MARK_GAP left of the badge"
+    );
+    assert!(
+        (rect.center().y - badge.center().y).abs() <= 0.5,
+        "centred on the badge"
+    );
+
+    // The cross's shape comes after every marker's shapes in the
+    // frame's list (every marker paints a badge, so after the last
+    // badge is after every marker).
+    let cross_index = shapes
+        .iter()
+        .position(|clipped| {
+            matches!(&clipped.shape, egui::Shape::Text(shape) if shape.galley.job.text == CROSS.to_string())
+        })
+        .expect("the cross shape");
+    let last_badge = shapes
+        .iter()
+        .rposition(|clipped| {
+            matches!(&clipped.shape, egui::Shape::Rect(shape) if shape.fill == BADGE_FILL)
+        })
+        .expect("a badge shape");
+    assert!(
+        cross_index > last_badge,
+        "the cross paints after every marker"
+    );
+}
+
+// The cross draws only while the shown formation is one the shown
+// preset fields and the mark names the slot's position there: a
+// non-fluid preset fields its kick-off formation alone (its other two
+// carry none, as does another preset's whole pitch); a fluid preset
+// fields all three, so a mark at the position only formation 3 puts
+// him at crosses on formation 3 alone.
+#[test]
+fn the_cross_draws_only_on_a_formation_the_preset_fields() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    assert_eq!(
+        tactics.presets[0].style.fluid,
+        Some(false),
+        "premise: preset 1 is not fluid"
+    );
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    let index = 4;
+    let slot = usize::from(tactics.starting_eleven[index]);
+    let position = tactics.presets[0].formations[0].players[index].position;
+    let marks = [fielded(
+        0,
+        position,
+        true,
+        "FieldedNotA: fielded at AMF in preset 1 without an A rating",
+    )];
+    roster[slot].fielded = &marks;
+
+    // The kick-off formation carries it, the same preset's second
+    // formation none, another preset's pitch none.
+    let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    assert_eq!(crosses(&shapes).len(), 1, "the kick-off formation's cross");
+    view.formation = 1;
+    let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    assert!(
+        crosses(&shapes).is_empty(),
+        "a non-fluid preset's second formation carries none"
+    );
+    view.preset = 1;
+    view.formation = 0;
+    let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    assert!(
+        crosses(&shapes).is_empty(),
+        "another preset's pitch carries none"
+    );
+
+    // A fluid preset fields all three: the mark at the position only
+    // formation 3 puts him at crosses there alone.
+    view.preset = 0;
+    tactics.presets[0].style.fluid = Some(true);
+    let pos0 = tactics.presets[0].formations[0].players[index].position;
+    let pos1 = tactics.presets[0].formations[1].players[index].position;
+    let pos2 = (0..13)
+        .find(|p| *p != pos0 && *p != pos1)
+        .expect("a position not his in the other two");
+    tactics.presets[0].formations[2].players[index].position = pos2;
+    let marks = [fielded(
+        0,
+        pos2,
+        true,
+        "FieldedNotA: fielded at GK in preset 1 without an A rating",
+    )];
+    roster[slot].fielded = &marks;
+    for (formation, want) in [(0usize, 0usize), (1, 0), (2, 1)] {
+        view.formation = formation;
+        let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+        assert_eq!(
+            crosses(&shapes).len(),
+            want,
+            "formation {formation}'s crosses"
+        );
+    }
+}
+
+// A mark that is only a Warning paints the warning colour (the
+// severity's colour is the highest among the spot's marks).
+#[test]
+fn a_warning_only_mark_paints_the_warn_colour() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    let index = 4;
+    let slot = usize::from(tactics.starting_eleven[index]);
+    let position = tactics.presets[0].formations[0].players[index].position;
+    let marks = [fielded(
+        0,
+        position,
+        false,
+        "FieldedNotA: fielded at AMF in preset 1 without an A rating",
+    )];
+    roster[slot].fielded = &marks;
+
+    let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let found = crosses(&shapes);
+    let [cross] = found.as_slice() else {
+        panic!("expected one cross, got {}", found.len())
+    };
+    assert_eq!(
+        painted_color(cross),
+        window
+            .ctx
+            .style_of(window.ctx.theme())
+            .visuals
+            .warn_fg_color,
+        "the warning colour"
+    );
+}
+
+// The glyph's own hover rect shows the marks' `line`s, one per line, as
+// a field cross's tooltip shows the violations' lines.
+#[test]
+fn the_crosss_hover_shows_the_marks_lines() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    let index = 4;
+    let slot = usize::from(tactics.starting_eleven[index]);
+    let position = tactics.presets[0].formations[0].players[index].position;
+    let line = "FieldedNotA: fielded at AMF in preset 1 without an A rating";
+    let marks = [
+        fielded(0, position, true, line),
+        fielded(0, position, false, line),
+    ];
+    roster[slot].fielded = &marks;
+
+    let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let cross = crosses(&shapes).into_iter().next().expect("the cross");
+    let tip = window.pitch_tooltip(
+        cross.visual_bounding_rect().center(),
+        "FieldedNotA",
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert_eq!(
+        tip.as_deref(),
+        Some(format!("{line}\n{line}").as_str()),
+        "the marks' lines, one per line"
     );
 }

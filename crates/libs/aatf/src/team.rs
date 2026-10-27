@@ -381,11 +381,8 @@ impl TeamView {
     /// fluid, the kick-off one otherwise.
     fn fielded_formations(&self, preset: u8) -> Vec<(u8, &Formation)> {
         let preset_ref = &self.tactics.presets[usize::from(preset) - 1];
-        let fielded: &[usize] = match preset_ref.style.fluid {
-            Some(true) => &[0, 1, 2],
-            _ => &[0],
-        };
-        fielded
+        preset_ref
+            .fielded_formations()
             .iter()
             .map(|&f| {
                 (

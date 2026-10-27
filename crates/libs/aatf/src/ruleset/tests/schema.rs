@@ -472,6 +472,27 @@ fn a_stray_token_is_parse_with_its_position() {
     }
 }
 
+/// `byte()` is the stored position byte: the value's index in
+/// `POSITIONS`, what a formation slot's `position` holds.
+#[test]
+fn a_positions_byte_is_its_index_in_the_table() {
+    for (name, expected) in [("GK", 0), ("CF", 12)] {
+        assert_eq!(
+            POSITIONS
+                .iter()
+                .position(|label| *label == name)
+                .map(|i| i as u8),
+            Some(expected),
+            "{name}'s index"
+        );
+        assert_eq!(
+            Position::try_from(name.to_string()).expect(name).byte(),
+            expected,
+            "{name}'s byte"
+        );
+    }
+}
+
 /// Every entry of each closed-set table deserializes to a value whose
 /// `label()` is that entry — killing the `label` and `==` mutants the
 /// first-entry tests missed.

@@ -2695,7 +2695,7 @@ briefs, review loops, gates and mutation runs as for any step.
       the Cards left badge that shares its row), measured on the glyph, since a label in a
       wrapping row is laid out from the row's start (red: the two header marks swapped; the
       Name cross moved into its field). Open: one `mutants-diff dc02a76e`
-    - [ ] o2b the pitch's cross for `FieldedNotA` and the dock row selecting his team's row
+    - [x] o2b the pitch's cross for `FieldedNotA` and the dock row selecting his team's row
       on the named preset's first formation; after the Tactics tab's new layout (the
       maintainer's request of 2026-10-26, drafted first). Drafted 2026-10-27 (lead; DECISIONS
       "Live AATF's pitch cross: left of the badge, over every marker"): `fieldedRows`
@@ -2703,7 +2703,20 @@ briefs, review loops, gates and mutation runs as for any step.
       tooltip, `jumpToCross`. Headless check `.tmp/0_0_1o/draft_pitch_cross.py`: 17 of 17
       (the re-read finds none on the sample team, as its real run; a moved starter's row,
       cross and tooltip; none on a formation or preset not fielding him; the jump to the
-      kick-off and to a fluid preset's third formation)
+      kick-off and to a fluid preset's third formation). Code done 2026-10-27 (SWE-2, one
+      session): `aatf::Position::byte`; `CROSS` and `MARK_GAP` moved to
+      `team_widgets::violations`; `FieldedMark` on `RosterRow.fielded`, the Save editor filling
+      it from the held check; the pitch paints the cross after every marker, `MARK_GAP` left of
+      the badge, its tooltip the lines; `SelectedPlayer.fielded` (`FieldedAt`) makes the dock's
+      and the AATF panel's row select the team row on the named preset's first fielded formation
+      holding the position (the kick-off one when the save has moved since the check). Lead:
+      the fielded-formations rule one method, `TacticsPreset::fielded_formations` in
+      `pes_savefile`, read by the AATF check, the pitch and the jump (it was written three
+      times); red: a fluid preset fielding its kick-off one alone fails the jump, the pitch's
+      gating and four of `aatf`'s tests. Files: `pes_savefile/src/model/tactics.rs`,
+      `aatf/src/{ruleset/mod.rs,team.rs}`, `team_widgets/src/{violations.rs,tactics/mod.rs,
+      pitch/mod.rs,test_support.rs}`, `save_editor/src/view/{live_marks,tactics,aatf_check,
+      aatf_panel,live_aatf,comparator,prompt,terms}.rs`, their tests, `help/02_window.md`
     - [ ] the built-window look at the marks (their clearance at the real font)
 - [x] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
   "Usability proposals P17-P24 and P32-P38 accepted"; built: `spec/export_upgrader.md` step

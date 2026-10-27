@@ -51,6 +51,7 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         selected,
         rules,
         focused,
+        tactics,
         ..
     } = view;
     let (Some(session), Some(active)) = (session.as_ref(), rules.as_ref()) else {
@@ -149,7 +150,12 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 })
                 .inner;
             if let Some(player) = clicked {
-                aatf_check::select_player(player, selected, team, filter);
+                // A listed row's team is one of the open file's.
+                let team_tactics = file
+                    .team(player.team_id)
+                    .map(|entry| &entry.tactics)
+                    .expect("a listed row's team is in the open file");
+                aatf_check::select_player(player, selected, team, filter, team_tactics, tactics);
             }
         },
     );

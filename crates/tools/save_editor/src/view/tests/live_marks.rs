@@ -1762,3 +1762,97 @@ fn only_the_checked_teams_rows_are_marked() {
     }
     assert!(found, "his row never scrolled into view");
 }
+
+/// A `FieldedNotA` violation's cross stands `MARK_GAP` left of the
+/// starter's badge on the team view's Tactics pitch (the Live AATF
+/// bullet's `FieldedNotA` parenthesis: the pitch is the field the
+/// violation is about); with Live AATF off the marker carries none.
+#[test]
+fn a_fielded_violation_marks_the_starters_badge_on_the_pitch() {
+    let (mut view, mut window) = open_734("live_marks_fielded");
+    view.live_aatf = true;
+    // Move a starter of preset 1's kick-off formation onto a position
+    // his ratings do not hold at A, picked from his record (as `aatf`'s
+    // own `FieldedNotA` fixture moves one to AMF).
+    let index = 4;
+    let mut team = team_entry(&view, 734);
+    let slot = team.tactics.starting_eleven[index];
+    let player_id = team.roster[usize::from(slot)].player_id;
+    let position_byte = unrated_position_byte(&view, player_id);
+    let kick_off = &mut team.tactics.presets[0].formations[0];
+    assert_ne!(
+        kick_off.players[index].position, position_byte,
+        "premise: the move changes his spot"
+    );
+    kick_off.players[index].position = position_byte;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_team(1, team);
+
+    // The check lands: a `FieldedNotA` on him in preset 1.
+    live_checked(&mut window, &mut view, None, &[734]);
+    let violations = view.live.check.result.as_ref().unwrap().1[0]
+        .as_ref()
+        .unwrap();
+    let (fielded_slot, position) = violations
+        .iter()
+        .find_map(|violation| {
+            if let aatf::ViolationKind::FieldedNotA {
+                preset: 1,
+                position,
+            } = violation.kind
+            {
+                Some((violation.slot, position))
+            } else {
+                None
+            }
+        })
+        .expect("premise: a FieldedNotA on preset 1");
+    assert_eq!(fielded_slot, Some(slot), "the moved starter's slot");
+    assert_eq!(position.byte(), position_byte, "the moved-to position");
+
+    // The team row selected (the pitch is the team view's): his
+    // marker's badge carries the cross MARK_GAP to its left, centred
+    // on it, in the error colour.
+    view.selected = Some(Selection::Team(734));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let shown_slot = team_entry(&view, 734).tactics.presets[0].formations[0].players[index];
+    let badge =
+        egui::Rect::from_center_size(clamped_centre(canvas, shown_slot), egui::vec2(50.0, 14.0));
+    let cross = mark_shapes(&shapes, "\u{2716}")
+        .into_iter()
+        .find(|shape| {
+            let rect = shape.visual_bounding_rect();
+            (rect.max.x - (badge.left() - live_marks::MARK_GAP)).abs() <= 0.5
+                && (rect.center().y - badge.center().y).abs() <= 0.5
+        })
+        .expect("a cross MARK_GAP left of his badge, centred on it");
+    assert_eq!(
+        galley_color(cross),
+        window
+            .ctx
+            .style_of(window.ctx.theme())
+            .visuals
+            .error_fg_color,
+        "the error colour"
+    );
+
+    // Live AATF off: the pitch carries no cross.
+    view.live_aatf = false;
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let canvas_rect = egui::Rect::from_min_max(
+        egui::pos2(canvas.x0 as f32, canvas.y0 as f32),
+        egui::pos2(canvas.x1 as f32, canvas.y1 as f32),
+    );
+    assert!(
+        !mark_shapes(&shapes, "\u{2716}")
+            .into_iter()
+            .any(|shape| canvas_rect.contains(shape.visual_bounding_rect().center())),
+        "no cross on the pitch with Live AATF off"
+    );
+}

@@ -17,10 +17,11 @@ use aatf::TeamView;
 use pes_savefile::EditFile;
 use pes_savefile::model::names::display_name;
 use team_widgets::pitch::{self, FORMATIONS};
-use team_widgets::tactics::{self, Medal, RosterRow};
+use team_widgets::tactics::{self, FieldedMark, Medal, RosterRow};
+use team_widgets::violations::violation_line;
 
 use crate::session::Session;
-use crate::view::{MedalKey, SaveView, edit_team, selected_team};
+use crate::view::{MedalKey, SaveView, edit_team, live_marks, selected_team};
 
 /// The settings column's width (the draft's `.tacgrid` first track).
 const SETTINGS_WIDTH: f32 = 414.0;
@@ -43,6 +44,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         portraits,
         rules,
         medals,
+        live,
+        live_aatf,
         ..
     } = view;
     let Some(session) = session.as_mut() else {
@@ -98,6 +101,39 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             *medals = Some((key, marks));
         }
     }
+    // Each roster slot's `FieldedNotA` marks: the held check's Error or
+    // Warning violations of that kind on the slot, while Live AATF
+    // holds this team's result (`held_violations`; another team's
+    // result or none marks nothing).
+    let held = live_marks::held_violations(*live_aatf, &live.check, rules.as_ref())
+        .filter(|(held_team, _)| *held_team == team_id)
+        .map(|(_, violations)| violations)
+        .unwrap_or(&[]);
+    let fielded: Vec<Vec<FieldedMark>> = (0..team.roster.len())
+        .map(|slot| {
+            held.iter()
+                .filter(|violation| {
+                    violation.slot.is_some_and(|s| usize::from(s) == slot)
+                        && matches!(
+                            violation.severity,
+                            aatf::Severity::Error | aatf::Severity::Warning
+                        )
+                })
+                .filter_map(|violation| {
+                    if let aatf::ViolationKind::FieldedNotA { preset, position } = violation.kind {
+                        Some(FieldedMark {
+                            preset: usize::from(preset) - 1,
+                            position: position.byte(),
+                            error: violation.severity == aatf::Severity::Error,
+                            line: violation_line(violation, team_id),
+                        })
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
+        .collect();
     let roster: Vec<RosterRow> = rows
         .iter()
         .zip(textures)
@@ -113,6 +149,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     .and_then(|(_, medals)| medals.get(index))
                     .copied()
                     .flatten(),
+                fielded: fielded[index].as_slice(),
             },
         )
         .collect();

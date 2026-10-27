@@ -148,6 +148,20 @@ impl TeamTactics {
     }
 }
 
+impl TacticsPreset {
+    /// The formations the game fields under this preset, as indices into
+    /// `formations`: all three while the fluid formation is on, else the
+    /// kick-off one alone (the game switches to the other two only when
+    /// fluid). The one rule the AATF check's fielded positions, the
+    /// Tactics pitch's marks and their row's jump all read.
+    pub fn fielded_formations(&self) -> &'static [usize] {
+        match self.style.fluid {
+            Some(true) => &[0, 1, 2],
+            Some(false) | None => &[0],
+        }
+    }
+}
+
 /// The automatic-settings flags; each is one byte on disk carrying 0 or 1
 /// except `substitution`, a setting byte.
 #[derive(Debug, Clone, PartialEq, Default)]

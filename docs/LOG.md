@@ -2612,3 +2612,5 @@ worklog passed 7,000 lines.
   over another starter marks the swap before the drop, and each starter's badge carries his medal letter (0.0.1s5d).
 - **2026-10-27** — The team view's header is one row as drafted, so the Tactics grid fits the 1280 x 800 window with 19.5 points
   to spare; the short name takes three letters, a team picked in the selector opens its view, team rows read `[click for tactics]` (0.0.1s5e).
+- **2026-10-27** — Live AATF marks a starter fielded where he is not rated A with a cross beside his pitch marker, and that issue's row
+  opens his team's Tactics on the formation carrying it; the fielded-formations rule is now one method the check reads too (0.0.1o2b).

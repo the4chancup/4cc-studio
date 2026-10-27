@@ -15,6 +15,8 @@ use std::sync::Arc;
 
 use pes_savefile::EditFile;
 use pes_savefile::model::PlayerEntry;
+use pes_savefile::model::tactics::TeamTactics;
+use team_widgets::tactics::TacticsView;
 use team_widgets::violations::{ListedPlayer, SelectedPlayer, TeamViolations, violations_list};
 
 use crate::session::rules::{self, TeamCheck};
@@ -90,13 +92,44 @@ pub(super) fn current_team(team: TeamChoice, selected: Option<Selection>) -> Opt
 
 /// A violation row's click: the player selected and the selector moved to
 /// his team unless it reads ALL (the list must show the row it selects).
+/// A `FieldedNotA` row selects his team's row instead (the Live AATF
+/// bullet's click sentence: the pitch its cross is on is the team
+/// view's), the named preset shown on the first of its fielded
+/// formations whose slot for his starting-eleven index holds the
+/// violation's position — the kick-off one when none does (the save
+/// changed since the check). `team_tactics` is his team's record,
+/// `tactics_view` the view's.
 pub(super) fn select_player(
     player: SelectedPlayer,
     selected: &mut Option<Selection>,
     team: &mut TeamChoice,
     filter: &mut String,
+    team_tactics: &TeamTactics,
+    tactics_view: &mut TacticsView,
 ) {
-    *selected = Some(Selection::Player(player.team_id, player.slot));
+    *selected = match player.fielded {
+        Some(fielded) => {
+            tactics_view.preset = usize::from(fielded.preset).saturating_sub(1).min(2);
+            let preset = &team_tactics.presets[tactics_view.preset];
+            tactics_view.formation = team_tactics
+                .starting_eleven
+                .iter()
+                .position(|slot| *slot == player.slot)
+                .and_then(|index| {
+                    preset
+                        .fielded_formations()
+                        .iter()
+                        .copied()
+                        .find(|&formation| {
+                            preset.formations[formation].players[index].position
+                                == fielded.position.byte()
+                        })
+                })
+                .unwrap_or(0);
+            Some(Selection::Team(player.team_id))
+        }
+        None => Some(Selection::Player(player.team_id, player.slot)),
+    };
     if *team != TeamChoice::All {
         *team = TeamChoice::Team(player.team_id);
     }

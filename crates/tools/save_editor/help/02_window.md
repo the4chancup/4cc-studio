@@ -60,8 +60,11 @@ differences over the whole save as a text file.
 edit, in a panel docked at the bottom of the window: the violations left, grouped
 per player as the floating window lists them, under `N issues · <ruleset>`, or
 `<team> passes <ruleset> with no issues` once the team passes. Clicking a row
-selects that player. The toggle is remembered, so it is still on the next time
-the editor is opened.
+selects that player; a `FieldedNotA` row, about a position he is fielded at,
+selects his team's row instead, on the named preset's first formation that
+carries the violation's `✖`. On the tactics pitch that cross stands just left
+of his marker, on every formation the preset fields him at that position. The
+toggle is remembered, so it is still on the next time the editor is opened.
 
 **Saving.** **Save** or Ctrl+S writes the edits to the file the save was opened from (a
 file it replaces is kept once as a `.bak` copy). While the save's own PES version is

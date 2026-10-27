@@ -615,3 +615,44 @@ fn no_violations_needs_every_check_to_succeed() {
         "no `No violations.` beside a failed team, 714 clean"
     );
 }
+
+/// A `FieldedNotA` row's click does as the dock's does (the Live AATF
+/// bullet's click sentence: "a `FieldedNotA` one his team's row, as
+/// Live AATF's does"): the team's row selected, the named preset shown
+/// on the first of its formations carrying the cross.
+#[test]
+fn a_fielded_rows_click_jumps_as_the_docks_does() {
+    let (mut view, mut window) = open_734_with("aatf_panel_fielded_jump", &[], 183);
+    view.aatf.open = true;
+    // The same move as the dock test's: a starter of preset 1's
+    // kick-off formation onto a position he is not rated A at.
+    let index = 4;
+    let mut team = team_entry(&view, 734);
+    let slot = team.tactics.starting_eleven[index];
+    let position = unrated_position_byte(&view, team.roster[usize::from(slot)].player_id);
+    team.tactics.presets[0].formations[0].players[index].position = position;
+    let header = player_header(&view, 734, slot);
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_team(1, team);
+    let nodes = panel_checked(&mut window, &mut view, None, &[734]);
+
+    // Another of 734's players selected first and another preset and
+    // formation shown: a click that did nothing would satisfy every
+    // assertion anyway.
+    view.selected = Some(Selection::Player(734, 0));
+    view.tactics.preset = 1;
+    view.tactics.formation = 2;
+    click(&mut window, fielded_row_below(&nodes, &header), &mut view);
+    assert_eq!(
+        view.selected,
+        Some(Selection::Team(734)),
+        "his team's row selected"
+    );
+    assert_eq!(
+        (view.tactics.preset, view.tactics.formation),
+        (0, 0),
+        "preset 1's kick-off formation shown"
+    );
+}

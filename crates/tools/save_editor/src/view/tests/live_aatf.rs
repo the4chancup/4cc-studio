@@ -563,3 +563,75 @@ fn a_rows_click_selects_the_player() {
         "73404's team and slot"
     );
 }
+
+/// A `FieldedNotA` row's click selects his team's row instead of him,
+/// the named preset shown on the first of its formations that carries
+/// the cross (the Live AATF bullet's click sentence): preset 1's
+/// kick-off formation for the non-fluid preset, formation 3 for the
+/// fluid one whose third alone puts him at the spot.
+#[test]
+fn a_fielded_rows_click_selects_the_team_row_on_the_crosss_formation() {
+    let (mut view, mut window) = open_734_with("live_aatf_fielded_jump", &[], 183);
+    view.live_aatf = true;
+    // A starter of preset 1's kick-off formation moved onto a position
+    // he is not rated A at (the `live_marks` test's move).
+    let index = 4;
+    let mut team = team_entry(&view, 734);
+    let slot = team.tactics.starting_eleven[index];
+    let position = unrated_position_byte(&view, team.roster[usize::from(slot)].player_id);
+    let kick_off = team.tactics.presets[0].formations[0].players[index].position;
+    assert_ne!(kick_off, position, "premise: the move changes his spot");
+    team.tactics.presets[0].formations[0].players[index].position = position;
+    let header = player_header(&view, 734, slot);
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_team(1, team);
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+
+    // Another of 734's players selected first and another preset and
+    // formation shown: a click that did nothing would satisfy every
+    // assertion anyway.
+    view.selected = Some(Selection::Player(734, 0));
+    view.tactics.preset = 1;
+    view.tactics.formation = 2;
+    click(&mut window, fielded_row_below(&nodes, &header), &mut view);
+    assert_eq!(
+        view.selected,
+        Some(Selection::Team(734)),
+        "his team's row selected"
+    );
+    assert_eq!(
+        (view.tactics.preset, view.tactics.formation),
+        (0, 0),
+        "preset 1's kick-off formation shown"
+    );
+
+    // Preset 1 fluid and only its third formation putting him at the
+    // position: the click shows formation 3.
+    let mut team = team_entry(&view, 734);
+    team.tactics.presets[0].style.fluid = Some(true);
+    for formation in 0..2 {
+        team.tactics.presets[0].formations[formation].players[index].position = kick_off;
+    }
+    team.tactics.presets[0].formations[2].players[index].position = position;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_team(2, team);
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    view.selected = Some(Selection::Player(734, 0));
+    view.tactics.preset = 2;
+    view.tactics.formation = 1;
+    click(&mut window, fielded_row_below(&nodes, &header), &mut view);
+    assert_eq!(
+        view.selected,
+        Some(Selection::Team(734)),
+        "his team's row selected"
+    );
+    assert_eq!(
+        (view.tactics.preset, view.tactics.formation),
+        (0, 2),
+        "preset 1's third formation shown"
+    );
+}

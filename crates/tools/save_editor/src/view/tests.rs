@@ -8,7 +8,7 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use egui::accesskit::{self, Role};
-use pes_savefile::interchange::team_toml::labels::POSITIONS;
+use pes_savefile::interchange::team_toml::labels::{PLAYABLE_POSITIONS, POSITIONS};
 use pes_savefile::model::TeamEntry;
 use pes_savefile::model::ingame_face::IngameFace;
 use pes_savefile::model::names::{display_name, name_spans};
@@ -808,6 +808,17 @@ fn tooltip_containing(
     None
 }
 
+/// `player_id`'s first C-rated outfield position's stored byte: a spot
+/// to move a starter to for a `FieldedNotA`, picked from his record as
+/// `aatf`'s own `FieldedNotA` fixture picks AMF.
+fn unrated_position_byte(view: &SaveView, player_id: u32) -> u8 {
+    let unrated = player_entry(view, player_id).positions.playable[..12]
+        .iter()
+        .position(|rating| *rating == 0)
+        .expect("a C-rated outfield position");
+    u8::try_from(PLAYABLE_POSITIONS[unrated]).expect("a position byte")
+}
+
 /// The team's entry as the session holds it (the team view's tests).
 fn team_entry(view: &SaveView, team_id: u32) -> TeamEntry {
     view.session
@@ -1235,6 +1246,40 @@ fn checked(
     .into_iter()
     .map(|(_, node)| node)
     .collect()
+}
+
+/// The group header `slot`'s player gets in the violations list
+/// (`player_head`'s format).
+fn player_header(view: &SaveView, team_id: u32, slot: u8) -> String {
+    let file = view.session.as_ref().expect("the save opened").file();
+    let team = file.team(team_id).expect("the team");
+    let roster = &team.roster[usize::from(slot)];
+    let player = file.player(roster.player_id).expect("rostered");
+    team_widgets::violations::player_head(roster.player_id, roster.number, &player.name)
+}
+
+/// The `FieldedNotA` row under `header`'s group (two players can share
+/// the row's label, so the group header picks the right one).
+fn fielded_row_below<'a>(nodes: &'a [accesskit::Node], header: &str) -> &'a accesskit::Node {
+    let header = nodes
+        .iter()
+        .find(|node| node.value() == Some(header))
+        .unwrap_or_else(|| panic!("no header {header:?}"));
+    let top = header.bounds().expect("header bounds").y0;
+    nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node
+                    .label()
+                    .is_some_and(|label| label.starts_with("FieldedNotA:"))
+        })
+        .filter(|node| node.bounds().is_some_and(|b| b.y0 > top))
+        .min_by(|a, b| {
+            let y = |n: &&accesskit::Node| n.bounds().expect("bounds").y0;
+            y(a).partial_cmp(&y(b)).expect("ordered bounds")
+        })
+        .expect("a FieldedNotA row below the header")
 }
 
 /// The Height row under `header`'s group (two players share the row's

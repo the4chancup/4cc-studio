@@ -13,7 +13,8 @@ use pes_savefile::model::tactics::{FormationSlot, TeamTactics};
 use pes_version::PesVersion;
 
 use crate::names::append_name;
-use crate::tactics::{Assign, OpenSlot, RosterRow, TacticsView, name_at, raw_name_at};
+use crate::tactics::{Assign, FieldedMark, OpenSlot, RosterRow, TacticsView, name_at, raw_name_at};
+use crate::violations::{CROSS, MARK_GAP};
 
 /// The "Starting eleven" and "Bench" lists, their rows and `swap_in`.
 mod lineup;
@@ -328,11 +329,14 @@ pub fn pitch(
                 ));
             }
         }
-        if let Some(index) = dragged {
-            let at = ui
-                .ctx()
+        // The dragged marker's drawn place (the clamped pointer while
+        // he is held): the cross pass reads it too.
+        let dragged_at = dragged.map(|index| {
+            ui.ctx()
                 .pointer_interact_pos()
-                .map_or(centres[index], |pos| clamp_centre(pos, canvas));
+                .map_or(centres[index], |pos| clamp_centre(pos, canvas))
+        });
+        if let Some(index) = dragged {
             // He goes half transparent while he sits on a swap target.
             let mut painter = painter.clone();
             if swap.is_some() {
@@ -347,7 +351,7 @@ pub fn pitch(
                 Spot {
                     index,
                     slot: players[index],
-                    centre: at,
+                    centre: dragged_at.expect("the dragged marker's centre"),
                 },
                 seconds,
             ));
@@ -360,6 +364,69 @@ pub fn pitch(
                 portrait_rect(badge_rect(centres[target])),
                 SELECTED_CORNERS,
             );
+        }
+        // Live AATF's `FieldedNotA` crosses (the plan's
+        // field-a-violation-is-about sub-bullet's `FieldedNotA`
+        // parenthesis; DECISIONS "Live AATF's pitch cross"): after every
+        // marker and the swap mark, so a marker drawn later cannot
+        // cover one — the `✖` right-aligned `MARK_GAP` left of the
+        // starter's badge, centred on it, in the marks' highest
+        // severity's colour, its tooltip their lines. Only while the
+        // shown formation is one the shown preset fields.
+        if tactics.presets[view.preset.min(2)]
+            .fielded_formations()
+            .contains(&view.formation.min(2))
+        {
+            for index in order {
+                let marks: Vec<&FieldedMark> = roster
+                    .get(usize::from(tactics.starting_eleven[index]))
+                    .map(|row| {
+                        row.fielded
+                            .iter()
+                            .filter(|mark| {
+                                mark.preset == view.preset.min(2)
+                                    && mark.position == players[index].position
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                if marks.is_empty() {
+                    continue;
+                }
+                let centre = if Some(index) == dragged {
+                    dragged_at.expect("the dragged marker's centre")
+                } else {
+                    centres[index]
+                };
+                let badge = badge_rect(centre);
+                let color = if marks.iter().any(|mark| mark.error) {
+                    ui.visuals().error_fg_color
+                } else {
+                    ui.visuals().warn_fg_color
+                };
+                let galley = painter.layout_no_wrap(
+                    CROSS.to_string(),
+                    egui::TextStyle::Body.resolve(ui.style()),
+                    color,
+                );
+                let pos = egui::pos2(
+                    badge.left() - MARK_GAP - galley.size().x,
+                    badge.center().y - galley.size().y / 2.0,
+                );
+                painter.galley(pos, galley.clone(), color);
+                ui.interact(
+                    egui::Rect::from_min_size(pos, galley.size()),
+                    ui.scope_id().with(("live aatf pitch cross", index)),
+                    egui::Sense::hover(),
+                )
+                .on_hover_text(
+                    marks
+                        .iter()
+                        .map(|mark| mark.line.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                );
+            }
         }
         // The next name move asks the repaint (none when every name fits).
         if let Some(still_for) = still_for {

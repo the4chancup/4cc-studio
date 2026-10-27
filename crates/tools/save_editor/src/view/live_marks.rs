@@ -7,20 +7,16 @@
 //! of the held check every mark goes through.
 
 use team_widgets::violations::violation_line;
+pub(super) use team_widgets::violations::{CROSS, MARK_GAP};
 
 use crate::view::ActiveRules;
 use crate::view::aatf_check::TeamsCheck;
 
-/// The failing glyph (`✖`, U+2716) and the passing one (`✔`, U+2714):
+/// The passing glyph (`✔`, U+2714), the `✖`'s pair (`violations::CROSS`):
 /// egui's bundled emoji fonts hold them, and the theme keeps those fonts
 /// in the fallback chain (DECISIONS.md "Live AATF's marks: where they
 /// sit and their glyphs").
-const CROSS: char = '\u{2716}';
 const TICK: char = '\u{2714}';
-
-/// The gap between a cross and what it sits beside (a field's box, a
-/// label's text): one figure so every mark's spacing agrees.
-pub(super) const MARK_GAP: f32 = 2.0;
 
 /// The violations the marks draw: `check`'s held result while `live`
 /// (the `live_aatf` toggle) is on and the active rules file loaded, when
@@ -74,8 +70,8 @@ pub(super) enum MarkedField {
     /// The Playable positions grid (`BRating`, `GkSecondA`, `APositions`).
     PlayablePositions,
     /// The player's spot on the named preset's Tactics pitch
-    /// (`FieldedNotA`; the pitch's cross is another step's, so the field
-    /// exists but nothing draws it yet).
+    /// (`FieldedNotA`; the pitch draws it through the roster row's
+    /// `fielded` marks, `tactics::show`'s fill of `held_violations`).
     Pitch,
     /// The Playing style combo (`PlayingStyleRange`).
     PlayingStyle,
