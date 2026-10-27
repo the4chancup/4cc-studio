@@ -478,6 +478,8 @@ fn each_instruction_row_writes_its_own_entry() {
     defence[1].player = 3;
     tactics.starting_eleven.swap(2, 9);
     tactics.starting_eleven.swap(3, 10);
+    tactics.starting_eleven.swap(4, 7);
+    tactics.starting_eleven.swap(5, 8);
     let mut view = TacticsView::default();
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
@@ -507,6 +509,10 @@ fn each_instruction_row_writes_its_own_entry() {
     .enumerate()
     {
         let row = index % 2;
+        assert_ne!(
+            tactics.starting_eleven[pick], pick as u8,
+            "premise: slot and index differ"
+        );
         let before = tactics.clone();
         let mut expected = before.clone();
         let entries = if index < 2 {
@@ -601,6 +607,10 @@ fn an_instruction_pick_lands_in_the_shown_preset() {
     // hide an index write).
     tactics.starting_eleven.swap(2, 9);
     let pick = 2;
+    assert_ne!(
+        tactics.starting_eleven[pick], pick as u8,
+        "premise: slot and index differ"
+    );
     let mut view = TacticsView {
         preset: 1,
         ..TacticsView::default()

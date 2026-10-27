@@ -639,9 +639,17 @@ fn a_row_released_on_the_grass_beside_a_marker_does_nothing() {
     assert!(!changed, "a bench row on the grass is no drop");
     assert_eq!(tactics, before, "and nobody swapped in");
 
+    // A starter whose own box is farther from the release than `index`'s:
+    // a release resolved to the nearest marker lands on `index` and
+    // exchanges the two, not on his own marker, where it changes nothing.
+    let distance = |row: usize| marker_rect(centres[row], canvas).distance_to_pos(onto);
     let starter = (0..11)
-        .find(|&row| row != index)
-        .expect("another eleven row");
+        .find(|&row| distance(row) > distance(index))
+        .expect("another eleven row farther from the release");
+    assert!(
+        distance(starter) > distance(index),
+        "premise: his box is farther from the release than the one it is beside"
+    );
     let changed = window.drag_pitch_and_lineup(
         row_centre(&nodes, starter),
         onto,

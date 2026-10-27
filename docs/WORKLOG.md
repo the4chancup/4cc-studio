@@ -3456,11 +3456,15 @@ briefs, review loops, gates and mutation runs as for any step.
       (markers are clamped inside the canvas). Files: `team_widgets/src/pitch/{mod.rs,tests/
       {drops,paint,popover}.rs}`, `tactics/instructions/tests.rs`, `save_editor/src/view/
       {portraits,tactics}.rs`, `view/tests/tactics.rs`, `help/08_tactics.md`
-    - [ ] round S4 over the A1 rework (SWE-2, two parts): 4 of 5 accepted, ending the post-Astra
+    - [x] round S4 over the A1 rework (SWE-2, two parts): 4 of 5 accepted, ending the post-Astra
       SWE-2 loop (a lineup row's drop target only its content, where the draft's row spans the
       list; three test premises unchecked); a row's near miss within egui's 5 points rejected
-      (no other target there). Rework briefed (`brief_tac_s4_rework.md`, after m2), then
-      Astra round A2 over the whole surface, then the surface's one mutation run
+      (no other target there). Rework done 2026-10-27 (Opus, `.tmp/0_0_1s/tac_s4_rework_report.md`):
+      a row's horizontal takes the list's whole width, so a release on its band past the name
+      swaps as one on the name does (red run seen); the instruction picks and the near-miss
+      test's starter now assert their premises (each seen failing under a perturbation).
+      Files: `team_widgets/src/pitch/{lineup.rs,tests/drops.rs}`, `tactics/instructions/tests.rs`
+    - [ ] Astra round A2 over the whole surface, then the surface's one mutation run
       (`just mutants-diff 3d39aff3`) at its loop's end
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three

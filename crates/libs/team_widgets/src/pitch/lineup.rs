@@ -212,6 +212,9 @@ fn lineup_row(
 ) -> egui::Response {
     ui.dnd_drag_source(ui.scope_id().with(id_salt), payload, |ui| {
         ui.horizontal(|ui| {
+            // The whole band is the drop target (the draft's `.lrow` spans
+            // the list), not only the handle, position and name.
+            ui.set_min_width(ui.available_width());
             ui.weak("≡");
             ui.add_sized(
                 egui::vec2(30.0, ui.spacing().interact_size.y),
@@ -309,6 +312,26 @@ mod tests {
     use crate::test_support::{
         Headless, centre, entry, fixture_rows, fixture_tactics, pointer_at, roster_rows,
     };
+
+    /// The lists' framed boxes in `shapes`, left to right (the eleven's
+    /// first): the stroked, unfilled rects taller than a row.
+    fn list_frames(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::Rect> {
+        let mut boxes: Vec<egui::Rect> = shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Rect(shape)
+                    if shape.fill == egui::Color32::TRANSPARENT
+                        && !shape.stroke.is_empty()
+                        && shape.rect.height() > 100.0 =>
+                {
+                    Some(shape.rect)
+                }
+                _ => None,
+            })
+            .collect();
+        boxes.sort_by(|a, b| a.min.x.total_cmp(&b.min.x));
+        boxes
+    }
 
     // plans/save_editor.md "Tactics editor", "A starter swapped with a
     // bench player": every set-piece role, the joining of the attack and
@@ -475,6 +498,52 @@ mod tests {
         );
     }
 
+    // Round S4's S4a-2, the draft's `.lrow` spanning the list's width: a
+    // release on a row's band right of its name, inside the list, is a
+    // drop on that row, as a release on the name is.
+    #[test]
+    fn a_bench_row_released_on_a_starters_band_past_the_name_swaps_them() {
+        let mut window = Headless::sized(900.0, 1100.0);
+        let mut tactics = fixture_tactics(PesVersion::Pes21);
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(PesVersion::Pes21);
+        let roster = roster_rows(&rows);
+        let out = tactics.starting_eleven[3];
+        let inn = tactics.bench_order[0];
+        assert_ne!(out, inn, "premise: two different slots");
+        tactics.set_pieces.penalty = out;
+        let (nodes, shapes) =
+            window.lineup_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+        let eleven = list_frames(&shapes)[0];
+        let name = lineup_rows(&nodes)[3]
+            .last()
+            .copied()
+            .expect("row 3's name")
+            .bounds()
+            .expect("name bounds");
+        let onto = egui::pos2(eleven.right() - 10.0, row_centre(&nodes, 3).y);
+        assert!(
+            f64::from(onto.x) > name.x1 && eleven.contains(onto),
+            "premise: past the name ({name:?}), inside the eleven's frame ({eleven:?}) at {onto:?}"
+        );
+
+        let changed = window.drag_lineup(
+            row_centre(&nodes, 11),
+            onto,
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+        assert!(changed, "the drop changed the record");
+        assert_eq!(tactics.starting_eleven[3], inn, "the bench player starts");
+        assert_eq!(tactics.bench_order[0], out, "the starter sits");
+        assert_eq!(
+            tactics.set_pieces.penalty, inn,
+            "the taker followed the swap"
+        );
+    }
+
     // The draft's `swapStarters`: a starter on a starter exchanges the two
     // slots' players; both stay on the pitch so no role moves. Row 1 on
     // row 4, not on row 2: on adjacent rows a move (the bench rows'
@@ -592,20 +661,7 @@ mod tests {
         }
         // Each framed box a half of the 900-wide span less the gap; its
         // inner height 12 * 18 + 8.
-        let mut boxes: Vec<egui::Rect> = shapes
-            .iter()
-            .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Rect(shape)
-                    if shape.fill == egui::Color32::TRANSPARENT
-                        && !shape.stroke.is_empty()
-                        && shape.rect.height() > 100.0 =>
-                {
-                    Some(shape.rect)
-                }
-                _ => None,
-            })
-            .collect();
-        boxes.sort_by(|a, b| a.min.x.total_cmp(&b.min.x));
+        let boxes = list_frames(&shapes);
         assert_eq!(boxes.len(), 2, "the two framed lists ({boxes:?})");
         let half = (900.0 - LIST_GAP) / 2.0;
         for (index, list) in boxes.iter().enumerate() {

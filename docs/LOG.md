@@ -2675,3 +2675,5 @@ worklog passed 7,000 lines.
 - **2026-10-27** — 0.0.1m2: no frame lays out under the 1280-point design width (the pass that changes the zoom is discarded);
   the Save editor's narrow-pane fallbacks removed; its view tests draw the 1224-point pane members see, not 1100.
   The window's size, its scaling and ST-WIN-01/02 moved to `spec/core/gui.md`.
+- **2026-10-27** — 0.0.1s5, round S4's rework: a Tactics lineup row's drop target spans the list, as the draft's row does;
+  three tests now assert their own premises. The post-Astra SWE-2 loop over A1 ended; Astra A2 next.
