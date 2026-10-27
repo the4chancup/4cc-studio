@@ -25,9 +25,9 @@ const LIST_PADDING: f32 = 4.0;
 /// The draft's `#tac-lists` beside the pitch: the starting eleven and
 /// the bench, each list half of the span it is given less `LIST_GAP`,
 /// twelve 18-point rows tall plus `LIST_PADDING` top and bottom, framed
-/// — no headings, so every panel of the grid's row lines up (the
-/// maintainer, 2026-10-26). Each row a drag handle, a position and a
-/// name (the positions are `view.formation`'s). Drops: a starter on a
+/// — no headings, so every panel of the grid's row lines up. Each row a
+/// drag handle, a position and a name (the positions are
+/// `view.formation`'s). Drops: a starter on a
 /// starter exchanges the two, a bench row on a starter (or a starter on
 /// a bench row) swaps them in `swap_in`'s sense, a bench row on a bench
 /// row moves the dragged entry to the dropped row's place. `roster`

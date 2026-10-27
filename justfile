@@ -8,8 +8,8 @@ set windows-shell := ["powershell.exe", "-NoLogo", "-NoProfile", "-Command"]
 
 python := if os_family() == "windows" { "python" } else { "python3" }
 
-# The five verification gates, in order. CI runs this same recipe.
-gates: fmt-check clippy test wasm-check acceptance doc-pointers
+# The verification gates, in order. CI runs this same recipe.
+gates: fmt-check clippy test wasm-check acceptance doc-pointers comment-refs
 
 # The same gates on the mutants host (STUDIO_MUTANTS_REMOTE) against the working tree, while this machine should not carry the load
 gates-remote:
@@ -35,7 +35,7 @@ test:
     {{python}} scripts/bundle_drafts_test.py
 
 # The gates with gate 3 over the packages the working tree changes since `base` and the packages depending on them (CONTRIBUTING.md "Testing and verification")
-gates-changed base="HEAD": fmt-check clippy (test-changed base) wasm-check acceptance doc-pointers
+gates-changed base="HEAD": fmt-check clippy (test-changed base) wasm-check acceptance doc-pointers comment-refs
 
 # Gate 3 over the packages the working tree changes since `base` and the packages depending on them
 test-changed base="HEAD":
@@ -70,8 +70,8 @@ doc-pointers:
     {{python}} scripts/symbolize_log_test.py
     {{python}} scripts/doc_pointers.py
 
-# Every code comment that cites a plan, a decision, a step or a review instead of standing on
-# its own (CONTRIBUTING.md "Code style"). Joins the gates once the cleanup has none left.
+# Gate 7: the comment check's own tests, then the check (no code comment cites a plan, a decision,
+# a step, a review or who decided, instead of standing on its own: CONTRIBUTING.md "Code style")
 comment-refs:
     {{python}} scripts/comment_refs_test.py
     {{python}} scripts/comment_refs.py

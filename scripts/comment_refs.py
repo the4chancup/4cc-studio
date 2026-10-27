@@ -3,7 +3,8 @@
     python scripts/comment_refs.py [--count]
 
 CONTRIBUTING.md "Code style", "A comment stands on its own": a comment never cites a plan,
-DECISIONS.md, the worklog or the log, a step, a review round or concern, or an agent. This
+DECISIONS.md, the worklog or the log, a step, a review round or concern, an agent, or who
+decided and when. This
 script reads the comments of every tracked Rust, TOML and Python file (Rust `//`, `///`,
 `//!`; TOML and Python `#`) and prints `path:line: kind: text` for each one matching a
 pattern below. `--count` prints the number of hits per top-level folder instead. Exit 1 when
@@ -47,7 +48,18 @@ PATTERNS = {
         r"(?!(?:docs/)?(?:spec/|CONTRIBUTING\.md|RUNBOOK\.md)|[\w./-]*fixtures/[\w./-]*README\.md)"
         r"[\w./-]*\.md\b"
     ),
-    "review": re.compile(r"\b[SAR]\d+[ab]?-\d+\b|\bround [SA]\d+\b|\bAstra\b|\bSWE-2\b|\bsidekick\b", re.I),
+    "review": re.compile(
+        r"\b[SAR]\d+[ab]?-\d+\b|\bround [SA]\d+\b|\bAstra\b|\bSWE-2\b|\bsidekick\b"
+        r"|\b(?:the|this|its|a) brief\b|\bbrief's\b",
+        re.I,
+    ),
+    # Who decided and when: "maintainer" with a date or a deciding verb after it. Anchored on
+    # the one word, since a wrapped comment leaves "the" on the line before; "the maintainer's
+    # save" or "desk" passes, naming where a value came from rather than who ruled.
+    "attribution": re.compile(
+        r"\bmaintainer(?:'s)?,? (?:20\d\d-\d\d-\d\d\b|(?:asked|chose|decided|rejected|ruled|wanted)\b)",
+        re.I,
+    ),
 }
 
 # Files the rule does not apply to: this script and its test name the patterns themselves.

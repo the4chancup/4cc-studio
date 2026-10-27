@@ -2079,7 +2079,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       (`#<tool>/<screen>?keys`, host keys and named dialogs, `run=done` replaying a finished
       run); 12 states pixel-equal from a fresh page. SWE-2 rounds 8 of 16, then 4 of 7
       (`.tmp/8_19/rulings.md`)
-    - [ ] 8.19b remarks, briefed: `.tmp/8_19/brief_8_19b.md`
+    - [x] 8.19b remarks (Opus, 2026-10-27, `.tmp/8_19/brief_8_19b_v2.md`, report
+      `.tmp/8_19/8_19b_report.md`): the Layout group's "Remark" toggle (exclusive with Layout
+      edit) catches a click in `#win` in the capture phase and opens a note pinned to the
+      nearest `data-panel` and control (`button, select, input, textarea, label, .sel, td`,
+      named by text, title, placeholder or label); `localStorage` `drafts.remarks`; "Copy
+      remarks (N)" one line per note with its link; numbered markers after each render;
+      Reset clears the remarks too. Checked in Chromium and Firefox (`check_b.py`: four
+      notes' links pixel-equal to their states, reload, Reset, a row click caught; red run
+      with a bubble-phase listener). Left as they are: a list row or an input with no name
+      gets a panel note (its link still reopens the state); two same-named controls in one
+      panel share a note
     - [ ] 8.19c longest values, briefed: `.tmp/8_19/brief_8_19c.md`
   - [ ] 8.20 the host's overlay and draft shots (`core/gui.md` "The host's other review aids";
     after 8.19, whose links it walks): the Overlay control and the capture naming, the
@@ -3935,9 +3945,16 @@ briefs, review loops, gates and mutation runs as for any step.
     contradictions, all accepted: briefs drop the grep against wrapped titles, which the
     widened check reads; `(the maintainer, <date>)` and `r1`-style round names join the
     scanner (cm5); the Comparator's plan-only bullets lose their pointers
-  - [ ] cm5 `comment-refs` in `just gates` and CI, its patterns widened to
-    `(the maintainer, <date>)` and `r1`-style round names (cm4's finding: five comments in
-    `save_editor` and `team_widgets` still carry them)
+  - [x] cm5 `comment-refs` in `just gates` and `gates-changed` (gate 7; CI runs `just gates`),
+    CONTRIBUTING's gate list naming it. Its patterns widened (red first): an "attribution"
+    kind, "maintainer" followed by a date or a deciding verb (anchored on the one word, since a
+    wrapped comment leaves "the" on the line before; "the maintainer's save" passes), and "the
+    brief" in the review kind. Five comments it found rewritten (`team_widgets`
+    `pitch/lineup.rs`, `save_editor` `view/tests/quick_actions.rs` twice, `pes_savefile`
+    `settings_toml/tests/appearance_row.rs`, `model_convert` `convert.rs`) and
+    `scripts/ingame/install.py`'s; the gate fails on a hand-planted attribution, reverted.
+    `r1`-style round names left out: the one in the tree also named the maintainer, and a bare
+    `r\d` pattern flags `[r0, r1, r2, t]`
   - [x] cm6 `scripts/doc_pointers.py` reads a pointer whose quoted title a comment wraps onto
     its next line (today its title pattern stops at the line end, so such a pointer is
     neither resolved nor reported, and a broken one passes "0 broken") → verify: a test case

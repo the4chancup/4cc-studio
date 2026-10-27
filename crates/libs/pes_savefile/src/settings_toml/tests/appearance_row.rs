@@ -25,7 +25,7 @@ fn a_save_players_settings_reproduce_his_appearance_row() {
         let payload = payload(version);
         let schema = schema_for(version);
         // The run inside the row: the record's run offset minus the row
-        // offset, from the schema (not the brief's row byte 10, asserted).
+        // offset, from the schema rather than a fixed byte 10; asserted below.
         let run = schema.player.ingame_face.as_ref().expect("Fox has a run");
         let run_in_row = run.byte_offset as usize - offset;
         assert_eq!(run_in_row, 10, "{version:?}: the run's row byte");

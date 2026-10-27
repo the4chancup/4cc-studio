@@ -687,7 +687,7 @@ mod tests {
         ));
     }
 
-    /// The (position, normal xyz, uv0) multiset comparison the brief specifies; every
+    /// The (position, normal xyz, uv0) multiset comparison: vertex order is free, every
     /// component must match within `eps`.
     fn vertex_multiset(
         positions: &[[f32; 3]],

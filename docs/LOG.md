@@ -2724,3 +2724,5 @@ worklog passed 7,000 lines.
   (`comment-refs` 0 workspace-wide); `doc_pointers.py` reads pointers a line break cuts. Found: the Save editor's CLI tests read the real process list.
 - **2026-10-27** — 0.0.1y4c in PES 2021 (pad + OBS, save unchanged by hash): CF's first row is y 40, as PES 2016's table says; PES 2016's
   overall formula misses PES 2021's by up to 2 (12 of 201 points), so the rule's overall on PES 2021 is a question for the maintainer.
+- **2026-10-27** — cm5: `comment-refs` is gate 7 (`just gates`, CI), widened to who-decided attributions and "the brief"; 8.19b: the drafts
+  host's Remarks (a note pinned to a panel and control, Copy remarks with each state's link), checked in Chromium and Firefox.

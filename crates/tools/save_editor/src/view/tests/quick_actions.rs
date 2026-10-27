@@ -781,7 +781,7 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
     node_labeled(&nodes, Role::Button, "Set stats");
 }
 
-// The same bullet, the load error's shape: a red line in the tier
+// A rules file that does not load: its error is a red line in the tier
 // buttons' place, wrapped across the list, whose click opens the error
 // in the refusal dialog.
 #[test]
@@ -838,9 +838,9 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
         (bounds.x0 - row.x0).abs() <= 1.0 && bounds.x1 <= row.x1 + band + 1.0,
         "the line spans the list ({bounds:?} vs {row:?} and its {band}-point band)"
     );
-    // Not elided (a truncated one-line label is the r1 shape the
-    // maintainer rejected), and wrapped across the list: two body rows at
-    // the default 240, as the draft draws it.
+    // Not elided, since a label cut to one line hides most of the error,
+    // and wrapped across the list: two body rows at the default 240, as
+    // the draft draws it.
     assert!(!shape.galley.elided, "the line is not elided");
     assert!(
         bounds.y1 - bounds.y0 > f64::from(body_row),

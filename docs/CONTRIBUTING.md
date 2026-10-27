@@ -189,7 +189,8 @@ binaries at once by `scripts/run_tests.py` and then the doc-tests, `cargo check 
 wasm32-unknown-unknown` for `studio_core` and every lib crate, and `just acceptance`, the
 acceptance-ID scanner in its `report` mode, and `just doc-pointers`, which fails on a
 pointer to a document's section, its path and then the quoted title, whose file or section is
-gone), and CI runs the same recipe, so
+gone, and `just comment-refs`, which fails on a code comment citing a plan, a decision, a step,
+a review or who decided), and CI runs the same recipe, so
 the list cannot drift between this document, the local run and CI (it had, before the justfile
 existed: two spellings of the fmt gate in two documents). The test gate runs each binary whole,
 its tests on libtest's threads, several binaries at once: `cargo test` alone runs them one after

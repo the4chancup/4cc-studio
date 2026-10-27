@@ -39,7 +39,7 @@ TEST_SLOTS = {
         "file": "download/4cc_90_test.cpk",
         "original_sha256": "b1eb59079817d8d3aedc7b0714b1ed8cadc6d786f1269bec9abc43e49bd93a2a",
     },
-    # PES 19's and 21's slots (the maintainer's, 2026-10-10) are the last entries of their
+    # PES 19's and 21's slots are the last entries of their
     # DpFileLists too; each holds the cup's 6 KB placeholder CPK.
     "19": {
         "file": "download/4cc_69_midcup.cpk",

@@ -28,15 +28,43 @@ class CommentRefsTest(unittest.TestCase):
                 "// moved here at step 4.18",
                 "// the hand split of 4.14e3",
                 "// excluded since mutants-diff 95f20eac",
+                "// the comparison the brief specifies",
+                "// (not the brief's row byte 10, asserted)",
             ]
         )
         self.assertEqual(
             self.kinds("crates/x/src/lib.rs", text),
             [
                 "plan", "plan", "plan", "decisions", "worklog", "step", "step", "review", "review",
-                "document", "document", "step", "step", "step", "step", "history",
+                "document", "document", "step", "step", "step", "step", "history", "review",
+                "review",
             ],
         )
+
+    def test_who_decided_and_when_is_listed(self):
+        text = "\n".join(
+            [
+                "/// — no headings, so every panel lines up (the",
+                "/// maintainer, 2026-10-26). Each row a drag handle",
+                "// the r1 shape the",
+                "// maintainer rejected), and wrapped across the list",
+                "# PES 19's slots (the maintainer's, 2026-10-10) are the last entries",
+            ]
+        )
+        self.assertEqual(
+            self.kinds("crates/x/src/lib.rs", text), ["attribution", "attribution"]
+        )
+        self.assertEqual(self.kinds("scripts/x.py", text.splitlines()[4]), ["attribution"])
+
+    def test_the_maintainers_files_and_machine_pass(self):
+        text = "\n".join(
+            [
+                "// starter's name in the maintainer's PES 2021 save, which ran 50 points",
+                "/// The maintainer's desk: an FHD primary at the origin at 100%",
+                "// the maintainer's value, written out so a slipped shift fails",
+            ]
+        )
+        self.assertEqual(self.kinds("crates/x/src/lib.rs", text), [])
 
     def test_a_toml_or_python_comment_is_read_after_its_hash(self):
         self.assertEqual(self.kinds("Cargo.toml", '# (core plan, "Phase 1")'), ["plan"])
