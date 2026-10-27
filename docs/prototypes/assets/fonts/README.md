@@ -13,8 +13,8 @@ row), so the drafts draw text in exactly the files the app does, never in a syst
 
 | File | What | Source | SHA-256 | Licence |
 |---|---|---|---|---|
-| `Selawik-Regular.ttf` | the body font, Microsoft's metric twin of Segoe UI | Selawik 1.01, `selawk.ttf` of `github.com/microsoft/Selawik` release 1.01 (`Selawik_Release.zip`) | `e9d98518…` | SIL OFL 1.1 (below; the repository's `LICENSE.txt`) |
-| `Selawik-Semibold.ttf` | the pitch's formation name alone, the weight whose stroke matches the game's label as egui draws it (worklog 0.0.1x) | Selawik 1.01, `selawksb.ttf` of the same release | `0a9e9d05…` | SIL OFL 1.1, as the regular weight's (below) |
+| `RobotoFlex-Regular.ttf` | the body font, at weight 400 | Roboto Flex's variable file as Google Fonts ships it (`github.com/google/fonts`, `ofl/robotoflex/RobotoFlex[GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC,opsz,slnt,wdth,wght].ttf`, SHA-256 `9b523f7d…`), cut by fontTools' instancer at optical size 12.5, every other axis at its default | `219b3036…` | SIL OFL 1.1 (below) |
+| `RobotoFlex-Semibold.ttf` | the pitch's formation name alone, the weight whose stroke matches the game's label as egui draws it (worklog 0.0.1x) | the same, at weight 600 | `2cbd1950…` | SIL OFL 1.1, as the regular weight's (below) |
 | `Hack-Regular.ttf` | monospace | egui 0.37's own copy (`epaint_default_fonts` 0.37.0) | `15f55cc0…` | below (egui's `Hack-Regular.txt`) |
 | `egui-icons.ttf` | egui's own icons (scale 0.90) | the same crate | `12280655…` | below (egui's `egui-icons.txt`) |
 | `symbols.ttf` | the symbols the body font lacks (→, ≡, ✔, ✖ and the like), on its metrics | `scripts/make_symbols.py`'s build of `resources/symbols/`, which writes this copy and `resources/fonts/symbols.ttf` | `ac29b6db…` | the repository's own |
@@ -49,18 +49,20 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## Licence of `Selawik-Regular.ttf` and `Selawik-Semibold.ttf`
+## Licence of `RobotoFlex-Regular.ttf` and `RobotoFlex-Semibold.ttf`
 
 ```
-Copyright 2015, Microsoft Corporation (www.microsoft.com), with Reserved Font Name Selawik.  All Rights Reserved.  Selawik is a trademark of Microsoft Corporation in the United States and/or other countries.
+Copyright 2017 The Roboto Flex Project Authors (https://github.com/TypeNetwork/Roboto-Flex)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:
 http://scripts.sil.org/OFL
 
+
 -----------------------------------------------------------
 SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
 -----------------------------------------------------------
+
 PREAMBLE
 The goals of the Open Font License (OFL) are to stimulate worldwide
 development of collaborative font projects, to support the font creation

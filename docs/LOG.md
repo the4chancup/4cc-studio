@@ -2734,3 +2734,5 @@ worklog passed 7,000 lines.
   refuses a repeated bone, a split group with LODs or past 256 bones stays split, `fmdl`'s vertex encoder fails before it permutes.
 - **2026-10-28** — Library rework slice A1 (`pes_savefile`) landed: Anchoring takes a target player on PES 20/21, so the Tactics editor
   offers the pick; a Team TOML apply stages only the rostered players; the spec brought to the text limits and team comparison.
+- **2026-10-28** — The drafts draw Roboto Flex (cut at optical size 12.5, the size the trial drew it at; its semibold for the formation name),
+  with the three widths the maintainer named; the app's code follows on approval (worklog w4b).

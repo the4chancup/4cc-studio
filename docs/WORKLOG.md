@@ -3728,17 +3728,27 @@ briefs, review loops, gates and mutation runs as for any step.
     `draft_fonts.py` 0 findings). Seen there: scaled, Open Sans, Noto Sans, Source Sans 3 and
     Fira Sans wrap "Shirt number" (Noto also "Registered position"); Inter and Lato fit as
     Selawik does. Picked (the maintainer, DECISIONS "The body font is Roboto Flex at its
-    default axes, unscaled"): Roboto Flex, untuned and unscaled. The work, a slice of its
-    own: the static instance cut at the default axes into `resources/fonts/`, `theme.rs`'s
-    body font and both fallback chains, `make_symbols.py`'s `BODY_FONT` and `symbols.ttf`
-    rebuilt, the drafts' `@font-face`, then every width constant re-measured (the draft
-    first, then the code), each widened only as far as keeps its row's line count, the
-    tests that pin widths following. The three the maintainer named (2026-10-28): the
-    player view's General Info column wider, so "Shirt number" and "Registered position"
-    stay on one line; the Tactics tab's Formation settings column a little wider, so
-    "Frontline Press." is drawn whole, not elided; Player assignments narrower to pay for
-    it → verify: `draft_fonts.py` 0 findings; the built window's player and team views at
-    1280 x 800 with the same rows as the drafts
+    default axes, unscaled" and "Roboto Flex is cut at optical size 12.5"): Roboto Flex,
+    untuned and unscaled
+    - [x] w4a the cut and the drafts (lead, 2026-10-28): `.tmp/0_0_1w/cut_flex.py` cuts
+      `RobotoFlex-Regular.ttf` and `-Semibold.ttf` (optical size 12.5, weight 400/600,
+      reproducible bytes) into `resources/fonts/` and the drafts' assets with the OFL; the
+      drafts draw them (chains, `@font-face`, licence comment, fonts README; their Selawik
+      copies deleted); the formation name at 20.5 placed 6.5 in (`label_metrics.py`); the
+      three widths the maintainer named: General info's label columns 107 → 109
+      ("Registered position" 108.4) and 72 → 73 ("Shirt number" 72.9), the Tactics settings
+      column 414 → 422 ("Frontline Press." 96.9 with its padding, 99 given since 97 still
+      elided at a 2x scale), Player assignments taking the 8 points. Checked:
+      `elide_check.py` nothing elided or wrapped at scales 1, 1.5 and 2, and red on the old
+      widths (`elide_check_red.py`); `draft_fonts.py` all suite text in the bundled files,
+      the one fallback a member-typed "♂" in a player name (Selawik lacked it too)
+    - [ ] w4b the code (brief `.tmp/0_0_1w/brief_w4b.md`): `theme.rs`'s body and label
+      families and both chains on the Roboto Flex files, the Selawik files and their README
+      rows removed, `make_symbols.py`'s `BODY_FONT` and `symbols.ttf` rebuilt (both copies),
+      the formation label's `FontId` and offset, the three widths' constants and every test
+      that pins a width or a row count re-measured → verify: the gates; the built window's
+      player and team views at 1280 x 800 with the same rows as the drafts (asks before it
+      takes focus)
   - [ ] w5 a modal window's title at the drafts' 14 points (`.window .title`), a text style of
     its own, where the app draws egui's `Heading` (15 after w2r1)
 - [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the

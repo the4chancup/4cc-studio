@@ -46,18 +46,20 @@
      LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
      OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
      SOFTWARE. -->
-<!-- The licence of assets/fonts/Selawik-Regular.ttf and Selawik-Semibold.ttf, which @font-face embeds below
+<!-- The licence of assets/fonts/RobotoFlex-Regular.ttf and RobotoFlex-Semibold.ttf, which @font-face embeds below
      (assets/fonts/README.md, verbatim):
 
-     Copyright 2015, Microsoft Corporation (www.microsoft.com), with Reserved Font Name Selawik.  All Rights Reserved.  Selawik is a trademark of Microsoft Corporation in the United States and/or other countries.
+     Copyright 2017 The Roboto Flex Project Authors (https://github.com/TypeNetwork/Roboto-Flex)
 
      This Font Software is licensed under the SIL Open Font License, Version 1.1.
      This license is copied below, and is also available with a FAQ at:
      http://scripts.sil.org/OFL
 
+
      -----------------------------------------------------------
      SIL OPEN FONT LICENSE Version 1.1 - 26 February 2007
      -----------------------------------------------------------
+
      PREAMBLE
      The goals of the Open Font License (OFL) are to stimulate worldwide
      development of collaborative font projects, to support the font creation
@@ -222,16 +224,16 @@
     /* The app's own font chains (plans/core/gui.md, the Dark/light theme row), the files
        in assets/fonts/; no system font and no generic family, so a glyph none of them has
        shows as the browser's fallback, which scripts/draft_fonts.py reports. */
-    --font-body: "Selawik", "Symbols", "Phosphor", "egui-icons";
-    --font-mono: "Hack", "Selawik", "Symbols", "Phosphor", "egui-icons";
+    --font-body: "Roboto Flex", "Symbols", "Phosphor", "egui-icons";
+    --font-mono: "Hack", "Roboto Flex", "Symbols", "Phosphor", "egui-icons";
     /* The pitch's formation name alone: the semibold weight, whose stroke matches the
        game's label (worklog 0.0.1x); everything else stays regular. */
-    --font-label: "Selawik Semibold", "Selawik", "Symbols", "Phosphor", "egui-icons";
+    --font-label: "Roboto Flex Semibold", "Roboto Flex", "Symbols", "Phosphor", "egui-icons";
   }
   /* The symbols the body font lacks are scripts/make_symbols.py's build, on the body font's
      metrics; egui-icons keeps egui's scale tweak (epaint's FontDefinitions::default). */
-  @font-face { font-family: "Selawik"; src: url("assets/fonts/Selawik-Regular.ttf"); }
-  @font-face { font-family: "Selawik Semibold"; src: url("assets/fonts/Selawik-Semibold.ttf"); }
+  @font-face { font-family: "Roboto Flex"; src: url("assets/fonts/RobotoFlex-Regular.ttf"); }
+  @font-face { font-family: "Roboto Flex Semibold"; src: url("assets/fonts/RobotoFlex-Semibold.ttf"); }
   @font-face { font-family: "Symbols"; src: url("assets/fonts/symbols.ttf"); }
   @font-face { font-family: "Hack"; src: url("assets/fonts/Hack-Regular.ttf"); }
   @font-face { font-family: "egui-icons"; src: url("assets/fonts/egui-icons.ttf"); size-adjust: 90%; }
@@ -239,8 +241,8 @@
   html, body { height: 100%; margin: 0; }
   body {
     background: #3a3f47; color: var(--text);
-    /* egui's row height: 1.2 times the size (Selawik's hhea), where a browser's normal
-       line takes the font's Windows metrics (16 points at 12.5, egui's 15). */
+    /* egui's row height: the font's hhea height (1.17 times the size) rounded to whole
+       pixels, 15 at 12.5 and 18 at 15, where a browser's normal line keeps the fraction. */
     font: 400 12.5px/1.2 var(--font-body);
     display: flex; align-items: flex-start; overflow: auto;
   }
@@ -493,7 +495,7 @@
 "use strict";
 
 // The body-font trial (worklog 0.0.1w4): `?fontsrc=<a @font-face src>&scale=<percent>` draws
-// the text in that face, at that size-adjust, in Selawik's place in every chain; a trial page
+// the text in that face, at that size-adjust, in Roboto Flex's place in every chain; a trial page
 // beside the candidate files sets them. Without the keys the drafts draw as always.
 // The trial page then switches candidates by message ({ fontsrc, scale }), not by reloading:
 // the new face loads first and replaces the old in one step, so no frame draws in a fallback
@@ -508,7 +510,7 @@ if (trial.get("fontsrc")) {
   const root = document.documentElement;
   for (const chain of ["--font-body", "--font-mono", "--font-label"])
     root.style.setProperty(chain, getComputedStyle(root).getPropertyValue(chain)
-      .replaceAll('"Selawik"', '"Trial"'));
+      .replaceAll('"Roboto Flex"', '"Trial"'));
   addEventListener("message", async e => {
     if (!e.data || !e.data.fontsrc) return;
     const face = trialFace(e.data.fontsrc, e.data.scale), asked = ++trialAsked;

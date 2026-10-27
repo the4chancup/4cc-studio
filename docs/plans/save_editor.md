@@ -489,7 +489,7 @@ Win32 original hurt the most):
   stood at the click, and there it stays while his X and Y change, so the fields' arrows stay
   under the pointer rather than moving off with the marker; a press outside it closes it, as
   Close does. The editor is **one grid** of three columns (the
-  settings, 414 points; the pitch, 320; the assignments, the rest) and three rows, so every
+  settings, 422 points; the pitch, 320; the assignments, the rest) and three rows, so every
   panel lines up with its neighbours rather than wrapping on its own:
   1. The **preset bar** (Preset 1/2/3, Fluid formation, then its Copy/swap menu) level with
      the **formation bar** (Kick-off / In-possession / Out-of-possession and theirs), which
@@ -605,12 +605,15 @@ Win32 original hurt the most):
     7 pt in from the pitch's left edge and its bottom 6 pt up from the bottom edge (measured
     on the 720p capture), drawn after the markers so a low marker never covers it. The
     typeface need not be the game's, but the stroke must match the game's label, about 3 px
-    on its 15 px digits: Selawik Semibold (`resources/fonts/Selawik-Semibold.ttf`, Selawik
-    1.01's `selawksb.ttf`, SIL OFL 1.1 as the regular weight), a font family of its own (the
-    semibold, then the body chain's fallbacks), at 21 pt, the text placed 5 pt in for the
-    face's 2 pt left bearing. We use Semibold, not Bold, because egui's dark-mode text alpha
-    (`2c - c²`) thickens strokes: drawn so, Semibold's verticals measure 2.97 px against the
-    game's 3.01, Bold's 3.41. It is the one text in the suite not in the regular weight. The
+    on its 15 px digits: the body font's semibold (`resources/fonts/RobotoFlex-Semibold.ttf`,
+    Roboto Flex cut at weight 600 and the regular's optical size, SIL OFL 1.1 as the
+    regular), a font family of its own (the semibold, then the body chain's fallbacks), at
+    20.5 pt (digits 15.2 pt tall), the text placed 6.5 pt in for the face's 0.6 pt left
+    bearing. We use Semibold, not Bold, because egui's dark-mode text alpha (`2c - c²`)
+    thickens strokes: drawn so, Selawik Semibold's verticals measured 2.97 px against the
+    game's 3.01 and Bold's 3.41; Roboto Flex's semibold stem is 3% wider than Selawik's, so
+    about 3.05 drawn (inferred from the outlines, not measured on a render). It is the one text
+    in the suite not in the regular weight. The
     formation pictures (worklog 8.33) carry it in every cell when they come.
 - **Lineup by drag-and-drop**: the starting XI and bench are reorderable lists;
   **dragging a bench player onto a pitch player swaps them** (and vice versa).

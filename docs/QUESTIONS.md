@@ -31,10 +31,13 @@ names where the question came from so the context can be read there.
   the window, each change on one line; every draft's controls sit in one column left of the
   window, in sections (Window, Shell, the active tool). The app follows once you approve.
 - **The drafts in the app's own fonts (0.0.1w3).** Their approval is withdrawn until you have
-  looked at them again: they now draw Selawik and the suite's symbols font (worklog 0.0.1w,
-  DECISIONS 2026-10-27 "The symbols are a font of their own"), where every earlier review saw
-  Segoe UI. Open `docs/prototypes/index.html`; the app's code follows the drafts once approved.
-  Alternatives to Selawik (0.0.1w4) come after, side by side.
+  looked at them again: they now draw your pick, Roboto Flex, and the suite's symbols font
+  (worklog 0.0.1w4a; DECISIONS 2026-10-28 "Roboto Flex is cut at optical size 12.5"), where
+  every earlier review saw Segoe UI. Open `docs/prototypes/index.html`. Changed with the font:
+  General info's label columns 2 and 1 points wider, so "Registered position" and "Shirt
+  number" keep one line; the Tactics settings column 8 points wider, so "Frontline Press." is
+  whole, Player assignments 8 narrower; the pitch's formation name in Roboto Flex's semibold
+  (Selawik Semibold before). The app's code follows once you approve (0.0.1w4b).
 - **Track D's drafts, 8.30, 8.32, 8.33 and 8.34**, revised with your answers of 2026-10-27
   (DECISIONS "Formation pictures, the formation's name and the nation names: the maintainer's
   answers"): branch `side/drafts2`, each step's renders and proposed plan text in

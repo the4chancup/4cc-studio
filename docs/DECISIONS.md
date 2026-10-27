@@ -12455,3 +12455,19 @@ Save editor's views), after Selawik's look did not please. Unscaled, it is 1.8% 
 UI on the measured path, so a few labels need a little more room, which the maintainer accepts
 over a scaled or tuned face.
 Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row.
+
+## 2026-10-28 — core — Roboto Flex is cut at optical size 12.5, the body's size, and its semibold takes the formation name
+Decision: the bundled Roboto Flex is two static instances of its variable file at optical size
+12.5 (the body text's size), weight 400 and 600, every other axis at its default, not at the
+file's default optical size 14 as the entry before this one said. The semibold replaces Selawik
+Semibold for the Tactics pitch's formation name, at 20.5 points placed 6.5 in (its digits 15.2
+tall, its "3"'s ink at the game's 7). The drafts draw the same two files.
+Why: the font trial drew the variable file and the browser set the optical size to each text's
+size, so the face the maintainer picked is the 12.5 instance; at 14 it is 1.5% narrower and
+tighter on the measured path, a different face from the one approved. One static file per weight
+rather than the variable file (1.8 MB, which egui 0.37 could draw at each size's own optical
+size): 96 KB each, the heading and small sizes differing from the trial by a hair. The semibold
+keeps one family in the UI; its stem is 3% wider than Selawik Semibold's, about 3.05 px drawn
+against the game's 3.01 (inferred from the outlines, not measured on a render).
+Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row; `plans/save_editor.md`
+"The formation's name".

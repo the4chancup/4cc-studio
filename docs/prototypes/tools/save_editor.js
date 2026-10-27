@@ -173,7 +173,7 @@ input[type=range]:focus { outline: none; }
 /* The first half as wide as the label-left rows' label column, their 12-point
    gap and a box, so its boxes start at the x those rows' fields start at; the
    halves are 28 apart. */
-.gen .pairs { display: grid; grid-template-columns: calc(107px + 12px + 54px) 1fr; column-gap: 28px; row-gap: 4px; }
+.gen .pairs { display: grid; grid-template-columns: calc(109px + 12px + 54px) 1fr; column-gap: 28px; row-gap: 4px; }
 /* The count reads as part of its label, and keeps one width as it changes. */
 .gen .count { font-variant-numeric: tabular-nums; }
 /* The theme's warning colour mixed into the field's own, as the app draws
@@ -187,7 +187,7 @@ input[type=range]:focus { outline: none; }
    edge, so its short labels (Nation, Form) keep their boxes close. Live
    AATF's cross sits at the label column's right end (the longest label,
    Shirt number, is about no violation, so it never meets the cross). */
-.gen .pairs > .pair:nth-child(even) { display: grid; grid-template-columns: 72px 54px;
+.gen .pairs > .pair:nth-child(even) { display: grid; grid-template-columns: 73px 54px;
   column-gap: 9px; justify-content: start; }
 .gen .pairs > .pair:nth-child(even) .boxed { display: contents; }
 .gen .pairs > .pair:nth-child(even) > .gl { grid-column: 1; grid-row: 1; }
@@ -199,8 +199,8 @@ input[type=range]:focus { outline: none; }
    "Registered position", so every field starts at one x, and every field ending
    flush with the second half's boxes (the first half, the 28-point gap, its
    72-point label column, 9, the 54-point box), not on the panel's right edge. */
-.gen .combos { display: grid; grid-template-columns: 107px 1fr; column-gap: 12px;
-  row-gap: 4px; align-items: center; width: calc(107px + 12px + 54px + 28px + 72px + 9px + 54px); }
+.gen .combos { display: grid; grid-template-columns: 109px 1fr; column-gap: 12px;
+  row-gap: 4px; align-items: center; width: calc(109px + 12px + 54px + 28px + 73px + 9px + 54px); }
 .gen .combos > span:not(.gl), .gen .combos .gate > span { display: block; }
 .gen .combos .rate.lr { display: grid; grid-template-columns: 1fr 1fr; }
 .gen .combos .rate.lr .sel { text-align: center; }
@@ -273,9 +273,10 @@ table.grid.stats-grid td { padding: 2px 6px; }
    pitch and Player assignments, the panels stretched to the pitch's height;
    Advanced instructions over Automatic settings, beside the two lists, which
    take the middle and right columns. The settings column is as narrow as the
-   widest toggle choice allows ("Frontline Press.", 93 points with its
-   padding): two such choices a half. */
-.tacgrid { display: grid; grid-template-columns: 414px 320px minmax(0, 1fr);
+   widest toggle choice allows ("Frontline Press.", 97 points with its
+   padding, given 99: at 97 a 2x display's rounding still elided it): two
+   such choices a half. */
+.tacgrid { display: grid; grid-template-columns: 422px 320px minmax(0, 1fr);
   column-gap: 10px; row-gap: 6px; }
 .tacgrid .group { margin: 0; min-width: 0; }
 .tacgrid .tacbar { margin: 0; white-space: nowrap; }
@@ -4384,13 +4385,14 @@ function formationName(f) {
 // The label's place and size, read off the 720p capture (the pitch 320 x 382
 // there): white digits 15 px tall with a 3 px stroke, their left edge 7 px in
 // from the pitch's left, their bottom 6 px up from its bottom edge. The face
-// is Selawik Semibold, not Bold: egui's dark-mode text alpha (2c - c^2)
-// thickens a stroke's edges, and Bold drawn so is a seventh heavier than the
-// game's 3 px where Semibold matches it (worklog 0.0.1x). In egui: the
-// painter's text at the pitch rect's left-bottom, a FontId of 21 pt (digits
-// 15 pt tall) in the semibold's own family, placed 5 pt in: the face's "3"
-// carries a 2 pt left bearing, so its ink starts at the game's 7.
-const FORMATION_LABEL = { x: 5, bottom: 6, font: "21px " + FONT_LABEL };
+// is the body font's semibold, not Bold: egui's dark-mode text alpha
+// (2c - c^2) thickens a stroke's edges, and Bold drawn so is a seventh heavier
+// than the game's 3 px where Semibold matches it (worklog 0.0.1x). In egui:
+// the painter's text at the pitch rect's left-bottom, a FontId of 20.5 pt
+// (Roboto Flex's digits 15 pt tall, their stem 2.7) in the semibold's own
+// family, placed 6.5 pt in: the face's "3" carries a 0.6 pt left bearing, so
+// its ink starts at the game's 7.
+const FORMATION_LABEL = { x: 6.5, bottom: 6, font: "20.5px " + FONT_LABEL };
 // The badge's position text colour by the position's group, as the game's.
 const POS_COLOUR = pos => pos === "GK" ? "#ffde00"
   : ["CB", "LB", "RB"].includes(pos) ? "#00d2ff"
