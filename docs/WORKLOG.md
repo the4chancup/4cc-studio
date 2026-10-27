@@ -3881,6 +3881,44 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
     `5cf02863` (its mutation run: 5 caught, 1 unviable); Astra A1 (2 of 3, all test gaps)
     ends the Astra loop, its tests in rework 4; the closing SWE-2 round S3 (0 accepted, a nit
     fixed in passing) ends it; rulings `.tmp/10_0g/duck_rulings.md`. Done 2026-10-21
+- [ ] 10.0h the Music export editor's legacy-behavior audit (the maintainer, 2026-10-27: tool
+  work prepared ahead while 0.0.1's build queue is busy; `AGENTS.md` "Before a tool phase"):
+  every behavior of RigDJ v2.2.0 (`Tools_4cc/rigdio` at `ad604a1`: `rigdj.py` and what it
+  calls) compared with `plans/music_export_editor.md`, citing both sides, each row ruled
+  (match, deliberate, or a QUESTIONS entry) into the plan and DECISIONS, before the editor's
+  Acceptance section is written. Audit running (Fable, read-only, brief
+  `.tmp/10_0h/brief_rigdj_audit.md`, report `rigdj_audit.md`)
+- [ ] 10.0i 10.0f's part 2, Rigdio's player controls against `plans/music_player.md` (the
+  rows 10.0f marked "later"), ruled the same way. Queued after 10.0h
+
+### Phase 12 — Kit config editor
+
+The phase's steps are itemized when it opens; prepared ahead:
+
+- [ ] 12.0a the tool's GUI plan against Kit Manager's recovered behavior: the format and its
+  constraints were recovered by disassembly before the repository existed
+  (`spec/kit_config_editor.md` "Relationship to the old codebase"; the scripts were not kept),
+  so the audit compares `plans/kit_config_editor.md`'s GUI rows with the spec's recovered
+  controls and constraints, and re-reads the exe (`Kits/Configs/KitmanagerV4.exe`, capstone)
+  only where a GUI behavior is not in the spec. Queued
+
+### Phase 13 — Refs arranger
+
+The phase's steps are itemized when it opens; prepared ahead:
+
+- [ ] 13.0a the plan's readiness audit: `plans/refs_arranger.md` against what it relies on
+  (`aesthetics_export`'s built referee handling, FoxDen's referee hook as the plan cites it),
+  every open question listed for QUESTIONS. Queued
+
+### Phase 14 — Balls compiler
+
+The phase's steps are itemized when it opens; prepared ahead:
+
+- [ ] 14.0a the legacy-behavior audit: every behavior of the 4cc balls compiler 2.03
+  (`Tools_Mine/4cc balls compiler/4cc balls compiler 2.03`: `balls_compile.bat`, its engines'
+  scripts, `Ball.bin`'s offsets) compared with `plans/balls_compiler.md`, citing both sides,
+  each row ruled into the plan and DECISIONS. Audit running (Fable, read-only, brief
+  `.tmp/14_0a/brief_balls_audit.md`, report `balls_audit.md`)
 
 ### Phase 16 — Polish and distribution
 
