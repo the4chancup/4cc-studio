@@ -795,7 +795,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           `export_upgrader/src/messages.rs`, `save_editor/src/messages.rs`, `studio/src/main.rs`,
           `studio/tests/help_cli.rs`
     - [x] 8.6e the window opens at 1440 × 900 points, centered, fitted to a smaller monitor
-      (`plans/core/gui.md` "Shell layout", "The window's size"; the maintainer's requests of
+      (`spec/core/gui.md` "Shell layout", "The window's size"; the maintainer's requests of
       2026-10-21 and 2026-10-22), and the help window first opens at 90% of it, centered
       (`plans/core/gui.md` "Help window"), replacing its fixed 720 x 480, which a 1080p
       monitor at 125% scaling (a 768 x 432 window) cut off. Done 2026-10-23 (SWE-2):
@@ -2860,7 +2860,7 @@ briefs, review loops, gates and mutation runs as for any step.
     zoom lands (the sidekick's contradiction: `inner_rect` keeps the zoom the input was built
     with and fed back, 0.5625 for 0.75 at 960 points); egui's keyboard zoom off (DECISIONS).
     Files: `studio_core/src/shell/{window_size,mod}.rs`
-  - [ ] m2 the narrow-fallback audit, after 0.0.1s2 rewrites the Save editor's layout (the
+  - [x] m2 the narrow-fallback audit, after 0.0.1s2 rewrites the Save editor's layout (the
     maintainer, 2026-10-26: the player list is not resizable, DECISIONS "The player list keeps
     its 240 points"; with the zoom that leaves no narrower view, so the audit's candidates
     include the three columns' wrap, s3g's one-column cards and the quick actions' halves; if
@@ -2882,8 +2882,9 @@ briefs, review loops, gates and mutation runs as for any step.
     row's, the halves test, now through `expected_columns`, whose helper read the rows' width
     for the band's). Files: `studio_core/src/shell/{mod.rs,window_size/}`,
     `team_widgets/src/cards.rs`, `save_editor/src/view/{abilities,mod,team}.rs`,
-    `view/appearance/mod.rs`, `view/tests.rs`, 15 files of `view/tests/`. Open: the window
-    text and ST-WIN-01/02 to `spec/core/gui.md`
+    `view/appearance/mod.rs`, `view/tests.rs`, 15 files of `view/tests/`. The paragraphs "The
+    window's size" and "Scaling with the width" and ST-WIN-01/02 moved to `spec/core/gui.md`
+    (its first "Acceptance" block; `spec/core/README.md`'s stale keyboard zoom corrected)
   - [ ] m2b the implementation's findings (`.tmp/0_0_1m/m2_rulings.md`, brief `brief_m2b.md`):
     a player view's first frame drawn 26 points right of every later one at the design pane
     (the centring pad's widths from egui's first-show pass); `the_two_column_fit_is_the_drafts_330`

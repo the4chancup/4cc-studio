@@ -129,8 +129,10 @@ Key reasons:
 - **Cross-platform consistency**: identical GPU rendering on all platforms. No webview rendering
   differences between Windows and Linux.
 - **Native HiDPI support**: `egui-winit` applies the OS scale factor automatically (live updates
-  when dragged between monitors of different pixel densities; `devicePixelRatio` on the web), with a
-  persisted user zoom (Cmd/Ctrl + +/-/0) layered on top. No custom DPI code is needed.
+  when dragged between monitors of different pixel densities; `devicePixelRatio` on the web). The
+  zoom factor on top of it is the shell's alone, set from the window's width (`gui.md` "Shell
+  layout", "Scaling with the width"), with egui's keyboard zoom off. No custom DPI code is
+  needed.
 - **Browser deployment path**: the same Rust codebase compiles to a browser-served WASM build,
   Studio Web (see `gui.md` "Browser deployment: Studio Web"). Tauri cannot serve to browsers — its web
   frontend is coupled to the Tauri runtime.

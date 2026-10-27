@@ -10,7 +10,7 @@
 //! bar's), so a gesture's frames merge but different widgets' edits
 //! never do (`seal` runs when the pointer is up and no widget has
 //! focus). The grid is laid out at the design width: a narrower window
-//! scales the whole UI (the core plan, "Scaling with the width"), so
+//! scales the whole UI (the core spec, "Scaling with the width"), so
 //! there is no narrow fallback.
 
 use aatf::TeamView;

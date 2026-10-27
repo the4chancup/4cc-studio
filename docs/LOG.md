@@ -2674,3 +2674,4 @@ worklog passed 7,000 lines.
   words; the readme's official-list step under "Compiling"; the bundle carries VGL 27's rules file beside DBC7's.
 - **2026-10-27** — 0.0.1m2: no frame lays out under the 1280-point design width (the pass that changes the zoom is discarded);
   the Save editor's narrow-pane fallbacks removed; its view tests draw the 1224-point pane members see, not 1100.
+  The window's size, its scaling and ST-WIN-01/02 moved to `spec/core/gui.md`.

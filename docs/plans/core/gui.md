@@ -38,45 +38,9 @@ The sidebar lists the registered tools in registry order (today the Team compile
 editor, the Export upgrader), then the planned ones in parentheses here, grayed in the window
 ("Sidebar").
 
-**The window's size.** Studio opens at 1280 × 800 points, centered, not maximized.
-Points are egui's logical units, so the system's display scaling applies: at 150% the window
-covers 1920 × 1200 pixels and looks the same size it does at 100%. A fixed size, not a share of
-the monitor, because a share makes the window as wide as an ultrawide monitor is. On a monitor
-whose logical height cannot hold it with room for the taskbar and the title bar (800 points is
-over 90% of its logical height: a 1366 × 768 laptop), only the height is fitted, to 90% of the
-monitor's logical height rounded to whole points (1280 × 691 at 1366 × 768); the width stays
-1280 wherever the window, its borders included, fits the monitor's width. A monitor narrower
-than that (1280 × 720 logical: a 1080p one at 150%, rare today) gets the width that fits, and
-the views draw scaled down (below). The monitor's size is known only once the window exists
-(`ViewportInfo::monitor_size`, in points), so the window is created at 1280 × 800 and the shell
-fits and centers it on the first frame that reports the monitor's size
-(`ViewportCommand::InnerSize`, then `OuterPosition` centering the outer rectangle, title bar
-included), and never again, so a member's own resize or move holds. A window reopening at a
-remembered place ("Window size classes") is not fitted. eframe's own clamp at
-creation is not enough: it clamps to the whole monitor, under the taskbar. Where no frame
-reports the monitor's size, the window stays as created.
-
-**Scaling with the width.** A view is laid out for its window's design width: 1280 points for
-the main tools. Narrower than that, the shell scales the whole UI down with the width (egui's
-zoom factor set to the window's width over the design width, the width read in points at zoom
-1, the frame's screen rectangle times the current zoom, so the zoom does not feed back into it
-and display scaling still applies: 1440 pixels at 150% are 960 points, zoom 0.75), so every
-row keeps the arrangement it has at 1280 and nothing clips or rewraps. egui applies a new zoom
-only when the next pass begins, so the pass that finds the zoom changed is discarded and run
-again at the new zoom (`Context::request_discard`): otherwise the frame after a jump (a snap
-from 1920 points to 960) lays out once at 960 points, and the views draw a layout no other
-frame shows. No view therefore keeps a layout for a pane narrower than its design: we keep no
-fallback no member reaches, because a fallback kept "just in case" was the state the tests ran
-in instead of the design's (0.0.1m2). At or above the design width, and at any height, the zoom is 1 and
-the views reflow: wider rows spread, a shorter window scrolls or stacks as each view's height
-rules say. We scale on the width alone because the views' fixed-width rows (the Tactics pitch,
-a row of colour swatches, the tab strip) are what clips below about 900 points (measured on the
-Save editor, 2026-10-25), while height only ever needs a scroll. The zoom factor is the shell's alone: egui's keyboard
-zoom (Ctrl with plus, minus or 0) is turned off, because the width rule sets the zoom every
-frame and would undo a keyboard zoom one frame later; a member who wants larger text has the
-system's display scaling, which points follow. A member's resize stops at
-**960 × 600 points**: below 960 the scaled text drops under 75% of its size, past legible on a
-100% display.
+The window's opening size and fit, and its scaling under the design width, are built:
+`spec/core/gui.md` "Shell layout", the paragraphs "The window's size" and "Scaling with the
+width".
 
 **Window size classes.** The main tools share one window size: switching between them never
 resizes the window. A special tool, one whose use calls for another size, declares its own
@@ -92,8 +56,8 @@ reopens at the largest monitor's size: eframe's creation clamp
 monitors reopens no wider than the largest monitor once one is unplugged (it may still stand
 partly past that monitor's edge; the title-bar check below keeps it within reach). A class never used
 opens at its design size
-(1280 × 800 for the main class, a special tool's declared size), fitted and centered as
-above. A remembered place whose title bar lies on no monitor now (a second monitor
+(1280 × 800 for the main class, a special tool's declared size), fitted and centered as a
+first start is (`spec/core/gui.md` "The window's size"). A remembered place whose title bar lies on no monitor now (a second monitor
 unplugged) is dropped for the fit, so the window is never opened out of reach. `monitor_size`
 names only the window's own monitor, without its origin, and eframe 0.37 reaches winit's list
 of monitors only once the window exists (`DECISIONS.md`, "eframe 0.37 gives the shell the
@@ -385,7 +349,7 @@ Like the settings menu it is **assembled from the tools**, not written centrally
 - **Window.** An in-app egui window — non-modal and resizable, chapter tree left, rendered topic
   right, the search box above both. It first opens at 90% of Studio's window (its whole frame,
   title bar included, in whole points), centered in it, so it fits whatever size that window
-  has ("Shell layout", The window's size), rather than at a fixed size a small window cuts off. Its position and size hold while the program runs (egui
+  has (`spec/core/gui.md` "Shell layout", "The window's size"), rather than at a fixed size a small window cuts off. Its position and size hold while the program runs (egui
   keeps a window's rectangle by its id, across a close and a reopen), not across restarts: a
   settings field written at every drag's end is a settings save per move for a reader opened
   now and then. Opening it closes a shell modal (the settings menu, the About popup), which
@@ -682,7 +646,7 @@ to the table first (a new dependency, asked for first):
   desktop-colored page, with a size choice (the default, the smallest default of 1264 × 648,
   the minimum of 960 × 600, the whole monitor) and the draft controls outside it. Narrower
   than the tool's design width the simulated window scales its content down with the width,
-  as Studio does ("Shell layout", "Scaling with the width"), so a narrow size shows what a
+  as Studio does (`spec/core/gui.md` "Shell layout", "Scaling with the width"), so a narrow size shows what a
   member sees rather than a layout Studio never draws. Like Studio Web's window ("Browser deployment: Studio Web") it resizes
   from its bottom-right corner and maximizes to the page from its title bar (a button, or a
   double-click on the bar), and the bar above it reads its size live, in pixels and as a
@@ -729,7 +693,7 @@ from where the layout puts it: a neighbour's resize then dragged the moved panel
 pinned reflow, as they do in the window; a panel laid out in columns (the stats, the
 positions, a grid of fields) can be narrowed past its columns' width, and then reflows into
 fewer columns rather than stopping at its widest row (a draft aid alone: the built views never
-narrow, "Scaling with the width"). "Copy layout" puts one line per changed panel on the clipboard (the
+narrow, `spec/core/gui.md` "Scaling with the width"). "Copy layout" puts one line per changed panel on the clipboard (the
 tool, its screen or tab, the simulated window's size and the browser zoom, and each panel's
 name with its rectangle in window points before and after); the tweaks survive a reload, and
 "Reset" clears them. The string is evidence for the lead, not a layout file: the views lay out
@@ -904,26 +868,9 @@ developer's. The Team compiler's own toolbar, grid and cancellation are `TC-GUI`
 (`plans/team_compiler/README.md` "Acceptance"), the Save editor's view `SE-GUI` and the Export
 upgrader's `EU-GUI`.
 
-**Window**
+**Window** (ST-WIN-01 and ST-WIN-02 are built: `spec/core/gui.md` "Acceptance")
 
 ```
-ST-WIN-01   GIVEN a monitor of 1920 × 1080 points and the window created at 1280 × 800 inside an
-                 outer rectangle 16 points wider and 39 taller (its borders and title bar)
-            WHEN the GUI's first frame runs
-            THEN it asks for a 1280 × 800 inner size and moves the window to (312, 120.5), its
-                 outer rectangle centered on the monitor; GIVEN 1366 × 768 THEN 1280 × 691 at
-                 (35, 19); GIVEN a monitor of 1280 × 720 points THEN 1264 × 648 at (0, 16.5);
-                 and no later frame sends either; GIVEN the first frame reporting no monitor
-                 size THEN neither command, and the first frame that reports one sends both;
-                 the native window's options carry a 960 × 600 minimum inner size
-ST-WIN-02   GIVEN a main tool's view and a window 960 points wide (native pixels at 100%)
-            WHEN a frame runs
-            THEN the zoom factor is 0.75 and the view lays out 1280 points wide; GIVEN 1280 or
-                 1600 wide THEN the zoom is 1 and the view lays out at the window's width;
-                 GIVEN 1440 native pixels at 150% display scaling THEN the zoom is 0.75;
-                 GIVEN the height changed alone THEN the zoom is as before; GIVEN a frame at
-                 1920 points wide, then one at 960 THEN no pass of the second frame that
-                 reaches the screen lays the view out narrower than 1280 points
 ST-WIN-03   GIVEN two main stub tools and a special stub tool declaring a 480 × 640 size
             WHEN the active tool goes from the first main tool to the second
             THEN no size or position command is sent; WHEN it goes to the special tool THEN the

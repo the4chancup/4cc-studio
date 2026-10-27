@@ -13,6 +13,47 @@ rail) takes `.resizable(false)` beside its `exact_size`: egui's `Panel::left` an
 `Panel::right` start resizable and a pinned size does not turn that off, so the edge showed
 the resize cursor while a drag did nothing.
 
+**The window's size.** Studio opens at 1280 × 800 points, centered, not maximized.
+Points are egui's logical units, so the system's display scaling applies: at 150% the window
+covers 1920 × 1200 pixels and looks the same size it does at 100%. A fixed size, not a share of
+the monitor, because a share makes the window as wide as an ultrawide monitor is. On a monitor
+whose logical height cannot hold it with room for the taskbar and the title bar (800 points is
+over 90% of its logical height: a 1366 × 768 laptop), only the height is fitted, to 90% of the
+monitor's logical height rounded to whole points (1280 × 691 at 1366 × 768); the width stays
+1280 wherever the window, its borders included, fits the monitor's width. A monitor narrower
+than that (1280 × 720 logical: a 1080p one at 150%, rare today) gets the width that fits, and
+the views draw scaled down (below). The monitor's size is known only once the window exists
+(`ViewportInfo::monitor_size`, in points), so the window is created at 1280 × 800 and the shell
+fits and centers it on the first frame that reports the monitor's size
+(`ViewportCommand::InnerSize`, then `OuterPosition` centering the outer rectangle, title bar
+included), and never again, so a member's own resize or move holds. A window reopening at a
+remembered place (`plans/core/gui.md` "Window size classes") is not fitted. eframe's own clamp
+at creation is not enough: it clamps to the whole monitor, under the taskbar. Where no frame
+reports the monitor's size, the window stays as created.
+
+**Scaling with the width.** A view is laid out for its window's design width: 1280 points for
+the main tools. Narrower than that, the shell scales the whole UI down with the width (egui's
+zoom factor set to the window's width over the design width, the width read in points at zoom
+1, the frame's screen rectangle times the current zoom, so the zoom does not feed back into it
+and display scaling still applies: 1440 pixels at 150% are 960 points, zoom 0.75), so every
+row keeps the arrangement it has at 1280 and nothing clips or rewraps. egui applies a new zoom
+only when the next pass begins, so the pass that finds the zoom changed is discarded and run
+again at the new zoom (`Context::request_discard`): otherwise the frame after a jump (a snap
+from 1920 points to 960) lays out once at 960 points, and the views draw a layout no other
+frame shows. No view therefore keeps a layout for a pane narrower than its design: we keep no
+fallback no member reaches, because a fallback kept "just in case" was the state the tests ran
+in instead of the design's (0.0.1m2). At or above the design width, and at any height, the
+zoom is 1 and the views reflow: wider rows spread, a shorter window scrolls or stacks as each
+view's height rules say. A frame that reports no window rectangle leaves the zoom as it was.
+We scale on the width alone because the views' fixed-width rows (the Tactics pitch, a row of
+colour swatches, the tab strip) are what clips below about 900 points (measured on the Save
+editor, 2026-10-25), while height only ever needs a scroll. The zoom factor is the shell's
+alone: egui's keyboard zoom (Ctrl with plus, minus or 0) is turned off, because the width rule
+sets the zoom every frame and would undo a keyboard zoom one frame later; a member who wants
+larger text has the system's display scaling, which points follow. A member's resize stops at
+**960 × 600 points**: below 960 the scaled text drops under 75% of its size, past legible on a
+100% display.
+
 ### egui version discipline
 
 egui still ships renames and deprecations most releases (0.31 moved window options into
@@ -120,5 +161,32 @@ studio (single binary: GUI when run without args, CLI subcommand dispatch with a
 The `pause()` pattern from Blue/Red disappears entirely. The pipeline returns warnings/errors as
 data. The GUI or CLI layer decides how to present them (log panel, status-bar notices, dialogs for
 decisions, console output).
+
+### Acceptance
+
+Format and rules: `CONTRIBUTING.md` "Testing". `ST` is the shell's code; the scenarios not yet
+moved here, with the scope and harness they share, are in `plans/core/gui.md` "Acceptance".
+
+**Window**
+
+```
+ST-WIN-01   GIVEN a monitor of 1920 × 1080 points and the window created at 1280 × 800 inside an
+                 outer rectangle 16 points wider and 39 taller (its borders and title bar)
+            WHEN the GUI's first frame runs
+            THEN it asks for a 1280 × 800 inner size and moves the window to (312, 120.5), its
+                 outer rectangle centered on the monitor; GIVEN 1366 × 768 THEN 1280 × 691 at
+                 (35, 19); GIVEN a monitor of 1280 × 720 points THEN 1264 × 648 at (0, 16.5);
+                 and no later frame sends either; GIVEN the first frame reporting no monitor
+                 size THEN neither command, and the first frame that reports one sends both;
+                 the native window's options carry a 960 × 600 minimum inner size
+ST-WIN-02   GIVEN a main tool's view and a window 960 points wide (native pixels at 100%)
+            WHEN a frame runs
+            THEN the zoom factor is 0.75 and the view lays out 1280 points wide; GIVEN 1280 or
+                 1600 wide THEN the zoom is 1 and the view lays out at the window's width;
+                 GIVEN 1440 native pixels at 150% display scaling THEN the zoom is 0.75;
+                 GIVEN the height changed alone THEN the zoom is as before; GIVEN a frame at
+                 1920 points wide, then one at 960 THEN no pass of the second frame that
+                 reaches the screen lays the view out narrower than 1280 points
+```
 
 ---

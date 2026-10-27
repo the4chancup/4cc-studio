@@ -1,7 +1,7 @@
 //! The window's opening size, its one-time fit to the monitor, the place it
 //! reopens at and the zoom the views scale with under the design width (core
-//! plan, "Shell layout", "The window's size", "Scaling with the width" and
-//! "Window size classes"): the window is created at `DEFAULT_SIZE` or at the
+//! spec, "Shell layout", "The window's size" and "Scaling with the width";
+//! core plan, "Window size classes"): the window is created at `DEFAULT_SIZE` or at the
 //! remembered place, the first frame that reports the monitor's size fits and
 //! centers it once, a member's own resize or move holding after that, and a
 //! window narrower than `DEFAULT_SIZE.x` draws the whole UI scaled down with

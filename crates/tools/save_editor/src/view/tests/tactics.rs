@@ -1943,7 +1943,7 @@ fn the_view_scrolls_to_the_grids_last_control() {
     );
 }
 
-// plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
+// plans/save_editor.md "Editing UI" with `docs/spec/core/gui.md` "Shell
 // layout" (the window's 960 × 600 minimum, ST-WIN-01's last clause): the
 // minimum window lays out at the design width ("Scaling with the
 // width"), so the pane it leaves is `DEFAULT_PANE`'s width, and that pane
@@ -2033,7 +2033,7 @@ fn scroll_names_is_a_remembered_view_setting() {
     settings.set_tool("save-editor", table);
     let (ctx, _events_rx, _requests_rx) = tool_context(&dir, settings);
     // The design pane: the grid is laid out at 1280, and a narrower
-    // window scales (the core plan, "Scaling with the width"), so the
+    // window scales (the core spec, "Scaling with the width"), so the
     // checkbox sits inside the pane here (below it, the bar's content
     // runs past the clip).
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);

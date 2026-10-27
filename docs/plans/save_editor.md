@@ -178,7 +178,7 @@ all side by side.
   tactics with it: a manager who picks a team usually wants its tactics next. Picking ALL keeps
   the selection.
 - **Player list**, 240 points wide and not resizable: under the design width the window scales
-  instead of narrowing (`core/gui.md` "Shell layout", the paragraph "Scaling with the width"), so the view always has the
+  instead of narrowing (`spec/core/gui.md` "Shell layout", the paragraph "Scaling with the width"), so the view always has the
   room the 1280-point layout gives it, and a list dragged wider would only take that room back.
   Its rows stop short of the scroll bar's 10-point band, which the list reserves while it
   scrolls: egui's bar floats over the content otherwise, and its hit zone takes the marks at a
@@ -240,7 +240,7 @@ all side by side.
   after the list equals the margin after Ability stats (the room the fixed columns leave, split
   evenly rather than all at the right). At the 1280 × 800 window it fits the pane with no
   scrolling (the draft's check), and the pane is never narrower: a narrower window scales the
-  whole UI down (`core/gui.md` "Scaling with the width") and the player list keeps its 240
+  whole UI down (`spec/core/gui.md` "Scaling with the width") and the player list keeps its 240
   points, so the columns sit side by side at every size, each panel in its design's columns,
   with no wrap to keep. Column by column, each panel's title over its content and the
   panels of one column 14 points apart:
@@ -517,7 +517,7 @@ Win32 original hurt the most):
      looked at, `QUESTIONS.md`), a stored value outside them shown as its number, so the
      combo never misreports the save.
   The grid is laid out at the design width; a narrower window scales the whole UI with its
-  width (`core/gui.md` "Scaling with the width") rather than rearranging it, so the grid has
+  width (`spec/core/gui.md` "Scaling with the width") rather than rearranging it, so the grid has
   no narrow fallback. A shorter window scrolls the team view to reach its last row rather
   than squeezing it in.
 - **The pitch looks like PES 2021's own formation screen** (Edit, Teams, a team, Game Plan,
