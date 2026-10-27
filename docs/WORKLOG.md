@@ -3830,8 +3830,17 @@ briefs, review loops, gates and mutation runs as for any step.
       which 2016's formula cannot give), so PES 2021's weights differ; every player of the
       save has his abilities equal, so the stat mapping could not be tested. Marco's notes
       name PES 2021's per-role read (`FUN_1408c7580`), a cached value whose writer is not
-      found. Open: which overall the rule uses on PES 2021 (QUESTIONS "Which per-position
-      overall does the drag rule use on PES 2021?"); no new in-game run (the maintainer)
+      found. Answered (the maintainer, DECISIONS "The drag rule's overall is PES 2016's
+      formula until a version's own is measured"): PES 2016's formula wherever a version's own
+      is not measured; PES 2017, DBC7's game, measured first
+    - [ ] y4d the same check in PES 2017 (pre-Fox: cargo may run beside it), on DBC's save:
+      the rectangles' edges at a few rows (CF's first row among them) and 30+ overalls the
+      Team Sheet and the Select Position menu show against PES 2016's formula. Within 1 on
+      every point: PES 2017's drag follows the rule as is; otherwise the residuals by position
+      and ability level go to the maintainer. Brief `.tmp/0_0_1y4/brief_y4d.md`
+    - [ ] y4e the code: the rule in `team_widgets`' pitch drop (the rectangles, the band
+      default, the candidates, PES 2016's overall), on every version but PES 2017 until y4d
+      ends, with the y3 scans and y4c's points as tests
 - [ ] 0.0.1z the maintainer's look at the built app (2026-10-27 ~21:10): the app's sliders
   kept, the drafts made to match
   - [x] z1 the drafts: sliders drawn as egui's (8-point rail, 11 × 14 handle, value box), the
@@ -3964,6 +3973,23 @@ briefs, review loops, gates and mutation runs as for any step.
     pointers where 1050 were read, 24 of the new ones broken; the 19 in `docs/` repointed;
     the script lands with cm4, which fixes `save_editor`'s `view/tests/appearance.rs` pointer
     into `plans/core/gui.md` "Shell layout"
+- [ ] la the library crates audited again (the maintainer, 2026-10-27: "the library crates need
+  to be as solid foundations as they can be"): four read-only Fable audits of every lib crate
+  but `team_widgets` (brief `.tmp/lib_audit/brief.md`: each finding names its reach or is an
+  edge case, over-engineering a class of its own), 55 findings, ruled by the lead
+  (`.tmp/lib_audit/rulings.md`): 43 accepted (some conditionally, one after the cut), 12
+  rejected with a line each. The audit of `music_export` stopped at its context limit after the format core
+  (`select.rs`, `eval.rs`, `resolve.rs`, `state.rs`, `write.rs` unread; Phase 10). Rework in five slices
+  under `.tmp/lib_audit/rework_common.md`, Opus sidekicks, each reviewed and gated before it
+  lands, `mutants-diff` over the loop at its end
+  - [ ] A1 `pes_savefile`'s behavior and spec fixes (`slice_a1.md`): first Anchoring, which
+    takes a target player on PES 20/21 (24 of 24 fixture slots) where the Tactics editor
+    shows "No target"
+  - [ ] C the model stack (`slice_c.md`)
+  - [ ] B `aatf`, `pes_version`, `kit_config`, `color_tools`, `pipeline`, `vtree` (`slice_b.md`)
+  - [ ] D `dds_convert` and the containers (`slice_d.md`): first the passthrough decode
+  - [ ] A2 `pes_savefile`'s design items and `aatf`'s bare record (`slice_a2.md`), after A1
+  - [ ] after the cut: `aatf`'s nine fixture modules' repeated tests as helpers (b-3)
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming

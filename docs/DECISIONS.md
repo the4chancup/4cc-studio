@@ -12432,3 +12432,15 @@ the same kit with normal long sleeves; one drew only at the shoulder of the shor
 over it, and which fields place that one was not measured: the maintainer stopped the check as
 too long for a corner of a tool not yet built, so the editor keeps Kit Manager's behavior.
 Plan: `plans/kit_config_editor.md`, the GUI paragraph on constraint gating.
+
+## 2026-10-27 — save_editor — The drag rule's overall is PES 2016's formula until a version's own is measured; PES 2017 is measured first
+Decision: a dragged pitch player's new position follows the rule read from PES 2016's
+executable on every version, with PES 2016's per-position overall formula wherever a version's
+own is not measured. PES 2017 is measured in game before the editor's PES 2017 drag follows the
+rule.
+Why: the maintainer's answer to the question on PES 2021's overall. In PES 2021, PES 2016's
+formula gave 189 of 201 overalls within 1 and 12 off by 2, so a pick between two candidates
+within 2 of each other can differ from the game's, and reading PES 2021's own formula would
+take hours of executable analysis. PES 2017 is the game DBC7 plays, so its drag gets the same
+check PES 2021's had.
+Plan: `plans/save_editor.md` "A pitch player dropped on another".

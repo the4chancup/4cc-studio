@@ -679,12 +679,20 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   spot gives different positions depending on who is dragged and where his teammates stand (a
   dragged LMF reads AMF at a spot where a dragged CMF reads LMF; the LMF turns CMF about 11.5
   short of the nearest CMF, wherever that CMF stands), and the area the screen lights while he
-  is held is not where his position changes. The editor keeps the position, so a member
-  changes it in the player's box, rather than guess at a rule whose wrong guesses would set
-  positions silently. The rule is read from the game's code instead: PES 2016's executable,
-  the last one that is not packed, its reading then checked against the PES 2021 scans; a
-  rule that reproduces them replaces the kept position for the versions it is shown to hold
-  in, and until then the position stays. A lineup row released on the grass
+  is held is not where his position changes. A rule fitted to scans would guess, and its wrong
+  guesses would set positions silently, so the rule is read from the game's code: PES 2016's
+  executable, the last one that is not packed, then checked in PES 2021, where it reproduces
+  the four scans and the Select Position menu. Each position has a rectangle of the pitch
+  (PES 2016's tables; CF's starts at stored y 40, confirmed in PES 2021). A dropped point
+  inside the dragged player's current position's rectangle keeps it; otherwise he takes the
+  band's default (the first of CB, CMF, SS whose rectangle holds the point) or the first
+  free one of LB, RB, DMF, LMF, RMF, AMF, LWF, RWF, CF, CB, SS holding it, whichever his own
+  per-position overall rates higher, the default on a tie. His teammates' spots never enter
+  it. The overall is PES 2016's formula on every version whose own is not measured: PES
+  2021's differs from it by up to 2 (12 of 201 points read in game), so where the two
+  candidates' overalls are within 2 the editor's pick can differ from the game's. PES 2017,
+  the game DBC7 plays, is measured in game before the editor's PES 2017 drag follows the
+  rule, since a cup's own game gets first-class support. A lineup row released on the grass
   does nothing, as in the draft: a row moves players between the lists, never on the pitch.
   While a dragged starter is held over another, that one carries the selected player's corner
   brackets (`#14fbff`), drawn over everything, and the dragged marker goes to 35% opacity over

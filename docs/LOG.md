@@ -2726,3 +2726,5 @@ worklog passed 7,000 lines.
   overall formula misses PES 2021's by up to 2 (12 of 201 points), so the rule's overall on PES 2021 is a question for the maintainer.
 - **2026-10-27** — cm5: `comment-refs` is gate 7 (`just gates`, CI), widened to who-decided attributions and "the brief"; 8.19b: the drafts
   host's Remarks (a note pinned to a panel and control, Copy remarks with each state's link), checked in Chromium and Firefox.
+- **2026-10-27** — The drag rule's overall: PES 2016's formula until a version's own is measured (the maintainer); PES 2017, DBC7's game, is
+  checked in game first (y4d). The library audit's rework opens as step `la`: 55 findings, 43 accepted, five slices.

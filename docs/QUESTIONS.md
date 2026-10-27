@@ -17,19 +17,6 @@ names where the question came from so the context can be read there.
   to 2020 the first three until a look at each game's Game Plan, Automatic settings,
   Substitution says whether Very early is there. A save's stored value outside the offered
   ones still shows, as its number.
-- **Which per-position overall does the drag rule use on PES 2021?** (`WORKLOG.md` 0.0.1y4c;
-  `plans/save_editor.md` "A pitch player dropped on another"; evidence
-  `.tmp/0_0_1y4/y4c_findings.md`.) The rule read from PES 2016's executable moves a dragged
-  starter to whichever of two candidate positions his per-position overall rates higher.
-  PES 2016's overall formula is dumped; on PES 2021 it gives 189 of 201 overalls the game
-  shows within 1, and 12 off by 2, by position (registered CB +2, CMF +1, CF -1 at high
-  stats, A-rated wings -1) and by weak foot, so PES 2021's weights differ. A wrong pick
-  can happen only where the two candidates' overalls are within about 2. The ways forward:
-  PES 2016's formula as it is, a wrong pick possible in those near-ties; PES 2021's own
-  formula read from its executable (Marco's notes name the per-role read, `FUN_1408c7580`,
-  a cached value whose writer is still to find: a Ghidra analysis of the 458 MB exe, hours
-  of CPU); or the drop keeps the starter's position until one of the two is settled, as
-  it does today. PES 2017 to 2020 have no measurement at all.
 
 ## Draft looks
 
