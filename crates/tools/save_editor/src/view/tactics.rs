@@ -159,7 +159,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // teams nor saves.
     ui.push_id((*generation, team_id), |ui| {
         let mut edited = team.tactics.clone();
-        let mut changed = [false; 7];
+        let mut changed = [false; 6];
         // The draft's `.tacgrid`: the settings column's 414, the pitch's
         // own width (its canvas and border), the assignments' the rest —
         // a cell a child `Ui` like the old columns', each row's height
@@ -230,7 +230,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             right - assigns_left,
             row2_bottom,
         );
-        changed[3] = tactics::player_assignments(&mut assigns_ui, &mut edited, tactics, &roster);
+        tactics::player_assignments(&mut assigns_ui, &edited, tactics, &roster);
         let row3_top = [
             settings_ui.min_rect().max.y,
             pitch_ui.min_rect().max.y,
@@ -245,7 +245,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         // lists drawn first so the stack's cell can end at their bottom,
         // which is what `#tac-auto`'s `flex: 1` reaches.
         let mut lists_ui = cell(ui, pitch_left, row3_top, right - pitch_left, bottom);
-        changed[6] = pitch::lineup(
+        changed[5] = pitch::lineup(
             &mut lists_ui,
             "lineup",
             version,
@@ -255,10 +255,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         );
         let lists_bottom = lists_ui.min_rect().max.y;
         let mut stack_ui = cell(ui, top_left.x, row3_top, SETTINGS_WIDTH, lists_bottom);
-        changed[4] =
+        changed[3] =
             tactics::advanced_instructions(&mut stack_ui, version, &mut edited, tactics, &roster);
         stack_ui.add_space(ROW_GAP);
-        changed[5] = tactics::automatic_settings(&mut stack_ui, version, &mut edited);
+        changed[4] = tactics::automatic_settings(&mut stack_ui, version, &mut edited);
 
         // One advance covering the grid's block (the tallest cell).
         let height = stack_ui.min_rect().max.y.max(lists_ui.min_rect().max.y) - top_left.y;
@@ -273,7 +273,6 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             "preset bar",
             "formation settings",
             "pitch",
-            "player assignments",
             "advanced instructions",
             "automatic settings",
             "lineup",

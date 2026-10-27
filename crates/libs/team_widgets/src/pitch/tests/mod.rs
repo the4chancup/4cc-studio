@@ -53,8 +53,7 @@ impl Headless {
     }
 
     /// One frame of `pitch` over `tactics`, `view` and `roster`: the
-    /// frame's AccessKit nodes and whether it changed `tactics`. The
-    /// armed mode's note heads the frame, as the host draws it.
+    /// frame's AccessKit nodes and whether it changed `tactics`.
     pub(crate) fn pitch(
         &mut self,
         version: PesVersion,

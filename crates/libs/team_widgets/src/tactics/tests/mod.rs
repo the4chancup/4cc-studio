@@ -234,13 +234,20 @@ fn fields_the_version_lacks_draw_disabled_with_their_versions() {
         Some("PES 17+".to_string()),
         "Attack/defence levels' hover"
     );
-    // And no combo where the instruction grid would be: the only one
-    // on screen is Automatic settings' substitution, below the line.
-    assert!(
-        !nodes.iter().any(|node| {
-            node.role() == Role::ComboBox && node.bounds().is_some_and(|b| b.y0 < line.y0)
-        }),
-        "no instruction combo on a version with no table"
+    // And no instruction combo anywhere: the frame's only combo is
+    // Automatic settings' Substitution.
+    let combos: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| node.role() == Role::ComboBox)
+        .collect();
+    let [combo] = combos.as_slice() else {
+        panic!("the Substitution combo alone, got {combos:?}")
+    };
+    let substitution = control_right_of(&nodes, "Substitution", Role::ComboBox);
+    assert_eq!(
+        combo.bounds(),
+        substitution.bounds(),
+        "the frame's only combo is Substitution's"
     );
 
     // PES 15: Fluid formation is disabled with "PES 16+".
@@ -273,10 +280,7 @@ fn the_controls_edit_the_preset_on_screen() {
     let mut window = Headless::sized(800.0, 900.0);
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
-    let mut view = TacticsView {
-        preset: 1,
-        ..TacticsView::default()
-    };
+    let mut view = TacticsView::default();
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
     let presets_before = tactics.presets.clone();
@@ -853,7 +857,32 @@ fn the_settings_are_six_even_rows_of_pairs() {
     let mut view = TacticsView::default();
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
-    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let (nodes, shapes) = window.frame(vec![], |ui| {
+        tactics_settings(ui, "tactics", version, &mut tactics, &mut view, &roster);
+    });
+
+    // The panel's box: the smallest stroked rect holding the heading's
+    // centre; its inner edge is the labels' left x (a uniform margin).
+    let heading = formation_label_bounds(&nodes, "Formation settings");
+    let heading_centre = egui::pos2(
+        ((heading.x0 + heading.x1) / 2.0) as f32,
+        ((heading.y0 + heading.y1) / 2.0) as f32,
+    );
+    let group = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape)
+                if !shape.stroke.is_empty() && shape.rect.contains(heading_centre) =>
+            {
+                Some(shape.rect)
+            }
+            _ => None,
+        })
+        .min_by(|a, b| a.area().partial_cmp(&b.area()).expect("areas"))
+        .expect("the Formation settings box");
+    let inner =
+        group.shrink(formation_label_bounds(&nodes, "Attacking style").x0 as f32 - group.min.x);
+    let half = (inner.width() - 16.0) / 2.0;
 
     let pairs: [(&str, &str); 6] = [
         ("Attacking style", "Defensive style"),
@@ -874,20 +903,37 @@ fn the_settings_are_six_even_rows_of_pairs() {
             (left_bounds.y0 - right_bounds.y0).abs() < 0.5,
             "{left} and {right} share a row's y"
         );
-        ys.push(left_bounds.y0);
+        ys.push((left, left_bounds.y0));
+        // The halves equal and the plan's 16 apart.
         assert!(
-            right_bounds.x0 - left_bounds.x0 > 16.0,
-            "{right} is the pair's right half"
+            (right_bounds.x0 - left_bounds.x0 - (f64::from(half) + 16.0)).abs() <= 0.5,
+            "{right} is the pair's right half, 16 past the left's ({:?} vs {:?})",
+            right_bounds.x0,
+            left_bounds.x0
+        );
+    }
+    for row in ys.windows(2) {
+        assert!(
+            row[1].1 > row[0].1,
+            "the rows run in the listed order ({} above {})",
+            row[0].0,
+            row[1].0
         );
     }
     assert_eq!(xs.len(), 2, "the twelve labels take two columns");
-    let pitch = (ys[5] - ys[0]) / 5.0;
+    let pitch = (ys[5].1 - ys[0].1) / 5.0;
     for row in ys.windows(2) {
         assert!(
-            (row[1] - row[0] - pitch).abs() < 0.5,
+            (row[1].1 - row[0].1 - pitch).abs() < 0.5,
             "the rows are evenly spaced"
         );
     }
+    assert!(
+        (ys[5].1 + pitch - f64::from(inner.max.y)).abs() <= 0.5,
+        "the last row's cell ends at the box's inner bottom ({} vs {:?})",
+        ys[5].1 + pitch,
+        inner.max.y
+    );
     // Each label's control sits in the 24-point box 2 under it, centred:
     // the control's vertical centre is 14 under the label's bottom.
     let half = settings_half(&nodes);
@@ -1078,7 +1124,8 @@ fn the_numbers_are_three_choice_toggles() {
 }
 
 // The armed mode draws no note (the plan's "No note explains the armed
-// mode"): nothing labeled while join is armed but the armed chips.
+// mode"): while join is armed the Player assignments panel holds no
+// label beyond its own rows' and the chips' — the armed chips say it.
 #[test]
 fn the_armed_mode_draws_no_note() {
     let mut window = Headless::sized(800.0, 1200.0);
@@ -1088,25 +1135,44 @@ fn the_armed_mode_draws_no_note() {
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
 
-    // Arm join: no note, no Cancel or Done — the armed chips say it.
+    // The Player assignments panel's texts: its labels' values and the
+    // chips' labels, sorted (the panel's region is its heading down to
+    // Automatic settings').
+    let panel_text = |nodes: &[accesskit::Node]| {
+        let heading_y = |label: &str| {
+            nodes
+                .iter()
+                .find(|node| node.role() == Role::Label && node.value() == Some(label))
+                .and_then(|node| node.bounds())
+                .unwrap_or_else(|| panic!("no {label:?} heading"))
+                .y0
+        };
+        let (top, bottom) = (
+            heading_y("Player assignments"),
+            heading_y("Automatic settings"),
+        );
+        let mut texts: Vec<String> = nodes
+            .iter()
+            .filter(|node| node.bounds().is_some_and(|b| b.y0 >= top && b.y0 < bottom))
+            .filter_map(|node| match node.role() {
+                Role::Label => node.value().map(str::to_owned),
+                Role::Button => node.label().map(str::to_owned),
+                _ => None,
+            })
+            .collect();
+        texts.sort();
+        texts
+    };
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let unarmed = panel_text(&nodes);
+
+    // Arm join: the panel's texts are the unarmed frame's, exactly.
     view.assign = Some(Assign::Join);
     let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-    for label in ["Cancel", "Done"] {
-        assert!(
-            !nodes
-                .iter()
-                .any(|node| node.role() == Role::Button && node.label() == Some(label)),
-            "no {label} button while armed"
-        );
-    }
-    assert!(
-        !nodes.iter().any(|node| {
-            node.role() == Role::Label
-                && node
-                    .value()
-                    .is_some_and(|value| value.starts_with("Click "))
-        }),
-        "no note's text while armed"
+    assert_eq!(
+        panel_text(&nodes),
+        unarmed,
+        "armed: no label in the panel beyond the chips' own"
     );
 }
 
@@ -1196,6 +1262,37 @@ fn the_preset_fields_terms() {
             "Preset 2 · Fluid formation".to_owned(),
             "off".to_owned(),
             "on".to_owned()
+        )
+    );
+    // The two numbers word as their three-choice toggles do.
+    assert_eq!(
+        term(
+            TacticsField::Preset {
+                preset: 0,
+                field: PresetField::NumbersInAttack,
+            },
+            1,
+            3
+        ),
+        (
+            "Preset 1 · Numbers in attack".to_owned(),
+            "Few".to_owned(),
+            "Many".to_owned()
+        )
+    );
+    assert_eq!(
+        term(
+            TacticsField::Preset {
+                preset: 0,
+                field: PresetField::NumbersInDefence,
+            },
+            2,
+            0
+        ),
+        (
+            "Preset 1 · Numbers in defence".to_owned(),
+            "Medium".to_owned(),
+            "0".to_owned()
         )
     );
 }
@@ -1372,6 +1469,10 @@ fn the_instructions_terms() {
         .as_mut()
         .expect("PES 21 has instructions")[0]
         .instruction = encode(Instruction::Defensive);
+    // A non-identity eleven: the byte is a roster slot, so an impl
+    // printing it for the lineup index would look right on the
+    // fixture's [0, 1, ...] (slot 5 sits at index 9 now).
+    tactics.starting_eleven.swap(5, 9);
     let rows = named_roster();
     let roster = roster_rows(&rows);
     let term = |field, old, new| {
@@ -1432,7 +1533,7 @@ fn the_instructions_terms() {
         ),
         (
             "Preset 1 · Attack 1 · Target".to_owned(),
-            "6 Player 06".to_owned(),
+            "Player 06".to_owned(),
             "Unassigned".to_owned()
         )
     );
@@ -1451,7 +1552,7 @@ fn the_instructions_terms() {
         (
             "Preset 1 · Defence 1 · Target".to_owned(),
             "Player 21".to_owned(),
-            "6 Player 06".to_owned()
+            "Player 06".to_owned()
         )
     );
 }
@@ -1477,7 +1578,11 @@ fn the_rest_of_the_terms() {
     };
     assert_eq!(
         term(TacticsField::AutoSubstitution, 0, 3),
-        ("Substitution".to_owned(), "0".to_owned(), "3".to_owned())
+        (
+            "Substitution".to_owned(),
+            "Off".to_owned(),
+            "Very early".to_owned()
+        )
     );
     assert_eq!(
         term(TacticsField::AutoAttackDefenceLevels, 0, 1),
@@ -1507,8 +1612,8 @@ fn the_rest_of_the_terms() {
         term(TacticsField::PlayerToJoinAttack(0), 3, 255),
         (
             "Join attack · 1".to_owned(),
-            "Player".to_owned(),
-            "none".to_owned()
+            "Player 04".to_owned(),
+            "Unassigned".to_owned()
         )
     );
     assert_eq!(
@@ -1609,7 +1714,15 @@ fn the_target_terms_read_the_instruction_in_force_on_each_side() {
             .as_mut()
             .expect("PES 21 has instructions");
         defence[0].instruction = encode(Instruction::CounterTarget);
+        // A non-identity eleven: the byte is a roster slot, so an impl
+        // printing it for the lineup index would look right on the
+        // fixture's [0, 1, ...].
+        tactics.starting_eleven.swap(5, 9);
         defence[0].player = tactics.starting_eleven[5];
+        assert_ne!(
+            tactics.starting_eleven[5], 5,
+            "premise: slot and index differ"
+        );
     }
     // The tab's own text for the same tactics, drawn — each chip's
     // label under its combo.
@@ -1629,8 +1742,8 @@ fn the_target_terms_read_the_instruction_in_force_on_each_side() {
     let starter_text = chip_text(1, 0);
     assert_eq!(
         starter_text,
-        format!("6 {}", name_at(&roster, tactics.starting_eleven[5])),
-        "the tab's own text"
+        name_at(&roster, tactics.starting_eleven[5]).to_owned(),
+        "the tab's own text: the name alone"
     );
 
     // The row's sides read the same words for the same instruction and
@@ -1717,6 +1830,10 @@ fn each_side_names_its_slots_through_its_own_roster() {
         .expect("PES 21 has instructions")[0]
         .instruction =
         instruction::encode(version, Instruction::CounterTarget).expect("PES 21 stores it");
+    // A non-identity eleven: the byte is a roster slot, so an impl
+    // printing it for the lineup index would look right on the
+    // fixture's [0, 1, ...].
+    tactics.starting_eleven.swap(5, 9);
     let old_rows: Vec<(String, String, Option<u8>)> = (0..32)
         .map(|i| (format!("Old {:02}", i + 1), String::new(), None))
         .collect();
@@ -1750,7 +1867,7 @@ fn each_side_names_its_slots_through_its_own_roster() {
     );
     assert_eq!(
         sides(TacticsField::PlayerToJoinAttack(0), 4, 5),
-        pair("Old", "New")
+        pair("Old 05", "New 06")
     );
     assert_eq!(sides(TacticsField::Captain, 0, 1), pair("Old 01", "New 02"));
     assert_eq!(
@@ -1770,8 +1887,8 @@ fn each_side_names_its_slots_through_its_own_roster() {
             u32::from(starter),
         ),
         (
-            format!("6 {}", old_rows[usize::from(starter)].0),
-            format!("6 {}", new_rows[usize::from(starter)].0)
+            old_rows[usize::from(starter)].0.clone(),
+            new_rows[usize::from(starter)].0.clone()
         )
     );
     // The labels name the slot's starter as the tab shows him now.
@@ -1847,6 +1964,40 @@ fn the_automatic_settings_are_a_two_column_grid() {
     assert!(
         (centres[1] - centres[0] - 24.0).abs() <= 0.5,
         "the rows' centres are 24 apart ({centres:?})"
+    );
+
+    // The `.tacauto` pairing: Preset change on Substitution's row,
+    // Offside trap on Attack/defence levels'.
+    let centre_y = |node: &accesskit::Node| {
+        let b = node.bounds().expect("bounds");
+        (b.y0 + b.y1) / 2.0
+    };
+    let combo_centre = centre_y(combo);
+    let [preset_change, offside_trap, levels] = [
+        entry(&nodes, Role::CheckBox, "Preset change"),
+        entry(&nodes, Role::CheckBox, "Offside trap"),
+        entry(&nodes, Role::CheckBox, "Attack/defence levels"),
+    ];
+    assert!(
+        (centre_y(preset_change) - combo_centre).abs() <= 0.5,
+        "Preset change shares Substitution's row"
+    );
+    assert!(
+        (centre_y(offside_trap) - centre_y(levels)).abs() <= 0.5,
+        "Offside trap shares Attack/defence levels' row"
+    );
+    let x0 = |node: &accesskit::Node| node.bounds().expect("bounds").x0;
+    assert!(
+        (x0(preset_change) - xs[1]).abs() <= 1.0,
+        "Preset change is Substitution's row's right column"
+    );
+    assert!(
+        (x0(offside_trap) - xs[0]).abs() <= 1.0,
+        "Offside trap is the second row's left column"
+    );
+    assert!(
+        (x0(levels) - xs[1]).abs() <= 1.0,
+        "Attack/defence levels is its right"
     );
 }
 
@@ -1957,6 +2108,24 @@ fn an_out_of_range_substitution_shows_its_number_and_stays() {
     let (_, changed) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
     assert!(!changed, "a frame with no gesture writes nothing");
     assert_eq!(tactics.auto.substitution, Some(7), "the stored 7 stays");
+
+    // The appended "stored as its number" row's popup index is no byte:
+    // picking it writes the stored byte again — an impl writing the
+    // index would land 4. The popup's items go through AccessKit, as
+    // the instruction combos' do.
+    let (_, _) = click(
+        &mut window,
+        combo,
+        version,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
+    let item = entry_id(&ids, Role::Button, "7");
+    let (_, changed) = window.action_click_tactics(item, version, &mut tactics, &mut view, &roster);
+    assert!(!changed, "picking the stored row writes nothing");
+    assert_eq!(tactics.auto.substitution, Some(7), "the byte stays");
 }
 
 // A record that stores no substitution byte keeps the disabled cell

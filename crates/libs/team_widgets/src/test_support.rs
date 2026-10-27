@@ -42,7 +42,10 @@ pub(crate) fn tactics_settings(
         // the frame the first reports a change.
         cell(ui, |ui| formation_settings(ui, tactics, view))
             | advanced_instructions(ui, version, tactics, view, roster)
-            | cell(ui, |ui| player_assignments(ui, tactics, view, roster))
+            | cell(ui, |ui| {
+                player_assignments(ui, tactics, view, roster);
+                false
+            })
             | automatic_settings(ui, version, tactics)
     })
     .inner

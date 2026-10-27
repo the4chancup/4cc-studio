@@ -3157,6 +3157,15 @@ briefs, review loops, gates and mutation runs as for any step.
       functions, in place of index arithmetic. Open: the built window. Files:
       `save_editor/src/view/{team,player_list,mod,terms}.rs`, `view/tests/{team,list}.rs`,
       `help/{02_window,05_team}.md`
+    - [x] s5's review, SWE-2 round S1 (ten parts, `.tmp/0_0_1s/tac_rulings.md`): 29 accepted,
+      reworked 2026-10-27 (SWE-2, one session, `brief_0_0_1s5_r1.md`): any button's press closes
+      the popover, the keeper's release is his click, the popover anchored to the canvas (it
+      scrolls with the pitch), out-of-range X/Y kept on draw, the released marker painted at
+      its drop on the release frame, the target chip and the changes rows worded as the
+      controls (name alone, the numbers' and Substitution's labels), Scroll names kept across
+      an open, `player_assignments` read-only; tests on non-identity elevens, off-grid drops,
+      the five copy/swap ops undone in turn. Lead: the never-written "player assignments" undo
+      key dropped (`view/tactics.rs`). Next: round S2 over the rework
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";

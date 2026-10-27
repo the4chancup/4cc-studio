@@ -1146,40 +1146,6 @@ fn marker_point(
         .find(|point| free(*point))
 }
 
-/// A point on `canvas` covered by no marker of `players` (a grass drop:
-/// the first free of the grid scan).
-fn grass_point(canvas: accesskit::Rect, players: &[FormationSlot; 11]) -> egui::Pos2 {
-    let covered = |x: f32, y: f32| {
-        players
-            .iter()
-            .any(|slot| marker_rect(canvas, *slot).contains(egui::pos2(x, y)))
-    };
-    for x in 0..=104_u8 {
-        for y in 0..=48_u8 {
-            let (px, py) = (
-                canvas.x0 as f32 + 12.8 + f32::from(x) * 2.827,
-                canvas.y0 as f32 + 363.8 - f32::from(y) * 6.793,
-            );
-            if !covered(px, py) {
-                return egui::pos2(px, py);
-            }
-        }
-    }
-    panic!("no free point on the canvas")
-}
-
-/// `pos` inside `canvas` snapped to the stored grid (the widget's snap:
-/// the nearest unit through the spot mapping, clamped).
-fn snap(canvas: accesskit::Rect, pos: egui::Pos2) -> (u8, u8) {
-    let x = ((pos.x - canvas.x0 as f32 - 12.8) / 2.827)
-        .round()
-        .clamp(0.0, 104.0) as u8;
-    let y = ((363.8 - (pos.y - canvas.y0 as f32)) / 6.793)
-        .round()
-        .clamp(0.0, 48.0) as u8;
-    (x, y)
-}
-
 /// A click at `pos` (press on one frame, release on the next): the
 /// release frame's nodes.
 fn click_at(window: &mut Headless, pos: egui::Pos2, view: &mut SaveView) -> Vec<accesskit::Node> {

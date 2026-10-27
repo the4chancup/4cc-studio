@@ -44,9 +44,9 @@ pub(crate) enum LineupDrag {
 }
 
 /// The canvas' size: the screen's own pitch drawn at its 720p capture's
-/// scale. Public so a host's column layout can give the pitch its fixed
-/// width rather than measuring it back.
-pub const PITCH: egui::Vec2 = egui::vec2(320.0, 384.0);
+/// scale (the widget allocates `PITCH_BOX`; the tests read this one).
+#[cfg(test)]
+pub(crate) const PITCH: egui::Vec2 = egui::vec2(320.0, 384.0);
 /// The widget's whole extent: `PITCH` plus the draft `.pitch`'s 1 px
 /// border a side (the plan's "386 points with its border").
 pub const PITCH_BOX: egui::Vec2 = egui::vec2(322.0, 386.0);
@@ -285,6 +285,12 @@ pub fn pitch(
             // nothing.
             Some(_) | None => {}
         }
+        // The paint pass reads the written record: the spots are
+        // recomputed after the drop is written, so a released marker
+        // paints at his drop point on this very frame.
+        let players = tactics.presets[view.preset.min(2)].formations[view.formation.min(2)].players;
+        let centres = players.map(|slot| clamp_centre(badge_centre(canvas.min, slot), canvas));
+        let order = draw_order(&centres);
         // Painted top of the canvas down (a lower marker covers the one
         // above it), the dragged one last — the keeper's `dragged` is
         // skipped: his slot is fixed, he is painted at his spot, never
@@ -433,7 +439,7 @@ pub fn pitch(
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_secs_f32(still_for));
         }
-        slot_popover(ui, tactics, view, roster);
+        slot_popover(ui, canvas, tactics, view, roster);
         *tactics != before
     })
     .inner
@@ -682,9 +688,10 @@ fn paint_pitch(painter: &egui::Painter, canvas: egui::Rect) {
 /// One marker (the draft's chip grown to the screen's marker): the
 /// slot's position over the starter's name, its AccessKit node a button
 /// labeled with both. The keeper's slot (position 0) senses like the
-/// others but sets no drag payload, so a press-drag-release on him goes
-/// nowhere; he still clicks. A click serves the armed mode when one is
-/// armed, else opens the slot's popover. The answer is the marker's
+/// others but sets no drag payload, so his marker never moves — and his
+/// release is his click however far the pointer moved (the draft's
+/// `d.gk`). A click serves the armed mode when one is armed, else opens
+/// the slot's popover. The answer is the marker's
 /// response, for the caller's drop check; `paint_marker` draws it.
 fn marker(
     ui: &mut egui::Ui,
@@ -716,7 +723,10 @@ fn marker(
     if !keeper {
         response.dnd_set_drag_payload(LineupDrag::Marker(spot.index));
     }
-    if response.clicked() {
+    // The keeper's release is his click however far the pointer moved:
+    // his marker never moves (the draft's `d.gk` never sets `moved`), so
+    // a dragged press on him is no drag.
+    if response.clicked() || (keeper && response.drag_stopped()) {
         match view.assign {
             Some(assign) => assign.write(version, tactics, view, spot.index),
             None => {
@@ -725,7 +735,7 @@ fn marker(
                     preset: view.preset,
                     formation: view.formation,
                     slot: spot.index,
-                    at: marker_rect(spot.centre, canvas).left_bottom(),
+                    at: marker_rect(spot.centre, canvas).left_bottom() - canvas.min,
                 });
             }
         }

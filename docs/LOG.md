@@ -2625,3 +2625,5 @@ worklog passed 7,000 lines.
   swaps differ: a drag swaps two slots in one formation, select-then-select the players in every preset; the draft's drop follows the drag (0.0.1x x2, 0.0.1y).
 - **2026-10-27** — The Tactics pitch names its formation in the corner as the game's screen does, counted by the positions grid's rows and
   set in Selawik Semibold, whose stroke matches the game's label; plan, SE-GUI-39 and the draft on main (0.0.1x x3).
+- **2026-10-27** — Round S1's 29 accepted findings over the Tactics editor reworked: the popover follows the pitch and closes on any
+  press, the keeper's release opens his box, the changes list words values as the controls (0.0.1s5).

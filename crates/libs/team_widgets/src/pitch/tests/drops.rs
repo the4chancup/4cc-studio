@@ -21,11 +21,36 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     let index = 4;
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &formation.players);
     let from = marker_point(&nodes, &formation.players, index);
-    let onto = grass_point(canvas, &formation.players, egui::Rect::NOTHING);
-    let (x, y) = snap(onto, canvas.min);
+    // An off-grid drop, as every real one is: the release lands
+    // `+vec2(1.6, -3.5)` past a free grid point — 0.57 and 0.52 of a
+    // unit, so the written unit is the rounded (x + 1, y + 1), which a
+    // `.floor()` snap would read (x, y). The release point itself stays
+    // on the canvas and inside no other marker (another's would claim
+    // the drop for a swap).
     let slot = formation.players[index];
-    assert_ne!((slot.x, slot.y), (x, y), "premise: a real move");
+    let (x, y, onto) = (0..=GRID_X)
+        .flat_map(|x| (0..=GRID_Y).map(move |y| (x, y)))
+        .map(|(x, y)| {
+            (
+                x,
+                y,
+                badge_centre(canvas.min, FormationSlot { position: 1, x, y })
+                    + egui::vec2(1.6, -3.5),
+            )
+        })
+        .find(|(x, y, point)| {
+            *x < GRID_X
+                && *y < GRID_Y
+                && canvas.contains(*point)
+                && (*x + 1 != slot.x || *y + 1 != slot.y)
+                && centres.iter().enumerate().all(|(other, centre)| {
+                    other == index || !marker_rect(*centre, canvas).contains(*point)
+                })
+        })
+        .map(|(x, y, point)| (x + 1, y + 1, point))
+        .expect("an off-grid point free of other markers");
 
     let changed = window.drag_pitch(
         from,
@@ -203,7 +228,7 @@ fn a_marker_released_on_his_own_marker_moves() {
 // plan's "a press or a drop hits the marker drawn on top" and "The
 // goalkeeper's slot is fixed"): he senses click-and-drag like the
 // others so egui's hit test gives him both hits — a press-drag-release
-// on him moves neither and clicks nothing.
+// on him moves neither and writes nothing; his release is his click.
 #[test]
 fn a_press_on_the_keeper_over_another_marker_moves_neither() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -252,11 +277,17 @@ fn a_press_on_the_keeper_over_another_marker_moves_neither() {
     );
     assert!(!changed, "neither marker moves");
     assert_eq!(tactics, before, "and nothing wrote");
-    assert_eq!(view.popover, None, "a dragged press is not a click");
+    // His marker never moves, so the release is his click: the popover.
+    assert_eq!(
+        view.popover.map(|open| open.slot),
+        Some(keeper),
+        "the release is the keeper's click"
+    );
 }
 
-// The plan's "The goalkeeper's slot is fixed": his marker clicks but
-// is no drag source, so a press-drag-release on it writes nothing.
+// The plan's "The goalkeeper's slot is fixed": his marker is no drag
+// source, so a press-drag-release on it writes nothing — his release is
+// his click, which opens the popover.
 #[test]
 fn the_keepers_marker_cannot_be_dragged() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -286,7 +317,12 @@ fn the_keepers_marker_cannot_be_dragged() {
     );
     assert!(!changed, "the keeper's spot is fixed");
     assert_eq!(tactics, before, "and nothing wrote");
-    assert_eq!(view.popover, None, "a dragged press is not a click");
+    // His marker never moves, so the release is his click: the popover.
+    assert_eq!(
+        view.popover.map(|open| open.slot),
+        Some(keeper),
+        "the release is the keeper's click"
+    );
 }
 
 // The widget's contract (the plan's "`libs/team_widgets`"): an idle

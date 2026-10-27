@@ -581,40 +581,33 @@ pub fn advanced_instructions(
     view: &mut TacticsView,
     roster: &[RosterRow<'_>],
 ) -> bool {
-    let TeamTactics {
-        presets,
-        starting_eleven,
-        ..
-    } = tactics;
-    let preset = &mut presets[view.preset.min(2)];
+    let preset = &mut tactics.presets[view.preset.min(2)];
     let before = preset.clone();
     panel(ui, "Advanced instructions", |ui| {
-        instructions::instruction_table(ui, version, preset, starting_eleven, view, roster);
+        instructions::instruction_table(ui, version, preset, view, roster);
     });
     *preset != before
 }
 
 /// The "Player assignments" panel (the draft's `#tac-side` group): the
 /// set-piece takers', the captain's and the join-attack chips
-/// (`assignments::player_assignments`). They arm `view`'s mode, never
-/// write the record — the answer is `true` only when `tactics` changed
-/// this frame.
+/// (`assignments::player_assignments`). They arm `view`'s mode and can
+/// never write the record.
 pub fn player_assignments(
     ui: &mut egui::Ui,
-    tactics: &mut TeamTactics,
+    tactics: &TeamTactics,
     view: &mut TacticsView,
     roster: &[RosterRow<'_>],
-) -> bool {
-    let TeamTactics {
-        set_pieces,
-        players_to_join_attack,
-        ..
-    } = tactics;
-    let before = (set_pieces.clone(), *players_to_join_attack);
+) {
     panel(ui, "Player assignments", |ui| {
-        assignments::player_assignments(ui, set_pieces, players_to_join_attack, view, roster);
+        assignments::player_assignments(
+            ui,
+            &tactics.set_pieces,
+            &tactics.players_to_join_attack,
+            view,
+            roster,
+        );
     });
-    (tactics.set_pieces.clone(), tactics.players_to_join_attack) != before
 }
 
 /// The "Automatic settings" panel (the draft's `#tac-auto` group over
@@ -715,6 +708,19 @@ fn auto_row(
     });
 }
 
+/// The Substitution combo's offered choices (the draft's list): Off,
+/// Very late and Flexible, plus Very early on the versions measured to
+/// hold it (PES 2017 and 2021). `tactics_term` words the stored value
+/// the same way, so the row and the combo cannot drift.
+fn substitution_choices(version: PesVersion) -> Vec<(u8, &'static str)> {
+    [(0, "Off"), (1, "Very late"), (2, "Flexible")]
+        .into_iter()
+        .chain(
+            matches!(version, PesVersion::Pes17 | PesVersion::Pes21).then_some((3, "Very early")),
+        )
+        .collect()
+}
+
 /// The Substitution cell (the draft's `subs` row): the label, then the
 /// version's combo filling the rest of the cell — Off, Very late and
 /// Flexible, plus Very early on the versions measured to hold it (PES
@@ -725,12 +731,8 @@ fn substitution_cell(ui: &mut egui::Ui, version: PesVersion, substitution: &mut 
     ui.label(SUBSTITUTION_LABEL);
     match substitution {
         Some(stored) => {
-            let mut choices: Vec<(u8, String)> = [(0, "Off"), (1, "Very late"), (2, "Flexible")]
+            let mut choices: Vec<(u8, String)> = substitution_choices(version)
                 .into_iter()
-                .chain(
-                    matches!(version, PesVersion::Pes17 | PesVersion::Pes21)
-                        .then_some((3, "Very early")),
-                )
                 .map(|(value, label)| (value, label.to_owned()))
                 .collect();
             // A stored value outside the offered ones is offered as its
@@ -913,13 +915,11 @@ pub fn tactics_term(
                     instructions::target_text(
                         instructions::instruction_at(version, old_tactics, preset, side, index),
                         byte(old),
-                        &old_tactics.starting_eleven,
                         old_roster,
                     ),
                     instructions::target_text(
                         instructions::instruction_at(version, new_tactics, preset, side, index),
                         byte(new),
-                        &new_tactics.starting_eleven,
                         new_roster,
                     ),
                 ),
@@ -957,11 +957,16 @@ pub fn tactics_term(
             role_holder(old_roster, byte(old)),
             role_holder(new_roster, byte(new)),
         ),
-        TacticsField::AutoSubstitution => (
-            SUBSTITUTION_LABEL.to_owned(),
-            old.to_string(),
-            new.to_string(),
-        ),
+        TacticsField::AutoSubstitution => {
+            let value = |stored: u32| {
+                substitution_choices(version)
+                    .iter()
+                    .find(|(value, _)| u32::from(*value) == stored)
+                    .map(|(_, label)| (*label).to_owned())
+                    .unwrap_or_else(|| stored.to_string())
+            };
+            (SUBSTITUTION_LABEL.to_owned(), value(old), value(new))
+        }
         TacticsField::AutoOffsideTrap => (
             OFFSIDE_TRAP_LABEL.to_owned(),
             on_off(old).to_owned(),
@@ -989,8 +994,8 @@ pub fn tactics_term(
         ),
         TacticsField::PlayerToJoinAttack(index) => (
             format!("Join attack · {}", index + 1),
-            join_text(old_roster, byte(old)),
-            join_text(new_roster, byte(new)),
+            role_holder(old_roster, byte(old)),
+            role_holder(new_roster, byte(new)),
         ),
     }
 }
@@ -1016,7 +1021,9 @@ fn preset_label(field: PresetField) -> &'static str {
 }
 
 /// `stored` as the preset field's control shows it: a style pair's text,
-/// "off"/"on" for the fluid switch, the number else.
+/// "off"/"on" for the fluid switch, a numbers toggle's `TRI_CHOICES`
+/// text (a stored value outside 1-3 its number, as the toggle's
+/// Substitution rule), the number else.
 fn preset_value(field: PresetField, stored: u32) -> String {
     if let Some(toggle) = STYLE_TOGGLES.iter().find(|toggle| toggle.field == field) {
         return if stored == 0 { toggle.off } else { toggle.on }.to_owned();
@@ -1024,29 +1031,23 @@ fn preset_value(field: PresetField, stored: u32) -> String {
     if field == PresetField::FluidFormation {
         return on_off(stored).to_owned();
     }
+    if NUMBERS.contains(&field)
+        && let Some(label) = stored
+            .checked_sub(1)
+            .and_then(|index| TRI_CHOICES.get(index as usize))
+    {
+        return (*label).to_owned();
+    }
     stored.to_string()
 }
 
-/// A role chip's holder text: "Unassigned" for the none byte, the roster
-/// slot's name else (the chips' own wording).
+/// A role's or join member's holder text: "Unassigned" for the none
+/// byte, the roster slot's name else (the chips' own wording).
 fn role_holder(roster: &[RosterRow<'_>], holder: u8) -> String {
     if holder == u8::MAX {
         return "Unassigned".to_owned();
     }
     name_at(roster, holder).to_owned()
-}
-
-/// A join-attack member's text as the chip lists it: the first name,
-/// "none" for the none byte.
-fn join_text(roster: &[RosterRow<'_>], slot: u8) -> String {
-    if slot == u8::MAX {
-        return "none".to_owned();
-    }
-    name_at(roster, slot)
-        .split_whitespace()
-        .next()
-        .unwrap_or("(empty)")
-        .to_owned()
 }
 
 /// A flag byte's text: a set bit reads "on".

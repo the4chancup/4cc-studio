@@ -136,7 +136,7 @@ fn starter_row(
     let response = lineup_row(
         ui,
         ("starting eleven", index),
-        Some(LineupDrag::Starter(index)),
+        LineupDrag::Starter(index),
         position_label(position),
         raw_name_at(roster, slot),
     );
@@ -180,7 +180,7 @@ fn bench_row(
     let response = lineup_row(
         ui,
         ("bench", index),
-        Some(LineupDrag::Bench(index)),
+        LineupDrag::Bench(index),
         position,
         raw_name_at(roster, slot),
     );
@@ -202,15 +202,15 @@ fn bench_row(
 
 /// One lineup row, the draft's `.lrow`: the ≡ handle, the position
 /// column and the raw name drawn with its colour codes; a drag source
-/// when `payload` is some, a drop target always.
+/// of `payload`, a drop target always.
 fn lineup_row(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
-    payload: Option<LineupDrag>,
+    payload: LineupDrag,
     position: &str,
     raw_name: &str,
 ) -> egui::Response {
-    let contents = |ui: &mut egui::Ui| {
+    ui.dnd_drag_source(ui.scope_id().with(id_salt), payload, |ui| {
         ui.horizontal(|ui| {
             ui.weak("≡");
             ui.add_sized(
@@ -224,14 +224,8 @@ fn lineup_row(
             // would otherwise draw over the column at their right.
             ui.add(egui::Label::new(job).truncate());
         });
-    };
-    match payload {
-        Some(payload) => {
-            ui.dnd_drag_source(ui.scope_id().with(id_salt), payload, contents)
-                .response
-        }
-        None => ui.scope(contents).response,
-    }
+    })
+    .response
 }
 
 /// A bench player swapped onto the pitch: `starting_eleven[starter]` and

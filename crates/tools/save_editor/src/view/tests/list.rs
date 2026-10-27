@@ -1118,9 +1118,18 @@ fn the_team_row_hints_click_for_tactics() {
     let hint = text_in_rect(&shapes, "[click for tactics]", bounds);
     assert_eq!(galley_color(hint), weak, "the hint in the weak colour");
     let name = text_in_rect(&shapes, "/3/", bounds);
+    let gap = hint.pos.x - (name.pos.x + name.galley.size().x);
     assert!(
-        hint.pos.x >= name.pos.x + name.galley.size().x,
-        "the hint follows the name"
+        gap >= 0.0
+            && gap
+                <= window
+                    .ctx
+                    .style_of(window.ctx.theme())
+                    .spacing
+                    .item_spacing
+                    .x
+                    + 1.0,
+        "the hint follows the name with at most an item spacing's gap ({gap})"
     );
 }
 

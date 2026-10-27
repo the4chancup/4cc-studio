@@ -545,8 +545,8 @@ fn the_corners_and_the_join_fill_mark_the_states() {
     );
 
     // An armed mode: the candidates' corners on every marker (marker
-    // `index`'s own checked the same way). The armed note shifts the
-    // canvas down, so the box is recomputed.
+    // `index`'s own checked the same way, the box read off the new
+    // frame's canvas).
     view.popover = None;
     view.assign = Some(Assign::Role(5));
     let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
@@ -758,6 +758,73 @@ fn a_dragged_marker_paints_last_at_the_pointer() {
             .iter()
             .all(|badge| off(badge.center(), centres[index])),
         "no badge left at the dragged marker's own centre"
+    );
+}
+
+// On the release frame the dropped marker already paints at the snapped
+// drop point (a drop on the grass reaches it at once): his badge's
+// centre is the written slot's, not his pre-drag spot's.
+#[test]
+fn the_released_marker_paints_at_the_drop_point() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let players = tactics.presets[0].formations[0].players;
+    let index = 4;
+
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    let from = marker_point(&nodes, &players, index);
+    let onto = grass_point(canvas, &players, egui::Rect::NOTHING);
+    let (x, y) = snap(onto, canvas.min);
+    assert_ne!(
+        (players[index].x, players[index].y),
+        (x, y),
+        "premise: a real move"
+    );
+
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(from, true),
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::PointerMoved(onto)],
+    );
+    let (_, shapes) = window.frame(pointer_at(onto, false), |ui| {
+        pitch(
+            ui,
+            "pitch",
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+    });
+    let dropped = clamp_centre(
+        badge_centre(canvas.min, tactics.presets[0].formations[0].players[index]),
+        canvas,
+    );
+    let badges = badge_rects(&shapes);
+    assert_eq!(badges.len(), 11, "eleven badges");
+    assert!(
+        badges.iter().any(|badge| !off(badge.center(), dropped)),
+        "his badge at the drop's snapped centre"
+    );
+    assert!(
+        badges
+            .iter()
+            .all(|badge| off(badge.center(), centres[index])),
+        "none left at his pre-drag spot"
     );
 }
 
@@ -1123,6 +1190,14 @@ fn scroll_names_off_holds_wide_names_still_at_the_badges_left() {
         "at the badge's left ({} vs {badge_left})",
         x_of(&still_a)
     );
+    // No name will ever move: the pitch asks no repaint (the carry-over
+    // frames drained above).
+    window.pitch_paint_at(113.0, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    assert_eq!(
+        window.repaint_delay(),
+        std::time::Duration::MAX,
+        "Scroll names off: nothing is requested"
+    );
 }
 
 // The draft's `nameSpans`: the eleven rows, the bench rows and the
@@ -1379,50 +1454,81 @@ fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
 
 // The plan's "A starter's badge names his medal tier": the row's medal
 // letter at the badge's right end, right-aligned 3 points in, level
-// with the position text and in its font, in the medal's colour; a
-// slot with no medal draws none.
+// with the position text and in its font, in the medal's colour — a
+// gold `G` `#cc9900`, a silver `S` `#c0c0c0`, a bronze `B` `#cd7f32`;
+// a slot with no medal draws none.
 #[test]
 fn a_medal_letter_paints_at_the_badges_right_end() {
     let mut window = Headless::sized(600.0, 450.0);
     let mut tactics = fixture_tactics(PesVersion::Pes21);
+    // A non-identity eleven: a medal keyed by the marker's index rather
+    // than its roster slot would look right on the fixture's [0, 1, ...].
+    tactics.starting_eleven.swap(4, 9);
+    assert_ne!(
+        tactics.starting_eleven[4], 4,
+        "premise: slot and index differ"
+    );
     let mut view = TacticsView::default();
     let rows = fixture_rows(PesVersion::Pes21);
     let mut roster = roster_rows(&rows);
-    let medal_slot = usize::from(tactics.starting_eleven[4]);
-    roster[medal_slot].medal = Some(Medal::Gold);
+    let medals = [
+        (
+            4usize,
+            Medal::Gold,
+            "G",
+            egui::Color32::from_rgb(0xcc, 0x99, 0x00),
+        ),
+        (
+            5,
+            Medal::Silver,
+            "S",
+            egui::Color32::from_rgb(0xc0, 0xc0, 0xc0),
+        ),
+        (
+            6,
+            Medal::Bronze,
+            "B",
+            egui::Color32::from_rgb(0xcd, 0x7f, 0x32),
+        ),
+    ];
+    for (index, medal, _, _) in medals {
+        roster[usize::from(tactics.starting_eleven[index])].medal = Some(medal);
+    }
     let players = tactics.presets[0].formations[0].players;
 
     let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let canvas = canvas_rect(&nodes);
-    let badge =
-        egui::Rect::from_center_size(centres_of(canvas, &players)[4], egui::vec2(50.0, 14.0));
-    let letter = shapes
-        .iter()
-        .filter_map(|clipped| match &clipped.shape {
-            egui::Shape::Text(shape)
-                if shape.galley.job.text == "G"
-                    && (shape.pos.x + shape.galley.size().x - (badge.right() - 3.0)).abs()
-                        <= 0.5
-                    && (shape.pos.y + shape.galley.size().y / 2.0 - badge.center().y).abs()
-                        <= 0.5 =>
-            {
-                Some(shape)
-            }
-            _ => None,
-        })
-        .next()
-        .expect("the medal's G at the badge's right end");
-    assert_eq!(
-        painted_color(letter),
-        egui::Color32::from_rgb(0xcc, 0x99, 0x00),
-        "the gold letter's colour"
-    );
-    assert_eq!(
-        letter.galley.job.sections[0].format.font_id,
-        egui::FontId::proportional(12.0),
-        "the position text's font"
-    );
-    // The other ten starters hold no medal: no other letters.
+    let centres = centres_of(canvas, &players);
+    for (index, _, letter_text, colour) in medals {
+        let badge = egui::Rect::from_center_size(centres[index], egui::vec2(50.0, 14.0));
+        let letter = shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(shape)
+                    if shape.galley.job.text == letter_text
+                        && (shape.pos.x + shape.galley.size().x - (badge.right() - 3.0)).abs()
+                            <= 0.5
+                        && (shape.pos.y + shape.galley.size().y / 2.0 - badge.center().y).abs()
+                            <= 0.5 =>
+                {
+                    Some(shape)
+                }
+                _ => None,
+            })
+            .next()
+            .unwrap_or_else(|| panic!("the {letter_text} at marker {index}'s badge's right end"));
+        assert_eq!(
+            painted_color(letter),
+            colour,
+            "marker {index}'s {letter_text} in its tier's colour"
+        );
+        assert_eq!(
+            letter.galley.job.sections[0].format.font_id,
+            egui::FontId::proportional(12.0),
+            "the position text's font"
+        );
+    }
+    // The other eight starters hold no medal: no other letters.
     assert_eq!(
         shapes
             .iter()
@@ -1433,8 +1539,8 @@ fn a_medal_letter_paints_at_the_badges_right_end() {
                         && canvas.contains(shape.visual_bounding_rect().center())
             ))
             .count(),
-        1,
-        "one letter, on the medal's slot alone"
+        3,
+        "the three letters, on their markers alone"
     );
 }
 

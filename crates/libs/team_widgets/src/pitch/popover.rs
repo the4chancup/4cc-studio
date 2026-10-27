@@ -12,9 +12,10 @@ use crate::tactics::{RosterRow, TacticsView, raw_name};
 
 /// The slot popover (the draft's `slotPopover`): its top-right corner on
 /// the marker's bottom-left corner as the marker stood at the click
-/// (`OpenSlot::at` — it stays while the slot's X and Y move him, so the
-/// fields' arrows stay under the pointer), and a primary press anywhere
-/// outside it closes it, as Close does. The starter's name and `player
+/// (`OpenSlot::at`, kept relative to `canvas` so it scrolls with the
+/// pitch — it stays while the slot's X and Y move him, so the fields'
+/// arrows stay under the pointer), and a press anywhere outside
+/// it closes it, as Close does. The starter's name and `player
 /// <n>` head it (`(empty roster slot)` an empty roster slot), the
 /// Position combo of the twelve outfield positions, Make GK and the X
 /// (0 to 104) and Y (0 to 48) fields and Close. The keeper's slot shows a
@@ -25,6 +26,7 @@ use crate::tactics::{RosterRow, TacticsView, raw_name};
 /// when the preset, the formation or the team changes.
 pub(super) fn slot_popover(
     ui: &mut egui::Ui,
+    canvas: egui::Rect,
     tactics: &mut TeamTactics,
     view: &mut TacticsView,
     roster: &[RosterRow<'_>],
@@ -33,15 +35,17 @@ pub(super) fn slot_popover(
         return;
     };
     // A press anywhere but inside the popover closes it (the draft's
-    // document `pointerdown` listener): a press inside it — or inside a
-    // popup it opened, like the Position combo's list — lands on a
-    // Foreground layer, everything else is outside.
+    // document `pointerdown` listener, which fires on any button): a
+    // press inside it — or inside a popup it opened, like the Position
+    // combo's list — lands on a Foreground layer, everything else is
+    // outside.
     let pressed_at = ui.input(|input| {
-        input
-            .pointer
-            .button_pressed(egui::PointerButton::Primary)
-            .then(|| input.pointer.press_origin())
-            .flatten()
+        input.events.iter().find_map(|event| match event {
+            egui::Event::PointerButton {
+                pos, pressed: true, ..
+            } => Some(*pos),
+            _ => None,
+        })
     });
     if pressed_at.is_some_and(|pos| {
         ui.ctx()
@@ -79,7 +83,7 @@ pub(super) fn slot_popover(
     egui::Popup::new(
         ui.scope_id().with("slot popover"),
         ui.ctx().clone(),
-        egui::PopupAnchor::Position(open.at),
+        egui::PopupAnchor::Position(canvas.min + open.at),
         ui.layer_id(),
     )
     // The popover's top-right corner on the point (the draft's
@@ -142,13 +146,17 @@ pub(super) fn slot_popover(
             ui.label("X");
             ui.add_enabled(
                 !keeper,
-                egui::DragValue::new(&mut formation.players[index].x).range(0..=GRID_X),
+                egui::DragValue::new(&mut formation.players[index].x)
+                    .range(0..=GRID_X)
+                    .clamp_existing_to_range(false),
             )
             .on_disabled_hover_text("The goalkeeper's spot is fixed");
             ui.label("Y");
             ui.add_enabled(
                 !keeper,
-                egui::DragValue::new(&mut formation.players[index].y).range(0..=GRID_Y),
+                egui::DragValue::new(&mut formation.players[index].y)
+                    .range(0..=GRID_Y)
+                    .clamp_existing_to_range(false),
             )
             .on_disabled_hover_text("The goalkeeper's spot is fixed");
             if ui.button("Close").clicked() {
@@ -283,6 +291,46 @@ mod tests {
         let slot = tactics.presets[0].formations[0].players[index];
         assert_eq!(slot.x, 55, "the typed x is written");
         assert_eq!(slot.y, y, "y stays");
+    }
+
+    // A stored coordinate past the grid (a hand-edited or corrupt save)
+    // shows as stored in the popover's fields and is not rewritten by
+    // drawing them: the frame reports no change and x stays 200.
+    #[test]
+    fn an_out_of_range_stored_spot_is_not_clamped_on_draw() {
+        let mut window = Headless::sized(600.0, 450.0);
+        let mut tactics = fixture_tactics(PesVersion::Pes21);
+        let index = 4;
+        tactics.presets[0].formations[0].players[index].x = 200;
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(PesVersion::Pes21);
+        let roster = roster_rows(&rows);
+
+        let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+        let at = marker_point(&nodes, &tactics.presets[0].formations[0].players, index);
+        let (_, changed) =
+            window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+        assert!(!changed, "opening the popover writes nothing");
+        let (nodes, changed) =
+            window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+        assert!(!changed, "drawing the popover writes nothing");
+        assert_eq!(
+            tactics.presets[0].formations[0].players[index].x, 200,
+            "the stored x stays"
+        );
+        let field = controls_right_of(&nodes, "X", Role::SpinButton)
+            .into_iter()
+            .next()
+            .expect("the X field");
+        assert_eq!(
+            field.numeric_value(),
+            Some(200.0),
+            "the field shows the stored 200"
+        );
+        let (_, changed) =
+            window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+        assert!(!changed, "and an idle frame keeps it");
+        assert_eq!(tactics.presets[0].formations[0].players[index].x, 200);
     }
 
     // The keeper's popover ("The goalkeeper's slot is fixed"): Position a

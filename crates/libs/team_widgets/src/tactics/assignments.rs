@@ -105,10 +105,12 @@ pub(crate) struct OpenSlot {
     pub(crate) formation: usize,
     /// The formation slot, 0 to 10.
     pub(crate) slot: usize,
-    /// The marker's bottom-left corner as it stood at the click: the
-    /// popover's top-right stays on it while the slot's X and Y move the
-    /// marker, so the fields' arrows stay under the pointer.
-    pub(crate) at: egui::Pos2,
+    /// The marker's bottom-left corner as it stood at the click,
+    /// relative to the canvas' min corner: the popover's top-right stays
+    /// on it while the slot's X and Y move the marker, so the fields'
+    /// arrows stay under the pointer — and it scrolls with the pitch
+    /// (canvas-relative, never a screen point).
+    pub(crate) at: egui::Vec2,
 }
 
 /// One chip of the "Player assignments" group (the draft's `SET_PIECES`):

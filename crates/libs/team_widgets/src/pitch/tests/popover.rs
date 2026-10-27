@@ -318,7 +318,7 @@ fn a_target_chip_then_a_marker_click_writes_the_target_and_disarms() {
         preset: 0,
         formation: 0,
         slot: 0,
-        at: egui::Pos2::ZERO,
+        at: egui::Vec2::ZERO,
     });
 
     // The chip under defence 1's combo: enabled; its click arms
@@ -345,6 +345,22 @@ fn a_target_chip_then_a_marker_click_writes_the_target_and_disarms() {
         Some(accesskit::Toggled::True),
         "the armed chip is selected"
     );
+
+    // A click on the armed chip disarms (the join chip's rule); a second
+    // arms it again for the marker half.
+    let (_, changed) =
+        window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
+    assert!(!changed, "disarming writes no record");
+    assert_eq!(view.assign, None, "the armed chip's click disarms");
+    let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
+    let chip = chip_under(&nodes, combo_row(&nodes, 0)[1]);
+    assert_eq!(
+        chip.toggled(),
+        Some(accesskit::Toggled::False),
+        "and it is no longer selected"
+    );
+    let (_, _) = window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
+    assert!(view.assign.is_some(), "re-armed");
 
     // The marker click writes the starter's roster slot and disarms.
     let formation = tactics.presets[0].formations[0].clone();
@@ -523,17 +539,12 @@ fn the_popovers_position_pick_writes_the_slot() {
     assert!(view.popover.is_some(), "the pick leaves the popover open");
 }
 
-/// The open slot popover's rect: its `Area` is the frame's one
-/// Foreground-order layer (an open combo list would add a second).
-fn popover_rect(ctx: &egui::Context) -> Option<egui::Rect> {
-    ctx.memory(|memory| {
-        memory
-            .areas()
-            .visible_layer_ids()
-            .iter()
-            .find(|layer| layer.order == egui::Order::Foreground)
-            .and_then(|layer| memory.area_rect(layer.id))
-    })
+/// The open slot popover's rect: its `Area` is `open.scope`'s
+/// "slot popover" layer (a combo's open popup is another Foreground
+/// layer beside it, so an order scan cannot pick it out).
+fn popover_rect(ctx: &egui::Context, view: &TacticsView) -> Option<egui::Rect> {
+    let scope = view.popover?.scope;
+    ctx.memory(|memory| memory.area_rect(scope.with("slot popover")))
 }
 
 // The header reads the starter's name, then `player <n>` — his roster
@@ -546,10 +557,13 @@ fn the_header_names_the_starter_and_his_roster_slot() {
     let mut view = TacticsView::default();
     let rows = fixture_rows(PesVersion::Pes21);
     let roster = roster_rows(&rows);
+    // A non-identity eleven: an impl printing the clicked index for the
+    // roster slot would look right on the fixture's [0, 1, ...].
+    tactics.starting_eleven.swap(3, 7);
     let index = 7;
-    assert_eq!(
-        tactics.starting_eleven[index], 7,
-        "premise: roster slot 7 starts at index 7"
+    assert_ne!(
+        tactics.starting_eleven[index], index as u8,
+        "premise: slot and index differ"
     );
     let label = |nodes: &[accesskit::Node], value: &str| {
         nodes
@@ -561,12 +575,14 @@ fn the_header_names_the_starter_and_his_roster_slot() {
     let at = marker_point(&nodes, &tactics.presets[0].formations[0].players, index);
     window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    assert!(label(&nodes, "player 8"), "the header's `player 8`");
+    assert!(label(&nodes, "player 4"), "the header's `player 4`");
 
     // An empty roster slot (no player, so no name) heads it "(empty
     // roster slot)".
     let mut empty_rows = rows.clone();
-    empty_rows[7].1.clear();
+    empty_rows[usize::from(tactics.starting_eleven[index])]
+        .1
+        .clear();
     let roster = roster_rows(&empty_rows);
     window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
@@ -574,7 +590,7 @@ fn the_header_names_the_starter_and_his_roster_slot() {
         label(&nodes, "(empty roster slot)"),
         "the empty slot's name"
     );
-    assert!(label(&nodes, "player 8"), "and its slot's number");
+    assert!(label(&nodes, "player 4"), "and its slot's number");
 }
 
 // The popover's top-right corner sits on the marker's bottom-left
@@ -609,7 +625,7 @@ fn the_popover_stays_where_it_opened_while_the_marker_moves() {
         &roster,
     );
     window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let anchored = popover_rect(&window.ctx).expect("the open popover's area");
+    let anchored = popover_rect(&window.ctx, &view).expect("the open popover's area");
     near(anchored.right_top(), marker_bottom_left, 0.5);
 
     // An AccessKit SetValue on the X field moves the marker left; the
@@ -654,9 +670,54 @@ fn the_popover_stays_where_it_opened_while_the_marker_moves() {
         "premise: the SetValue moved the marker"
     );
     window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let after = popover_rect(&window.ctx).expect("the popover still open");
+    let after = popover_rect(&window.ctx, &view).expect("the popover still open");
     near(after.right_top(), anchored.right_top(), 0.5);
     near(after.left_bottom(), anchored.left_bottom(), 0.5);
+}
+
+// The popover is anchored to the canvas, not the screen: the host's
+// scroll moves the pitch and the popover follows it by the same delta
+// (the draft's popover lives in the pitch's wrapper).
+#[test]
+fn the_popover_scrolls_with_the_pitch() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let index = 3;
+
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let players = tactics.presets[0].formations[0].players;
+    window.click_pitch(
+        marker_point(&nodes, &players, index),
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas_before = canvas_rect(&nodes);
+    let popover_before = popover_rect(&window.ctx, &view).expect("the popover is open");
+
+    // The canvas 40 points lower, as the scrolled host draws it: the
+    // popover's rect moves by the same delta.
+    let (nodes, _) = window.frame(vec![], |ui| {
+        ui.add_space(40.0);
+        pitch(
+            ui,
+            "pitch",
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+    });
+    let canvas_after = canvas_rect(&nodes);
+    let popover_after = popover_rect(&window.ctx, &view).expect("the popover still open");
+    let moved = canvas_after.min - canvas_before.min;
+    assert!(moved.y > 30.0, "premise: the canvas scrolled");
+    near(popover_after.min, popover_before.min + moved, 0.5);
 }
 
 // A primary press anywhere outside the popover closes it, as Close
@@ -696,7 +757,7 @@ fn a_press_outside_closes_the_popover_but_a_press_inside_does_not() {
     let grass = grass_point(
         canvas,
         &formation.players,
-        popover_rect(&window.ctx).expect("the popover is open"),
+        popover_rect(&window.ctx, &view).expect("the popover is open"),
     );
     window.pitch(
         PesVersion::Pes21,
@@ -782,7 +843,8 @@ fn a_press_outside_closes_the_popover_but_a_press_inside_does_not() {
     // A press then release on another marker: the press closes the open
     // popover, the click opens that marker's. The marker's point has to
     // be outside the popover, which floats over the pitch's lower-left.
-    let popover = popover_rect(&window.ctx).expect("the popover is open");
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let popover = popover_rect(&window.ctx, &view).expect("the popover is open");
     let other = (0..11)
         .filter(|&i| i != index)
         .find(|&i| !popover.contains(marker_point(&nodes, &formation.players, i)))
@@ -799,4 +861,146 @@ fn a_press_outside_closes_the_popover_but_a_press_inside_does_not() {
         Some(other),
         "the press closed it and the click opened the other's"
     );
+}
+
+// Any button's press outside the popover closes it, not only the
+// primary's (the draft's document `pointerdown` fires on every button):
+// a secondary press on the grass.
+#[test]
+fn a_secondary_press_on_the_grass_closes_the_popover() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let formation = tactics.presets[0].formations[0].clone();
+    let index = 3;
+
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    window.click_pitch(
+        marker_point(&nodes, &formation.players, index),
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    assert_eq!(
+        view.popover.map(|open| open.slot),
+        Some(index),
+        "premise: the popover is open"
+    );
+
+    let grass = grass_point(
+        canvas,
+        &formation.players,
+        popover_rect(&window.ctx, &view).expect("the popover is open"),
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![
+            egui::Event::PointerMoved(grass),
+            egui::Event::PointerButton {
+                pos: grass,
+                button: egui::PointerButton::Secondary,
+                pressed: true,
+                modifiers: egui::Modifiers::default(),
+            },
+        ],
+    );
+    assert_eq!(
+        view.popover, None,
+        "a secondary press on the grass closed it"
+    );
+}
+
+// The keeper's marker never moves (the draft's `d.gk`: `moved` never
+// sets for him), so his release is his click however far the pointer
+// moved: a press on him dragged past the click distance and released
+// opens his popover — and, while a mode is armed, assigns him.
+#[test]
+fn the_keepers_release_is_his_click_however_far_the_pointer_moved() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let formation = tactics.presets[0].formations[0].clone();
+    let keeper = formation
+        .players
+        .iter()
+        .position(|slot| slot.position == 0)
+        .expect("the fixture has a keeper slot");
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let from = marker_point(&nodes, &formation.players, keeper);
+    let onto = grass_point(canvas, &formation.players, egui::Rect::NOTHING);
+
+    // Press, dragged far (past the click distance), released: his click.
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(from, true),
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::PointerMoved(onto)],
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(onto, false),
+    );
+    assert_eq!(
+        view.popover.map(|open| open.slot),
+        Some(keeper),
+        "the far release is his click: the popover opened"
+    );
+
+    // Armed: the same release assigns him and disarms.
+    view.popover = None;
+    view.assign = Some(Assign::Role(5));
+    let starter = tactics.starting_eleven[keeper];
+    assert_ne!(
+        tactics.set_pieces.penalty, starter,
+        "premise: the keeper is not already the taker"
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(from, true),
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::PointerMoved(onto)],
+    );
+    let (_, changed) = window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(onto, false),
+    );
+    assert!(changed, "the assignment wrote the record");
+    assert_eq!(
+        tactics.set_pieces.penalty, starter,
+        "the far release is his click: the keeper takes the role"
+    );
+    assert_eq!(view.assign, None, "and the mode disarmed");
 }

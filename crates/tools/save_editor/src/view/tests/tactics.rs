@@ -129,62 +129,145 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
     // Preset 2 still holds preset 1 as it was before the swap.
     assert_eq!(team_entry(&view, 701).tactics.presets[1], preset1_before);
 
-    // Two undo entries: the first restores the formations, the second
-    // preset 2.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    assert_eq!(
-        team_entry(&view, 701).tactics.presets[0].formations,
-        formations_before,
-        "one undo restores the formations"
+    // The formation menu's "Copy to" kind: out-of-possession takes the
+    // shown formation's slots.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, copy_swap_button(&nodes, 1), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Copy to Out-of-possession"),
+        &mut view,
     );
     assert_eq!(
-        team_entry(&view, 701).tactics.presets[1],
-        preset1_before,
-        "preset 2 is still the copy after one undo"
-    );
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    assert_eq!(
-        team_entry(&view, 701).tactics.presets[1],
-        preset2_before,
-        "a second undo restores preset 2"
-    );
-    assert!(
-        !view.session.as_ref().unwrap().can_undo(),
-        "exactly two entries"
+        team_entry(&view, 701).tactics.presets[0].formations[2],
+        formations_before[1],
+        "out-of-possession is the shown formation's copy"
     );
 
-    // Redo both, save, and the reopened file holds the result.
-    window.frame(
-        vec![key(
-            egui::Key::Z,
-            egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
-            true,
-        )],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    // Another formation's menu: on In-possession it acts on her — a
+    // swap with Out-of-possession trades the two.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "In-possession"),
+        &mut view,
     );
-    window.frame(
-        vec![key(
-            egui::Key::Z,
-            egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
-            true,
-        )],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    assert_eq!(view.tactics.formation, 1, "in-possession is on screen");
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, copy_swap_button(&nodes, 1), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        menu_items(&nodes),
+        [
+            "Copy to Kick-off",
+            "Copy to Out-of-possession",
+            "Swap with Kick-off",
+            "Swap with Out-of-possession",
+        ],
+        "the formation menu's entries on In-possession"
     );
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Swap with Out-of-possession"),
+        &mut view,
+    );
+    let formations = &team_entry(&view, 701).tactics.presets[0].formations;
+    assert_eq!(
+        formations[1], formations_before[1],
+        "in-possession took out-of-possession's copy"
+    );
+    assert_eq!(
+        formations[2], formations_before[0],
+        "out-of-possession took in-possession's"
+    );
+
+    // The preset menu's "Swap with" kind: preset 1 and preset 3 trade —
+    // preset 3 holds the worked-on preset 1 afterwards.
+    let preset3_before = team_entry(&view, 701).tactics.presets[2].clone();
+    let preset1_now = team_entry(&view, 701).tactics.presets[0].clone();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, copy_swap_button(&nodes, 0), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Swap with 3"),
+        &mut view,
+    );
+    let presets = &team_entry(&view, 701).tactics.presets;
+    assert_eq!(presets[0], preset3_before, "preset 1 took preset 3's place");
+    assert_eq!(presets[2], preset1_now, "preset 3 took preset 1's");
+
+    // Five undo entries, one per op, restored in reverse order.
+    for (name, check) in [
+        (
+            "the preset swap",
+            Box::new(|view: &SaveView| {
+                team_entry(view, 701).tactics.presets[0] == preset1_now
+                    && team_entry(view, 701).tactics.presets[2] == preset3_before
+            }) as Box<dyn Fn(&SaveView) -> bool>,
+        ),
+        (
+            "the in-possession swap",
+            Box::new(|view: &SaveView| {
+                team_entry(view, 701).tactics.presets[0].formations[1] == formations_before[0]
+                    && team_entry(view, 701).tactics.presets[0].formations[2]
+                        == formations_before[1]
+            }) as Box<dyn Fn(&SaveView) -> bool>,
+        ),
+        (
+            "the out-of-possession copy",
+            Box::new(|view: &SaveView| {
+                team_entry(view, 701).tactics.presets[0].formations[2] == formations_before[2]
+            }) as Box<dyn Fn(&SaveView) -> bool>,
+        ),
+        (
+            "the formation swap",
+            Box::new(|view: &SaveView| {
+                team_entry(view, 701).tactics.presets[0].formations == formations_before
+            }) as Box<dyn Fn(&SaveView) -> bool>,
+        ),
+        (
+            "the preset copy",
+            Box::new(|view: &SaveView| team_entry(view, 701).tactics.presets[1] == preset2_before)
+                as Box<dyn Fn(&SaveView) -> bool>,
+        ),
+    ] {
+        window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+            show(ui, &mut view, &|| Vec::new(), None)
+        });
+        assert!(check(&view), "one undo restores {name}");
+    }
+    assert!(
+        !view.session.as_ref().unwrap().can_undo(),
+        "exactly five entries"
+    );
+
+    // Redo all five, save, and the reopened file holds the result.
+    for _ in 0..5 {
+        window.frame(
+            vec![key(
+                egui::Key::Z,
+                egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
+                true,
+            )],
+            |ui| show(ui, &mut view, &|| Vec::new(), None),
+        );
+    }
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let reopened = EditFile::load(&path).unwrap();
     let tactics = &reopened.team(701).unwrap().tactics;
+    assert_eq!(tactics.presets[0], preset3_before, "preset 1 saved");
     assert_eq!(tactics.presets[1], preset1_before, "preset 2 saved");
+    assert_eq!(tactics.presets[2], preset1_now, "preset 3 saved");
     assert_eq!(
-        tactics.presets[0].formations[0], formations_before[1],
+        tactics.presets[2].formations[0], formations_before[1],
         "the swap saved"
     );
-    assert_eq!(tactics.presets[0].formations[1], formations_before[0]);
+    assert_eq!(tactics.presets[2].formations[1], formations_before[1]);
+    assert_eq!(tactics.presets[2].formations[2], formations_before[0]);
 }
 
 // The preset selector writes `TacticsView`, not the record: switching
@@ -281,11 +364,6 @@ fn the_preset_bars_menu_and_fluid_checkbox() {
         1,
         "the copy was one undo entry"
     );
-    // Undo it for the fluid half's count.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-
     // The bar's Fluid formation checkbox toggles the shown preset's flag:
     // one undo entry, the session marked.
     let fluid1_before = team_entry(&view, 701).tactics.presets[0].style.fluid;
@@ -367,13 +445,37 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     let slot_before = before.presets[0].formations[0].players[index];
 
     // A pitch player dragged to another spot: the slot's x and y are the
-    // snapped drop point, undoable.
+    // snapped drop point, undoable. The drop lands off-grid, as every
+    // real one does — `+vec2(1.6, -3.5)` past a free grid point, 0.57
+    // and 0.52 of a unit, so the written unit is the rounded (x + 1,
+    // y + 1), which a `.floor()` snap would read (x, y); the release
+    // point stays on the canvas and inside no other marker.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let canvas = canvas_of(&nodes);
-    let from = marker_point(canvas, &before.presets[0].formations[0].players, index)
-        .expect("a point on the marker a press can reach");
-    let onto = grass_point(canvas, &before.presets[0].formations[0].players);
-    let (x, y) = snap(canvas, onto);
+    let players = before.presets[0].formations[0].players;
+    let from =
+        marker_point(canvas, &players, index).expect("a point on the marker a press can reach");
+    let (x, y, onto) = (0..104_u8)
+        .flat_map(|x| (0..48_u8).map(move |y| (x, y)))
+        .map(|(x, y)| {
+            (
+                x,
+                y,
+                badge_centre(canvas, FormationSlot { position: 1, x, y }) + egui::vec2(1.6, -3.5),
+            )
+        })
+        .find(|(x, y, point)| {
+            (*x + 1 != slot_before.x || *y + 1 != slot_before.y)
+                && point.x >= canvas.x0 as f32
+                && point.x <= canvas.x1 as f32
+                && point.y >= canvas.y0 as f32
+                && point.y <= canvas.y1 as f32
+                && players.iter().enumerate().all(|(other, slot)| {
+                    other == index || !marker_rect(canvas, *slot).contains(*point)
+                })
+        })
+        .map(|(x, y, point)| (x + 1, y + 1, point))
+        .expect("an off-grid point free of other markers");
     assert_ne!(
         (slot_before.x, slot_before.y),
         (x, y),
@@ -1128,7 +1230,7 @@ fn the_target_chip_stays_inside_the_settings_column() {
     let chip = chip_under(&nodes, instruction_combos(&nodes)[0][1]);
     assert_eq!(
         chip.label(),
-        Some("3 3DSMAX HAS STOPPED WORKING"),
+        Some("3DSMAX HAS STOPPED WORKING"),
         "premise: the target names the player"
     );
     // The settings column's right edge: the column's left and 414.
@@ -1272,6 +1374,73 @@ fn the_automatic_settings_wrap_inside_the_column_and_armed_draws_no_note() {
     );
 }
 
+/// The open slot popover's rect: its `Area` is the frame's one
+/// Foreground-order layer (an open combo list would add a second).
+fn popover_rect(window: &Headless) -> Option<egui::Rect> {
+    window.ctx.memory(|memory| {
+        memory
+            .areas()
+            .visible_layer_ids()
+            .iter()
+            .find(|layer| layer.order == egui::Order::Foreground)
+            .and_then(|layer| memory.area_rect(layer.id))
+    })
+}
+
+// The popover is anchored to the canvas, not the screen (the draft's
+// popover lives in the pitch's wrapper): opened on a marker, it follows
+// the detail view's scroll by the canvas's own delta.
+#[test]
+fn the_popover_scrolls_with_the_pitch() {
+    let path = fixture(PesVersion::Pes21, "tactics_popover_scroll");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(877.0, 624.0);
+    open_team_view(&mut window, &mut view, 701);
+
+    // Open the popover on an outfield marker a click can reach.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let players = team_entry(&view, 701).tactics.presets[0].formations[0].players;
+    let (_, at) = (0..11)
+        .filter(|&index| players[index].position != 0)
+        .find_map(|index| marker_point(canvas, &players, index).map(|at| (index, at)))
+        .expect("a marker a click can reach");
+    click_at(&mut window, at, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas_before = canvas_of(&nodes);
+    let popover_before = popover_rect(&window).expect("the popover is open");
+
+    // Wheel the detail view down: the canvas moves up and the popover
+    // follows it by the same delta.
+    for _ in 0..3 {
+        window.frame(
+            vec![
+                egui::Event::PointerMoved(egui::pos2(600.0, 400.0)),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, -120.0),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Wheel,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            |ui| show(ui, &mut view, &|| Vec::new(), None),
+        );
+    }
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas_after = canvas_of(&nodes);
+    let popover_after = popover_rect(&window).expect("the popover still open");
+    let moved_y = canvas_after.y0 - canvas_before.y0;
+    assert!(moved_y < -20.0, "premise: the canvas scrolled ({moved_y})");
+    assert!(
+        (popover_after.min.y - (popover_before.min.y + moved_y as f32)).abs() <= 1.0,
+        "the popover moved by the canvas's delta ({:?} vs {:?}, moved {moved_y})",
+        popover_after.min,
+        popover_before.min
+    );
+}
+
 // The scroll's content size is the advance rect the view claims: the
 // view still scrolls to the grid's deepest control (its bottom inside
 // the viewport) — the grid's claimed height feeds the scroll extent.
@@ -1350,10 +1519,8 @@ fn every_view_fits_the_pane_the_minimum_window_leaves() {
             // nodes are the only ones measured.
             view.strip_again = None;
             let mut window = Headless::sized(pane.x, pane.y);
-            match name {
-                "appearance" => open_appearance(&mut window, &mut view),
-                "team" => open_team_view(&mut window, &mut view, 701),
-                _ => {}
+            if name == "appearance" {
+                open_appearance(&mut window, &mut view);
             }
             // Three frames: the scroll's claimed content size lands a
             // frame late.
@@ -1576,4 +1743,57 @@ fn a_rules_file_that_does_not_load_draws_no_medal_letter() {
             "starter {index} shows no letter under a file that does not load"
         );
     }
+}
+
+// The same setting bullet ("remembered in the tool's settings"): off,
+// then Open… opens the next save — the view's and the settings table's
+// `scroll_names` both stay false (the open happens inside a `Tool::view`
+// frame, so the frame's own write-back is the check).
+#[test]
+fn scroll_names_survives_opening_another_save() {
+    use studio_core::StudioTool;
+
+    let save_path = fixture(PesVersion::Pes21, "scroll_names_open");
+    let other_path = fixture(PesVersion::Pes17, "scroll_names_open_other");
+    let dir = save_path.parent().expect("the scratch dir").to_path_buf();
+    let mut tool = crate::Tool::new();
+    tool.view.open(&save_path);
+    let mut settings = studio_core::Settings::default();
+    let table = tool.default_settings();
+    settings.set_tool("save-editor", table);
+    let (ctx, _events_rx, _requests_rx) = tool_context(&dir, settings);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_team_view(&mut window, &mut tool.view, 701);
+
+    // Off first, through the checkbox.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    let checkbox = node_labeled(&nodes, Role::CheckBox, "Scroll names");
+    press_release(&mut window, centre(checkbox), |ui| tool.view(ui, &ctx));
+    assert_eq!(
+        ctx.tool_settings("save-editor")["scroll_names"].as_bool(),
+        Some(false),
+        "premise: the setting is off"
+    );
+
+    // Open the other save through the toolbar's Open…, its picker
+    // stubbed — the open lands inside the `tool.view` frame.
+    let picked = other_path.clone();
+    tool.view.open_dialog = Box::new(move || Some(picked.clone()));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    let open = node_labeled(&nodes, Role::Button, "Open…");
+    press_release(&mut window, centre(open), |ui| tool.view(ui, &ctx));
+    assert_eq!(
+        tool.view.session.as_ref().unwrap().path(),
+        other_path.as_path(),
+        "premise: the other save opened"
+    );
+    assert!(
+        !tool.view.tactics.scroll_names,
+        "the view keeps Scroll names off"
+    );
+    assert_eq!(
+        ctx.tool_settings("save-editor")["scroll_names"].as_bool(),
+        Some(false),
+        "and the settings table keeps it off"
+    );
 }

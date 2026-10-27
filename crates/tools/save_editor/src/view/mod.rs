@@ -410,7 +410,12 @@ impl SaveView {
                 self.comparator.reset(session.version());
                 self.session = Some(session);
                 self.generation += 1;
+                // A view setting, not the save's: `scroll_names` is the
+                // member's, so it survives the open (the rest is the
+                // save's: back to preset 1 and kick-off).
+                let scroll_names = self.tactics.scroll_names;
                 self.tactics = team_widgets::tactics::TacticsView::default();
+                self.tactics.scroll_names = scroll_names;
                 self.prompt = None;
                 self.edit_mode_question = None;
                 self.refusal = None;
