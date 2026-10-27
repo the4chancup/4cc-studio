@@ -20,6 +20,11 @@ names where the question came from so the context can be read there.
 
 ## Draft looks
 
+- **Which body font? (0.0.1w4.)** Open `.tmp/0_0_1w/font_trial/index.html`: a dropdown draws
+  the Save editor's player or team view in Selawik (now), Segoe UI (the reference, not
+  bundleable) or one of six open fonts, each scaled to Segoe UI's width (the checkbox shows it
+  unscaled). Scaled, Open Sans, Noto Sans, Source Sans 3 and Fira Sans wrap "Shirt number";
+  Inter and Lato fit as Selawik does. A pick is bundled and the symbols font rebuilt on it.
 - **The drafts in the app's own fonts (0.0.1w3).** Their approval is withdrawn until you have
   looked at them again: they now draw Selawik and the suite's symbols font (worklog 0.0.1w,
   DECISIONS 2026-10-27 "The symbols are a font of their own"), where every earlier review saw

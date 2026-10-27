@@ -468,6 +468,18 @@
 <script>
 "use strict";
 
+// The body-font trial (worklog 0.0.1w4): `?fontsrc=<a @font-face src>&scale=<percent>` draws
+// the text in that face, at that size-adjust, in Selawik's place in every chain; a trial page
+// beside the candidate files sets them. Without the keys the drafts draw as always.
+const trial = new URLSearchParams(location.search);
+if (trial.get("fontsrc")) {
+  document.fonts.add(new FontFace("Trial", trial.get("fontsrc"),
+    { weight: "400", sizeAdjust: (trial.get("scale") || "100") + "%" }));
+  const root = document.documentElement;
+  for (const chain of ["--font-body", "--font-mono", "--font-label"])
+    root.style.setProperty(chain, getComputedStyle(root).getPropertyValue(chain)
+      .replaceAll('"Selawik"', '"Trial"'));
+}
 // Every font face loads now, not when DOM text first needs it: canvas text (the pitch) never
 // triggers a load, and a face that is not loaded yet draws in the browser's fallback.
 document.fonts.forEach(face => face.load());

@@ -3337,7 +3337,15 @@ briefs, review loops, gates and mutation runs as for any step.
     compared to Segoe UI", alternatives kept open): a few bundleable fonts, each scaled
     (`FontTweak::scale`, `size-adjust` in the drafts) to Segoe UI's measured width (Steam's PES
     2019 path, 425.7 points at 12.5), shown side by side for the maintainer to pick; a pick
-    rebuilds `symbols.ttf` on its metrics (`scripts/make_symbols.py`'s `BODY_FONT`)
+    rebuilds `symbols.ttf` on its metrics (`scripts/make_symbols.py`'s `BODY_FONT`). Trial
+    page made (2026-10-27, the maintainer asked for one): `.tmp/0_0_1w/font_trial/index.html`,
+    a font dropdown over the draft's player and team views, the candidates unmodified from
+    the Google Fonts repository (`fetch.py`; Open Sans 94.9%, Noto Sans 94.2%, Source Sans 3
+    105.7%, Inter 92.7%, Fira Sans 97.1%, Lato 99.2%, measured by `measure.py`) and Segoe UI
+    as the reference, through the drafts' `?fontsrc=&scale=` hook (inert without the keys;
+    `draft_fonts.py` 0 findings). Seen there: scaled, Open Sans, Noto Sans, Source Sans 3 and
+    Fira Sans wrap "Shirt number" (Noto also "Registered position"); Inter and Lato fit as
+    Selawik does. Waits for the maintainer's pick (QUESTIONS)
   - [ ] w5 a modal window's title at the drafts' 14 points (`.window .title`), a text style of
     its own, where the app draws egui's `Heading` (15 after w2r1)
 - [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the
