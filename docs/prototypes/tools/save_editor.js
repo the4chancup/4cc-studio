@@ -76,7 +76,33 @@
 // shell's stylesheet does not already cover, in the page's order.
 const SAVE_EDITOR_CSS = `
 .gate { display: inline-block; opacity: .6; }
-input[type=range] { width: 110px; accent-color: var(--sel-bg); }
+/* egui's Slider as the app's theme draws it (an 18-point row): an 8-point
+   rail in the inactive widget grey, rounded 2, and an 11 x 14 handle, rounded
+   2, with the inactive, hovered and active strokes. The handle and the rail
+   up to the handle's centre take the selection blue. --p is the value's
+   place on the rail, 0 to 1, which rangeField keeps; the handle's centre
+   travels the rail less a handle's width. */
+input[type=range] { -webkit-appearance: none; appearance: none; width: 110px; height: 18px;
+  margin: 0; background: none; --p: 0; }
+input[type=range]::-webkit-slider-runnable-track { height: 8px; border-radius: 2px;
+  background: linear-gradient(to right, var(--sel-bg) calc(5.5px + var(--p) * (100% - 11px)),
+    var(--widget) 0); }
+input[type=range]::-moz-range-track { height: 8px; border-radius: 2px;
+  background: linear-gradient(to right, var(--sel-bg) calc(5.5px + var(--p) * (100% - 11px)),
+    var(--widget) 0); }
+input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 11px; height: 14px;
+  margin-top: -3px; border-radius: 2px; background: var(--sel-bg); box-shadow: inset 0 0 0 1px #b4b4b4; }
+input[type=range]::-moz-range-thumb { width: 11px; height: 14px; box-sizing: border-box;
+  border: 0; border-radius: 2px; background: var(--sel-bg); box-shadow: inset 0 0 0 1px #b4b4b4; }
+input[type=range]:hover::-webkit-slider-thumb { box-shadow: inset 0 0 0 1.5px #f0f0f0; }
+input[type=range]:hover::-moz-range-thumb { box-shadow: inset 0 0 0 1.5px #f0f0f0; }
+input[type=range]:active::-webkit-slider-thumb { box-shadow: inset 0 0 0 2px #fff; }
+input[type=range]:active::-moz-range-thumb { box-shadow: inset 0 0 0 2px #fff; }
+input[type=range]:focus { outline: none; }
+/* The slider's value: egui's DragValue beside it, an interact-size box. */
+.slval { display: inline-block; flex: none; min-width: 40px; height: 18px; line-height: 18px;
+  box-sizing: border-box; padding: 0 4px; text-align: center; background: var(--widget);
+  border-radius: 2px; color: #b4b4b4; }
 #unsaved-changes { width: 100%; }
 #unsaved-changes th:nth-child(n+2), #unsaved-changes td:nth-child(n+2) { width: 30%; }
 /* save editor view */
@@ -93,7 +119,6 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .plist .rows .prow.on { background: var(--sel-bg); }
 .plist .num { color: #6e6e6e; width: 20px; text-align: right; flex: none; }
 .plist .pos { width: 28px; flex: none; color: #b4b4b4; }
-.plist .tshort { color: #6e6e6e; flex: none; }
 .plist .dot { color: var(--warn); margin-left: auto; }
 /* A team row in the player list: the strong colour, the two colours as
    swatches, a backdrop so it reads apart from a player row (no bold: the app
@@ -200,7 +225,8 @@ table.grid.stats-grid td { padding: 2px 6px; }
 #pos-grid .poscell { width: 62px; padding: 2px 3px 3px; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center; }
 #pos-grid .poscell.reg { outline: 1px solid var(--sel-fg); border-radius: 3px; }
-#pos-grid .plabel { margin-bottom: 2px; text-align: center; }
+#pos-grid .plabel { margin-bottom: 2px; text-align: center; cursor: pointer; padding: 0 3px; border-radius: 2px; }
+#pos-grid .plabel:hover { background: var(--hover); color: var(--strong); }
 .rate { display: inline-flex; gap: 1px; }
 .rate .sel { padding: 0 5px; }
 /* In the positions grid each grade is a square of its own, so the chosen
@@ -2803,9 +2829,7 @@ function drawUnsavedPrompt(then) {
     unsavedChanges().map(([item, o, n]) => h("tr", {},
       h("td", {}, item), h("td", { class: "mono" }, show(o)), h("td", { class: "mono" }, show(n)))));
   window_("Unsaved changes", h("div", {},
-    h("p", {}, "The open save has unsaved changes."),
-    h("div", { style: "max-height:240px; overflow:auto" }, changes),
-    h("p", {}, weak("Save writes them to " + S.path + ". Discard loses them."))),
+    h("div",{ style: "max-height:240px; overflow:auto" }, changes)),
     [button("Save", () => { closeWindow(); saveFile(); if (!D.gameRunning) { then(); } render(); }),
      button("Discard", () => { closeWindow(); then(); render(); }),
      button("Cancel", closeWindow)]);
@@ -3373,11 +3397,19 @@ function renderMaster() {
     placeholder: "Filter every team (name, shirt name or id)", value: S.filter,
     // No redraw: the box keeps its focus; the link still tracks the text.
     oninput: e => { S.filter = e.target.value; renderList(rows); updateLink(); } });
-  const rows = h("div", { class: "rows", id: "player-rows" });
+  const rows = h("div", { class: "rows", id: "player-rows",
+    onscroll: e => { listScroll = e.target.scrollTop; } });
   box.append(sel, filter, rows, quickActions());
   renderList(rows);
+  // Restored once the frame's layout has given the list its height (before
+  // that the offset clamps to 0), and before the frame is painted.
+  requestAnimationFrame(() => { rows.scrollTop = listScroll; });
   return box;
 }
+// The player list is egui's ScrollArea, whose offset outlives a frame: a
+// redraw (a reorder, a section folded, a row picked) leaves it where the
+// user had it.
+let listScroll = 0;
 // One pass over the row container, so typing keeps the input's focus. A team
 // row heads each team's players; under the filter it stays while its own
 // name matches or any of its players does.
@@ -3422,7 +3454,6 @@ function playerRow(team, p) {
     h("span", { class: "handle" }, "≡"),
     h("span", { class: "num" }, String(p.number)),
     h("span", { class: "pos" }, p.positions.registered),
-    S.filter.trim() || S.teamSel === "all" ? h("span", { class: "tshort" }, team.name) : null,
     h("span", { class: "pname" }, ...nameSpans(p.name)),
     dirtyPlayer(p) ? h("span", { class: "dot", title: "Unsaved changes" }, "●") : null,
     playerMark(team, p));
@@ -3448,6 +3479,17 @@ function playerRow(team, p) {
 const lbl = t => h("td", { class: "ilabel" }, t);
 // A field cell of a label/field grid, its widget version-gated.
 const fld = (el, minV) => h("td", {}, gated(h("span", {}, el), minV || 15));
+// A Slider and its value's box. While the handle is dragged the rail's fill
+// and the box follow it, as egui's do; the release commits the value.
+function rangeField(min, max, value, commit) {
+  const place = v => (v - min) / (max - min);
+  const shown = h("span", { class: "slval" }, String(value));
+  const input = h("input", { type: "range", min, max, value, style: "--p:" + place(value),
+    oninput: e => { const v = parseInt(e.target.value, 10);
+      e.target.style.setProperty("--p", place(v)); shown.textContent = String(v); },
+    onchange: e => commit(parseInt(e.target.value, 10)) });
+  return [input, shown];
+}
 // The panels laid out in columns (gui.md "Prototypes", "Layout edit": a
 // panel narrowed past its columns reflows into fewer): [the layout's own
 // column count, one column's width in points, the panel's horizontal
@@ -3754,10 +3796,17 @@ function positionsPanel(p) {
   // centred over its C B A choice (POS_ROWS, which the formation's name reads).
   const posCols = colCount("positions");
   const posRows = posCols >= 5 ? POS_ROWS : chunk(POS_ROWS.flat(), posCols);
+  // A label's click makes its position the registered one, the General info
+  // combo's edit by another hand.
+  const register = pos => {
+    set(p, x => x.positions.registered, (x, v) => x.positions.registered = v, pos, "registered position");
+    render();
+  };
   const posTable = h("div", { id: "pos-grid" },
     posRows.map(row => h("div", { class: "posrow" }, row.map(pos =>
       h("div", { class: "poscell" + (pos === p.positions.registered ? " reg" : "") },
-        h("div", { class: "plabel" }, pos), rating(pos))))));
+        h("div", { class: "plabel", title: "Make " + pos + " the registered position",
+          onclick: () => register(pos) }, pos), rating(pos))))));
   return namedCols(h("div", { class: "col" },
     h("div", { class: "row" }, strong("Playable positions"), fieldMark(p, "positions")), posTable), "positions");
 }
@@ -3902,11 +3951,9 @@ function appearanceTab(p) {
   for (let i = 0; i < PHYS_LABELS.length; i += 2)
     phys.append(h("tr", {}, PHYS_LABELS.slice(i, i + 2).flatMap(([k, label]) => [
       lbl(label),
-      h("td", {},
-        h("input", { type: "range", min: -7, max: 7, value: p.appearance.physique[k],
-          onchange: e => { const v = parseInt(e.target.value, 10);
-            set(p, x => x.appearance.physique[k], (x, v2) => x.appearance.physique[k] = v2, v, label); render(); } }),
-        " ", h("span", { class: "mono weak" }, String(p.appearance.physique[k])))])));
+      h("td", {}, h("div", { class: "row" },
+        rangeField(-7, 7, p.appearance.physique[k], v => {
+          set(p, x => x.appearance.physique[k], (x, v2) => x.appearance.physique[k] = v2, v, label); render(); })))])));
   const st = p.appearance.strip;
   const stripCols = colCount("strip-style"), stripSpan = 2 * stripCols - 1;
   const stripPairs = [
@@ -4795,10 +4842,7 @@ function tacticsTab(t) {
   // for a two-value toggle beside its label.
   const slider = (key, label, max) => h("div", { class: "tset" }, h("div", {}, label),
     h("div", { class: "row" },
-      h("input", { type: "range", min: 1, max, value: pre.sliders[key],
-        onchange: e => { const v = parseInt(e.target.value, 10);
-          edit(label, () => { pre.sliders[key] = v; }); render(); } }),
-      h("span", { class: "mono weak" }, String(pre.sliders[key]))));
+      rangeField(1, max, pre.sliders[key], v => { edit(label, () => { pre.sliders[key] = v; }); render(); })));
   const toggle = (key, label, off, on) => h("div", { class: "tset" }, h("div", {}, label),
     h("span", { class: "rate" }, [off, on].map(v =>
       h("span", { class: "sel" + (pre.style[key] === v ? " on" : ""),

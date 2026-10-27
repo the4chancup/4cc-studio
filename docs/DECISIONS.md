@@ -12393,3 +12393,19 @@ simple; members' errors get a person's attention anyway.
 Plan: `plans/refs_arranger.md` "Background", "The Fox referee hook", "The tool",
 "Storage box", "Editor", "The lists file", "Loading an existing export", "Saving", "CLI",
 "Open questions"; `plans/core/development_plan.md` Phase 13's verification.
+
+## 2026-10-27 — studio_core, save_editor — The maintainer's look at the built app: egui's sliders, Reset window
+Decision: the sliders are egui's own (rail, rectangle handle, value box), which the drafts now
+copy, with the handle and the rail up to it in the selection blue; the status bar gets a
+frameless Reset window right of the version, back to the class's design size, fitted and
+centered, a maximized window restored first; player rows show no team name under ALL or a
+filter; a click on a Playable positions label sets the registered position. The draft's
+player list keeps its scroll across a redraw, as egui's scroll area does. The close prompt
+drops its "The open save has unsaved changes." and "Save writes them to <path>. Discard
+loses them." lines, redundant beside its title and buttons.
+Why: the maintainer preferred the built app's sliders to the drafts' browser ones, with the
+drafts' blue; the team row above its players already names the team; the positions grid is
+where the eye is when choosing; a window dragged off a monitor or across two is one click
+from the default.
+Plan: `plans/core/gui.md` the Dark/light theme row, "Status bar" (ST-BAR-01, ST-BAR-05);
+`plans/save_editor.md` "Editing UI" (the player rows, Playable positions, SE-GUI-40).

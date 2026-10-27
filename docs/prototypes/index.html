@@ -2357,6 +2357,14 @@ function renderStatus() {
   const left = document.getElementById("status-left");
   left.innerHTML = "";
   left.append(h("span", { class: "weak small" }, "v0.1.0"));
+  // A frameless button in the version's own small weak text, so it reads as
+  // part of the bar: the window back to its default size, centred, a
+  // maximized one restored first.
+  const reset = button("Reset window", () => { sizeWindow("default"); render(); },
+    { frame0: true, title: "Back to the default window size, centred on its monitor" });
+  reset.id = "reset-window";
+  reset.classList.add("weak", "small");
+  left.append(reset);
   for (const c of CONDITION_DEFS) if (S.conditions.includes(c.id))
     left.append(h("span", { class: "cond", title: c.tip() },
       h("span", { class: "icon" }, c.icon), h("span", {}, c.text()),

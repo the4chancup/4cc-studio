@@ -3024,7 +3024,7 @@ briefs, review loops, gates and mutation runs as for any step.
     `export_upgrader/src/{cli,naming,staging,upgrade,model_folders,messages,referees}.rs`,
     `tests/cli/cli.rs`, `tests/upgraded_golden.rs`, `help/01_command_line.md`,
     `spec/export_upgrader.md`, `plans/export_upgrader.md`
-- [ ] 0.0.1q the window reopens where it was closed (P24; `plans/core/gui.md` "Window size
+- [x] 0.0.1q the window reopens where it was closed (P24; `plans/core/gui.md` "Window size
   classes", ST-WIN-04; after 0.0.1m, the same code): the main class's `window_main` now, the
   special class's with the Music player's view. First how eframe 0.37 lets the shell learn the
   monitors at start (eframe's own persistence clamps through winit's monitor list), the finding
@@ -3033,8 +3033,7 @@ briefs, review loops, gates and mutation runs as for any step.
   gives the shell the monitor list only once the window exists"): no route before the window
   exists, and after it the frame's window lists the monitors (`Frame::winit_window`,
   `available_monitors`), so the window is created at the place and the first frame checks it.
-  The built-window checks are done (q3's and q4's `manual:` lines). Open: q5, the maximized
-  reopen's flicker
+  The built-window checks are done (q3's, q4's and q5's `manual:` lines).
   - [x] q1 the record, the opening and the guard (`.tmp/0_0_1q/brief_q1.md`): `window_main`
     as `[x, y, width, height, scale]` (pixels, points at zoom 1, the monitor's scale), read
     each normal frame and written at exit, the window created at it and the first frame
@@ -3076,7 +3075,7 @@ briefs, review loops, gates and mutation runs as for any step.
     one off every screen, reopens fitted on the primary. manual: checked 2026-10-27 (the
     maintainer): a place on the FHD, that monitor switched off, reopens fitted on the 4K. Files:
     `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`
-  - [ ] q4 a window closed maximized reopens maximized (P39, accepted 2026-10-27; DECISIONS
+  - [x] q4 a window closed maximized reopens maximized (P39, accepted 2026-10-27; DECISIONS
     "A window closed maximized reopens maximized"; `plans/core/gui.md` "Window size classes",
     the remembered place's paragraph): the record's sixth number, the window created
     maximized at the normal place, a five-number record read as not maximized, the
@@ -3098,7 +3097,7 @@ briefs, review loops, gates and mutation runs as for any step.
     creation shows a maximized window for 7-13 ms before eframe hides it; the first show
     restores for 2-6 ms before maximizing again). The maintainer sees a flicker, faint
     (2026-10-27): q5
-  - [ ] q5 the maximized reopen without the flicker. The second blip is ours: the first frame
+  - [x] q5 the maximized reopen without the flicker. The second blip is ours: the first frame
     resends the position (the mixed-scale creation offset's fix), winit's
     `set_outer_position` clears the maximized flag and restores the window to move it, and
     the next command maximizes it again, a restore and a maximize on a shown window
@@ -3115,7 +3114,7 @@ briefs, review loops, gates and mutation runs as for any step.
     seen failing under its perturbation. manual: checked 2026-10-27 (release build, the
     trace): the FHD's maximized reopen shows no restore blip, only the creation's 7 ms; the
     4K's keeps the resend (11 ms, a mixed-scale desk) and maximizes there; both restore to
-    the place. Open: the maintainer's eye on the FHD case (QUESTIONS). Files:
+    the place. manual: checked 2026-10-27 (the maintainer): no flicker any more. Files:
     `studio_core/src/shell/{mod.rs,window_size/{mod,tests}.rs}`
 - [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
@@ -3795,6 +3794,24 @@ briefs, review loops, gates and mutation runs as for any step.
       differ (a starter dropped between the two edges, then the menu, settles it); (2) the per-position
       overall formula for each version (2016's is dumped, 2021's is not), which the rule
       needs before the code can follow it
+- [ ] 0.0.1z the maintainer's look at the built app (2026-10-27 ~21:10): the app's sliders
+  kept, the drafts made to match
+  - [x] z1 the drafts: sliders drawn as egui's (8-point rail, 11 × 14 handle, value box), the
+    handle and the rail up to it in the selection blue; no team name on player rows; a
+    positions label sets the registered position; the player list keeps its scroll across
+    a redraw (the draft rebuilt it at the top); a frameless Reset window right of the
+    version; the close prompt's "The open save has unsaved changes." and "Save writes them to
+    … Discard loses them." lines gone (the maintainer: redundant beside the title and the
+    buttons). Plan `core/gui.md` the theme row, "Status bar" (ST-BAR-01, ST-BAR-05),
+    `save_editor.md` "Editing UI" (the player rows, Playable positions, SE-GUI-40). Checked
+    in Chromium and Firefox (`.tmp/draft_look/check.py`). Waits for the maintainer's look
+  - [ ] z2 the code, once z1 is approved: the slider's trailing fill and blue handle
+    (`team_widgets` `tactics/mod.rs` `slider`, the physique sliders when built), the rows'
+    team name gone (`save_editor` `view/player_list.rs`), the prompt's two lines gone
+    (`view/prompt.rs`), the label click (SE-GUI-40),
+    Reset window (`studio_core` `shell/status_bar.rs`, ST-BAR-01's test, ST-BAR-05)
+  - [ ] z3 the sidebar's active-tool bar: the draft rounds its left corners, egui draws it
+    square (the maintainer, 2026-10-27, "for later")
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

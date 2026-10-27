@@ -2704,3 +2704,5 @@ worklog passed 7,000 lines.
   cm6 queued: `doc_pointers.py` misses a pointer wrapped across two comment lines.
 - **2026-10-27** — 13.0a: the Refs arranger's plan ruled against its readiness audit: FoxDen's uniform no-file draw written
   in and asked, the hook's timing and 2020 branch, the roster rules and writers moved to the shared crates, edge cases ruled.
+- **2026-10-27** — 0.0.1q closed (no flicker, the maintainer's eye); 0.0.1z1: the drafts take the app's sliders (blue handle and
+  fill), Reset window, no team name on player rows, a positions label sets the registered position; the font trial gains three fits.

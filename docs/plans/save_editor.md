@@ -195,8 +195,8 @@ all side by side.
   row replaces the team bar above the old tabs: the team is one click away from its players,
   where a manager looks for it, rather than a strip that took a row from every player. A
   save opens on ALL with the list's first player row selected.
-  A player row shows number, position, name (with the team's name before it under ALL or a
-  filter); **drag-and-drop reordering**
+  A player row shows number, position and name, with no team name under ALL or a filter:
+  the team row above its players already names it; **drag-and-drop reordering**
   replaces the up/down spinner, and moves what the spinner moves: the players' records trade
   places between the ids, each id staying in its roster slot (`base_copy_id` traded so each
   matches its new slot, and the in-game face run's face structure and hairstyle staying too:
@@ -272,7 +272,9 @@ all side by side.
      panel, each position's label centred over its ratings (over the B), the registered one
      outlined, its corners rounded as the widgets' are (every frame and field in the view is
      rounded; the theme's own radius, not a second one); the chosen rating filled: A green, B the selection's blue, C a grey square, so
-     the three tell apart at a glance and an unrated position still shows its C.
+     the three tell apart at a glance and an unrated position still shows its C. A click on
+     a position's label makes it the registered position, the same undoable edit as General
+     info's combo, where the eye already is when choosing among the ratings.
      A field's label in these panels and in Ability stats is drawn in the normal text colour,
      as the checkboxes' labels are, not the weak one: the weak grey read too dark beside them.
      A label and its field are never closer than 9 points on a pair and 12 in the label-left
@@ -1470,6 +1472,11 @@ SE-GUI-39  GIVEN the PES 21 save open on team 718 (/f/), its Tactics on preset 1
                 and 3 read `4-2-1-3`, `4-3-1-2` and `4-3-2-1`; WHEN team 701 (/3/) is shown THEN
                 it reads `3-3-1-3`, and WHEN its AMF's position is changed to CMF THEN `3-4-3`,
                 and WHEN he is dragged to another spot instead THEN `3-3-1-3` still
+SE-GUI-40  GIVEN the PES 21 save open on a player whose registered position is not SS
+           WHEN the SS label of his Playable positions is clicked
+           THEN his registered position is SS (General info's combo reads it, the SS cell is
+                outlined) as one undoable edit, his ratings unchanged; WHEN Undo is invoked
+                THEN the earlier position is back
 SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (gloves), "Edit
                 aesthetics anyway" switched on, and the player's Appearance section open
            WHEN Hide default body is used on a player whose boots and gloves IDs are 0

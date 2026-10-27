@@ -24,7 +24,20 @@ names where the question came from so the context can be read there.
   the Save editor's player or team view in Selawik (now), Segoe UI (the reference, not
   bundleable) or one of six open fonts, each scaled to Segoe UI's width (the checkbox shows it
   unscaled). Scaled, Open Sans, Noto Sans, Source Sans 3 and Fira Sans wrap "Shirt number";
-  Inter and Lato fit as Selawik does. A pick is bundled and the symbols font rebuilt on it.
+  Inter and Lato fit as Selawik does. Three more, the search's best fits for Segoe UI's
+  heights at its width (`.tmp/0_0_1w/font_search/report.md`): **Reddit Sans** (x-height and
+  caps within 2.2%, round letters normal width), **Roboto Flex tuned to Segoe UI** (its
+  parametric axes set so every measured proportion matches to 0.03%) and **Libre Franklin**
+  (heights within 0.7%, ascenders 6% shorter). Selawik itself is the one font in the list
+  with a smaller x-height (95% of Segoe UI's). A pick is bundled and the symbols font rebuilt
+  on it.
+- **The sliders, the player rows, the positions labels and Reset window (0.0.1z1).** Open
+  `docs/prototypes/index.html`, the Save editor: the sliders are drawn as the app's, the
+  handle and the rail up to it blue (a team's Formation settings, a player's Appearance);
+  the player rows carry no team name under ALL; a click on a Playable positions label makes
+  it the registered position; the list keeps its scroll through a reorder or a folded
+  section; Reset window sits right of the version in the status bar. The app follows once
+  you approve.
 - **The drafts in the app's own fonts (0.0.1w3).** Their approval is withdrawn until you have
   looked at them again: they now draw Selawik and the suite's symbols font (worklog 0.0.1w,
   DECISIONS 2026-10-27 "The symbols are a font of their own"), where every earlier review saw
@@ -86,12 +99,6 @@ The Refs arranger's three below come from its readiness audit (worklog 13.0a,
   other one, to say whether the two share it?
 
 ## Small confirmations
-
-- **Does a maximized reopen still flicker?** (worklog 0.0.1q5; `.tmp/0_0_1q/built/findings.md`
-  "q5".) The portable copy in `.tmp/0_0_1q/built/app/` has the fix: maximize it on the FHD,
-  close it, start it again from Explorer. The trace shows no restore any more, only the
-  window's 7 ms at creation. On the 4K at 200% the restore stays (11 ms): there the window is
-  created on the FHD and must move, since the 4K's scale is not the primary monitor's.
 
 - **Which icon does each tool get?** (worklog 8.14.) Open `docs/prototypes/icons.html`,
   click one candidate per tool (the rail at the top shows the picks together), then copy the
