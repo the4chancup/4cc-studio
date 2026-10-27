@@ -2588,3 +2588,5 @@ worklog passed 7,000 lines.
   file icon compiled in by a `winresource` build script on Windows. The crop is the maintainer's pick.
 - **2026-10-27** — The settings path edits widened to 472 points, the menu to 660: egui's body font draws Steam's PES 2019
   path 456 points wide, past the draft's 440; a test measures it in every path row (0.0.1r2).
+- **2026-10-27** — The maintainer looked at PES 2017's automatic substitution: Off, Very late, Flexible, Very early, as PES 2021;
+  the Substitution combo offers the four there, and the question narrows to PES 2018 to 2020.

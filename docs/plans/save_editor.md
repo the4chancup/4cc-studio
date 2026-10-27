@@ -497,9 +497,11 @@ Win32 original hurt the most):
      Automatic settings is one grid of two columns of 24-point rows (Substitution beside
      Preset change, Offside trap beside Attack/defence levels), its panel grown to the lists'
      bottom. Substitution is a combo naming the game's choices (measured in game: Off 0, Very
-     late 1, Flexible 2 on PES 15, 16 and 21, Very early 3 on PES 21; PES 17 to 20 offer the
-     three until measured, `QUESTIONS.md`), a stored value outside them shown as its number,
-     so the combo never misreports the save.
+     late 1, Flexible 2 on PES 15, 16 and 21, Very early 3 on PES 21; PES 17's screen lists
+     Off, Very late, Flexible and Very early, PES 21's four in PES 21's order, so its stored
+     values are read as PES 21's and it offers the four; PES 18 to 20 offer the three until
+     looked at, `QUESTIONS.md`), a stored value outside them shown as its number, so the
+     combo never misreports the save.
   The grid is laid out at the design width; a narrower window scales the whole UI with its
   width (`core/gui.md` "Scaling with the width") rather than rearranging it, so the grid has
   no narrow fallback. A shorter window scrolls the team view to reach its last row rather

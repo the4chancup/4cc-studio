@@ -4787,11 +4787,12 @@ function tacticsTab(t) {
       onchange: e => { S.scrollNames = e.target.checked; drawPitch(t); } }),
     " Scroll names");
   // Auto substitution as the game names its choices (measured in-game: Off 0,
-  // Very late 1, Flexible 2 on PES 15, 16 and 21, Very early 3 on PES 21; 17
-  // to 20 unmeasured, so offered the three); a stored value outside them is
-  // offered as its number, so the combo never misreports it.
+  // Very late 1, Flexible 2 on PES 15, 16 and 21, Very early 3 on PES 21; PES
+  // 17's screen lists the same four in 21's order; 18 to 20 not looked at, so
+  // offered the three); a stored value outside them is offered as its number,
+  // so the combo never misreports it.
   const subs = [["0", "Off"], ["1", "Very late"], ["2", "Flexible"]]
-    .concat(version() >= 21 ? [["3", "Very early"]] : []);
+    .concat(version() === 17 || version() >= 21 ? [["3", "Very early"]] : []);
   const subNow = String(auto.substitution ?? 0);
   const substitution = h("span", { class: "row" }, "Substitution",
     combo(subs.some(([v]) => v === subNow) ? subs : subs.concat([[subNow, subNow]]), subNow,

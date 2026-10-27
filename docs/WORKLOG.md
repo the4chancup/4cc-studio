@@ -2983,7 +2983,8 @@ briefs, review loops, gates and mutation runs as for any step.
     `.tmp/0_0_1s/tactics_layout_request.md`; plan "Tactics editor", DECISIONS "The Tactics
     editor is one grid"): the three-row grid, Formation settings in pairs of equal rows, the
     numbers' three-choice toggles, Join the attack's three rows, Advanced instructions' grid,
-    Automatic settings' grid and Substitution combo, Copy/swap on the selection, the medal
+    Automatic settings' grid and Substitution combo (Very early on PES 17 and 21: the
+    maintainer's look at PES 17's screen, 2026-10-27), Copy/swap on the selection, the medal
     initials on the badges → verify: SE-GUI-12, SE-GUI-25; then o2b on it
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three

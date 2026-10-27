@@ -11777,3 +11777,12 @@ Why: the draft's 440 points are the browser's font, narrower than egui's, so a 4
 cut the path; widening the menu for a long tool row keeps that row's path whole, where
 capping the menu at 660 would shrink its edit below the path.
 Plan: `plans/core/gui.md` "Settings menu", the path row bullet.
+
+## 2026-10-27 — save_editor — PES 2017's automatic substitution offers Very early
+Decision: the Substitution combo offers Off, Very late, Flexible and Very early on PES 2017 as
+on PES 2021, stored 0 to 3; PES 2018 to 2020 keep the three until looked at.
+Why: the maintainer's look at PES 2017's Game Plan: its screen lists the four in PES 2021's
+order, and PES 2021's values are measured, so 2017's are read as the same; a combo short of a
+choice the game offers would refuse a value a member sets in game.
+Plan: `plans/save_editor.md` "Tactics editor", the Automatic settings row; `QUESTIONS.md`
+narrowed to PES 2018 to 2020.
