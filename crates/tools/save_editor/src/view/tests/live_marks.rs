@@ -743,25 +743,31 @@ fn a_second_half_fields_cross_stands_at_its_label_columns_end() {
 /// in the view (right of the list), its vertical centre on the named
 /// control's row — SE-GUI-36's "the cross beside the field the
 /// violation is about" for every field a kind reaches but `Pitch` and
-/// `Stat` (tested elsewhere). Where a second field shares the row (the
-/// pairs' halves, the label-left rows) the cross is also pinned on x.
+/// `Stat` (tested elsewhere). Every cross is also pinned on x, ending
+/// before its control and starting after its label where one precedes
+/// it, so a control handed a neighbour's field on the same row fails.
 #[test]
 fn each_fields_cross_stands_beside_its_control() {
     use aatf::ViolationKind as K;
     /// How the row's cross is pinned on x: its y is checked against the
     /// labelled row's bounds either way.
     enum Limit {
-        /// Its right edge stays left of the named control's x centre
+        /// Its right edge stays left of the named control's left edge
         /// (`control_right_of`): a first-half pair, a combo's row.
         LeftOfControl,
         /// Its left edge is past the label's end and its right edge is
-        /// left of its control's x centre: a second-half pair.
+        /// left of its control's left edge: a second-half pair.
         AfterLabelLeftOfControl,
         /// The Name field: the counted label carries the counts, so the
-        /// row and the centre come from its input.
+        /// row and the bound come from its input.
         LeftOfNameField,
-        /// The row's y range alone: a panel header, the badge.
-        Row,
+        /// Its left edge is past the label's end: a panel header, the
+        /// Cards left badge (the cross after the whole badge).
+        AfterLabel,
+        /// Past the label's end and left of the next label's start: the
+        /// Skills header, whose row the Cards left badge shares, so a
+        /// cross handed the badge's field lands past it.
+        AfterLabelBefore(&'static str),
     }
     let cases: &[(K, &str, Limit)] = &[
         (K::Height { height: 183 }, "Height", Limit::LeftOfControl),
@@ -820,14 +826,22 @@ fn each_fields_cross_stands_beside_its_control() {
             Limit::LeftOfControl,
         ),
         (K::PlayingStyleRange, "Playing style", Limit::LeftOfControl),
-        (K::BRating, "Playable positions", Limit::Row),
-        (K::SkillCardCap { count: 11, max: 10 }, "Skills", Limit::Row),
+        (K::BRating, "Playable positions", Limit::AfterLabel),
+        (
+            K::SkillCardCap { count: 11, max: 10 },
+            "Skills",
+            Limit::AfterLabelBefore("Cards left for"),
+        ),
         (
             K::ComStyleCap { count: 3, max: 2 },
             "COM playing styles",
-            Limit::Row,
+            Limit::AfterLabel,
         ),
-        (K::Cards { paid: 4, limit: 3 }, "Cards left for", Limit::Row),
+        (
+            K::Cards { paid: 4, limit: 3 },
+            "Cards left for",
+            Limit::AfterLabel,
+        ),
     ];
     let (mut view, mut window) = open_734("live_marks_each_field");
     view.live_aatf = true;
@@ -869,7 +883,16 @@ fn each_fields_cross_stands_beside_its_control() {
                 crosses.len()
             )
         };
-        let centre_y = f64::from(cross.pos.y + cross.galley.rect.height() / 2.0);
+        // The glyph's own extent: in a wrapping row (the Skills header's)
+        // egui lays a label out from the row's start, its one glyph
+        // offset inside the galley by the row's leading space, so the
+        // galley's `pos` alone is not where the cross is drawn.
+        let glyph_x = cross.galley.rows[0].glyphs[0].pos.x;
+        let glyph = egui::Rect::from_min_max(
+            egui::pos2(cross.pos.x + glyph_x, cross.pos.y),
+            cross.pos + cross.galley.rect.max.to_vec2(),
+        );
+        let centre_y = f64::from(glyph.center().y);
         let row = if matches!(limit, Limit::LeftOfNameField) {
             name_field(&nodes)
                 .bounds()
@@ -881,30 +904,39 @@ fn each_fields_cross_stands_beside_its_control() {
             centre_y >= row.y0 - 4.0 && centre_y <= row.y1 + 4.0,
             "{kind:?}: the cross's centre ({centre_y}) is on {label:?}'s row ({row:?})"
         );
-        let cross_right = f64::from(cross.pos.x + cross.galley.rect.width());
+        let cross_left = f64::from(glyph.min.x);
+        let cross_right = f64::from(glyph.max.x);
+        // Beside, not inside: a cross ends before its control begins.
+        let left_of = |node: &accesskit::Node, what: &str| {
+            let left = node.bounds().expect("the control's bounds").x0;
+            assert!(
+                cross_right <= left + 0.5,
+                "{kind:?}: the cross ({cross_right}) ends before {what} ({left})"
+            );
+        };
+        let after_label = || {
+            assert!(
+                cross_left >= row.x1 - 0.5,
+                "{kind:?}: the cross ({cross_left}) starts past {label:?}'s end ({})",
+                row.x1
+            );
+        };
         match limit {
-            Limit::LeftOfControl | Limit::AfterLabelLeftOfControl => {
-                if matches!(limit, Limit::AfterLabelLeftOfControl) {
-                    assert!(
-                        f64::from(cross.pos.x) >= row.x1 - 0.5,
-                        "{kind:?}: the cross is right of {label:?}'s end"
-                    );
-                }
-                let centre = f64::from(centre(control_right_of(&nodes, label)).x);
+            Limit::LeftOfControl => left_of(control_right_of(&nodes, label), "its control"),
+            Limit::AfterLabelLeftOfControl => {
+                after_label();
+                left_of(control_right_of(&nodes, label), "its control");
+            }
+            Limit::LeftOfNameField => left_of(name_field(&nodes), "the Name field"),
+            Limit::AfterLabel => after_label(),
+            Limit::AfterLabelBefore(next) => {
+                after_label();
+                let next_left = label_bounds(&nodes, next).x0;
                 assert!(
-                    cross_right <= centre + 0.5,
-                    "{kind:?}: the cross ({cross_right}) is left of {label:?}'s control's \
-                     centre ({centre})"
+                    cross_right <= next_left + 0.5,
+                    "{kind:?}: the cross ({cross_right}) ends before {next:?} ({next_left})"
                 );
             }
-            Limit::LeftOfNameField => {
-                let centre = f64::from(centre(name_field(&nodes)).x);
-                assert!(
-                    cross_right <= centre + 0.5,
-                    "{kind:?}: the cross ({cross_right}) is left of the Name field's centre"
-                );
-            }
-            Limit::Row => {}
         }
     }
 }

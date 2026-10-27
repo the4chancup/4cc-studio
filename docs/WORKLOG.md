@@ -2670,8 +2670,12 @@ briefs, review loops, gates and mutation runs as for any step.
       AATF` as the plan says; one table test puts a lone violation's cross on its own control's
       row for every field a kind reaches but the pitch and the stats, pinned on x where two
       fields share a row (red: Age's control handed Weight's field, the COM header's marks
-      dropped). Files: `view/mod.rs`, `view/tests/{live_marks,live_aatf}.rs`. Open: the
-      post-Astra SWE-2 loop, then one `mutants-diff dc02a76e`
+      dropped). Files: `view/mod.rs`, `view/tests/{live_marks,live_aatf}.rs`. The post-Astra
+      SWE-2 round S3: 2 of 2 accepted, the review loops end; the lead's fix pins every cross on
+      x (ending before its control, starting after its label; the Skills header's cross before
+      the Cards left badge that shares its row), measured on the glyph, since a label in a
+      wrapping row is laid out from the row's start (red: the two header marks swapped; the
+      Name cross moved into its field). Open: one `mutants-diff dc02a76e`
     - [ ] o2b the pitch's cross for `FieldedNotA` and the dock row selecting his team's row
       on the named preset's first formation; after the Tactics tab's new layout (the
       maintainer's request of 2026-10-26, drafted first)
