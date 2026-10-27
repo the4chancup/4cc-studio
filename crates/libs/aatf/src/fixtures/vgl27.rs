@@ -157,9 +157,8 @@ fn apply_tier_then_check_reports_nothing_for_every_tier() {
 
 /// A rating between two tiers' targets is placed by expected rating:
 /// a silver (slot 5) at 96, between silver's 94 and gold's 99, stays a
-/// silver and every stat over 94 is a violation (the checker reports no
-/// tier here). On PES 15 that is the 19 abilities, the `at_most` prowesses
-/// included (96 > 94).
+/// silver and every stat over 94 is a violation. On PES 15 that is the 19
+/// abilities, the `at_most` prowesses included (96 > 94).
 #[test]
 fn a_rating_between_tiers_reads_as_the_lower() {
     let rules = rules();
@@ -300,9 +299,8 @@ fn a_goalkeeper_at_189_counts_as_tall() {
 
 /// The page's tall bracket takes outfielders at 185 and goalkeepers at
 /// 189: a goalkeeper at 185 (slot 0) would count as tall, and the
-/// special forbids it (the checker takes him with no flag). The other
-/// brackets name no position, so a goalkeeper at 180 is a mid and only
-/// the quotas move.
+/// special forbids it. The other brackets name no position, so a
+/// goalkeeper at 180 is a mid and only the quotas move.
 #[test]
 fn a_tall_goalkeeper_must_be_189() {
     let rules = rules();

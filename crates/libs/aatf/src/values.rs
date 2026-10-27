@@ -107,4 +107,24 @@ mod tests {
         assert_eq!(entry.stats.weak_foot_usage, 3);
         assert_eq!(entry.stats.weak_foot_accuracy, 1);
     }
+
+    /// A PES 15 record has no physical contact: the write leaves it
+    /// absent while every stat the version has takes its target.
+    #[test]
+    fn the_write_skips_the_stats_the_version_lacks() {
+        let mut entry = PlayerEntry::bare(pes_version::PesVersion::Pes15);
+        assert_ne!(entry.stats.abilities()[1], Some(77));
+        let values = TierValues {
+            stats: (0..25).map(|index| (Stat(index), 77)).collect(),
+            form: 8,
+            injury_resistance: 3,
+            weak_foot: WeakFoot {
+                usage: 4,
+                accuracy: 2,
+            },
+        };
+        values.write(&mut entry);
+        assert_eq!(entry.stats.abilities()[1], Some(77));
+        assert_eq!(entry.stats.abilities()[15], None);
+    }
 }

@@ -175,6 +175,16 @@ mod tests {
         assert!("".parse::<PesVersion>().is_err());
     }
 
+    #[test]
+    fn year_and_display_name_the_release_year() {
+        assert_eq!(PesVersion::Pes15.year(), 2015);
+        assert_eq!(PesVersion::Pes21.year(), 2021);
+        assert_eq!(PesVersion::Pes21.to_string(), "PES 2021");
+        for version in PesVersion::ALL {
+            assert_eq!(version.to_string().parse::<PesVersion>(), Ok(version));
+        }
+    }
+
     #[derive(Serialize, Deserialize)]
     struct Holder {
         version: PesVersion,

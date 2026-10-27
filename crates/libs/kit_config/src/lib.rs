@@ -587,6 +587,26 @@ mod tests {
     }
 
     #[test]
+    fn a_bad_badge_value_names_its_badge_and_coordinate() {
+        let error = KitConfig::from_toml("[badge.right_long]\nx = 300\ny = 10").unwrap_err();
+        assert!(
+            matches!(
+                &error,
+                KitConfigError::InvalidValue { key: "badge.right_long.x", value } if value == "300"
+            ),
+            "{error:?}"
+        );
+        let error = KitConfig::from_toml("[badge]\nleft_short = 5").unwrap_err();
+        assert!(
+            matches!(
+                &error,
+                KitConfigError::InvalidValue { key: "badge.left_short", value } if value == "5"
+            ),
+            "{error:?}"
+        );
+    }
+
+    #[test]
     fn non_ascii_hex_is_an_error_not_a_panic() {
         assert!(matches!(
             KitConfig::from_toml("[colors]\nshirt1 = \"#１２\""),
@@ -770,6 +790,55 @@ mod tests {
                 .iter()
                 .any(|f| f.code == "kit_unknown_sleeve_value")
         );
+    }
+
+    #[test]
+    fn the_injected_model_notes_name_the_models_validate_accepts() {
+        // Each of these shirt options' comments ends in "<models> only", and
+        // validate must accept the option on exactly the models it names.
+        type SetOption = fn(&mut KitConfig);
+        let cases: [(&str, SetOption, &str); 3] = [
+            (
+                "tight",
+                |c| c.shirt.tight = true,
+                "kit_tight_requires_model_144_or_160",
+            ),
+            (
+                "long_sleeves",
+                |c| c.shirt.long_sleeves = LongSleeves::UndershirtOnly,
+                "kit_undershirt_only_requires_model_144_or_160",
+            ),
+            (
+                "short_sleeves",
+                |c| c.shirt.short_sleeves = ShortSleeves::CutOut,
+                "kit_cut_out_requires_model_144_or_160",
+            ),
+        ];
+        let text = KitConfig::template().to_toml();
+        for (key, set, code) in cases {
+            let prefix = format!("{key} = ");
+            let line = text.lines().find(|line| line.starts_with(&prefix)).unwrap();
+            let (_, comment) = line.split_once('#').unwrap();
+            let (before_only, _) = comment.split_once(" only").unwrap();
+            let named = before_only
+                .rsplit(' ')
+                .next()
+                .unwrap()
+                .trim_start_matches('(');
+            for model in [144u8, 160, 176] {
+                let mut config = KitConfig::template();
+                set(&mut config);
+                config.shirt.model = model;
+                let accepted = !validate(&config, PesVersion::Pes21)
+                    .iter()
+                    .any(|f| f.code == code);
+                let named_here = named.split('/').any(|m| m == model.to_string());
+                assert_eq!(
+                    named_here, accepted,
+                    "{key} on model {model}: the comment names {named:?}"
+                );
+            }
+        }
     }
 
     #[test]

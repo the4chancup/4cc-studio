@@ -4,8 +4,8 @@ collar = 12                # 1-107
 winter_collar = 40         # 1-107
 tight = true               # 144/160 only
 pattern = 0                 # 0-13 (PES15 output supports 0-5)
-long_sleeves = "normal"     # "normal" / "undershirt-only" (144 only)
-short_sleeves = "normal"    # "normal" / "cut-out" (144 only)
+long_sleeves = "normal"     # "normal" / "undershirt-only" (144/160 only)
+short_sleeves = "normal"    # "normal" / "cut-out" (144/160 only)
 
 [shorts]
 model = 1                  # 0-17

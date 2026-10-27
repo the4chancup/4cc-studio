@@ -245,9 +245,8 @@ fn a_goalkeeper_at_185_rated_85_reads_as_goalkeeper() {
     );
 }
 
-/// A registered goalkeeper must be 185 cm (the rules page, stricter than
-/// the checker, which reads one at 180 as a regular): slot 0 at 180 is
-/// still the goalkeeper tier, and the one violation is the height.
+/// A registered goalkeeper must be 185 cm (the rules page): slot 0 at
+/// 180 is still the goalkeeper tier, and the one violation is the height.
 #[test]
 fn a_goalkeeper_must_be_185() {
     let rules = rules();
@@ -534,9 +533,8 @@ fn card_limits_and_tier_values_report_the_tiers_values() {
     );
 }
 
-/// A medal's injury resistance is exact (the rules page, stricter than
-/// the checker's `>` test): a silver at 1, under the target 2, is the
-/// one violation.
+/// A medal's injury resistance is exact (the rules page): a silver at 1,
+/// under the target 2, is the one violation.
 #[test]
 fn a_medals_injury_resistance_is_exactly_two() {
     let rules = rules();

@@ -57,7 +57,7 @@ The suite follows a **platform + plugins** model with strict modularity rules:
 │       ├── fox2/                     # Fox Engine entity files (+ CityHash64)
 │       ├── uniparam/                 # UniformParameter container
 │       ├── wezlib/                   # WESYS zlib wrapper (WE = Winning Eleven, PES's Japanese name)
-│       ├── vtree/                    # VirtualTree + canonical ScopePath/RelativeScopePath shared by events/exports
+│       ├── vtree/                    # VirtualTree + canonical ScopePath shared by events/exports
 │       ├── pes_version/              # PesVersion (15–21) + Engine (pre-Fox/Fox): the one closed set every
 │       │                             #   version-aware crate shares (settings, savefile schemas, skeletons)
 │       ├── teams_list/               # teams_list.txt + TeamName/TeamId: parse/write/reconcile

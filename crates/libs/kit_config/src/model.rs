@@ -53,7 +53,7 @@ pub struct Shirt {
 pub enum LongSleeves {
     /// 0x3E, the combo entry and usual value.
     Normal,
-    /// 0xBB, undershirt only (shirt model 144 only).
+    /// 0xBB, undershirt only (shirt models 144/160 only).
     UndershirtOnly,
     /// Any other byte, preserved verbatim.
     Raw(u8),
@@ -64,7 +64,7 @@ pub enum LongSleeves {
 pub enum ShortSleeves {
     /// 1, normal.
     Normal,
-    /// 2, cut-out (shirt model 144 only).
+    /// 2, cut-out (shirt models 144/160 only).
     CutOut,
     /// Any other value, kept verbatim and clamped to the field max on encode.
     Raw(u8),

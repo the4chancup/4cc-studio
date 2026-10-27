@@ -50,10 +50,10 @@ clears; some are **set in real configs**, so they must be preserved on rewrite.
 
 | Offset | Bits | Field | Values |
 |--------|------|-------|--------|
-| 0x00 | 0–1 | Short sleeves type | 1 = normal, 2 = cut-out (shirt model 144 only); 13 PES 2021 stock configs (referees) carry 3, preserved as a raw value; a TOML value above 3 is kept, reported by `validate` and clamped to 3 on emission like every other packed field |
+| 0x00 | 0–1 | Short sleeves type | 1 = normal, 2 = cut-out (shirt models 144/160 only); 13 PES 2021 stock configs (referees) carry 3, preserved as a raw value; a TOML value above 3 is kept, reported by `validate` and clamped to 3 on emission like every other packed field |
 | 0x00 | 2–7 | ? | 0 in samples |
 | 0x01 | all | Shirt model | literal: 144 (0x90), 160 (0xA0), 176 (0xB0) |
-| 0x02 | all | Long sleeves type | two values (verified): 0x3E = "Normal & U-Shirt" — one combo entry, the editor's default; 0xBB = "Only-Undershirt" (shirt model 144 only — the editor forces 0x3E on any other model) |
+| 0x02 | all | Long sleeves type | two values (verified): 0x3E = "Normal & U-Shirt" — one combo entry, the editor's default; 0xBB = "Only-Undershirt" (shirt models 144/160 only; the old editor forces 0x3E on any model but 144) |
 | 0x03 | all | Shorts model | 0–17 |
 | 0x04–0x12 | | Five RGB triplets | shirt1, shirt2, undershirt, shorts, socks |
 | 0x13 | all | ? | 0 in samples |
@@ -172,8 +172,8 @@ collar = 105                # 1-107
 winter_collar = 105         # 1-107
 tight = false               # 144/160 only
 pattern = 3                 # 0-13 (PES15 output supports 0-5)
-long_sleeves = "normal"     # "normal" / "undershirt-only" (144 only)
-short_sleeves = "normal"    # "normal" / "cut-out" (144 only)
+long_sleeves = "normal"     # "normal" / "undershirt-only" (144/160 only)
+short_sleeves = "normal"    # "normal" / "cut-out" (144/160 only)
 
 [shorts]
 model = 16                  # 0-17

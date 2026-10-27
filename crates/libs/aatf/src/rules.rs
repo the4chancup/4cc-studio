@@ -547,36 +547,53 @@ mod tests {
         assert!(found.contains(&custom), "{found:?}");
     }
 
-    /// The official ruleset on the sample team costs under a tenth of
+    /// Every embedded ruleset on the sample team costs under a tenth of
     /// `MAX_OPERATIONS`, so the limit keeps its tenfold margin, and it is not
-    /// stale: under thirty times the cost. The count and the time are in
-    /// the assertion messages: to read them, tighten a bound for one run.
+    /// stale: under thirty times the heaviest one's cost. Every block's count
+    /// and time so far are in the assertion messages: to read the table,
+    /// tighten a bound for one run.
     #[test]
     fn the_operation_limit_keeps_a_tenfold_margin() {
         use std::sync::Arc;
         use std::sync::atomic::{AtomicU64, Ordering};
 
-        let mut rules = Rules::official();
-        let peak = Arc::new(AtomicU64::new(0));
-        let seen = Arc::clone(&peak);
-        rules.engine.on_progress(move |operations| {
-            seen.fetch_max(operations, Ordering::Relaxed);
-            None
-        });
-        let start = std::time::Instant::now();
-        rules
-            .check_team(&TeamView::sample_team())
-            .expect("the check runs");
-        let elapsed = start.elapsed();
-        let operations = peak.load(Ordering::Relaxed);
-        assert!(operations > 0, "on_progress saw the run");
+        let mut heaviest = 0;
+        let mut table = String::new();
+        for (name, block) in [
+            ("autumn26", AUTUMN26),
+            ("autumn25", include_str!("../rulesets/autumn25.rhai")),
+            ("spring26", include_str!("../rulesets/spring26.rhai")),
+            ("vgl25", include_str!("../rulesets/vgl25.rhai")),
+            ("vgl26", include_str!("../rulesets/vgl26.rhai")),
+            ("vgl27", include_str!("../rulesets/vgl27.rhai")),
+            ("vtl10", include_str!("../rulesets/vtl10.rhai")),
+            ("vtl11", include_str!("../rulesets/vtl11.rhai")),
+            ("dbc7", include_str!("../rulesets/dbc7.rhai")),
+        ] {
+            let mut rules = Rules::from_data_block(block).unwrap_or_else(|e| panic!("{name}: {e}"));
+            let peak = Arc::new(AtomicU64::new(0));
+            let seen = Arc::clone(&peak);
+            rules.engine.on_progress(move |operations| {
+                seen.fetch_max(operations, Ordering::Relaxed);
+                None
+            });
+            let start = std::time::Instant::now();
+            rules
+                .check_team(&TeamView::sample_team())
+                .unwrap_or_else(|e| panic!("{name}: {e}"));
+            let elapsed = start.elapsed();
+            let operations = peak.load(Ordering::Relaxed);
+            table.push_str(&format!("\n{name}: {operations} operations in {elapsed:?}"));
+            assert!(operations > 0, "{name}: on_progress saw the run");
+            assert!(
+                operations * 10 <= crate::engine::MAX_OPERATIONS,
+                "{name}: the margin is under tenfold; raise MAX_OPERATIONS{table}"
+            );
+            heaviest = heaviest.max(operations);
+        }
         assert!(
-            operations * 10 <= crate::engine::MAX_OPERATIONS,
-            "{operations} operations in {elapsed:?}: the margin is under tenfold; raise MAX_OPERATIONS"
-        );
-        assert!(
-            crate::engine::MAX_OPERATIONS <= operations * 30,
-            "{operations} operations in {elapsed:?}: MAX_OPERATIONS is stale; lower it to ten times the cost"
+            crate::engine::MAX_OPERATIONS <= heaviest * 30,
+            "{heaviest} operations at the heaviest: MAX_OPERATIONS is stale; lower it to ten times that cost{table}"
         );
     }
 

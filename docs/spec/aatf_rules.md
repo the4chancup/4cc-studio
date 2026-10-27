@@ -895,11 +895,12 @@ The script API, which `libs/aatf`'s crate doc lists too:
 | `team.auto_substitution` | the stored setting (0 off); `()` on a version without it |
 | `team.auto_offside_trap`, `.auto_preset_change`, `.auto_attack_defence_levels` | the flag; `()` on a version without it (attack/defence levels before PES 17) |
 
-`MAX_OPERATIONS` is set from the measured cost of the official ruleset on a full team, with at
-least a tenfold margin (10 million against about 600,000 measured; the test holds it between
-10 and 30 times). Closed sets cross the boundary as the labels the file uses (`"GK"`, `"A"`,
-`"malicia"`); the Rust side keeps its enums and converts at the registration functions, nowhere
-else. Tactics questions are answered in Rust from `pes_savefile`'s model, so the starting-eleven
+`MAX_OPERATIONS` is set from the measured cost of the heaviest embedded ruleset on a full team,
+with at least a tenfold margin (10 million against about 790,000 measured for DBC7 on the sample
+team, about 730,000 for the official ruleset; the test runs every embedded ruleset, holds each
+under a tenth of the limit and the limit under 30 times the heaviest). Closed sets cross the
+boundary as the labels the file uses (`"GK"`, `"A"`, `"malicia"`); the Rust side keeps its
+enums and converts at the registration functions, nowhere else. Tactics questions are answered in Rust from `pes_savefile`'s model, so the starting-eleven
 lookup and the formation count, both wrong upstream until `f5e7b3e`, live in one tested place: a
 formation's slot *i* holds the starting eleven's *i*th player (`TeamTactics::starting_eleven`
 holds roster slots; `aatf.cpp`'s `aatf_check_player_in_pos` reads them the same way), and a preset fields

@@ -959,9 +959,8 @@ fn long_ranger_is_free_and_coms_cap_at_five() {
     );
 }
 
-/// Weak foot is exact (`at_most` is empty, against the checker's `>`
-/// test): under the 4/4 every tier sets, a regular at 3/4 and one at
-/// 4/3 each report the lower value.
+/// Weak foot is exact (`at_most` is empty): under the 4/4 every tier
+/// sets, a regular at 3/4 and one at 4/3 each report the lower value.
 #[test]
 fn weak_foot_below_the_exact_target() {
     let rules = rules();

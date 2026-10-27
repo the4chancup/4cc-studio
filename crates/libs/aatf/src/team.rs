@@ -3,8 +3,8 @@
 //! (`fielded_positions`, `fielded_only_at`, `formation_shapes`).
 
 use pes_savefile::EditFile;
-use pes_savefile::interchange::team_toml::TeamToml;
 use pes_savefile::interchange::team_toml::labels::{PLAYABLE_POSITIONS, POSITIONS};
+use pes_savefile::interchange::team_toml::{ImportNote, TeamToml};
 use pes_savefile::model::names::name_color;
 use pes_savefile::model::player::PlayerEntry;
 use pes_savefile::model::playstyle::PlayStyle as SavePlayStyle;
@@ -180,11 +180,18 @@ pub enum TeamViewError {
     #[error("the document names no pes_version")]
     NoVersion,
     /// The document does not apply onto bare records: `message` is the
-    /// `TeamTomlError` or the first import note.
+    /// `TeamTomlError`'s text.
     #[error("the document does not apply: {message}")]
     TeamToml {
-        /// The error's or note's text.
+        /// The error's text.
         message: String,
+    },
+    /// The document applies only with a change (a key the version lacks, a
+    /// value it cannot store): the first import note, which the tool words.
+    #[error("the document does not apply as written")]
+    ImportNote {
+        /// The first note `apply` returned.
+        note: ImportNote,
     },
 }
 
@@ -357,10 +364,8 @@ pub(crate) fn records_from_team_toml(
         .map_err(|e| TeamViewError::TeamToml {
             message: e.to_string(),
         })?;
-    if let Some(note) = notes.first() {
-        return Err(TeamViewError::TeamToml {
-            message: format!("{note:?}"),
-        });
+    if let Some(note) = notes.into_iter().next() {
+        return Err(TeamViewError::ImportNote { note });
     }
     Ok((version, team, players))
 }
@@ -983,9 +988,9 @@ mod tests {
     }
 
     #[test]
-    fn an_unencodable_instruction_is_team_toml() {
+    fn an_unencodable_instruction_is_its_import_note() {
         // `anchoring` is PES 20/21 only: `apply` notes `NotEncodable`,
-        // which surfaces as `TeamToml` naming the instruction's path.
+        // which surfaces as that note itself, for the tool to word.
         let file = EditFile::from_bytes(&fixture_save(PesVersion::Pes17)).expect("fixture save");
         let team = file.team(701).expect("team 701");
         let players: Vec<&PlayerEntry> = team
@@ -1002,13 +1007,16 @@ mod tests {
             .expect("PES 17 has instructions");
         instructions.attack[0].instruction = pes_savefile::model::Instruction::Anchoring;
         let err = TeamView::from_team_toml(&document).expect_err("an unencodable instruction");
-        match err {
-            TeamViewError::TeamToml { message } => {
-                assert!(message.contains("anchoring"), "{message}");
-                assert!(message.contains("instructions.attack"), "{message}");
+        assert_eq!(err.to_string(), "the document does not apply as written");
+        assert_eq!(
+            err,
+            TeamViewError::ImportNote {
+                note: ImportNote::NotEncodable {
+                    path: "tactics.preset_1.instructions.attack".to_owned(),
+                    label: "anchoring".to_owned(),
+                },
             }
-            other => panic!("expected TeamToml, got {other:?}"),
-        }
+        );
     }
 
     #[test]

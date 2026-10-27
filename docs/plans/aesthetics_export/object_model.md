@@ -62,7 +62,7 @@ pub enum ModelFile {
 }
 
 pub struct RawFile {
-    pub relative_path: vtree::RelativeScopePath, // canonical within the folder
+    pub relative_path: String, // canonical within the folder, by `vtree`'s path rules
     data: Arc<[u8]>,
 }
 ```

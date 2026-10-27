@@ -1,4 +1,4 @@
-//! In-memory virtual file tree and the canonical `ScopePath` / `RelativeScopePath` types.
+//! In-memory virtual file tree and the canonical `ScopePath` type.
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -32,28 +32,15 @@ impl ScopePath {
 
     /// The last segment (file or folder name).
     pub fn name(&self) -> &str {
-        // A validated path always has at least one non-empty segment.
-        match self.0.rsplit('/').next() {
-            Some(name) => name,
-            None => &self.0,
-        }
+        self.0
+            .rsplit_once('/')
+            .map_or(self.0.as_str(), |(_, name)| name)
     }
 
     /// The parent path, or `None` for a single-segment path.
     pub fn parent(&self) -> Option<ScopePath> {
         let (parent, _) = self.0.rsplit_once('/')?;
         Some(ScopePath(parent.to_owned()))
-    }
-
-    /// Builds a path relative to this one as the scope root. This is the only
-    /// constructor of [`RelativeScopePath`]; the text is validated exactly like
-    /// [`ScopePath::new`].
-    pub fn relative(&self, text: &str) -> Result<RelativeScopePath, PathError> {
-        let normalized = normalize(text)?;
-        Ok(RelativeScopePath {
-            root: self.clone(),
-            relative: normalized,
-        })
     }
 
     /// NFC, then NTFS-style simple case folding (per-character uppercase, then
@@ -81,37 +68,6 @@ impl AsRef<str> for ScopePath {
 /// validates nothing: a stem that is no valid path segment still folds.
 pub fn fold_name(name: &str) -> String {
     fold_segments(std::iter::once(name))
-}
-
-/// A canonical path relative to a validated scope root; carries its root so it
-/// can only be joined back to it.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct RelativeScopePath {
-    root: ScopePath,
-    relative: String,
-}
-
-impl RelativeScopePath {
-    /// The scope root this path was built against.
-    pub fn root(&self) -> &ScopePath {
-        &self.root
-    }
-
-    /// The relative part (`face.fmdl`, `textures/kit.dds`).
-    pub fn as_str(&self) -> &str {
-        &self.relative
-    }
-
-    /// The relative path's segments in order.
-    pub fn segments(&self) -> impl Iterator<Item = &str> {
-        self.relative.split('/')
-    }
-
-    /// The full canonical path: this path joined back to its root. Infallible:
-    /// both halves are already canonical.
-    pub fn to_scope_path(&self) -> ScopePath {
-        ScopePath(format!("{}/{}", self.root.as_str(), self.relative))
-    }
 }
 
 /// Why a string is not a canonical path. Stable variants usable as finding
@@ -295,7 +251,7 @@ impl<T> VirtualTree<T> {
         let mut children: BTreeMap<String, Entry> = BTreeMap::new();
         for (key, (path, _)) in self.with_prefix(prefix.clone()) {
             let rest = &key[prefix.len()..];
-            let first_segment = rest.split('/').next().unwrap_or_default();
+            let first_segment = rest.split_once('/').map_or(rest, |(first, _)| first);
             children.entry(first_segment.to_owned()).or_insert_with(|| {
                 // The child's real casing comes from the stored path's segment.
                 let child_path = ScopePath(
@@ -371,7 +327,7 @@ fn normalize(text: &str) -> Result<String, PathError> {
 fn validate_segments(path: &str) -> Result<(), PathError> {
     // A drive-letter first segment is an absolute path, reported separately
     // from the general ':' rejection below.
-    let first = path.split('/').next().unwrap_or_default();
+    let first = path.split_once('/').map_or(path, |(first, _)| first);
     if first.len() == 2
         && first.ends_with(':')
         && first.starts_with(|c: char| c.is_ascii_alphabetic())
@@ -486,26 +442,6 @@ mod tests {
         assert_eq!(p.parent().unwrap().parent().unwrap().as_str(), "Kits");
         assert!(p.parent().unwrap().parent().unwrap().parent().is_none());
         assert_eq!(p.segments().collect::<Vec<_>>(), ["Kits", "p1", "kit.dds"]);
-    }
-
-    #[test]
-    fn relative_validates_like_scope_path() {
-        let root = path("player1");
-        assert_eq!(root.relative(""), Err(PathError::Empty));
-        assert_eq!(root.relative("/a"), Err(PathError::Absolute));
-        assert_eq!(root.relative("a/../b"), Err(PathError::Traversal));
-        assert_eq!(root.relative("a//b"), Err(PathError::EmptySegment));
-        let rel = root.relative(r"textures\kit.dds").unwrap();
-        assert_eq!(rel.as_str(), "textures/kit.dds");
-        assert_eq!(rel.root(), &root);
-        assert_eq!(rel.segments().collect::<Vec<_>>(), ["textures", "kit.dds"]);
-    }
-
-    #[test]
-    fn to_scope_path_joins_back_to_its_root() {
-        let root = path("player1");
-        let rel = root.relative("face.fmdl").unwrap();
-        assert_eq!(rel.to_scope_path().as_str(), "player1/face.fmdl");
     }
 
     #[test]

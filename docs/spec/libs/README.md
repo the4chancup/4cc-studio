@@ -56,17 +56,13 @@ single-file plan.
 | UniformParameter | `utils/uniparam.py` | 91 lines | Kit config container |
 | CRILAYLA | `utils/crilayla.py` | 72 lines | Bitstream LZ decompression |
 | WESYS/zlib | `utils/zlib_plus.py` | 146 lines | zlib wrapper with custom header |
-| VirtualTree / `ScopePath` / `RelativeScopePath` | `utils/vtree.py` | 187 lines | In-memory file tree plus canonical absolute-within-export and scope-relative path types (case-insensitive lookup with explicit collision checks) |
+| VirtualTree / `ScopePath` | `utils/vtree.py` | 187 lines | In-memory file tree plus the canonical absolute-within-export path type (case-insensitive lookup with explicit collision checks) |
 
 ## `vtree` path types
 
-`vtree::ScopePath` is the canonical export/event path. `vtree::RelativeScopePath`
-represents a canonical path relative to an already validated task or folder scope;
-it is constructed only through that scope root, normalizes separators identically to
-`ScopePath`, and rejects traversal, absolute paths, and empty/noncanonical segments.
-Case-folded and Unicode-normalized collisions are detected before either type enters
-a tree. Joining a `RelativeScopePath` back to its validated root returns a checked
-`ScopePath` and cannot escape or silently collide with an existing entry.
+`vtree::ScopePath` is the canonical export/event path. It normalizes separators and
+rejects traversal, absolute paths, and empty/noncanonical segments. Case-folded and
+Unicode-normalized collisions are detected before a path enters a tree.
 
 ## `pes_version`
 

@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 /// A normalized rectangle of the kit texture, `0.0..=1.0` on both axes.
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct Region {
+pub(crate) struct Region {
     /// Left edge.
     pub x0: f32,
     /// Top edge.
@@ -20,7 +20,7 @@ pub struct Region {
 }
 
 /// The shirt band of the community kit template, inset from the measured zone.
-pub const SHIRT: Region = Region {
+pub(crate) const SHIRT: Region = Region {
     x0: 0.36,
     y0: 0.05,
     x1: 0.64,
@@ -28,7 +28,7 @@ pub const SHIRT: Region = Region {
 };
 
 /// The two shorts panels.
-pub const SHORTS: [Region; 2] = [
+pub(crate) const SHORTS: [Region; 2] = [
     Region {
         x0: 0.04,
         y0: 0.61,
@@ -223,13 +223,6 @@ fn cluster(rgba: &[u8], width: u32, height: u32, regions: &[Region]) -> Vec<Clus
     result
 }
 
-/// Ranked color clusters of one region of an RGBA8 texture. `rgba.len()` must be exactly
-/// `4 * width * height`; anything else yields an empty list, as does an empty region or a
-/// fully transparent image.
-pub fn dominant_colors(rgba: &[u8], width: u32, height: u32, region: Region) -> Vec<Cluster> {
-    cluster(rgba, width, height, &[region])
-}
-
 /// The kit's two menu colors; `None` when the shirt region has no opaque pixel.
 /// `rgba.len()` must be exactly `4 * width * height`; anything else yields `None`.
 pub fn extract_kit_colors(rgba: &[u8], width: u32, height: u32) -> Option<KitColors> {
@@ -271,6 +264,13 @@ mod tests {
     use super::*;
 
     const SIZE: u32 = 256;
+
+    /// Ranked color clusters of one region of an RGBA8 texture. `rgba.len()` must be exactly
+    /// `4 * width * height`; anything else yields an empty list, as does an empty region or a
+    /// fully transparent image.
+    fn dominant_colors(rgba: &[u8], width: u32, height: u32, region: Region) -> Vec<Cluster> {
+        cluster(rgba, width, height, &[region])
+    }
 
     /// A SIZE x SIZE texture whose pixel (x, y) is the RGBA `paint` returns for it.
     fn texture(width: u32, height: u32, paint: impl Fn(u32, u32) -> [u8; 4]) -> Vec<u8> {

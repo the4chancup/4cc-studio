@@ -1,6 +1,6 @@
 [package]
 name = "vtree"
-description = "In-memory virtual file tree and the canonical ScopePath / RelativeScopePath types"
+description = "In-memory virtual file tree and the canonical ScopePath type"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

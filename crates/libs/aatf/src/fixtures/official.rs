@@ -853,8 +853,8 @@ fn red_manlet_bonus() {
     assert_eq!(problems(&rules, &silver_manlet(92)), vec![]);
     assert_eq!(problems(&rules, &silver_manlet(94)), vec![]);
     // The bonus has no gold amount (the wiki names regulars, bronzes and
-    // silvers; the official 4ccEditor's gold bonus is 0), so a gold at
-    // 175 under Red is offered no bonus to take.
+    // silvers only), so a gold at 175 under Red is offered no bonus to
+    // take.
     let gold_manlet = red_edited(2, |p| p.height = 175);
     assert!(
         !suggestions_for(&rules, &gold_manlet, 2).contains(&ViolationKind::UnusedChoice {

@@ -1940,7 +1940,7 @@ Resolved decisions:
   "A link plus local models combines" and "`ingame_face` marker" in the [Aesthetics export
   plan](../aesthetics_export/player_folders.md); the ID a local-only category gets is steps 2
   and 3 of "Player settings in exports" ([`settings_toml.md`](../aesthetics_export/settings_toml.md)).
-- **Virtual-path safety** is specified on the shared `vtree::ScopePath`/`RelativeScopePath` types
+- **Virtual-path safety** is specified on the shared `vtree::ScopePath` type
   (see the [library crates plan](../libs/README.md)): traversal/absolute paths rejected, separators
   normalized, case/Unicode collisions detected before extraction or packing; `aesthetics_export` uses the
   shared type.

@@ -337,26 +337,52 @@ pub fn from_toml(text: &str) -> Result<KitConfig, KitConfigError> {
         }
     }
     if let Some(badge) = reader.table("badge")? {
-        for (name, position) in [
-            ("right_short", &mut config.badges.right_short),
-            ("left_short", &mut config.badges.left_short),
-            ("right_long", &mut config.badges.right_long),
-            ("left_long", &mut config.badges.left_long),
+        for (name, badge_key, x_key, y_key, position) in [
+            (
+                "right_short",
+                "badge.right_short",
+                "badge.right_short.x",
+                "badge.right_short.y",
+                &mut config.badges.right_short,
+            ),
+            (
+                "left_short",
+                "badge.left_short",
+                "badge.left_short.x",
+                "badge.left_short.y",
+                &mut config.badges.left_short,
+            ),
+            (
+                "right_long",
+                "badge.right_long",
+                "badge.right_long.x",
+                "badge.right_long.y",
+                &mut config.badges.right_long,
+            ),
+            (
+                "left_long",
+                "badge.left_long",
+                "badge.left_long.x",
+                "badge.left_long.y",
+                &mut config.badges.left_long,
+            ),
         ] {
             if let Some(badge_value) = badge.get(name) {
                 if badge_value.as_table().is_none() {
                     return Err(KitConfigError::InvalidValue {
-                        key: "badge",
+                        key: badge_key,
                         value: badge_value.to_string(),
                     });
                 }
-                for (key, field) in [("x", &mut position.x), ("y", &mut position.y)] {
-                    if let Some(value) = badge_value.get(key) {
+                for (coordinate, key, field) in
+                    [("x", x_key, &mut position.x), ("y", y_key, &mut position.y)]
+                {
+                    if let Some(value) = badge_value.get(coordinate) {
                         *field = value
                             .as_integer()
                             .and_then(|v| u8::try_from(v).ok())
                             .ok_or_else(|| KitConfigError::InvalidValue {
-                                key: "badge",
+                                key,
                                 value: value.to_string(),
                             })?;
                     }
@@ -482,11 +508,11 @@ pub fn to_toml(config: &KitConfig) -> String {
         c.shirt.pattern
     ));
     line(&format!(
-        "long_sleeves = {}     # \"normal\" / \"undershirt-only\" (144 only)",
+        "long_sleeves = {}     # \"normal\" / \"undershirt-only\" (144/160 only)",
         long_sleeves_repr(c.shirt.long_sleeves)
     ));
     line(&format!(
-        "short_sleeves = {}    # \"normal\" / \"cut-out\" (144 only)",
+        "short_sleeves = {}    # \"normal\" / \"cut-out\" (144/160 only)",
         short_sleeves_repr(c.shirt.short_sleeves)
     ));
     line("");
