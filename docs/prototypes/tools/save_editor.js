@@ -4438,6 +4438,7 @@ function drawPitch(t) {
   // The dragged marker sits on him, so it goes half transparent over him
   // and his corners are drawn over both.
   const target = d && d.moved ? hitMarker(t, d.px, d.py, d.i) : -1;
+  const crosses = [];
   for (const i of order) {
     const s = f[i], roster = tac.starting_eleven[i], p = rosterPlayer(t, roster);
     const dragged = d && d.i === i && d.moved;
@@ -4460,6 +4461,12 @@ function drawPitch(t) {
       g.fillText(medal[0], bl + MARKER.badgeW - 3, y + 1);
       g.textAlign = "left";
     }
+    // Live AATF's cross for a FieldedNotA about him at this spot, just left of
+    // his badge as a field's cross is left of its box; painted after every
+    // marker, since a later one's portrait can cover the spot.
+    const crossRows = p && pitchCrossRows(t, p, s.position);
+    if (crossRows) crosses.push([bl - PITCH_CROSS.gap, y + 1,
+      crossRows.some(r => r[0] === "Error") ? "#ff0000" : "#ff8f00"]);
     g.save();
     g.beginPath(); g.rect(bl, y + 3, MARKER.badgeW, 20); g.clip();
     g.font = "12px sans-serif"; g.textAlign = "left";
@@ -4494,10 +4501,44 @@ function drawPitch(t) {
   }
   g.globalAlpha = 1;
   if (target >= 0) corners(g, ...badgeAt(t, target), "#14fbff");
+  g.font = "12.5px Ubuntu, sans-serif"; g.textAlign = "right"; g.textBaseline = "middle";
+  for (const [cx, cy, color] of crosses) { g.fillStyle = color; g.fillText("✖", cx, cy); }
+  g.textAlign = "left";
+}
+// The pitch's Live AATF cross: 4 px left of the badge (a field cross's
+// margin), the glyph about 11 px wide at the body size.
+const PITCH_CROSS = { gap: 4, w: 11 };
+// The FieldedNotA rows the pitch marks on `p`'s marker at `position`: the
+// shown preset's, about that position, while the shown formation is one the
+// preset fields (a fluid preset's three, else its kick-off one); null for
+// none or a suggestion alone, as a field's cross.
+function pitchCrossRows(t, p, position) {
+  const pre = tacPreset(t);
+  if (!fieldedFormations(pre).includes(S.tac.formation)) return null;
+  const rows = (liveRowsOf(t.id) || []).filter(r => r[2] === p.id && r[3] === "FieldedNotA"
+    && r[0] !== "Suggestion" && Number(kvOf(r[4]).preset) === S.tac.preset + 1
+    && kvOf(r[4]).position === position);
+  return rows.length ? rows : null;
+}
+// The cross's tooltip: its rows' lines, as a field cross's.
+function pitchCrossTip(t, px, py) {
+  const f = tacFormation(t).players;
+  for (let i = 0; i < 11; i++) {
+    const p = rosterPlayer(t, t.tactics.starting_eleven[i]);
+    const rows = p && pitchCrossRows(t, p, f[i].position);
+    if (!rows) continue;
+    const [x, y] = badgeAt(t, i), right = x - MARKER.badgeW / 2 - PITCH_CROSS.gap;
+    if (px >= right - PITCH_CROSS.w && px <= right && Math.abs(py - y) <= MARKER.badgeH / 2)
+      return rows.map(r => r[3] + ": " + violationSentence(r[3], kvOf(r[4]), r[0])).join("\n");
+  }
+  return "";
 }
 function pitchCanvas(t) {
   const cv = h("canvas", { class: "pitch", id: "pitch",
     width: PITCH.w, height: PITCH.h });
+  cv.addEventListener("mousemove", e => {
+    if (!S.pitchDrag) cv.title = pitchCrossTip(t, ...pitchPoint(cv, e));
+  });
   cv.addEventListener("pointerdown", e => {
     const [px, py] = pitchPoint(cv, e);
     const i = hitMarker(t, px, py);
@@ -4996,6 +5037,17 @@ function jumpToPlayer(teamId, slot) {
 function jumpToTeam(teamId) {
   S.teamSel = String(teamId); S.sel = { team: teamId };
 }
+// A FieldedNotA row's jump: his team's row, since the pitch its cross is on
+// is the team view's, showing the named preset on the first of its
+// formations that carries the cross.
+function jumpToCross(teamId, pid, kv) {
+  jumpToTeam(teamId);
+  const t = selTeam(), preset = Number(kv.preset) - 1, pre = t.tactics.presets[preset];
+  const i = t.tactics.starting_eleven.findIndex(r => (rosterPlayer(t, r) || {}).id === pid);
+  S.tac.preset = preset;
+  S.tac.formation = fieldedFormations(pre)
+    .find(f => pre.formations[f].players[i].position === kv.position) ?? 0;
+}
 // A panel row's player header: the id plus, as the player list draws them,
 // his shirt number and colour-coded name. A player the page holds no record
 // for (the picked save's) keeps the bare id.
@@ -5429,7 +5481,8 @@ function teamMark(team) {
 // (NoTier, StatTotal, Special, Custom, the suggestions), which marks the
 // player's row alone, and for the team's own kinds, which mark the team's.
 // The draft's sample run reaches Height, Stat, StatTotal and Special;
-// FieldedNotA's cross on the Tactics pitch has no sample row to show.
+// FieldedNotA is re-read from the tactics (`fieldedRows`), its cross on the
+// Tactics pitch.
 function violationField(rule, kv) {
   switch (rule) {
     case "Height": return "height";
@@ -5468,7 +5521,8 @@ const liveTeam = () => selTeam();
 // ruleset) starts a check.
 const liveSig = () => {
   const t = liveTeam();
-  return [D.ruleset, S.saveKey, t.id, D.liveTeamRows, JSON.stringify(t.players)].join("|");
+  return [D.ruleset, S.saveKey, t.id, D.liveTeamRows, JSON.stringify(t.players),
+    JSON.stringify(t.tactics)].join("|");
 };
 // Called by render(). The real check runs on a worker once the edit settles
 // (about 56 ms a team); the draft waits 400 ms, restarted by every change,
@@ -5512,6 +5566,8 @@ function liveRow(row, team) {
       return total > Number(kv.limit) ? [sev, team.id, pid, rule, "total=" + total + ";limit=" + kv.limit] : null;
     }
     case "Height": return p.height === Number(kv.height) ? row : null;
+    // Re-read whole from the tactics by `fieldedRows`.
+    case "FieldedNotA": return null;
     case "Special":
       if (kv.label === "The registered position must be rated A")
         return p.positions.playable[p.positions.registered] !== "A" ? row : null;
@@ -5519,12 +5575,43 @@ function liveRow(row, team) {
   }
   return row;
 }
+// The presets whose fielded positions the ruleset checks (its `fielded_at_a`):
+// every ruleset the suite carries checks preset 1 alone.
+const FIELDED_AT_A = [1];
+// The formations a preset fields: all three while its fluid formation is on,
+// else the kick-off one alone (the game uses the other two only when fluid).
+const fieldedFormations = pre => pre.style.fluid ? [0, 1, 2] : [0];
+// FieldedNotA re-read from the record, as the check reads it: a starter at a
+// position he is not rated A at, on a formation a checked preset fields, one
+// row per preset and position. The sample run holds none, so a manager sees
+// the pitch's cross by moving a starter of preset 1 onto a position he lacks.
+function fieldedRows(t) {
+  const rows = [];
+  t.tactics.starting_eleven.forEach((roster, i) => {
+    const p = rosterPlayer(t, roster);
+    if (!p) return;
+    for (const preset of FIELDED_AT_A) {
+      const pre = t.tactics.presets[preset - 1], seen = new Set();
+      for (const f of fieldedFormations(pre)) {
+        const pos = pre.formations[f].players[i].position;
+        if (seen.has(pos) || p.positions.playable[pos] === "A") continue;
+        seen.add(pos);
+        rows.push(["Error", t.id, p.id, "FieldedNotA", "preset=" + preset + ";position=" + pos]);
+      }
+    }
+  });
+  return rows;
+}
 // The team's rows, errors first, each severity in the check's order (by slot,
 // the team's rows last); `null` when the draft holds no sample run for it.
 function liveRows(t) {
   const sample = S.saveKey === "pes17" ? AATF_ROWS[D.ruleset] : null;
   if (!sample || !sample.some(r => r[1] === t.id)) return null;
-  const rows = sample.filter(r => r[1] === t.id).map(r => liveRow(r, t)).filter(Boolean);
+  const rows = sample.filter(r => r[1] === t.id).map(r => liveRow(r, t)).filter(Boolean)
+    .concat(fieldedRows(t));
+  // A player's FieldedNotA rows after his sampled ones, the players by slot.
+  const order = r => r[2] ? r[2] % 100 : 1000;
+  rows.sort((a, b) => order(a) - order(b));
   return ["Error", "Warning"].flatMap(sev => rows.filter(r => r[0] === sev));
 }
 // The 4px handle above the header, as the log panel's: a drag rewrites
@@ -5570,7 +5657,12 @@ function livePanel() {
       lastPid = pid;
     }
     body.append(h("div", { class: "drow sel " + (sev === "Error" ? "err" : "warn"),
-      onclick: () => { if (pid) jumpToPlayer(team, pid % 100); else jumpToTeam(team); render(); },
+      onclick: () => {
+        if (rule === "FieldedNotA") jumpToCross(team, pid, kvOf(fields));
+        else if (pid) jumpToPlayer(team, pid % 100);
+        else jumpToTeam(team);
+        render();
+      },
       title: pid ? "Select this player" : "Select the team" },
       h("span", { class: "f" }, rule), h("span", { class: "v" }, violationSentence(rule, kvOf(fields), sev))));
   }

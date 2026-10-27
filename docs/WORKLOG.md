@@ -2697,7 +2697,13 @@ briefs, review loops, gates and mutation runs as for any step.
       Name cross moved into its field). Open: one `mutants-diff dc02a76e`
     - [ ] o2b the pitch's cross for `FieldedNotA` and the dock row selecting his team's row
       on the named preset's first formation; after the Tactics tab's new layout (the
-      maintainer's request of 2026-10-26, drafted first)
+      maintainer's request of 2026-10-26, drafted first). Drafted 2026-10-27 (lead; DECISIONS
+      "Live AATF's pitch cross: left of the badge, over every marker"): `fieldedRows`
+      re-reads the kind from the record, the cross left of the badge after every marker, its
+      tooltip, `jumpToCross`. Headless check `.tmp/0_0_1o/draft_pitch_cross.py`: 17 of 17
+      (the re-read finds none on the sample team, as its real run; a moved starter's row,
+      cross and tooltip; none on a formation or preset not fielding him; the jump to the
+      kick-off and to a fluid preset's third formation)
     - [ ] the built-window look at the marks (their clearance at the real font)
 - [x] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
   "Usability proposals P17-P24 and P32-P38 accepted"; built: `spec/export_upgrader.md` step

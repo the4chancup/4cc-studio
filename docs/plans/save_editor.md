@@ -1035,7 +1035,8 @@ What this editor adds on top of the lib:
     (drawn while the team view shows that preset, on each formation the preset fields that puts
     him at the violation's `position`: a fluid preset fields all three, and its others may
     field him legally; a preset not fluid fields its kick-off one alone, so its other two
-    carry no cross),
+    carry no cross; the cross just left of his marker's badge, as a box's, and painted after
+    every marker, since a marker drawn later can cover the spot with its portrait),
     the playing style
     for `PlayingStyleRange`, the skills for `SkillCardCap`, the COM styles for
     `ComStyleCap`, the skills or the COM styles for `RequiredCard` by its card's kind, and the

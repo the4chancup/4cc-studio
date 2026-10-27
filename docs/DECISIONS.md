@@ -11858,3 +11858,16 @@ second call beside `install_fonts`, so no harness can measure a spacing the wind
 draw.
 Plan: `plans/core/gui.md` "Other UI components", the "Dark/light theme" row;
 `plans/save_editor.md` "The quick actions".
+
+## 2026-10-27 — save_editor — Live AATF's pitch cross: left of the badge, over every marker
+Decision: a `FieldedNotA` cross sits just left of the starter's badge (4 points, a field
+cross's margin) and is painted after every marker; the draft re-reads `FieldedNotA` from the
+record so the cross can be seen.
+Why: the plan placed the cross on "the player's spot" without a side. Left of the badge
+keeps the rule every field cross follows (left of a box, the box keeping its x). Painted in
+the marker loop, it hid under the keeper's portrait in the first draft (the probe found it
+painted, red, and covered): markers overlap, and a mark that asks for a fix must not be the
+thing that hides. The sample run of the PES 17 team holds no `FieldedNotA` (its starters are
+all A where preset 1 fields them, which the re-read confirms), so without the re-read the
+draft could not show it.
+Plan: `plans/save_editor.md` "Configurable AATF rules", the "Live AATF" bullet.
