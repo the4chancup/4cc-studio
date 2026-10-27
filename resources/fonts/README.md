@@ -1,17 +1,16 @@
 # Fonts
 
-`Ubuntu-Regular.ttf` is the suite's body font, the Ubuntu font family's regular weight, version
-0.83, as Google Fonts publishes it (`github.com/google/fonts`, `ufl/ubuntu/Ubuntu-Regular.ttf`,
-351,884 bytes, SHA-256 `3128df86…`). egui bundles only the light weight (`Ubuntu-Light`), which
-the drafts are not drawn in. Licence: the Ubuntu Font Licence 1.0, `UFL.txt` beside it (the same
-text egui's own copy of the family carries).
+`Selawik-Regular.ttf` is the suite's body font: Microsoft's metric twin of Segoe UI, version
+1.01 (`github.com/microsoft/Selawik` release 1.01's `selawk.ttf`, 44,224 bytes, SHA-256
+`e9d98518…`). The widths the drafts were calibrated in are Segoe UI's, which Selawik shares and
+which, unlike Segoe UI, may be bundled; it replaced egui's Ubuntu Light (too thin for the drafts'
+weight 400) and, briefly, Ubuntu Regular. The drafts draw in it too, and `symbols.ttf` takes its
+metrics from it. Licence: the SIL Open Font License 1.1, `Selawik-OFL.txt` beside it.
 
-`Selawik-Regular.ttf` replaces it as the body font at worklog step 0.0.1w2: Microsoft's metric
-twin of Segoe UI, version 1.01 (`github.com/microsoft/Selawik` release 1.01's `selawk.ttf`,
-44,224 bytes, SHA-256 `e9d98518…`). The widths the drafts were calibrated in are Segoe UI's,
-which Selawik shares and which, unlike Segoe UI, may be bundled. The drafts already draw in it,
-and `symbols.ttf` takes its metrics from it. Licence: the SIL Open Font License 1.1,
-`Selawik-OFL.txt` beside it.
+`Selawik-Semibold.ttf` is the one heavier face, for the Tactics pitch's formation name alone,
+the weight whose stroke matches the game's label as egui draws it (`plans/save_editor.md`,
+"The formation's name"): the same release's `selawksb.ttf`, 44,192 bytes, SHA-256
+`0a9e9d05…`. Licence: the same as the regular weight's, `Selawik-OFL.txt`.
 
 `symbols.ttf` holds the symbols the views draw that the body font lacks (→, ≡, ✔, ✖ and the
 like), each at its own codepoint: `scripts/make_symbols.py` builds it from one SVG per symbol in

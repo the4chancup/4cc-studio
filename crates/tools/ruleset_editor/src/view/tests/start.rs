@@ -337,17 +337,19 @@ fn the_start_modal_scrolls_when_it_outgrows_the_screen() {
     .expect("a scroll brought Close inside the screen");
 
     // The wheel scroll animates over several frames: the button's
-    // first on-screen bounds are mid-animation, so draw until they
-    // stop moving and click the fresh ones.
+    // first on-screen bounds are mid-animation, so draw until egui asks
+    // for no next frame and click the fresh ones. Two equal tops are no
+    // proof: the animation's tail moves under half a point a frame, so
+    // its pixel-rounded top can repeat while it still moves.
     let top = |frame: &Frame| node(&frame.nodes, "Close").bounds().expect("drawn").y0;
     let mut frame = window.draw(&mut view, &ctx);
-    for _ in 0..20 {
-        let before = top(&frame);
-        frame = window.draw(&mut view, &ctx);
-        if top(&frame) == before {
+    for _ in 0..60 {
+        if !frame.repaints {
             break;
         }
+        frame = window.draw(&mut view, &ctx);
     }
+    assert!(!frame.repaints, "the scroll still animates after 60 frames");
     assert_eq!(
         top(&frame),
         top(&window.draw(&mut view, &ctx)),

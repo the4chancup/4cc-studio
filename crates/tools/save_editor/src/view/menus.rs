@@ -12,6 +12,7 @@ use std::ops::RangeInclusive;
 use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::names::display_name;
+use studio_core::widgets::menu_button;
 
 use crate::session::Session;
 use crate::session::database;
@@ -31,7 +32,7 @@ use crate::view::{Refusal, SaveView, selected_player, selected_team_id};
 pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some(team_id) = selected_team_id(view) else {
         ui.add_enabled_ui(false, |ui| {
-            ui.menu_button("Team", |_| ());
+            menu_button(ui, "Team", |_| ());
         });
         return;
     };
@@ -54,7 +55,7 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
         Ok(_) => (unlocked, ownership_tip(version).to_owned()),
         Err(error) => (false, error.to_string()),
     };
-    ui.menu_button("Team", |ui| {
+    menu_button(ui, "Team", |ui| {
         let Some(session) = view.session.as_mut() else {
             return;
         };
@@ -122,14 +123,14 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
 pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     if view.session.is_none() {
         ui.add_enabled_ui(false, |ui| {
-            ui.menu_button("Player", |_| ());
+            menu_button(ui, "Player", |_| ());
         });
         return;
     }
     let Some((team_id, _, player_id)) = selected_player(view) else {
         // A team row selected: every item acts on a player, so all are
         // disabled with the reason on hover.
-        ui.menu_button("Player", |ui| {
+        menu_button(ui, "Player", |ui| {
             for label in [
                 "Set all stats\u{2026}",
                 "Bump all stats\u{2026}",
@@ -157,7 +158,7 @@ pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
         Ok(_) => (unlocked, ownership_tip(version).to_owned()),
         Err(error) => (false, error.to_string()),
     };
-    ui.menu_button("Player", |ui| {
+    menu_button(ui, "Player", |ui| {
         let Some(session) = view.session.as_mut() else {
             return;
         };
@@ -231,13 +232,13 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     let (unlocked, version) = {
         let Some(session) = view.session.as_ref() else {
             ui.add_enabled_ui(false, |ui| {
-                ui.menu_button("Savefile", |_| ());
+                menu_button(ui, "Savefile", |_| ());
             });
             return;
         };
         (!view.aesthetics_locked(), session.version())
     };
-    ui.menu_button("Savefile", |ui| {
+    menu_button(ui, "Savefile", |ui| {
         let Some(session) = view.session.as_mut() else {
             return;
         };
@@ -272,7 +273,7 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
 /// no save open.
 pub(crate) fn panels_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     ui.add_enabled_ui(view.session.is_some(), |ui| {
-        ui.menu_button("Panels", |ui| {
+        menu_button(ui, "Panels", |ui| {
             if ui.button("AATF violations\u{2026}").clicked() {
                 view.aatf.open = true;
                 ui.close();

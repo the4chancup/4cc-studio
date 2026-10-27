@@ -164,7 +164,13 @@ fn save_as_writes_a_copy_and_later_saves_follow_it() {
     // leaves a.4ccrules alone.
     click_drawn_nth(&mut window, &mut view, &ctx, "Defensive Prowess", 1);
     let frame = window.draw(&mut view, &ctx);
-    click_labeled(&mut window, &frame.nodes, "File", &mut view, &ctx);
+    click_labeled(
+        &mut window,
+        &frame.nodes,
+        &menu_label("File"),
+        &mut view,
+        &ctx,
+    );
     let frame = window.draw(&mut view, &ctx);
     click_nth(&mut window, &frame.nodes, "Save", 0, &mut view, &ctx);
     let rules =

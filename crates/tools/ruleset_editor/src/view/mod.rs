@@ -21,6 +21,7 @@ use std::path::{Path, PathBuf};
 
 use aatf::Ruleset;
 use studio_core::ToolContext;
+use studio_core::widgets::menu_button;
 
 pub(crate) use prompt::Pending;
 pub(crate) use sections::Section;
@@ -476,7 +477,7 @@ fn toolbar(
         && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::Z));
     egui::Panel::top("ruleset_toolbar").show(ui, |ui| {
         ui.horizontal(|ui| {
-            ui.menu_button("File", |ui| {
+            menu_button(ui, "File", |ui| {
                 // "New from template…" opens the start page over the
                 // document at once: it loses nothing (Close returns to
                 // it), so no prompt; the picks inside are guarded.
@@ -498,7 +499,7 @@ fn toolbar(
                 .as_ref()
                 .map(|document| (document.can_undo(), document.can_redo()))
                 .unwrap_or_default();
-            ui.menu_button("Edit", |ui| {
+            menu_button(ui, "Edit", |ui| {
                 if menu_item(
                     ui,
                     can_undo,
@@ -516,7 +517,7 @@ fn toolbar(
             });
             // The generator is a later build's (20.7).
             ui.add_enabled_ui(false, |ui| {
-                ui.menu_button("Randomize", |_| ());
+                menu_button(ui, "Randomize", |_| ());
             });
             ui.separator();
             if let Some(document) = view.document.as_ref() {

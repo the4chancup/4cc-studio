@@ -828,25 +828,28 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
         .find(|node| player_row(node))
         .and_then(accesskit::Node::bounds)
         .expect("a player row in the list");
-    let body_row = window
-        .ctx
-        .fonts_mut(|fonts| fonts.row_height(&egui::TextStyle::Body.resolve(&style)));
+    // The laid-out row's height (the galley's first row), not
+    // `fonts.row_height`'s unrounded one: rows are laid out on whole
+    // pixels, so three of them can exceed three unrounded heights.
+    let body_row = shape.galley.rows[0].rect().height();
+    // The rows stop short of the scroll bar's band the list reserves; the
+    // line, outside the list, may run into it.
+    let band = f64::from(style.spacing.scroll.bar_width);
     assert!(
-        (bounds.x0 - row.x0).abs() <= 1.0 && bounds.x1 <= row.x1 + 1.0,
-        "the line spans the list ({bounds:?} vs {row:?})"
+        (bounds.x0 - row.x0).abs() <= 1.0 && bounds.x1 <= row.x1 + band + 1.0,
+        "the line spans the list ({bounds:?} vs {row:?} and its {band}-point band)"
     );
     // Not elided (a truncated one-line label is the r1 shape the
-    // maintainer rejected), and wrapped across the list: more than one
-    // body row, three at the 223-point content width (the plan's three;
-    // the DECISIONS entry's "two lines at 240 points" reads it one short).
+    // maintainer rejected), and wrapped across the list: two body rows at
+    // the default 240, as the draft draws it.
     assert!(!shape.galley.elided, "the line is not elided");
     assert!(
         bounds.y1 - bounds.y0 > f64::from(body_row),
         "the line spans more than one body row ({bounds:?} vs {body_row})"
     );
     assert!(
-        bounds.y1 - bounds.y0 <= f64::from(body_row) * 3.0 + 1.0,
-        "the line is three body rows at most ({bounds:?} vs {body_row})"
+        bounds.y1 - bounds.y0 <= f64::from(body_row) * 2.0 + 1.0,
+        "the line is two body rows at most ({bounds:?} vs {body_row})"
     );
 
     // No Make button; Set stats sits under the line.

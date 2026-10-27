@@ -1613,11 +1613,15 @@ fn a_fielded_mark_paints_a_cross_left_of_the_starters_badge() {
             .error_fg_color,
         "the error colour"
     );
-    let rect = cross.visual_bounding_rect();
+    // The right edge is the glyph's advance, not its ink: the draft
+    // right-aligns the cross's text at the badge minus the gap, and the
+    // ink stops short of the advance by the glyph's side bearing.
+    let advance_right = cross.pos.x + cross.galley.rect.max.x;
     assert!(
-        (rect.max.x - (badge.left() - MARK_GAP)).abs() <= 0.5,
+        (advance_right - (badge.left() - MARK_GAP)).abs() <= 0.5,
         "the right edge MARK_GAP left of the badge"
     );
+    let rect = cross.visual_bounding_rect();
     assert!(
         (rect.center().y - badge.center().y).abs() <= 0.5,
         "centred on the badge"

@@ -91,9 +91,10 @@ fn label_shape<'a>(
 /// The Team menu button (the toolbar's, not the view's "Team" label):
 /// the topmost button with the label.
 fn team_menu_button(nodes: &[accesskit::Node]) -> &accesskit::Node {
+    let label = menu_label("Team");
     nodes
         .iter()
-        .filter(|node| node.role() == Role::Button && node.label() == Some("Team"))
+        .filter(|node| node.role() == Role::Button && node.label() == Some(label.as_str()))
         .min_by(|a, b| {
             let y = |node: &&accesskit::Node| node.bounds().map(|r| r.y0).unwrap_or(f64::MAX);
             y(a).partial_cmp(&y(b)).expect("ordered bounds")
@@ -1116,7 +1117,7 @@ fn the_team_view_draws_its_fields_and_edits_them_undoable() {
         !label_value(&nodes, "Slot 1"),
         "the kit slot rows stay behind the dialog"
     );
-    node_labeled(&nodes, Role::Button, "Copy/swap");
+    node_labeled(&nodes, Role::Button, &menu_label("Copy/swap"));
 
     // A short-name edit lands in the team's entry as one undoable edit.
     let before = team_entry(&view, 734).short_name;

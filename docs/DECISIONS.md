@@ -12002,3 +12002,16 @@ Semibold's verticals measure 2.97 px against the game's 3.01, Bold's 3.41 (the m
 stroke thickness must match, the typeface need not).
 Plan: `plans/save_editor.md` "Tactics editor" ("The formation's name"), SE-GUI-39;
 `plans/core/gui.md` "Prototypes before implementation" (the Fonts bullet).
+
+## 2026-10-27 — core — The app pins the drafts' text sizes
+Decision: `theme::install` sets egui's text styles to the sizes the drafts draw: `Small` 11,
+`Body` and `Button` 12.5, `Monospace` 12, `Heading` 15 (the host stylesheet's `.small`, body,
+`.mono` and `h2`). A modal window's title (14 in the drafts) keeps `Heading` until a style of
+its own (worklog 0.0.1w5).
+Why: egui 0.36 and 0.37 default to 9, 13, 13, 13 and 18, and nothing overrode them, so the
+app drew every text 4% wider than the approved drafts (rows 16 points against 15) and its
+headings 20% larger; w2's sidekick found it when Selawik's rows moved the layout tests. Pinning
+them, as `theme.rs` already pins 0.36's spacing and widget states, keeps the reviewed look
+through an egui upgrade too; matching the drafts to egui's 13 instead would re-open every
+approved width.
+Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row.

@@ -30,9 +30,10 @@ fn menu_items(nodes: &[accesskit::Node]) -> Vec<String> {
 /// The `index`th "Copy/swap" menu button, left to right (both bars carry
 /// one: the preset bar's first, the formation bar's second).
 fn copy_swap_button(nodes: &[accesskit::Node], index: usize) -> &accesskit::Node {
+    let label = menu_label("Copy/swap");
     let mut menus: Vec<&accesskit::Node> = nodes
         .iter()
-        .filter(|node| node.role() == Role::Button && node.label() == Some("Copy/swap"))
+        .filter(|node| node.role() == Role::Button && node.label() == Some(label.as_str()))
         .collect();
     menus.sort_by(|a, b| {
         let x = |node: &&accesskit::Node| node.bounds().expect("menu bounds").x0;

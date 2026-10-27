@@ -150,6 +150,11 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     egui::vec2(saved[0], ui.available_height()),
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
+                        // At least the draft's 350 (`.pcol.first`): the
+                        // measured width is the next frame's, and content
+                        // narrower than 350 would shrink the column to it,
+                        // moving the positions grid off the column's centre.
+                        ui.set_min_width(info_strip::GENERAL_WIDTH);
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
                         panel(ui, spacing, "General info", None, |ui| {
                             info_strip::general(ui, session, team_id, slot, player_id, marks);

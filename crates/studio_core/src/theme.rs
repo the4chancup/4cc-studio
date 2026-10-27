@@ -56,6 +56,19 @@ pub fn install(ctx: &egui::Context) {
         ctx.style_mut_of(theme, |style| {
             style.spacing.button_padding = egui::vec2(4.0, 1.0);
             style.spacing.interact_size = egui::vec2(40.0, 18.0);
+            // The drafts' text sizes (the stylesheet's `.small`, body, `.mono`
+            // and `h2`), where egui defaults to 9, 13, 13, 13 and 18: at those
+            // every approved width and row moves (core plan "Other UI
+            // components", the "Dark/light theme" row).
+            for (text_style, font_id) in [
+                (egui::TextStyle::Small, egui::FontId::proportional(11.0)),
+                (egui::TextStyle::Body, egui::FontId::proportional(12.5)),
+                (egui::TextStyle::Button, egui::FontId::proportional(12.5)),
+                (egui::TextStyle::Monospace, egui::FontId::monospace(12.0)),
+                (egui::TextStyle::Heading, egui::FontId::proportional(15.0)),
+            ] {
+                style.text_styles.insert(text_style, font_id);
+            }
             style.visuals.widgets = match theme {
                 egui::Theme::Dark => widgets_dark(),
                 egui::Theme::Light => widgets_light(),
@@ -163,17 +176,24 @@ fn widgets_light() -> egui::style::Widgets {
     }
 }
 
-/// Registers the suite's fonts on `ctx`: the body font `"Ubuntu-Regular"`, the
-/// file `resources/fonts/Ubuntu-Regular.ttf` bundles — the drafts the GUI is built
-/// from are drawn at weight 400 and egui ships only the light weight, so the
-/// family file replaces it (`resources/fonts/README.md`) — first in the
-/// proportional family; the icon font `"icons"` (the subset
-/// `resources/fonts/phosphor-subset.ttf` ships; `crate::icons` names its glyphs)
-/// second — after the text font, which a member's text must resolve from first,
-/// and ahead of egui's emoji fonts, so the icon codepoints come from it — and as
-/// its own `icons` family. Monospace stays egui's Hack, its fallback the regular
-/// weight too. Every build that has `studio_core` has egui's default fonts, through
-/// its `eframe` dependency's `default_fonts`. Installed fonts resolve
+/// Registers the suite's fonts on `ctx`: proportional text resolves from
+/// Selawik, the symbols font, the icon font and `egui-icons`, in that order,
+/// and monospace from egui's Hack, then the same four. The body font
+/// `"Selawik"` (the file `resources/fonts/Selawik-Regular.ttf` bundles,
+/// `resources/fonts/README.md`) is first because a member's text must resolve
+/// from it before any other font. The symbols font `"symbols"`
+/// (`resources/fonts/symbols.ttf`: the →, ✔, ⏷ and the like the views draw
+/// that Selawik lacks) follows it, so the body font keeps every character it
+/// has. The symbols are a file of their own, not glyphs of the icon font,
+/// because that file's vertical metrics are the body font's: egui centres a
+/// later font's line height on the body font's, so in the icon font's metrics
+/// a symbol would sit off the text's baseline (core plan "Other UI
+/// components", the "Dark/light theme" row). The icon font `"icons"` (the
+/// subset `resources/fonts/phosphor-subset.ttf` ships; `crate::icons` names
+/// its glyphs) comes ahead of egui's own icons, so the icon codepoints come
+/// from it, and is its own `icons` family too. Every build that has
+/// `studio_core` has egui's default fonts, through its `eframe` dependency's
+/// `default_fonts`. Installed fonts resolve
 /// before the system fallback eframe registers (`Context::set_fonts` replaces the
 /// definitions only, not the context's font providers); `set_fonts` replaces the
 /// whole font set, so the definitions start from egui's defaults and add ours.
@@ -182,9 +202,9 @@ fn widgets_light() -> egui::style::Widgets {
 fn install_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     fonts.font_data.insert(
-        "Ubuntu-Regular".to_owned(),
+        "Selawik".to_owned(),
         std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-            "../../../resources/fonts/Ubuntu-Regular.ttf"
+            "../../../resources/fonts/Selawik-Regular.ttf"
         ))),
     );
     fonts.font_data.insert(
@@ -193,21 +213,25 @@ fn install_fonts(ctx: &egui::Context) {
             "../../../resources/fonts/phosphor-subset.ttf"
         ))),
     );
-    // The regular weight takes the light one's place in every family, not only
-    // the proportional one: monospace falls back to it for what Hack lacks, and
-    // a family naming a `font_data` key that is not there panics in
-    // `fonts_for_family`.
+    fonts.font_data.insert(
+        "symbols".to_owned(),
+        std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+            "../../../resources/fonts/symbols.ttf"
+        ))),
+    );
+    // The body font, then the symbols and the icons, take Ubuntu-Light's place
+    // in every family, not only the proportional one: monospace falls back to
+    // them for what Hack lacks, and a family naming a `font_data` key that is
+    // not there panics in `fonts_for_family`.
     fonts.font_data.remove("Ubuntu-Light");
-    for name in fonts.families.values_mut().flatten() {
-        if name == "Ubuntu-Light" {
-            "Ubuntu-Regular".clone_into(name);
+    for names in fonts.families.values_mut() {
+        if let Some(light) = names.iter().position(|name| name == "Ubuntu-Light") {
+            names.splice(
+                light..=light,
+                ["Selawik", "symbols", "icons"].map(str::to_owned),
+            );
         }
     }
-    fonts
-        .families
-        .get_mut(&egui::FontFamily::Proportional)
-        .expect("eframe's default fonts fill the proportional family")
-        .insert(1, "icons".to_owned());
     fonts.families.insert(
         egui::FontFamily::Name("icons".into()),
         vec!["icons".to_owned()],
@@ -261,7 +285,29 @@ mod tests {
     }
 
     #[test]
-    fn installing_fonts_puts_ubuntu_regular_first_and_the_icons_second() {
+    fn install_pins_the_drafts_text_sizes() {
+        let ctx = egui::Context::default();
+        install(&ctx);
+        for theme in [egui::Theme::Dark, egui::Theme::Light] {
+            let style = ctx.style_of(theme);
+            for (text_style, font_id) in [
+                (egui::TextStyle::Small, egui::FontId::proportional(11.0)),
+                (egui::TextStyle::Body, egui::FontId::proportional(12.5)),
+                (egui::TextStyle::Button, egui::FontId::proportional(12.5)),
+                (egui::TextStyle::Monospace, egui::FontId::monospace(12.0)),
+                (egui::TextStyle::Heading, egui::FontId::proportional(15.0)),
+            ] {
+                assert_eq!(
+                    style.text_styles.get(&text_style),
+                    Some(&font_id),
+                    "{theme:?} {text_style:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn installing_fonts_chains_selawik_the_symbols_and_the_icons() {
         let ctx = egui::Context::default();
         install(&ctx);
         // `Context::fonts` is populated by the first pass.
@@ -269,38 +315,32 @@ mod tests {
             .drop_without_applying_deltas();
         ctx.fonts(|fonts| {
             let definitions = fonts.definitions();
-            assert!(definitions.font_data.contains_key("Ubuntu-Regular"));
-            assert!(definitions.font_data.contains_key("icons"));
-            assert!(
-                !definitions.font_data.contains_key("Ubuntu-Light"),
-                "egui's light weight is out: the drafts are drawn at weight 400"
-            );
+            for name in ["Selawik", "symbols", "icons"] {
+                assert!(definitions.font_data.contains_key(name), "{name} bundled");
+            }
+            for name in ["Ubuntu-Light", "Ubuntu-Regular"] {
+                assert!(
+                    !definitions.font_data.contains_key(name),
+                    "{name} is out: the body font is Selawik"
+                );
+            }
             let proportional = definitions
                 .families
                 .get(&egui::FontFamily::Proportional)
                 .expect("the proportional family exists");
             assert_eq!(
-                proportional.first().map(String::as_str),
-                Some("Ubuntu-Regular"),
-                "the body font resolves text first"
-            );
-            assert!(
-                !proportional.iter().any(|name| name == "Ubuntu-Light"),
-                "no light weight in the family"
+                proportional,
+                &["Selawik", "symbols", "icons", "egui-icons"],
+                "the body font resolves text first, then the symbols, the icons, egui's own"
             );
             let monospace = definitions
                 .families
                 .get(&egui::FontFamily::Monospace)
                 .expect("the monospace family exists");
             assert_eq!(
-                monospace.get(..2),
-                Some(&["Hack".to_owned(), "Ubuntu-Regular".to_owned()][..]),
-                "monospace keeps Hack first and falls back to the regular weight"
-            );
-            assert_eq!(
-                proportional.iter().position(|name| name == "icons"),
-                Some(1),
-                "icons is second: after the text font, ahead of egui's emoji fonts"
+                monospace,
+                &["Hack", "Selawik", "symbols", "icons", "egui-icons"],
+                "monospace keeps Hack first, then the proportional chain"
             );
             assert_eq!(
                 definitions
@@ -346,6 +386,36 @@ mod tests {
                     fonts.has_glyph(&egui::FontId::proportional(14.0), glyph),
                     "no font has U+{:04X}",
                     u32::from(glyph)
+                );
+            }
+        });
+    }
+
+    #[test]
+    fn every_symbol_the_views_draw_resolves_a_glyph_after_install() {
+        const SYMBOLS: &str = "→↓↻∉−≠≡≤⏷▶▸▾●⚠✔✕✖⠇…›•";
+        let ctx = egui::Context::default();
+        install(&ctx);
+        ctx.run_ui(egui::RawInput::default(), |_| {})
+            .drop_without_applying_deltas();
+        ctx.fonts_mut(|fonts| {
+            for font_id in [
+                egui::FontId::proportional(14.0),
+                egui::FontId::monospace(14.0),
+            ] {
+                let missing: Vec<char> = SYMBOLS
+                    .chars()
+                    .filter(|&glyph| !fonts.has_glyph(&font_id, glyph))
+                    .collect();
+                assert!(
+                    missing.is_empty(),
+                    "no bundled {:?} font has {}",
+                    font_id.family,
+                    missing
+                        .iter()
+                        .map(|glyph| format!("U+{:04X} ({glyph})", u32::from(*glyph)))
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 );
             }
         });

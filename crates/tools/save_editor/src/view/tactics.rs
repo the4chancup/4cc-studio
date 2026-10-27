@@ -16,6 +16,7 @@
 use aatf::TeamView;
 use pes_savefile::EditFile;
 use pes_savefile::model::names::display_name;
+use studio_core::widgets::menu_button;
 use team_widgets::pitch::{self, FORMATIONS};
 use team_widgets::tactics::{self, FieldedMark, Medal, RosterRow};
 use team_widgets::violations::violation_line;
@@ -308,7 +309,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 /// two (the plan's Copy/swap bullet — four entries, not the nine pairs),
 /// each a sealed undo entry (`Session::{copy_preset,swap_presets}`).
 fn copy_swap_preset_menu(ui: &mut egui::Ui, session: &mut Session, team_id: u32, preset: usize) {
-    ui.menu_button("Copy/swap", |ui| {
+    menu_button(ui, "Copy/swap", |ui| {
         for to in (0..3).filter(|&to| to != preset) {
             if ui.button(format!("Copy to {}", to + 1)).clicked() {
                 session.copy_preset(team_id, preset, to);
@@ -334,7 +335,7 @@ fn copy_swap_formation_menu(
     team_id: u32,
     view: &tactics::TacticsView,
 ) {
-    ui.menu_button("Copy/swap", |ui| {
+    menu_button(ui, "Copy/swap", |ui| {
         for to in (0..3).filter(|&to| to != view.formation) {
             if ui.button(format!("Copy to {}", FORMATIONS[to])).clicked() {
                 session.copy_formation(team_id, view.preset, view.formation, to);

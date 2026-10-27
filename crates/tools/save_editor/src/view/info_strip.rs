@@ -737,9 +737,10 @@ fn side_row(ui: &mut egui::Ui, field_width: f32, held: u8) -> Option<(u8, u64)> 
 
 /// Live AATF's cross after `label`'s text (the plan bullet's "after the
 /// label of a field drawn beside its label"): inside the label column's
-/// room or the gap before the field, never over either — the gap before
-/// the combos is wider than the glyph, so even the column's widest
-/// label keeps its text clear. Painted, so the field keeps its x.
+/// room or the gap before the field, never over either. After the
+/// column's widest label, the gap before the combos holds the glyph's
+/// ink; its advance may end a fraction of a point past it, in the side
+/// bearing nobody sees. Painted, so the field keeps its x.
 fn cross_after_label(ui: &mut egui::Ui, label: egui::Rect, marks: Marks<'_>, field: MarkedField) {
     let cross = live_marks::cross_width(ui);
     marks.paint(

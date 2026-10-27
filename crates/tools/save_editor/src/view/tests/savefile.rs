@@ -12,11 +12,7 @@ fn open_savefile_menu(window: &mut Headless, view: &mut SaveView) -> Vec<accessk
     }) {
         return nodes;
     }
-    let button = nodes
-        .iter()
-        .find(|node| node.role() == Role::Button && node.label() == Some("Savefile"))
-        .expect("the Savefile menu button");
-    click(window, button, view);
+    click(window, menu_button(&nodes, "Savefile"), view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
     nodes
 }

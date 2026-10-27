@@ -49,13 +49,13 @@ pub(super) enum HeaderUnit {
 /// never splits it, each unit being one `allocate_ui` inside the
 /// `horizontal_wrapped`.
 pub(super) const TEAM_ROW: [(HeaderUnit, f32); 7] = [
-    (HeaderUnit::Name, 180.0),
-    (HeaderUnit::Short, 80.5),
-    (HeaderUnit::Colour(0), 143.5),
-    (HeaderUnit::Colour(1), 143.5),
-    (HeaderUnit::Manager, 116.0),
-    (HeaderUnit::Stadium, 112.5),
-    (HeaderUnit::KitSlots, 69.0),
+    (HeaderUnit::Name, 178.5),
+    (HeaderUnit::Short, 78.0),
+    (HeaderUnit::Colour(0), 138.0),
+    (HeaderUnit::Colour(1), 138.0),
+    (HeaderUnit::Manager, 113.0),
+    (HeaderUnit::Stadium, 109.0),
+    (HeaderUnit::KitSlots, 60.5),
 ];
 /// The view's Team field.
 pub(super) const TEAM_LABEL: &str = "Team";

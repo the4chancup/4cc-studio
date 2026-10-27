@@ -39,6 +39,10 @@ struct Headless {
 struct Frame {
     nodes: Vec<accesskit::Node>,
     platform: egui::PlatformOutput,
+    /// egui asked for the next frame at once (the root viewport's
+    /// `repaint_delay` is zero): an animation, a scroll among them, is
+    /// still moving.
+    repaints: bool,
 }
 
 impl Headless {
@@ -97,12 +101,19 @@ impl Headless {
             .take()
             .expect("AccessKit is enabled on the context");
         let platform = std::mem::take(&mut output.platform_output);
+        let repaints = output
+            .viewport_output
+            .get(&egui::ViewportId::ROOT)
+            .expect("every frame produces the root viewport")
+            .repaint_delay
+            .is_zero();
         // Nothing renders here, so the frame's texture deltas are
         // dropped on purpose.
         output.drop_without_applying_deltas();
         Frame {
             nodes: update.nodes.into_iter().map(|(_, node)| node).collect(),
             platform,
+            repaints,
         }
     }
 
@@ -205,6 +216,12 @@ fn open_start_modal(window: &mut Headless, view: &mut RulesetView, ctx: &ToolCon
     );
 }
 
+/// The toolbar's `menu` button's label, as `studio_core::widgets::menu_button`
+/// draws it: the name, then the arrow.
+fn menu_label(menu: &str) -> String {
+    format!("{menu} \u{23f7}")
+}
+
 /// `menu` opened, then its `item` clicked (a menu's items live on the
 /// frame after its button).
 fn menu_click(
@@ -215,7 +232,7 @@ fn menu_click(
     item: &str,
 ) {
     let frame = window.draw(view, ctx);
-    click_labeled(window, &frame.nodes, menu, view, ctx);
+    click_labeled(window, &frame.nodes, &menu_label(menu), view, ctx);
     let frame = window.draw(view, ctx);
     click_prefix(window, &frame.nodes, item, view, ctx);
 }

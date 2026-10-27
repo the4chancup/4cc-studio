@@ -3165,7 +3165,10 @@ briefs, review loops, gates and mutation runs as for any step.
       controls (name alone, the numbers' and Substitution's labels), Scroll names kept across
       an open, `player_assignments` read-only; tests on non-identity elevens, off-grid drops,
       the five copy/swap ops undone in turn. Lead: the never-written "player assignments" undo
-      key dropped (`view/tactics.rs`). Next: round S2 over the rework
+      key dropped (`view/tactics.rs`)
+    - [ ] round S2 over the rework (SWE-2, four parts): 5 accepted (a release within egui's
+      click distance both clicks and drops a marker; four test gaps). The rework rides with
+      0.0.1x4 + y2 (the same drop arm). Next: round S3 over it
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";
@@ -3300,18 +3303,33 @@ briefs, review loops, gates and mutation runs as for any step.
     Files: `resources/symbols/*.svg`, `resources/fonts/{symbols.ttf,Selawik-Regular.ttf,
     Selawik-OFL.txt,README.md}`, `scripts/{make_symbols,make_symbols_test,draft_fonts}.py`,
     `docs/prototypes/{index.html,tools/ruleset_editor.js,tools/save_editor.js,assets/fonts/}`
-  - [ ] w2 the app (SWE-2, after w1c and the S1 rework): Selawik (the theme hunk of the stopped
-    first run's start, `.tmp/0_0_1w/selawik_start.patch`; the files are committed), the plan
-    row's chains with `symbols.ttf` registered after the body font, every menu button's
-    ` ⏷` (DECISIONS "Menu buttons end in ⏷") → verify: a test that every symbol the views draw
-    has a glyph after `install` (`has_glyph`); every layout test's moved number checked
-    against the drafts; the built window against them
+  - [x] w2 the app (Opus, two runs, `.tmp/0_0_1w/brief_0_0_1w2{,_r1}.md`): Selawik, then the
+    symbols font, then the icons in both chains (`theme::install_fonts`), every menu button
+    through `studio_core::widgets::menu_button` (its label ending in ` ⏷`, 13 calls), and the
+    drafts' text sizes pinned (DECISIONS "The app pins the drafts' text sizes": the app drew
+    13 where the drafts draw 12.5, found by w2's first run). Seven layout tests ruled: the
+    ruleset start modal's scroll settles when egui asks for no frame; General info's column
+    keeps the draft's 350 (the positions grid off its centre); the badge crosses measured by
+    advance, as the draft places them, the cross after "Registered position" by ink; the
+    rules error's line two rows across the panel, as the draft; Skills 50 after General
+    info's fields (the draft's 50); `TEAM_ROW` re-measured (Kit slots 60.3 against the draft's
+    64.3: its buttons padded 6, the app's 4, a question in QUESTIONS) → verified: every
+    symbol has a glyph after `install` in both families (red: 18 missing); the families and
+    sizes pinned by tests (red: Small 9); `just gates-changed c96dbde5`; the built window
+    (release build of `819baf39`, the real PES 2021 save's copy): Selawik, the menus' ⏷, ▶,
+    ✓, ≡ and the pitch drawn from bundled files, the team header on one row (side by side with
+    the drafts: w3). Files: `studio_core/src/{theme.rs,widgets/{mod,menu_button}.rs}`,
+    `ruleset_editor/src/view/{mod,tests,tests/file,tests/start}.rs`,
+    `save_editor/src/view/{menus,tactics,abilities,info_strip,team}.rs` and its tests,
+    `team_widgets/src/pitch/tests/paint.rs`
   - [ ] w3 the maintainer's close look at the drafts (their approval back), then the built window
   - [ ] w4 alternatives to Selawik (the maintainer, 2026-10-27: "not liking Selawik much
     compared to Segoe UI", alternatives kept open): a few bundleable fonts, each scaled
     (`FontTweak::scale`, `size-adjust` in the drafts) to Segoe UI's measured width (Steam's PES
     2019 path, 425.7 points at 12.5), shown side by side for the maintainer to pick; a pick
     rebuilds `symbols.ttf` on its metrics (`scripts/make_symbols.py`'s `BODY_FONT`)
+  - [ ] w5 a modal window's title at the drafts' 14 points (`.window .title`), a text style of
+    its own, where the app draws egui's `Heading` (15 after w2r1)
 - [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the
   maintainer, 2026-10-27: "Since the formation name work is almost done"; DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers": the
   typeface need not be the game's, its stroke thickness must match the game's label; the

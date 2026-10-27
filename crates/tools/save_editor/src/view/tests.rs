@@ -262,11 +262,18 @@ fn menu_item<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::No
         .unwrap_or_else(|| panic!("no menu item {label:?}"))
 }
 
-/// The toolbar menu button with `label` (the topmost button with it).
+/// The label of the menu button named `menu`, as
+/// `studio_core::widgets::menu_button` draws it: the name, then the arrow.
+fn menu_label(menu: &str) -> String {
+    format!("{menu} \u{23f7}")
+}
+
+/// The toolbar menu button named `label` (the topmost button with it).
 fn menu_button<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
+    let label = menu_label(label);
     nodes
         .iter()
-        .filter(|node| node.role() == Role::Button && node.label() == Some(label))
+        .filter(|node| node.role() == Role::Button && node.label() == Some(label.as_str()))
         .min_by(|a, b| {
             let y = |node: &&accesskit::Node| node.bounds().map(|r| r.y0).unwrap_or(f64::MAX);
             y(a).partial_cmp(&y(b)).expect("ordered bounds")

@@ -905,7 +905,10 @@ fn each_fields_cross_stands_beside_its_control() {
             "{kind:?}: the cross's centre ({centre_y}) is on {label:?}'s row ({row:?})"
         );
         let cross_left = f64::from(glyph.min.x);
-        let cross_right = f64::from(glyph.max.x);
+        // The right edge is the glyph's ink, what a member sees over a
+        // control; its advance may end a fraction of a point past it, in
+        // the side bearing nobody sees.
+        let cross_right = f64::from(cross.visual_bounding_rect().max.x);
         // Beside, not inside: a cross ends before its control begins.
         let left_of = |node: &accesskit::Node, what: &str| {
             let left = node.bounds().expect("the control's bounds").x0;
@@ -1822,12 +1825,15 @@ fn a_fielded_violation_marks_the_starters_badge_on_the_pitch() {
     let shown_slot = team_entry(&view, 734).tactics.presets[0].formations[0].players[index];
     let badge =
         egui::Rect::from_center_size(clamped_centre(canvas, shown_slot), egui::vec2(50.0, 14.0));
+    // The right edge is the glyph's advance, not its ink: the draft
+    // right-aligns the cross's text at the badge minus the gap, and the
+    // ink stops short of the advance by the glyph's side bearing.
     let cross = mark_shapes(&shapes, "\u{2716}")
         .into_iter()
         .find(|shape| {
-            let rect = shape.visual_bounding_rect();
-            (rect.max.x - (badge.left() - live_marks::MARK_GAP)).abs() <= 0.5
-                && (rect.center().y - badge.center().y).abs() <= 0.5
+            let advance_right = shape.pos.x + shape.galley.rect.max.x;
+            (advance_right - (badge.left() - live_marks::MARK_GAP)).abs() <= 0.5
+                && (shape.visual_bounding_rect().center().y - badge.center().y).abs() <= 0.5
         })
         .expect("a cross MARK_GAP left of his badge, centred on it");
     assert_eq!(

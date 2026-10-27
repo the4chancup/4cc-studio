@@ -18,7 +18,7 @@ fn open_panel(
     click_rules(
         window,
         view,
-        node_labeled(&nodes, Role::Button, "Panels"),
+        node_labeled(&nodes, Role::Button, &menu_label("Panels")),
         rules,
     );
     let nodes = draw(window, view, rules);

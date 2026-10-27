@@ -41,7 +41,11 @@ fn open_comparator(
     view: &mut SaveView,
 ) -> Vec<(accesskit::NodeId, accesskit::Node)> {
     let nodes = draw(window, view, None);
-    click(window, node_labeled(&nodes, Role::Button, "Panels"), view);
+    click(
+        window,
+        node_labeled(&nodes, Role::Button, &menu_label("Panels")),
+        view,
+    );
     let nodes = draw(window, view, None);
     click(
         window,
