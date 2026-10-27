@@ -3263,20 +3263,39 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] w1b the drafts' native controls as egui draws them: the checkbox (13 × 13 in Chromium),
     the sliders (Chromium's and Firefox's own), the combo's popup (the system's list), each
     measured in egui first; and the scrollbars, which a headful browser on Windows 10 draws
-    17 wide in the layout where egui's float (the probes run headless and see none); the player list's reserved 10-point band (0.0.1u) drawn in the draft
-  - [ ] w1c the symbols as SVGs (lead; the maintainer, 2026-10-27; DECISIONS "The symbols
-    Selawik lacks are SVGs in the suite's icon font"): the census of every symbol the views and
-    drafts draw that Selawik lacks; one SVG each at the text's size and weight; the icons'
-    fontTools build (`scripts/`) puts them into the icon font at their own codepoints beside
-    the Phosphor glyphs; the drafts load it and drop egui's emoji fonts and Hack from the body
-    chain, and undo w1's ✕ → X and ⠇ → ≡ swaps → verify: the build rebuilds the committed
-    TTF byte for byte; `scripts/draft_fonts.py` 0 findings with only Selawik, the icon font,
-    egui-icons and Hack (monospace)
-  - [ ] w2 the app (SWE-2, after w1c and the S1 rework): Selawik (the stopped first run's start,
-    `.tmp/0_0_1w/selawik_start.patch`), the plan row's chains, the icon font rebuilt → verify:
-    a test that every symbol the views draw has a glyph after `install` (`has_glyph`); every
-    layout test's moved number checked against the drafts; the built window against them
+    17 wide in the layout where egui's float (the probes run headless and see none); the player list's reserved 10-point band (0.0.1u) drawn in the draft; the drafts' app name, "4cc Studio" in the title bar, About and the data-location dialog, against the preview's "Unlimited Tool Works"
+  - [x] w1c the symbols as SVGs (lead; the maintainer, 2026-10-27; DECISIONS "The symbols
+    Selawik lacks are SVGs in the suite's icon font" and "The symbols are a font of their own,
+    on the body font's metrics"). Done: the census (string literals of the crates' code, the
+    drafts' sources, egui's own widgets) found 18 symbols Selawik lacks, ↻ ∉ ⏷ beyond the
+    list; one SVG each in `resources/symbols/`, its advance and ink box the reviewed glyph's
+    (Segoe UI or Segoe UI Symbol, measured), strokes Selawik's 129 units; `scripts/
+    make_symbols.py` builds `resources/fonts/symbols.ttf` and the drafts' copy on Selawik's
+    units and metrics (Selawik itself committed for it); the drafts' chains Selawik, Symbols,
+    Phosphor, egui-icons (mono Hack first), egui's emoji fonts gone, w1's swaps undone, the
+    status bar's condition icons and dismiss the icon font's as in the app, the title bar's
+    maximize box drawn in CSS, `draft_fonts.py` letting the sample names' ♂ and fullwidth
+    letters fall back → verified: `make_symbols_test.py` 6 OK (rebuild byte for byte, each
+    SVG's codepoint and advance, the body font's metrics, clockwise outlines; red: the first
+    build's counter-clockwise outlines, then a perturbed ascent and advance); two builds
+    identical (`ac29b6db…`); `draft_fonts.py` 0 findings (red: "Symbols" out of the body
+    chain, 61); the specimen's 18 symbols as wide as the reviewed ones, every UI string
+    within Selawik's own difference from Segoe UI; the team view still fits (`draft_fit.py`).
+    Files: `resources/symbols/*.svg`, `resources/fonts/{symbols.ttf,Selawik-Regular.ttf,
+    Selawik-OFL.txt,README.md}`, `scripts/{make_symbols,make_symbols_test,draft_fonts}.py`,
+    `docs/prototypes/{index.html,tools/ruleset_editor.js,tools/save_editor.js,assets/fonts/}`
+  - [ ] w2 the app (SWE-2, after w1c and the S1 rework): Selawik (the theme hunk of the stopped
+    first run's start, `.tmp/0_0_1w/selawik_start.patch`; the files are committed), the plan
+    row's chains with `symbols.ttf` registered after the body font, every menu button's
+    ` ⏷` (DECISIONS "Menu buttons end in ⏷") → verify: a test that every symbol the views draw
+    has a glyph after `install` (`has_glyph`); every layout test's moved number checked
+    against the drafts; the built window against them
   - [ ] w3 the maintainer's close look at the drafts (their approval back), then the built window
+  - [ ] w4 alternatives to Selawik (the maintainer, 2026-10-27: "not liking Selawik much
+    compared to Segoe UI", alternatives kept open): a few bundleable fonts, each scaled
+    (`FontTweak::scale`, `size-adjust` in the drafts) to Segoe UI's measured width (Steam's PES
+    2019 path, 425.7 points at 12.5), shown side by side for the maintainer to pick; a pick
+    rebuilds `symbols.ttf` on its metrics (`scripts/make_symbols.py`'s `BODY_FONT`)
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

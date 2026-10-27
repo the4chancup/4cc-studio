@@ -11918,3 +11918,39 @@ the single-colour icon font the plan already builds from SVGs ("GUI framework ch
 with no new dependency, where SVGs drawn at run time need `egui_extras`' `svg` feature, which
 the plan leaves until after 1.0.0.
 Plan: `plans/core/gui.md` "Other UI components" (the Dark/light theme row).
+
+## 2026-10-27 — gui — The symbols are a font of their own, on the body font's metrics
+Decision: the symbols of the entry above are built into a file of their own,
+`resources/fonts/symbols.ttf` (`scripts/make_symbols.py`, from `resources/symbols/*.svg`),
+whose units per em and vertical metrics are read from the body font's file; the chains are
+proportional Selawik, the symbols font, the icon font, `egui-icons`, monospace Hack, Selawik,
+the symbols font, the icon font, `egui-icons`. Each symbol keeps the advance and ink box of the
+glyph the drafts were reviewed with (Segoe UI's or Segoe UI Symbol's, measured, no outline
+copied). The census adds ↻ ∉ ⏷ to the list. The build needs fontTools and picosvg (a
+development tool, like `draft_fonts.py`), so CI never runs it; `make_symbols_test.py`, run by
+hand, checks the committed files are its output, and 0.0.1w2's Rust test guards the glyphs.
+Why: egui places a glyph from a later font of the chain by centring that font's line height on
+the body font's (epaint's `text_layout.rs`), where the browser aligns baselines; in the icon
+font's metrics (1.0 em high, Selawik's 1.2) a symbol sits 0.6 point below the text's baseline
+at 12.5 in the app and on it in the drafts. A file of its own keeps the icon font's metrics,
+and so the rail's icons, untouched; reading the metrics from the body font's file makes a
+later body font a rebuild (the maintainer, 2026-10-27, keeps alternatives to Selawik open).
+Plan: `plans/core/gui.md` "Other UI components" (the Dark/light theme row).
+
+## 2026-10-27 — gui — Menu buttons end in ⏷, as the drafts draw them
+Decision: every menu button's label ends in ` ⏷` (U+23F7, the symbols font's), as the drafts'
+`menu()` draws every one; until now the app drew egui's bare `menu_button`, the arrow left out.
+Why: the drafts are the approved layout and the arrow is in every menu button's width there;
+egui draws an arrow only on a submenu's button. Found by the symbol census (0.0.1w1c).
+Plan: `plans/core/gui.md` "Other UI components" (the Menu buttons row).
+
+## 2026-10-27 — gui — The drafts draw the status bar's icons from the icon font, as the app does
+Decision: the drafts' status-bar conditions draw the icon font's warning and download glyphs
+and the notice's dismiss its X, as `studio_core` does (`ShellCondition::icon`, the status bar's
+`icons::X`), not ⚠, ⬇ and ×; the simulated title bar's maximize box is drawn in CSS, not typed;
+`scripts/draft_fonts.py` lets the sample saves' member characters (♂, fullwidth letters) fall
+back, as eframe's system fallback draws them in the app.
+Why: the plan names those icons the icon font's (worklog 8.14's general icons), the app
+implements them so, and the drafts drew stand-ins from system fonts; the title bar is the OS's
+in the app; a member's typing is not the suite's symbol set.
+Plan: `plans/core/gui.md` "Prototypes before implementation" (the Fonts bullet).

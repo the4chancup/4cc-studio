@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -2027 1403 2458">
+  <!-- U+2260 NOT EQUAL TO. Font units (2048 per em), y up from the baseline: the group flips
+       them into SVG's y-down; the view box is the line from Selawik's ascent to its descent,
+       its width the glyph's advance. -->
+  <g transform="scale(1 -1)">
+    <rect x="232" y="318" width="940" height="129"/>
+    <rect x="232" y="747" width="940" height="129"/>
+    <polygon points="370,0 510,0 1032,1188 892,1188"/>
+  </g>
+</svg>

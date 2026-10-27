@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -2027 1466 2458">
+  <!-- U+2209 NOT AN ELEMENT OF. Font units (2048 per em), y up from the baseline: the group flips
+       them into SVG's y-down; the view box is the line from Selawik's ascent to its descent,
+       its width the glyph's advance. -->
+  <g transform="scale(1 -1)">
+    <path fill="none" stroke="#000" stroke-width="129" d="M1170 1002 H733 A405 405 0 0 1 733 192 H1170 M328 597 H1170"/>
+    <polygon points="430,-70 570,-70 1036,1254 896,1254"/>
+  </g>
+</svg>

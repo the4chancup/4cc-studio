@@ -2619,3 +2619,5 @@ worklog passed 7,000 lines.
   withdrawn until the maintainer's close look (0.0.1w1).
 - **2026-10-27** — The theme pins egui 0.36's button padding, 18-point controls and widget colours the drafts were reviewed in;
   the player list keeps its rows' marks clear of the scroll bar (0.0.1u).
+- **2026-10-27** — The symbols Selawik lacks (→ ≡ ✔ ✖ and 14 more) are drawn as SVGs and built into a symbols font on Selawik's metrics,
+  each as wide as the glyph the drafts were reviewed with; the drafts draw it and nothing from a system font (0.0.1w1c).

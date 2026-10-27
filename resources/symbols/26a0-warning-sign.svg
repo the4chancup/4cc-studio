@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -2027 1764 2458">
+  <!-- U+26A0 WARNING SIGN. Font units (2048 per em), y up from the baseline: the group flips
+       them into SVG's y-down; the view box is the line from Selawik's ascent to its descent,
+       its width the glyph's advance. -->
+  <g transform="scale(1 -1)">
+    <path fill="none" stroke="#000" stroke-width="129" stroke-linejoin="round" d="M880 1420 L1680 2 H80 Z"/>
+    <rect x="810" y="480" width="140" height="570"/>
+    <circle cx="880" cy="300" r="85"/>
+  </g>
+</svg>

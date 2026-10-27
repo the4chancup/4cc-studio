@@ -6,6 +6,20 @@
 the drafts are not drawn in. Licence: the Ubuntu Font Licence 1.0, `UFL.txt` beside it (the same
 text egui's own copy of the family carries).
 
+`Selawik-Regular.ttf` replaces it as the body font at worklog step 0.0.1w2: Microsoft's metric
+twin of Segoe UI, version 1.01 (`github.com/microsoft/Selawik` release 1.01's `selawk.ttf`,
+44,224 bytes, SHA-256 `e9d98518…`). The widths the drafts were calibrated in are Segoe UI's,
+which Selawik shares and which, unlike Segoe UI, may be bundled. The drafts already draw in it,
+and `symbols.ttf` takes its metrics from it. Licence: the SIL Open Font License 1.1,
+`Selawik-OFL.txt` beside it.
+
+`symbols.ttf` holds the symbols the views draw that the body font lacks (→, ≡, ✔, ✖ and the
+like), each at its own codepoint: `scripts/make_symbols.py` builds it from one SVG per symbol in
+`resources/symbols/`, on the body font's units per em and vertical metrics, and writes the
+drafts' copy too; `scripts/make_symbols_test.py` checks the committed files are its output.
+Each symbol's advance and ink box are those of the glyph the reviewed drafts drew it in (Segoe
+UI's, or Segoe UI Symbol's, measured; no outline copied). Licence: the repository's own.
+
 `phosphor-subset.ttf` is the shell's icon font until the suite's own replaces it (worklog 8.14):
 the 19 glyphs the suite draws, cut from the regular weight of Phosphor Icons, as the
 `egui-phosphor` 0.14.0 crate ships it (`res/Phosphor.ttf`, SHA-256 `06b91e02…`). The cut

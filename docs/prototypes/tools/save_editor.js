@@ -5077,7 +5077,7 @@ const SECOND_SAVES = [
 function panelWindow(id, title, body) {
   const p = h("div", { class: "panel", id, "data-panel": S.panel + "-window" },
     h("div", { class: "title" }, title,
-      button("\uE4F6", () => { S.panel = null; render(); }, { frame0: true, title: "Close" })),
+      button("✕", () => { S.panel = null; render(); }, { frame0: true, title: "Close" })),
     h("div", { class: "pbody" }, body));
   return p;
 }

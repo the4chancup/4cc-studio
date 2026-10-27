@@ -14,19 +14,28 @@ Segoe UI for days). Two checks:
   and every canvas `.font =` assignment must name the stylesheet's chains (`var(--font-body)`,
   `var(--font-mono)`, `FONT_BODY`) or the icon font, never a family of its own.
 
-Needs Python's `playwright` with its Chromium (`playwright install chromium`); a development
-tool, not a gate. Exit 1 on any finding, 0 when the drafts draw only bundled fonts.
+A member's own text is the exception: a character the sample saves' names carry that no bundled
+file has (`MEMBER_TEXT`) falls back to a system font in the app as well (eframe's system
+fallback, kept for what a member types), so a node whose only such characters are those is no
+finding.
+
+Needs Python's `playwright` with its Chromium (`playwright install chromium`) and fontTools; a
+development tool, not a gate. Exit 1 on any finding, 0 when the drafts draw only bundled fonts.
 """
 
 import re
 import sys
 from pathlib import Path
 
+from fontTools.ttLib import TTFont
 from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 DRAFTS = ROOT / "docs" / "prototypes"
 PAGES = ["", "#save_editor", "#ruleset_editor", "#export_upgrader", "#team_compiler"]
+# The sample saves' player and team names (tools/save_editor.js): members' typing, not the
+# suite's symbols.
+MEMBER_TEXT = set("♂ＡＢＣＩＬＮＯＲＳＴＶ")
 
 # A CSS `font:`/`font-family:` declaration, or a canvas `.font =` assignment.
 DECLARATION = re.compile(r"font(?:-family)?\s*:\s*([^;}\n]+)|\.font\s*=\s*([^;\n]+)")
@@ -57,8 +66,16 @@ def text_nodes(node, out):
     return out
 
 
+def bundled_codepoints():
+    codepoints = set()
+    for path in (DRAFTS / "assets" / "fonts").glob("*.ttf"):
+        codepoints.update(TTFont(path).getBestCmap())
+    return codepoints
+
+
 def page_findings():
     findings = []
+    bundled = bundled_codepoints()
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         for fragment in PAGES:
@@ -82,7 +99,8 @@ def page_findings():
                     continue
                 for font in fonts:
                     glyphs[font["familyName"]] = glyphs.get(font["familyName"], 0) + font["glyphCount"]
-                    if not font.get("isCustomFont"):
+                    unbundled = {c for c in value if ord(c) not in bundled and not c.isspace()}
+                    if not font.get("isCustomFont") and not (unbundled and unbundled <= MEMBER_TEXT):
                         findings.append(f"{fragment or '(shell)'}: {font['familyName']} drew "
                                         f"{font['glyphCount']} glyphs of {value.strip()[:60]!r}")
             # What the page drew, so a run that saw no text cannot pass unnoticed.

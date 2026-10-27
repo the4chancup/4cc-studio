@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -2027 1673 2458">
+  <!-- U+2715 MULTIPLICATION X. Font units (2048 per em), y up from the baseline: the group flips
+       them into SVG's y-down; the view box is the line from Selawik's ascent to its descent,
+       its width the glyph's advance. -->
+  <g transform="scale(1 -1)">
+    <path fill="none" stroke="#000" stroke-width="129" d="M150 31 L1523 1402 M150 1402 L1523 31"/>
+  </g>
+</svg>
