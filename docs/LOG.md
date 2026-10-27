@@ -2722,3 +2722,5 @@ worklog passed 7,000 lines.
   editor grays the four long-sleeve badge fields as Kit Manager does; save and test slot restored by hash; PES 16's test slot kept.
 - **2026-10-27** — cm4 + cm6: `save_editor`'s and `team_widgets`' 282 comments that cited plans, decisions or rounds now stand on their own
   (`comment-refs` 0 workspace-wide); `doc_pointers.py` reads pointers a line break cuts. Found: the Save editor's CLI tests read the real process list.
+- **2026-10-27** — 0.0.1y4c in PES 2021 (pad + OBS, save unchanged by hash): CF's first row is y 40, as PES 2016's table says; PES 2016's
+  overall formula misses PES 2021's by up to 2 (12 of 201 points), so the rule's overall on PES 2021 is a question for the maintainer.

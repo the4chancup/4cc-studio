@@ -3810,13 +3810,18 @@ briefs, review loops, gates and mutation runs as for any step.
       (2026-10-27, `.tmp/0_0_1y4/overalls.md`, the save unchanged by hash: team 718's PARTY
       HARD LMF 95, LWF 87, AMF 85, SS 84, CMF 83). The Select Position menu (X on a starter)
       lists exactly the rule's two candidates at three spots checked, a one-press check of
-      the tables anywhere. Open: (1) the CF row: the 2016 table puts CF's lower edge at 39.5
-      where y3 measured 40.7, the one row off by more than 0.3, so PES 2021's tables may
-      differ (a starter dropped between the two edges, then the menu, settles it: move the held
-      player with the d-pad, which steps one unit per press where a stick push jumps several,
-      so the edge reads to the unit; the maintainer, 2026-10-27); (2) the per-position
-      overall formula for each version (2016's is dumped, 2021's is not), which the rule
-      needs before the code can follow it
+      the tables anywhere. The in-game check (Opus, pad + OBS, 2026-10-27,
+      `.tmp/0_0_1y4/y4c_findings.md`, the save unchanged by hash): the CF row is PES 2016's,
+      stored y 40 the first CF row (the d-pad, a held CF on /f/ 718, and the menu at y 40 and
+      39; none of the save's 1,890 CF spots is below 40; y3's 40.7 was the lit area's edge,
+      not a measured switch). PES 2016's overall formula does not give PES 2021's: of 201
+      points read on /f/ and /e/ over all 13 positions, 189 within 1 and 12 off by 2 (registered
+      CB +2, CMF +1, CF -1 at 82-99, A-rated wings -1, weak foot 3 one above weak foot 1 at 77,
+      which 2016's formula cannot give), so PES 2021's weights differ; every player of the
+      save has his abilities equal, so the stat mapping could not be tested. Marco's notes
+      name PES 2021's per-role read (`FUN_1408c7580`), a cached value whose writer is not
+      found. Open: which overall the rule uses on PES 2021 (QUESTIONS "Which per-position
+      overall does the drag rule use on PES 2021?"); no new in-game run (the maintainer)
 - [ ] 0.0.1z the maintainer's look at the built app (2026-10-27 ~21:10): the app's sliders
   kept, the drafts made to match
   - [x] z1 the drafts: sliders drawn as egui's (8-point rail, 11 × 14 handle, value box), the
