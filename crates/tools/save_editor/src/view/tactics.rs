@@ -170,7 +170,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         let top_left = ui.cursor().min;
         let right = ui.max_rect().right();
         let bottom = ui.max_rect().right_bottom().y;
-        let pitch_left = top_left.x + SETTINGS_WIDTH + COLUMN_GAP;
+        let settings_right = top_left.x + SETTINGS_WIDTH;
+        let pitch_left = settings_right + COLUMN_GAP;
         let assigns_left = pitch_left + pitch::PITCH_BOX.x + COLUMN_GAP;
         let cell = |ui: &mut egui::Ui, left: f32, top: f32, width: f32, bottom: f32| {
             ui.new_child(
@@ -189,21 +190,21 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         // contents centred on it (a full-height cell would centre the
         // line in the cell, not on the row).
         let line = ui.spacing().interact_size.y;
-        let bar = |ui: &mut egui::Ui, left: f32, width: f32| {
+        let bar = |ui: &mut egui::Ui, left: f32, right_edge: f32| {
             ui.new_child(
                 egui::UiBuilder::new()
                     .max_rect(egui::Rect::from_min_max(
                         egui::pos2(left, top_left.y),
-                        egui::pos2(left + width, top_left.y + line),
+                        egui::pos2(right_edge, top_left.y + line),
                     ))
                     .layout(egui::Layout::left_to_right(egui::Align::Center)),
             )
         };
-        let mut preset_ui = bar(ui, top_left.x, SETTINGS_WIDTH);
+        let mut preset_ui = bar(ui, top_left.x, settings_right);
         tactics::preset_selector(&mut preset_ui, tactics);
         changed[0] = tactics::fluid_formation(&mut preset_ui, &mut edited, tactics);
         copy_swap_preset_menu(&mut preset_ui, session, team_id, tactics.preset);
-        let mut formbar_ui = bar(ui, pitch_left, right - pitch_left);
+        let mut formbar_ui = bar(ui, pitch_left, right);
         pitch::formation_selector(&mut formbar_ui, tactics);
         copy_swap_formation_menu(&mut formbar_ui, session, team_id, tactics);
         formbar_ui.checkbox(&mut tactics.scroll_names, "Scroll names");
@@ -262,10 +263,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         changed[4] = tactics::automatic_settings(&mut stack_ui, version, &mut edited);
 
         // One advance covering the grid's block (the tallest cell).
-        let height = stack_ui.min_rect().max.y.max(lists_ui.min_rect().max.y) - top_left.y;
-        ui.advance_cursor_after_rect(egui::Rect::from_min_size(
+        let grid_bottom = stack_ui.min_rect().max.y.max(lists_ui.min_rect().max.y);
+        ui.advance_cursor_after_rect(egui::Rect::from_min_max(
             top_left,
-            egui::vec2(right - top_left.x, height),
+            egui::pos2(right, grid_bottom),
         ));
         // One undo key per widget call (the plan's "changes from one
         // widget merge into the open entry"): the pitch's drag never

@@ -86,10 +86,10 @@ pub fn lineup(
                 bench_row(ui, version, tactics, roster, index);
             }
         });
-        let height = eleven.min_rect().max.y.max(bench.min_rect().max.y) - top.y;
-        ui.advance_cursor_after_rect(egui::Rect::from_min_size(
+        let lists_bottom = eleven.min_rect().max.y.max(bench.min_rect().max.y);
+        ui.advance_cursor_after_rect(egui::Rect::from_min_max(
             top,
-            egui::vec2(right - top.x, height),
+            egui::pos2(right, lists_bottom),
         ));
         *tactics != before
     })

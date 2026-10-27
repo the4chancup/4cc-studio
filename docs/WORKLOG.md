@@ -2706,8 +2706,10 @@ briefs, review loops, gates and mutation runs as for any step.
       the Cards left badge that shares its row), measured on the glyph, since a label in a
       wrapping row is laid out from the row's start (red: the two header marks swapped; the
       Name cross moved into its field). Open: one `mutants-diff dc02a76e` (run 2026-10-27,
-      34 survivors triaged; the `studio`/`studio_core` half landed, five survivors excluded in
-      `.cargo/mutants.toml`; the views' and lineup's tests, then a `mutants-diff` over both)
+      34 survivors triaged; both halves landed, the `studio`/`studio_core` tests and the views'
+      and lineup's, eight survivors excluded in `.cargo/mutants.toml` with their reasons, two
+      advance rects built from their corners; the eight disk-full mutants re-tested, all caught;
+      left: a `mutants-diff 3d39aff3` over the two commits)
     - [x] o2b the pitch's cross for `FieldedNotA` and the dock row selecting his team's row
       on the named preset's first formation; after the Tactics tab's new layout (the
       maintainer's request of 2026-10-26, drafted first). Drafted 2026-10-27 (lead; DECISIONS
@@ -3186,7 +3188,13 @@ briefs, review loops, gates and mutation runs as for any step.
       an XI row exchanges the two (help says so). Open: S3b-1's host WHEN (preset 2 through the
       editor), with the views' mutants brief. Files: `team_widgets/src/pitch/{lineup.rs,tests/drops.rs}`,
       `save_editor/src/view/tests/tactics.rs`, `help/08_tactics.md`, plan "A pitch player dropped on another"
-    - [ ] Astra over `dc55b427` and the S3 rework, then the post-Astra SWE-2 loop
+    - [ ] Astra over the whole surface at `4f34855a`, then the post-Astra SWE-2 loop. Round A1
+      (two parts: the pitch; the panels and the host): 9 accepted (a near-miss release read
+      as a drop on a marker, the placeholder portrait the save's game's rather than the
+      selected one's, the help's "without portraits", six tests passing on wrong
+      implementations: the shown preset in the popover, panels and host, the swap mark's
+      paint order, a name's bound, the armed chip, the side lists); rework briefed
+      (`brief_tac_a1_rework.md`), then a SWE-2 loop over it and round A2
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";

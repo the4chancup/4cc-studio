@@ -944,6 +944,71 @@ fn each_fields_cross_stands_beside_its_control() {
     }
 }
 
+/// The Name field's cross sits inside its counted label: over the cross
+/// only the cross's tooltip shows (the count's is held back, so the two
+/// tips do not stack), and over the count the count's shows.
+#[test]
+fn the_name_cross_holds_back_the_counts_tooltip() {
+    let (mut view, mut window) = open_734("live_marks_name_tip");
+    view.live_aatf = true;
+    let revision = view.session.as_ref().expect("the save opened").revision();
+    let name_color = violation(
+        Some(0),
+        aatf::Severity::Error,
+        aatf::ViolationKind::NameColor {
+            color: Some("cc9900ff".to_owned()),
+            expected: None,
+        },
+    );
+    let line = team_widgets::violations::violation_line(&name_color, 734);
+    view.live.check.result = Some((
+        aatf_check::CheckKey {
+            revision,
+            ids: vec![734],
+            rules_file: None,
+        },
+        vec![Ok(vec![name_color])],
+    ));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let crosses: Vec<_> = mark_shapes(&shapes, "\u{2716}")
+        .into_iter()
+        .filter(|shape| f64::from(shape.pos.x) > 250.0)
+        .collect();
+    let [cross] = *crosses.as_slice() else {
+        panic!("expected one `✖` in the view, got {}", crosses.len())
+    };
+    let on_cross = egui::pos2(cross.pos.x + 2.0, cross.pos.y + cross.galley.size().y / 2.0);
+    assert_eq!(
+        tooltip_containing(&mut window, &mut view, on_cross, &line, None).as_deref(),
+        Some(line.as_str()),
+        "the cross's tooltip shows over the cross"
+    );
+    assert_eq!(
+        tooltip_containing(&mut window, &mut view, on_cross, "Up to ", None),
+        None,
+        "the count's tooltip is held back over the cross"
+    );
+    let label = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Label
+                && node
+                    .value()
+                    .is_some_and(|value| value.starts_with("Name ("))
+        })
+        .and_then(accesskit::Node::bounds)
+        .expect("the Name count's bounds");
+    let on_count = egui::pos2(
+        (label.x0 + 2.0) as f32,
+        ((label.y0 + label.y1) / 2.0) as f32,
+    );
+    assert!(
+        tooltip_containing(&mut window, &mut view, on_count, "Up to ", None).is_some(),
+        "the count's tooltip shows over the count"
+    );
+}
+
 /// A warning-only violation's cross draws in the warning colour: the
 /// official file gains a warning band on the regular tier, and 73401's
 /// attacking prowess goes one over its 77 target (a `Stat` warning, not
@@ -1450,6 +1515,12 @@ fn a_fields_cross_is_one_with_every_violations_line() {
         galley_color(cross),
         visuals.error_fg_color,
         "the highest severity's colour"
+    );
+    let cross_centre_y = cross.pos.y + cross.galley.size().y / 2.0;
+    assert!(
+        (cross_centre_y - rect.center().y).abs() < 0.5,
+        "the cross ({cross_centre_y}) is centred on its rect ({})",
+        rect.center().y
     );
     let expected = format!(
         "{}\n{}",

@@ -1290,6 +1290,86 @@ fn the_rows_and_the_popover_header_draw_the_names_colours() {
     }
 }
 
+// The two lists share the span the host gives them (the draft's
+// `#tac-lists`): each half of it less the 6-point gap, the eleven at its
+// left, the bench ending at its right; the space `lineup` claims in the
+// host runs from its top-left to that right edge and the lists' bottom.
+// The host's cell starts away from the screen's origin, so a span or a
+// height measured from the origin instead of the cell's top-left fails.
+#[test]
+fn the_lists_halve_the_span_and_the_lineup_claims_their_height() {
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let mut window = Headless::sized(800.0, 900.0);
+    let cell = egui::Rect::from_min_max(egui::pos2(40.0, 30.0), egui::pos2(760.0, 880.0));
+    let mut claimed = None;
+    let (_, shapes) = window.frame(vec![], |ui| {
+        let mut host = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(cell)
+                .layout(egui::Layout::top_down(egui::Align::LEFT)),
+        );
+        super::lineup(
+            &mut host,
+            "lineup",
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+        claimed = Some(host.min_rect());
+    });
+    let claimed = claimed.expect("the widget ran");
+    // The lists' frames: the stroked rects taller than a row.
+    let mut lists: Vec<egui::Rect> = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape) if !shape.stroke.is_empty() && shape.rect.height() > 100.0 => {
+                Some(shape.rect)
+            }
+            _ => None,
+        })
+        .collect();
+    lists.sort_by(|a, b| a.min.x.total_cmp(&b.min.x));
+    let [eleven, bench] = lists.as_slice() else {
+        panic!("expected the two lists' frames, got {lists:?}")
+    };
+    let half = (cell.width() - 6.0) / 2.0;
+    assert!(
+        (eleven.min.x - cell.min.x).abs() <= 0.5,
+        "the eleven at the span's left ({eleven:?})"
+    );
+    for (name, list) in [("eleven", eleven), ("bench", bench)] {
+        assert!(
+            (list.width() - half).abs() <= 0.5,
+            "the {name} half of the span less the gap ({list:?}, half {half})"
+        );
+    }
+    assert!(
+        (bench.min.x - eleven.max.x - 6.0).abs() <= 0.5,
+        "the lists 6 apart ({eleven:?}, {bench:?})"
+    );
+    assert!(
+        (bench.max.x - cell.max.x).abs() <= 0.5,
+        "the bench ends at the span's right ({bench:?})"
+    );
+    let lists_bottom = eleven.max.y.max(bench.max.y);
+    assert_eq!(
+        claimed.min, cell.min,
+        "the claim starts at the cell's top-left"
+    );
+    assert!(
+        (claimed.max.x - cell.max.x).abs() <= 0.5,
+        "the claim spans to the cell's right ({claimed:?})"
+    );
+    assert!(
+        (claimed.max.y - lists_bottom).abs() <= 0.5,
+        "the claim ends at the lists' bottom ({claimed:?}, lists end at {lists_bottom})"
+    );
+}
+
 // The lists keep the host's fixed width (`plans/save_editor.md` "Tactics
 // editor": the lists at a fixed narrow width beside the pitch): a name
 // longer than the row ends cut at the list's edge, not drawn over the

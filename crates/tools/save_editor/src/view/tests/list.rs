@@ -766,6 +766,16 @@ fn the_team_row_paints_its_parts_over_its_fills() {
         covers_row(&shapes, row, visuals.widgets.hovered.bg_fill),
         "the hover fill under the hovered row"
     );
+    assert!(
+        !covers_row(&shapes, row, visuals.faint_bg_color),
+        "no faint fill under the hovered row"
+    );
+    // Selected with the pointer gone (a frame before: the frame that
+    // receives `PointerGone` still reports the row hovered), so the
+    // selection alone holds the faint fill back.
+    window.frame(vec![egui::Event::PointerGone], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
     view.selected = Some(Selection::Team(701));
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -779,6 +789,22 @@ fn the_team_row_paints_its_parts_over_its_fills() {
     assert!(
         !covers_row(&shapes, row, visuals.faint_bg_color),
         "no faint fill under the selected row"
+    );
+
+    // Unselected, the pointer still gone, focused by the keyboard: no
+    // faint fill either.
+    view.selected = None;
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let label = format!("701 {}", display_name(&team_entry(&view, 701).name));
+    let (row_id, _) = ids
+        .iter()
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some(label.as_str()))
+        .expect("the team row's node");
+    action_focus(&mut window, &mut view, *row_id);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        !covers_row(&shapes, row, visuals.faint_bg_color),
+        "no faint fill under the focused row"
     );
 }
 
@@ -943,6 +969,12 @@ fn the_team_rows_dot_paints_at_the_rows_right_end() {
         f64::from(dot.pos.x) >= f64::from(name.pos.x + name.galley.rect.width()),
         "the dot sits right of the painted name"
     );
+    let row_centre = (bounds.y0 + bounds.y1) / 2.0;
+    let dot_centre = f64::from(dot.pos.y + dot.galley.size().y / 2.0);
+    assert!(
+        (dot_centre - row_centre).abs() <= 0.5,
+        "the dot centres on the row ({dot_centre} vs {row_centre})"
+    );
     assert!(
         row_labels(&nodes)
             .iter()
@@ -996,6 +1028,14 @@ fn the_player_rows_dot_paints_at_the_rows_right_end() {
         f64::from(dot.pos.x) >= f64::from(text.pos.x + text.galley.rect.width()),
         "the dot sits right of the text"
     );
+    let row_centre = (bounds.y0 + bounds.y1) / 2.0;
+    for (what, shape) in [("text", text), ("dot", dot)] {
+        let centre = f64::from(shape.pos.y + shape.galley.size().y / 2.0);
+        assert!(
+            (centre - row_centre).abs() <= 0.5,
+            "the {what} centres on the row ({centre} vs {row_centre})"
+        );
+    }
 }
 
 // plans/save_editor.md "Editing UI", the Player list bullet (240 points

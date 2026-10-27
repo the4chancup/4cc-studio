@@ -624,6 +624,42 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
         "only Kick-off's two slots exchanged"
     );
 
+    // The same drop on preset 2's In-possession, switched to through the
+    // editor's own bars: only that formation's two slots exchange.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "2"),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "In-possession"),
+        &mut view,
+    );
+    assert_eq!(
+        (view.tactics.preset, view.tactics.formation),
+        (1, 1),
+        "preset 2's In-possession is on screen"
+    );
+    let before = team_entry(&view, 701).tactics;
+    let players = before.presets[1].formations[1].players;
+    assert_ne!(players[from], players[onto], "premise: two different slots");
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let at = marker_point(canvas, &players, from).expect("a point on the marker a press can reach");
+    let over =
+        marker_point(canvas, &players, onto).expect("a point on the marker a drop can reach");
+    drag(&mut window, at, over, &mut view);
+    let mut expect = before;
+    expect.presets[1].formations[1].players.swap(from, onto);
+    assert_eq!(
+        team_entry(&view, 701).tactics,
+        expect,
+        "only preset 2's In-possession's two slots exchanged"
+    );
+
     // An XI row dropped on another: the two players exchange in the
     // starting eleven, every formation unchanged. Row 1 on row 4, not
     // on row 2: on adjacent rows a move (the bench rows' shift) gives
@@ -1051,6 +1087,30 @@ fn the_tactics_editor_is_one_grid_at_the_default_pane() {
         scroll_names.bounds().expect("bounds").x1 <= pane_right,
         "Scroll names ends inside the pane's right edge ({:?})",
         scroll_names.bounds()
+    );
+
+    // The bars are one line of `interact_size.y` above row 2, their
+    // widgets centred on it, and row 2's cells start ROW_GAP (6) below
+    // that line (the Formation settings box's top). The "Preset" label
+    // is the one widget shorter than the line: the buttons and checkboxes
+    // fill it, so only the label shows the line's height.
+    let line = f64::from(window.ctx.global_style().spacing.interact_size.y);
+    let row2_top = f64::from(box_at(&rects, settings_left, 1.0).min.y);
+    let preset = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some("Preset"))
+        .expect("the preset bar's label");
+    for widget in [preset, two, kick_off, scroll_names] {
+        assert!(
+            (centre_y(widget) - (row2_top - 6.0 - line / 2.0)).abs() <= 0.5,
+            "a bar's widget centred on the line above row 2 ({:?}, row 2 at {row2_top})",
+            widget.bounds()
+        );
+    }
+    let bars_bottom = two.bounds().expect("bounds").y1;
+    assert!(
+        (row2_top - (bars_bottom + 6.0)).abs() <= 0.5,
+        "row 2 starts 6 below the bars' line ({row2_top} vs the bars' bottom {bars_bottom})"
     );
 
     // Row 3's tops 6 under row 2's bottom: row 2's bottom is the deepest
