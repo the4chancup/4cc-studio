@@ -12111,3 +12111,13 @@ defaults where it is not allowed), each a series of scans of its own, where the 
 it whole; PES 2016's is the last executable that is not packed, so its code reads directly
 (PES 2021's is the version the scans measured, so they are the check).
 Plan: `plans/save_editor.md` "Tactics editor", the bullet "A pitch player dropped on another".
+## 2026-10-27 — core — A CLI-only tool has no settings section
+Decision: the settings menu draws no section for a tool the registry marks CLI-only, whatever
+its `default_settings()` table holds; its keys are edited in the settings file.
+Why: the preview's audit (worklog 0.0.1j, j4) found two such sections every first-run member
+meets through the readme's step 3: the Ruleset editor's header opens on nothing (its table
+holds only `last_folder` and `recent_files`, state the tool writes), and the Team compiler's
+says only that its settings are not built yet. The plan's rule (a tool has settings when its
+table is not empty) did not catch a table of state, or a tool whose window is not built.
+Plan: `plans/core/gui.md` "Settings menu", the bullet "One collapsible section per registered
+tool that has settings".

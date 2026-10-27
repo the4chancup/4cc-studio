@@ -50,6 +50,13 @@ names where the question came from so the context can be read there.
 
 ## Cup practice
 
+- **Should the preview bundle ship VGL 27's rules file beside DBC7's?** (worklog 0.0.1j,
+  j5.) The bundle's settings point the Save editor at DBC7's rules, right for DBC's testers.
+  If VGL's organizer opens the Save editor, its checks (the Cards left badge, the AATF panel)
+  run DBC7's rules on his teams. Does he use the Save editor in this preview? If so, the
+  bundle would carry `rules/vgl27.4ccrules` too, and the readme's VGL section a step saying
+  to pick it in the settings.
+
 ## Small confirmations
 
 - **Which icon does each tool get?** (worklog 8.14.) Open `docs/prototypes/icons.html`,

@@ -3672,7 +3672,7 @@ briefs, review loops, gates and mutation runs as for any step.
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
-  `aatf_rules` naming `rules/dbc7.rhai`), each finding fixed or recorded. Read 2026-10-25
+  `aatf_rules` naming `rules/dbc7.4ccrules`), each finding fixed or recorded. Read 2026-10-25
   (lead), the common settings, the Save editor's and the Team compiler's; findings:
   - [x] j1 the settings menu draws "Check for updates" and its interval, which no code reads
     before Release 0.2.0's updater: the two rows go until then (DECISIONS 2026-10-25,
@@ -3691,6 +3691,17 @@ briefs, review loops, gates and mutation runs as for any step.
     (VGL's are the readme's, 0.0.1f), `savefile_path` auto, "Aesthetics from exports" off
     (SE-GUI-35), the hide IDs 55/11, the theme dark, the exports and output folders beside the
     exe
+  - [ ] j4 the audit finished (Fable, 2026-10-27, every key of every tool and the bundle's
+    `settings.toml`, `.tmp/0_0_1j/j_audit_report.md`): the remaining keys read right; to fix
+    (brief `.tmp/0_0_1j/brief_j4.md`): the settings menu draws a CLI-only tool's section (the
+    Ruleset editor's header over nothing, the Team compiler's "not built yet" line), which
+    goes (plan `core/gui.md` "Settings menu", DECISIONS "A CLI-only tool has no settings
+    section"); the `aatf_rules` row's tooltip worded for a member; the readme's
+    `upgrade-dpfl` step under a heading both groups read (the official-list check runs for
+    PES 2017 too); stale settings text in `spec/team_compiler/settings.md`,
+    `spec/save_editor.md` and `save_editor/src/settings.rs`'s module comment
+  - [ ] j5 whether the bundle ships VGL 27's rules file too: QUESTIONS "Should the preview
+    bundle ship VGL 27's rules file beside DBC7's?"
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming
