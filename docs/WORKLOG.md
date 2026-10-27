@@ -4023,10 +4023,20 @@ The phase's steps are itemized when it opens; prepared ahead:
 
 The phase's steps are itemized when it opens; prepared ahead:
 
-- [ ] 13.0a the plan's readiness audit: `plans/refs_arranger.md` against what it relies on
-  (`aesthetics_export`'s built referee handling, FoxDen's referee hook as the plan cites it),
-  every open question listed for QUESTIONS. Audit running (Fable, read-only, brief
-  `.tmp/13_0a/brief_refs_audit.md`, report `refs_audit.md`)
+- [x] 13.0a the plan's readiness audit: `plans/refs_arranger.md` against what it relies on
+  (`aesthetics_export`'s built referee handling, FoxDen's referee hook as the plan cites it).
+  38 rows (`.tmp/13_0a/refs_audit.md`): 23 hold, 7 differ, 3 unbuilt, 5 only the game can
+  settle. FoxDen's module forces a uniform draw with no lists file, so the plan's "draws as an
+  unmodified game" is gone and the no-file draw asked; the hook's timing, PES 2020 branch and
+  stadium written in; the roster check, the `players.txt` writer and the disabled-marker test
+  move into `aesthetics_export`, the replace helper into `studio_core`; the loading and saving
+  edge cases ruled. Plan "The Fox referee hook" to "Open questions", development plan Phase 13;
+  DECISIONS "The Refs arranger's plan checked against FoxDen and the export library";
+  QUESTIONS "Cup practice" (three)
+- [ ] 13.0b in game, when the phase opens (PES 2021 with FoxDen copied in for the test and
+  removed after, pad and OBS): which of positions 0..4 is the main referee, the linesmen and
+  the other two (`plans/refs_arranger.md` "Open questions"); FoxDen's files are not in any
+  game folder today
 
 ### Phase 14 — Balls compiler
 

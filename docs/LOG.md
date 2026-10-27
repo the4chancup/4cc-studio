@@ -2702,3 +2702,5 @@ worklog passed 7,000 lines.
   restore blip on the FHD, and the 4K keeps it (a mixed-scale desk).
 - **2026-10-27** — 0.0.1cm2: `team_compiler`'s 335 comments stand on their own (comment lines only; tests, clippy, fmt green);
   cm6 queued: `doc_pointers.py` misses a pointer wrapped across two comment lines.
+- **2026-10-27** — 13.0a: the Refs arranger's plan ruled against its readiness audit: FoxDen's uniform no-file draw written
+  in and asked, the hook's timing and 2020 branch, the roster rules and writers moved to the shared crates, edge cases ruled.

@@ -35,9 +35,15 @@ The catch is that **the slots are not drawn uniformly**, and the drawing mechani
 differs by engine generation:
 
 - **PES 17–21**: measurements give per-slot marginal appearance rates, not independent
-  draws or joint probabilities. Some slots are hot (16–18 appear in ~15–17% of measured
-  matches each), some were rarely or never observed (11–15 and 26–30 at ~0%). A fixed
-  weighted list is the intended workflow; the measured rates remain estimates.
+  draws or joint probabilities. Some slots look hot (16–18 appear in ~15–17% of measured
+  matches each), some were rarely or never observed (11–15 and 26–30 at ~0%). FoxDen's
+  reading of PES 2018's referee assigner explains the dead slots by code: in Exhibition-type
+  modes the game shuffles the 25 ids 1–10, 16–25 and 31–35 and takes the first five, while
+  competition, league and Master League modes draw from league-driven pools instead. Under
+  that draw every live slot has the same chance, so the hot slots are likely sampling noise
+  (the 125-match spread sits within about two standard deviations of 12%). A fixed weighted
+  list is the intended workflow; the measured rates remain estimates until the cup's game mode
+  and the other versions' assigners are known (Open questions).
 - **PES 15/16**: the game picks a whole **pattern** — a fixed triple of slot numbers
   (upper linesman, main referee, lower linesman) — from a small set with very uneven
   probabilities. The dominant pattern (slots 17-8-5) covers almost a quarter of all
@@ -55,7 +61,9 @@ arranger replaces that spreadsheet, keeps the math, and writes the file itself.
 On PES 18–21 the draw can be overridden. FoxDen (`Tools_4cc/FoxDen`, formerly `fox_hook`: a `dinput8.dll`
 that runs Lua scripts inside the Fox games' embedded engine, with a sider-compatible API)
 ships `03_refmod.lua`, a trampoline on the game's **referee slot-writer** — the routine the
-game calls once per match position, `slot 0..4`, with the referee id it drew (0..35). So a
+game calls once per match position, `slot 0..4`, with the referee id it drew (1..35). It runs
+when the match menu opens, not at kickoff, so a force meant for a match is in place before its
+menu opens. So a
 Fox match has **five** referee positions, not three: main referee, two linesmen, and — to be
 confirmed by forcing ids in-game — the fourth official and the substitution-board holder. The
 hook offers two primitives, settable from Lua at any time and persistent across script reloads:
@@ -65,30 +73,36 @@ hook offers two primitives, settable from Lua at any time and persistent across 
 | **Force** | five ids + an on/off flag | position *i* receives `force[i]` whatever the game drew (a forced 0 falls through to remap) |
 | **Remap** | 36-entry table, identity by default | the drawn id is replaced by `remap[drawn]` |
 
-The pattern scan covers PES 2018, 2019 and 2021. FoxDen does not recognise PES 2020 yet (it
-only forwards DirectInput there; requested from its maintainer), and **PES 2020 is taken to match
-2021** once it does. The
-runtime's match context exposes the home and away team ids and a per-frame tick, so a
-companion script can re-set the force table whenever a new match starts; it exposes no stadium
-(not needed — per-match control is the requirement). Nothing in the hook reads a file today:
-the file the arranger writes and the script that consumes it are the contract defined below,
-the reading side being the hook author's to implement.
+FoxDen recognises PES 2018 to 2021, and the referee module carries a branch for each: PES
+2020's uses 2019's writer pattern and 2021's match-context offsets. Runs have confirmed 2018,
+2019 and 2021; the 2020 branch has not been run on a 2020 exe. The runtime's match context
+exposes the home and away team ids, the stadium and a per-frame tick, so a companion script
+can re-set the force table whenever a new match starts. (The module already binds referee
+sets to stadiums; the arranger's lists are per match, which is what the staff schedule.) The
+team ids read nil until a match is set up, so a script cannot match a `team=` selector at its
+init. Nothing in the hook reads a text file today: its one file read loads a Lua chunk from
+the game folder's `scripts/`. The file the arranger writes and the script that consumes it are
+the contract defined below, the reading side being the hook author's to implement.
 
 What this changes: with the hook, **which referee appears is decided in Lua, not by which of
 35 slots the game happens to draw**. Each referee needs only one slot; the weighting-by-
 repetition problem disappears on Fox and, with it, the "recompile the refs CPK before every
 matchday" loop — rotation is a text file the script reads. The measured rates below remain the
-tool's engine for PES 15–17, and the *fallback fill* for Fox users who play without the file.
+tool's engine for PES 15–17, and the *fallback fill* for Fox viewers who get the game's own
+draw.
 
-**Who gets the file.** The hook installs with forcing **off** and the remap table at identity,
-and nothing but an explicit `set`/`force` call turns forcing on — so a game with the hook but no
-lists file draws referees exactly as an unmodified game does. That is the distribution model:
-the lists file goes to the **streamers**, with one list per match of the matchday in schedule
-order, so the broadcast shows the referees the staff chose; everyone else receives nothing and
-gets the game's own draw over the fallback-filled `players.txt`. The same CPK serves both. (One
-consequence of the hook's design for the companion script: force state persists across script
-reloads within a game session, so the script must call `force_off()` when it finds no file —
-otherwise a file loaded and then removed keeps forcing until the game restarts.)
+**Who gets the file.** The referee module starts with forcing off and the remap table at
+identity, then, as its boot default, forces five distinct ids drawn uniformly from 1..35 at
+install and again after every match. So a Fox viewer sees one of three draws: the game's own
+(no FoxDen), the module's uniform one (FoxDen, no lists file), or the lists (FoxDen and the
+file). The lists file goes to the **streamers**, with one list per match of the matchday in
+schedule order, so the broadcast shows the referees the staff chose. The fallback-filled
+`players.txt` shapes the game's own draw; the same CPK serves all three. What the reading
+script does when it finds no file, keep the module's uniform draw or turn forcing off for the
+game's own, is open (Open questions): it decides whether the fallback fill also shapes what a
+FoxDen viewer without the file sees. Force state persists across script reloads within a game
+session, so the script re-establishes that no-file state whenever it finds no file; otherwise a
+file loaded and then removed keeps forcing its last list until the game restarts.
 
 ## Slot appearance rates (reference data)
 
@@ -190,16 +204,25 @@ export-scoped `multiple_ref_exports` blocker for every conflicting row; the arra
 notice pointing at them). `NO_USE`/`NO_USE.txt` sources are disabled and do not participate. Only
 one plain-folder refs export can be edited at a time.
 
+The walk finds refs exports by the compiler's rules, so the two tools never disagree on which
+export is the refs one: the first word of the name folds to `refs` (`Refs - Summer` is one,
+`referees 26` is a team export); a `.zip` or `.7z` counts, as it does for the compiler, and
+shows the archive notice ("Saving"); a folder and an archive with the same stem are two refs
+exports. The compiler's Reader keeps its disabled-marker test to itself today; it moves into
+`aesthetics_export`, beside the identity parsing, and both tools call it.
+
 ### Storage box
 
 - Lists the referees found in the refs export: the player folders under `Players/`.
-  The arranger performs its plain-filesystem walk, supplies the canonical
-  `vtree::ScopePath` listing plus small metadata such as `players.txt` to
-  `aesthetics_export::parse_listing`, and receives a `ParsedAestheticsExport`; it never reads
-  model or texture payloads. The arranger deliberately does not require a `ValidatedAestheticsExport`:
-  the roster may be missing, invalid, or partial — creating and repairing it is
-  this tool's job; valid entries from an existing `players.txt` pre-populate the
-  assignments, while its scoped issues remain visible.
+  The arranger performs its plain-filesystem walk, supplies a `CanonicalListing` (each
+  entry a path string with its kind and size) plus the bytes of every small metadata file
+  the listing holds (`players.txt`, `refs.txt`, `notes.txt`: the parser reads each one listed,
+  and one missing from the map is a failed read) to `aesthetics_export::parse_listing`, and
+  receives a `ParsedAestheticsExport`; it never reads model or texture payloads. The arranger
+  deliberately does not require a `ValidatedAestheticsExport`: the roster may be missing,
+  invalid, or partial — creating and repairing it is this tool's job; valid entries from an
+  existing `players.txt` pre-populate the assignments, while its scoped issues remain visible
+  ("Loading an existing export").
 - Each entry shows a version-appropriate **appearance estimate**:
   - **PES 15/16**: estimated chances of appearing as main referee and as linesman,
     separately — sum the observed rates of patterns in which the referee holds
@@ -210,7 +233,7 @@ one plain-folder refs export can be edited at a time.
     slot observations would be needed for the latter.
   - **PES 18–21**: appearances across the lists (how many lists, and in which positions),
     plus the fallback expected count from the filled `players.txt` in a secondary style,
-    labelled "without the hook".
+    labelled "the game's own draw".
 - One referee is designated the **Filler** (a dedicated drop target): on PES 15–17 it is
   auto-assigned to every slot not explicitly assigned, so all 35 slots are always covered
   and the written `players.txt` is always complete. On PES 18–21 there is no Filler: the
@@ -228,7 +251,10 @@ version-dependent behavior in the suite:
   - **Home slots.** Every referee in the storage box holds exactly one slot, 1..N in
     storage-box order (reorderable by drag; the order is saved, so a referee's slot —
     which is its id in the lists — stays stable across sessions unless the user moves it).
-    N ≤ 35; a 36th referee is refused with a notice.
+    N ≤ 35; a 36th referee is refused with a notice. A move renumbers home slots, and the
+    lists follow the referee: Save rewrites their ids, since a list names people, not slot
+    numbers. A changed `players.txt` needs a recompiled CPK for everyone, so the Save
+    confirmation says so whenever home slots moved.
   - **Lists.** A list is five positions (`0..4`, the order the game writes them; the role
     labels — main, linesmen, fourth official, board holder — are shown once the position
     roles are confirmed in-game, see Open questions), each holding one referee, **all five
@@ -247,11 +273,13 @@ version-dependent behavior in the suite:
   - **Fallback fill.** Slots N+1..35 of `players.txt` are filled by **repeating the
     referees**, weighted by the PES 17–21 rate table so that each referee's expected
     appearances are as equal as the dead and hot slots allow — the previous engine, applied
-    to the leftover slots only. This is what everyone without the lists file sees, i.e.
-    everyone but the streamers, so it is the ordinary viewer's experience rather than an edge
-    case; with a file loaded the fill is invisible, since force never lets the drawn slot
-    through. The fill is automatic and shown read-only under the lists; no Filler referee
-    exists in this mode.
+    to the leftover slots only. This is what a viewer without FoxDen sees (and a FoxDen
+    viewer without the file, if the reading script turns forcing off; see "Who gets the
+    file"), so it is the ordinary viewer's experience rather than an edge case; with a file
+    loaded the fill is invisible, since force never lets the drawn slot through. The fill is
+    automatic and shown read-only under the lists; no Filler referee exists in this mode.
+    Two referees whose expected counts tie are taken in storage-box order, so identical
+    input gives identical output.
 - **PES 17 mode**: all 35 slots as editable rows — slot number, measured rate,
   drop target with the assigned name. Dead slots (~0%) render grayed (filler by
   default) but stay assignable. The slot list *is* the mapping; no preview needed.
@@ -276,9 +304,9 @@ version-dependent behavior in the suite:
   filler and fallback-fill entries grayed).
 - A **Shuffle** button (PES 15–17) randomly permutes the referees currently assigned to
   slots across those same slots — a one-click rotation for the PES 15/16 matchday
-  workflow. Unassigned referees stay in the storage box, the Filler stays on the
-  unassigned slots, and the slot set is preserved (so a deliberately dead slot
-  keeps its Filler). Undo restores the pre-shuffle assignment.
+  workflow. Unassigned referees stay in the storage box and never appear, the Filler
+  stays on every slot it holds, dead or live, and the slot set is preserved (so a
+  deliberately dead slot keeps its Filler). Undo restores the pre-shuffle assignment.
 
 ### The lists file (`ref_lists.txt`)
 
@@ -299,18 +327,58 @@ side:
 
 Grammar: five integers 1..35 separated by whitespace, then zero or more `key=value` tokens,
 then an optional `#` comment. The arranger rejects a line with a repeated id or an id above
-N with a scoped issue on load, and never writes one. The reading script is the hook author's
-(read at init, apply with `ref_mod.set` when the match changes, advance the cursor; **no file →
-`force_off()`**, so an absent file always means the game's own draw); the arranger's
-responsibility ends at the file, and this grammar is the interface to agree on.
+N with a scoped issue on load, and never writes one. The file's reader and writer live in the
+arranger's crate, its only consumer: the Team compiler admits the file at a refs export's
+root without reading or packing it.
+
+The reading script is the hook author's; the arranger's responsibility ends at the file, and
+this grammar is the interface to agree on. What the hook offers it today:
+
+- `ref_mod.set` takes a table of five ids and turns forcing on.
+- The module counts writer calls, five per match; the count grows by five *after* a match's
+  draw is written. So the script sets list 1 at once when it starts, and list *k*+1 at the
+  count's *k*-th jump, before the next match menu opens; set later, a match gets the
+  module's boot draw.
+- The hook reloads changed `scripts/*.lua` only, so a lists file placed or replaced
+  mid-session reaches the script only if the script re-reads it itself.
+- With no file, the script re-establishes the no-file draw ("Who gets the file").
+- Reading plain text is the hook author's to add: the referee module runs in the game's own
+  Lua state, where the standard `io` library is not to be assumed; a module in the hook's
+  separate state, which opens the standard libraries, or a new DLL primitive can read it.
+
+### Loading an existing export
+
+One rule covers every line the arranger cannot use: it is listed with its issue in the tool's
+issues panel and not loaded, and the next Save rewrites the file without it.
+
+- `players.txt`: the roster rules are the compiler's. They run only inside
+  `aesthetics_export`'s `validate` today, which keeps no slot map once an issue drops the whole
+  export (a duplicate slot does); the crate gains a per-line roster check that `validate`
+  itself calls, and the arranger takes each line's issue from it, so the rules have one copy.
+  A line with no slot or no name, a slot outside 1..35, or a folder not in `Players/` is not
+  loaded; of two lines on one slot, the first loads. A hand-written file (one-digit slots,
+  TABs, CRLF, a BOM) reads as the compiler reads it, and Save rewrites it canonical.
+- On PES 18–21 a referee's home slot is its lowest slot in the file; the storage box takes
+  that order and numbers home slots 1..N from it (a file on slots 1, 2 and 5 loads as 1, 2
+  and 3), the lists following as for a move. Referees in no slot go to the end.
+- `ref_lists.txt`: a line with other than five ids, a repeated id or an id above N is not
+  loaded. `key=value` tokens the arranger does not know and `#` comments are kept as written.
 
 ### Saving
 
 Save writes `players.txt` into the refs export — and, on PES 18–21, `ref_lists.txt` beside
 it — and nothing else: folders are never touched. `players.txt` uses the Team compiler
-plan's canonical UTF-8/LF roster grammar. Each write uses a sibling temporary file, flush,
-and atomic replace so folder watchers can never observe a half-written file. Overwriting an existing `players.txt` asks
-for confirmation; creating one where none existed does not. A legacy `refs.txt`
+plan's canonical UTF-8/LF roster grammar, through a writer `aesthetics_export` gains for it;
+the Export upgrader, which writes the same grammar from a `refs.txt` today with a function
+of its own, moves onto it. Each write goes to a sibling temporary file renamed onto the
+target, so folder watchers can never observe a half-written file. The Team compiler and the
+settings file each do this with a private helper today; the Team compiler's moves into
+`studio_core`, and settings, the compiler and the arranger share it. Overwriting an existing
+`players.txt` asks for confirmation; creating one where none existed does not. The
+confirmation names the lines the rewrite drops and says the file is rewritten canonical.
+Save refuses with a notice while the storage box is empty (the compiler drops a roster with no
+entry). On PES 18–21 with no list, Save writes no `ref_lists.txt` and removes an existing one,
+with the same confirmation. A legacy `refs.txt`
 (the read-only alias `aesthetics_export` accepts on referee exports — see "Player
 numbering" in the Team compiler plan) pre-populates the assignments like a
 `players.txt` would; on save it is removed after the new `players.txt` is in place,
@@ -337,6 +405,11 @@ or expected count for PES 17–21 (on 18–21 additionally the per-list, per-pos
 with *n* randomized lists over the export's referees (same algorithm as the button; refuses
 to overwrite without `--yes`), for the staff member who rotates from a script. Arrangement by
 hand is GUI-only; drag-and-drop has no meaningful CLI analogue.
+
+Both commands read the export as the GUI does: a `players.txt` beside a `refs.txt` wins with
+the same warning, and an archived export is refused with the GUI's notice and a failing exit
+code. The PES version is the saved common setting, as for the Team compiler's CLI; there is
+no version flag.
 
 ### Settings
 
@@ -376,16 +449,24 @@ Windows.
 
 - **Position roles on Fox.** Which of the hook's positions 0..4 is the main referee, which are
   the linesmen, and what the remaining two are (fourth official and substitution-board holder,
-  presumably). Settled by forcing distinct ids into each position in a few matches; until then
-  the lists editor labels positions by number.
-- **The reading script.** Whether the embedded Lua can read a file directly or needs a DLL
-  primitive is the hook author's side of the contract; it does not change the file.
+  presumably). Settled in game by `ref_mod.set` with five distinct, recognizable models in one
+  Exhibition match, then a second with the ids rotated, which shows the roles follow the
+  position, not the id; until then the lists editor labels positions by number.
+- **The reading script and the no-file draw.** How the script reads the file (above: the
+  hook offers no text reader yet) is the hook author's side of the contract and does not change
+  the file. What it does with no file is the staff's and the hook author's call, and decides
+  whom the fallback fill serves (`QUESTIONS.md`).
+- **PES 2020.** The referee module's 2020 branch has not been run on a 2020 exe; a run that
+  logs the module installing and a forced match settles it.
 - **Do PES 15 and 16 share one pattern table?** The measurements come from one of
   the two; assumed shared until measured on the other.
 - **17–21 measurement reconciliation:** slot 24 is marked uncertain, and the supplied counts
   total 372 instead of 375. Confirm the missing observations and which game version(s) the
   125-match sample covers before presenting the table as verified across PES 17–21; on
-  18–21 it now only shapes the fallback fill, so the stakes are lower than they were.
+  18–21 it now only shapes the fallback fill, so the stakes are lower than they were. The
+  cup's game mode decides which draw applies (Exhibition's uniform shuffle over the live
+  slots, or a competition mode's league pools; see Background), and with it whether the
+  table's spread is noise.
 - **Do 17 slots have role identity** (main vs linesman)? The flat measurements
   don't distinguish roles; if role placement turns out to matter to managers,
   the table needs re-measuring with roles logged. (On 18–21 roles are the list positions.)

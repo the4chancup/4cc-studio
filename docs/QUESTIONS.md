@@ -67,6 +67,24 @@ The Music player's three below come from reading Rigdio v2.2.0's controls (workl
   goalhorns, never for a chant. Should the OBS overlay show a chant's title too, or stay on
   horns and anthems as it always has?
 
+The Refs arranger's three below come from its readiness audit (worklog 13.0a,
+`.tmp/13_0a/refs_audit.md`); none blocks the tool's first slice:
+
+- **FoxDen without a lists file.** FoxDen's referee module, as shipped, forces five distinct
+  referees drawn uniformly from all 35 slots at boot and after every match
+  (`Tools_4cc/FoxDen/scripts/03_refmod.lua`, `randomize`), so a FoxDen player never sees the
+  game's own draw. Is FoxDen expected on every viewer's install, or on the streamers' only?
+  And with no `ref_lists.txt`, should the reading script keep that uniform draw, or turn
+  forcing off so the game draws over the arranger's weighted fill (`plans/refs_arranger.md`
+  "Who gets the file")? The second is a change the hook's author would make.
+- **Which game mode do Fox cup matches run in?** FoxDen's reading of PES 2018 has Exhibition
+  modes draw five referees uniformly from slots 1–10, 16–25 and 31–35, and competition, league
+  and Master League modes from league-driven pools (`plans/refs_arranger.md` "Background").
+  Also: which version(s) were the 125 matches of the PES 17–21 table logged on, and what is
+  slot 24's real count (marked uncertain)?
+- **Which PES version was the 15/16 pattern table measured on?** And is there a log from the
+  other one, to say whether the two share it?
+
 ## Small confirmations
 
 - **Does a maximized reopen still flicker?** (worklog 0.0.1q5; `.tmp/0_0_1q/built/findings.md`

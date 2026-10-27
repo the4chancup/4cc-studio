@@ -358,7 +358,8 @@ and Phase 8 (the shell).
 - players.txt writing (overwrite confirmation) + Team compiler handoff (`ToolContext` tool switch);
   `chances` and `randomize` CLI
 
-**Verification:** players.txt and ref_lists.txt round-trips through `aesthetics_export`; chance-math
+**Verification:** players.txt round-trips through `aesthetics_export`'s roster reader and
+writer, ref_lists.txt through the arranger's own; chance-math
 unit tests against the measured tables; randomizer and fallback-fill invariants;
 interrupted/observed atomic replacement tests (including Windows); a refs export arranged, saved,
 and compiled by the Team compiler.

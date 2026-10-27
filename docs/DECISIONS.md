@@ -12369,3 +12369,27 @@ the score), no streamer can want it. The 12 exports carrying `pause restart` wer
 when it restarted.
 Plan: `plans/music_player.md` "Song selection", "Playback behavior", "Chants", "Match state",
 "title.log", "Event clips revived", "Loudness normalization", "GUI view", "Settings".
+
+## 2026-10-27 — refs_arranger — The Refs arranger's plan checked against FoxDen and the export library
+Decision: the plan describes FoxDen's referee module as it is: it draws 1..35 at the match
+menu, recognises PES 2020 (unrun), exposes the stadium, and forces a uniform random draw at
+boot and after every match, so a FoxDen viewer without a lists file sees neither the game's
+draw nor the fallback fill; the no-file behavior is asked, not assumed. The contract adds the
+module's timing (list 1 at once, list k+1 at the k-th count jump) and that the script re-reads
+the file itself. The library gains what two tools would otherwise copy: a per-line roster
+check that `validate` calls, the canonical `players.txt` writer (the upgrader moves onto it),
+and the disabled-marker test; the temporary-file replace moves into `studio_core`. Every line
+the arranger cannot load is listed and dropped on the next Save, which says so; a Fox file's
+home slots are renumbered from its slot order, and lists follow the referee on a move. The
+rest: an empty storage box refuses Save, zero lists remove `ref_lists.txt`, ties in the fill
+go by storage-box order, the Filler keeps every slot it holds on Shuffle, the CLI refuses an
+archive like the GUI and takes the saved PES version.
+Why: the audit (`.tmp/13_0a/refs_audit.md`, 38 rows: 23 hold, 7 differ, 3 unbuilt, 5 only
+the game can settle) found the plan's "a game with the hook draws as an unmodified game"
+false, and found the roster rules, the writer and the discovery rules each reachable only
+inside one crate, where a second copy would drift. A list names people, so renumbering ids
+under it would show someone else. One rule for unusable lines, both files, keeps loading
+simple; members' errors get a person's attention anyway.
+Plan: `plans/refs_arranger.md` "Background", "The Fox referee hook", "The tool",
+"Storage box", "Editor", "The lists file", "Loading an existing export", "Saving", "CLI",
+"Open questions"; `plans/core/development_plan.md` Phase 13's verification.
