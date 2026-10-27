@@ -12144,3 +12144,14 @@ they cost code a reader must follow and a cached-width bug (Astra A2a-1), and th
 drawn 1100 wide, ran in the fallback state no member sees rather than the design's.
 Plan: `plans/core/gui.md` "Scaling with the width" and ST-WIN-02; `plans/save_editor.md` "The
 player view" and the team view's row.
+## 2026-10-27 — core — A window closed maximized reopens maximized
+Decision: `window_main` (and `window_special`) gain a sixth number, 1 when the window was
+maximized on its last frame that was not minimized; the window is created at the recorded
+normal place and maximized, so its restore button gives that place back. A five-number record
+reads as not maximized; a place found on no monitor opens fitted and not maximized.
+Why: the maintainer accepted proposal P39 (a member who keeps the window maximized gets it
+back maximized, as most desktop programs do). It lands in 0.0.1 beside 0.0.1q, whose code it
+extends and whose built-window check ("close maximized") is still open, so one check covers
+both.
+Plan: `plans/core/gui.md` "Window size classes" (the paragraph on the remembered place) and
+ST-WIN-04.

@@ -111,13 +111,14 @@ since a test's frame has no window): the title bar, the window's width over the 
 at 100%, scaled by each monitor's own scale (the window's size in pixels once it sits there),
 overlaps that monitor's rectangle; an empty list, a frame with no window to ask, trusts the
 place. Both places are shell state in the
-settings file, `window_main` and `window_special`, each a list of five numbers
-`[x, y, width, height, scale]`: the outer position in the screen's physical pixels, because a
+settings file, `window_main` and `window_special`, each a list of six numbers
+`[x, y, width, height, scale, maximized]`: the outer position in the screen's physical pixels, because a
 point is a different number of pixels on each monitor and Windows and X11 place windows in
 pixels; the inner size in points at zoom 1 (its pixels over the monitor's scale), the size a
 window keeps when the OS moves it to a monitor of another scale, never in the shell's zoomed
 points, which would reopen a window closed under the design width wider by the zoom; and the
-monitor's scale factor when the place was recorded. The shell reads the place every frame (the
+monitor's scale factor when the place was recorded; and whether the window was maximized
+(below). The shell reads the place every frame (the
 last normal one: not minimized, maximized or fullscreen, the rects known, and not the frame
 where a queued zoom lands, which reports its rects at the zoom before it: its inner rect and
 `screen_rect` differ there by a pixel or more, against a rounding error on every other frame),
@@ -131,8 +132,19 @@ creation: eframe shows the window after the first frame's paint and applies that
 viewport commands after the show, so the member would see the jump. Not eframe's own window
 persistence, whose `persistence` feature writes a file of its own outside the data location
 (a portable install keeps everything beside the exe), knows one window size, not two, and
-stores the size in zoomed points. A window closed maximized reopens at the normal place it had
-before (restoring the maximized state is `PROPOSALS.md` P39). On Wayland, where winit reports
+stores the size in zoomed points. A window closed maximized reopens maximized, as most desktop
+programs do, and its restore button gives back the normal place it had before: the record
+gains a sixth number, 1 when the window was maximized on its last frame that was not minimized
+(a member who minimizes a maximized window and closes it from the taskbar closed it
+maximized), else 0, while its first five stay the last normal frame's place; the window is
+created at that place and maximized (`ViewportBuilder::with_maximized`), so the OS keeps the
+place as the size to restore to; where a platform maximizes only a shown window (X11, as
+eframe's own persistence handles it), the first frame sends the maximize instead. A record of five numbers, written before the sixth existed,
+reads as not maximized. A place the first frame finds on no monitor ends fitted and not
+maximized: the window was created maximized before that check could run, so the first frame
+sends `Maximized(false)` ahead of the fit, a visible jump we accept for a case as rare as an
+unplugged monitor (kept maximized, its restore button would put the window back off every
+monitor). On Wayland, where winit reports
 no window position and ignores a set one, nothing is recorded and the window always opens
 fitted. A special tool's design width is its declared width, and its minimum its
 own.
@@ -922,16 +934,20 @@ ST-WIN-03   GIVEN two main stub tools and a special stub tool declaring a 480 ×
 ST-WIN-04   GIVEN a main tool active and the window moved to (100, 50) and resized to 1100 × 700
                  on a 100% display
             WHEN the window closes and the GUI starts again
-            THEN the settings file holds window_main as [100, 50, 1100, 700, 1], the native
-                 window's options carry the position (100, 50) and the inner size 1100 × 700
-                 and are not centered, and the first frame sends the outer position (100, 50)
-                 and no size, not the fit's; GIVEN the same on a 200% display, the window
-                 2200 × 1400 pixels THEN window_main is [100, 50, 1100, 700, 2], the
-                 options' position (50, 25) and inner size 1100 × 700, and the first frame's
-                 (50, 25); GIVEN the window maximized when it closes THEN window_main is the
-                 place it had before the maximize; GIVEN a remembered place whose title bar
+            THEN the settings file holds window_main as [100, 50, 1100, 700, 1, 0], the
+                 native window's options carry the position (100, 50) and the inner size
+                 1100 × 700 and are not centered or maximized, and the first frame sends the
+                 outer position (100, 50) and no size, not the fit's; GIVEN the same on a 200%
+                 display, the window 2200 × 1400 pixels THEN window_main is
+                 [100, 50, 1100, 700, 2, 0], the options' position (50, 25) and inner size
+                 1100 × 700, and the first frame's (50, 25); GIVEN the window maximized when
+                 it closes, or minimized from maximized THEN window_main is the place it had
+                 before the maximize with 1 last, and the options carry that place and are
+                 maximized; GIVEN a window_main of five numbers THEN the options are not
+                 maximized; GIVEN a remembered place whose title bar
                  lies on none of the window's monitors THEN the window is created at the place
-                 and its first frame sends ST-WIN-01's fit instead of the position; GIVEN no
+                 and its first frame sends ST-WIN-01's fit instead of the position, preceded
+                 by an unmaximize when the record says maximized; GIVEN no
                  monitor list (a frame with no window) THEN the first frame sends the place's
                  position; GIVEN a last tool of the special class THEN it opens at
                  window_special's place

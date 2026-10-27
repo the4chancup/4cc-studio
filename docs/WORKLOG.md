@@ -3000,7 +3000,7 @@ briefs, review loops, gates and mutation runs as for any step.
     `export_upgrader/src/{cli,naming,staging,upgrade,model_folders,messages,referees}.rs`,
     `tests/cli/cli.rs`, `tests/upgraded_golden.rs`, `help/01_command_line.md`,
     `spec/export_upgrader.md`, `plans/export_upgrader.md`
-- [x] 0.0.1q the window reopens where it was closed (P24; `plans/core/gui.md` "Window size
+- [ ] 0.0.1q the window reopens where it was closed (P24; `plans/core/gui.md` "Window size
   classes", ST-WIN-04; after 0.0.1m, the same code): the main class's `window_main` now, the
   special class's with the Music player's view. First how eframe 0.37 lets the shell learn the
   monitors at start (eframe's own persistence clamps through winit's monitor list), the finding
@@ -3049,6 +3049,14 @@ briefs, review loops, gates and mutation runs as for any step.
     unpinned; fixed by the lead), the review loops end. Open: the built-window checks (the
     reopen at a place, the off-monitor case), asked first. Files:
     `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`
+  - [ ] q4 a window closed maximized reopens maximized (P39, accepted 2026-10-27; DECISIONS
+    "A window closed maximized reopens maximized"; `plans/core/gui.md` "Window size classes",
+    the remembered place's paragraph): the record's sixth number, the window created
+    maximized at the normal place, a five-number record read as not maximized, the
+    off-monitor case unmaximized before the fit, X11's first-frame maximize as eframe's
+    persistence does it → verify: ST-WIN-04's new clauses headless; by hand (the built
+    window, with q's checks): close maximized, reopen maximized, restore to the place; the
+    spec's settings row for `window_main` (`spec/team_compiler/settings.md`) says six numbers
 - [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version
