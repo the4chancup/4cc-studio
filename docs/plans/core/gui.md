@@ -102,8 +102,15 @@ gains a sixth number, 1 when the window was maximized on its last frame that was
 (a member who minimizes a maximized window and closes it from the taskbar closed it
 maximized), else 0, while its first five stay the last normal frame's place; the window is
 created at that place and maximized (`ViewportBuilder::with_maximized`), so the OS keeps the
-place as the size to restore to; where a platform maximizes only a shown window (X11, as
-eframe's own persistence handles it), the first frame sends the maximize instead. A record of five numbers, written before the sixth existed,
+place as the size to restore to; and the first frame, after it sends the position again
+(above), sends the maximize again, on every platform: winit moves a maximized window by
+restoring it first (on Windows `set_outer_position` clears the maximized flag, a
+`ShowWindow(SW_RESTORE)`), and an X11 window manager ignores the maximize asked of the window
+eframe keeps hidden until its first paint (egui-winit's own persistence maximizes after the
+first show for that reason). Not the position resend skipped for a maximized place: on a
+mixed-scale desk the creation's position is converted with the primary monitor's scale, so the
+restore place, and the monitor the window maximizes on, would stay wrong. The first frame's
+commands run after the show, so the window may be seen restoring and maximizing again once. A record of five numbers, written before the sixth existed,
 reads as not maximized. A place the first frame finds on no monitor ends fitted and not
 maximized: the window was created maximized before that check could run, so the first frame
 sends `Maximized(false)` ahead of the fit, a visible jump we accept for a case as rare as an
@@ -889,8 +896,9 @@ ST-WIN-04   GIVEN a main tool active and the window moved to (100, 50) and resiz
                  [100, 50, 1100, 700, 2, 0], the options' position (50, 25) and inner size
                  1100 × 700, and the first frame's (50, 25); GIVEN the window maximized when
                  it closes, or minimized from maximized THEN window_main is the place it had
-                 before the maximize with 1 last, and the options carry that place and are
-                 maximized; GIVEN a window_main of five numbers THEN the options are not
+                 before the maximize with 1 last, the options carry that place and are
+                 maximized, and the first frame sends the outer position, then the maximize;
+                 GIVEN a window_main of five numbers THEN the options are not
                  maximized; GIVEN a remembered place whose title bar
                  lies on none of the window's monitors THEN the window is created at the place
                  and its first frame sends ST-WIN-01's fit instead of the position, preceded

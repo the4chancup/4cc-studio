@@ -12176,3 +12176,14 @@ checkpoint every 3 to 4 code commits saves 20-29% of the test time, and the scri
 another 11 points (scripts changed in 44 of them).
 Plan: `CONTRIBUTING.md` "Testing and verification" and "Mutation runs"; `AGENTS.md` ("After a
 step", the reviews' sweeps, the converge paragraph).
+## 2026-10-27 — core — A window reopened maximized is maximized again by its first frame, on every platform
+Decision: the first frame of a window reopened from a maximized record sends the maximize again
+after the position it resends, on Windows as on X11, rather than on X11 alone.
+Why: the plan named X11 (a window manager ignores the maximize asked of the hidden window); the
+implementation found that winit moves a maximized window by restoring it first (Windows
+`set_outer_position` clears the maximized flag, a `ShowWindow(SW_RESTORE)`), so the position
+resend un-maximized the window the creation maximized, on the main platform. Skipping the resend
+for a maximized place was rejected: on a mixed-scale desk the creation's position is converted
+with the primary monitor's scale, and only the resend corrects it. The cost, the window seen
+restoring and maximizing once on the first frame, is for the built-window check to measure.
+Plan: `plans/core/gui.md` "Window size classes" (the remembered place's paragraph); ST-WIN-04.

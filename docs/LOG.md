@@ -2677,3 +2677,5 @@ worklog passed 7,000 lines.
   The window's size, its scaling and ST-WIN-01/02 moved to `spec/core/gui.md`.
 - **2026-10-27** — 0.0.1s5, round S4's rework: a Tactics lineup row's drop target spans the list, as the draft's row does;
   three tests now assert their own premises. The post-Astra SWE-2 loop over A1 ended; Astra A2 next.
+- **2026-10-27** — 0.0.1q4: a window closed maximized reopens maximized, restoring to its normal place (`window_main`'s sixth
+  number; five-number records still load); its first frame maximizes again after the position resend, which winit restores.

@@ -33,7 +33,8 @@ fn monitor_frame(
     run_frame(ctx, app, input)
 }
 
-/// The frame's fit commands: size and position, the title's `Title` not.
+/// The frame's commands to the window's place: size, position and maximize,
+/// the title's `Title` not.
 fn fitting(output: &FrameOutput) -> Vec<ViewportCommand> {
     output
         .commands
@@ -41,7 +42,9 @@ fn fitting(output: &FrameOutput) -> Vec<ViewportCommand> {
         .filter(|command| {
             matches!(
                 command,
-                ViewportCommand::InnerSize(_) | ViewportCommand::OuterPosition(_)
+                ViewportCommand::InnerSize(_)
+                    | ViewportCommand::OuterPosition(_)
+                    | ViewportCommand::Maximized(_)
             )
         })
         .cloned()
@@ -104,6 +107,21 @@ fn placed_frame(
     run_frame(ctx, app, input)
 }
 
+/// One harness frame for a minimized window, as egui-winit reports one on
+/// Windows: minimized, not maximized (`IsZoomed` is false while minimized),
+/// and no rects.
+fn minimized_frame(ctx: &egui::Context, app: &mut StudioApp) -> FrameOutput {
+    let mut input = raw_input(Vec::new(), true, None, None);
+    let info = input
+        .viewports
+        .get_mut(&egui::ViewportId::ROOT)
+        .expect("`RawInput::default` carries the root viewport");
+    info.native_pixels_per_point = Some(1.0);
+    info.minimized = Some(true);
+    info.maximized = Some(false);
+    run_frame(ctx, app, input)
+}
+
 #[test]
 fn place_of_reads_pixels_points_and_scale_from_a_normal_frame() {
     let mut viewport = egui::ViewportInfo {
@@ -120,8 +138,8 @@ fn place_of_reads_pixels_points_and_scale_from_a_normal_frame() {
     };
     let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1100.0, 700.0));
     assert_eq!(
-        <[f32; 5]>::from(place_of(&viewport, Some(screen), 1.0).unwrap()),
-        [100.0, 50.0, 1100.0, 700.0, 1.0],
+        <[f32; 6]>::from(place_of(&viewport, Some(screen), 1.0).unwrap()),
+        [100.0, 50.0, 1100.0, 700.0, 1.0, 0.0],
     );
 
     // The screen's pixels are whole: a fractional position is rounded.
@@ -134,8 +152,8 @@ fn place_of_reads_pixels_points_and_scale_from_a_normal_frame() {
         egui::vec2(1100.0, 700.0),
     ));
     assert_eq!(
-        <[f32; 5]>::from(place_of(&viewport, Some(screen), 1.0).unwrap()),
-        [11.0, 5.0, 1100.0, 700.0, 1.0],
+        <[f32; 6]>::from(place_of(&viewport, Some(screen), 1.0).unwrap()),
+        [11.0, 5.0, 1100.0, 700.0, 1.0, 0.0],
     );
 
     // The same window at zoom 0.5: the rects are in the zoomed points and
@@ -150,8 +168,8 @@ fn place_of_reads_pixels_points_and_scale_from_a_normal_frame() {
     ));
     let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(2200.0, 1400.0));
     assert_eq!(
-        <[f32; 5]>::from(place_of(&viewport, Some(screen), 0.5).unwrap()),
-        [100.0, 50.0, 1100.0, 700.0, 1.0],
+        <[f32; 6]>::from(place_of(&viewport, Some(screen), 0.5).unwrap()),
+        [100.0, 50.0, 1100.0, 700.0, 1.0, 0.0],
     );
 
     // A 200% display: the points are half the pixels, the scale is kept.
@@ -166,8 +184,8 @@ fn place_of_reads_pixels_points_and_scale_from_a_normal_frame() {
     ));
     let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(550.0, 350.0));
     assert_eq!(
-        <[f32; 5]>::from(place_of(&viewport, Some(screen), 1.0).unwrap()),
-        [100.0, 50.0, 550.0, 350.0, 2.0],
+        <[f32; 6]>::from(place_of(&viewport, Some(screen), 1.0).unwrap()),
+        [100.0, 50.0, 550.0, 350.0, 2.0, 0.0],
     );
 
     // A 150% display, its rects built as egui-winit builds them, a pixel
@@ -182,8 +200,8 @@ fn place_of_reads_pixels_points_and_scale_from_a_normal_frame() {
     viewport.inner_rect = Some(inner);
     assert_ne!(inner.size(), screen.size(), "the premise: an ULP apart");
     assert_eq!(
-        place_of(&viewport, Some(screen), 1.0).map(<[f32; 5]>::from),
-        Some([2992.0, 50.0, 1100.0 / 1.5, 700.0 / 1.5, 1.5]),
+        place_of(&viewport, Some(screen), 1.0).map(<[f32; 6]>::from),
+        Some([2992.0, 50.0, 1100.0 / 1.5, 700.0 / 1.5, 1.5, 0.0]),
     );
 
     // The frames that report no normal place: maximized or fullscreen, and
@@ -250,8 +268,8 @@ fn place_of_compares_the_rects_in_pixels_at_the_scale_times_the_zoom() {
     // x = 63 × 1.6 = 100.8, rounded to 101; y = 31.4 × 1.6 = 50.24, to 50;
     // the size at zoom 1 is 1280 × 0.8 = 1024 by 875 × 0.8 = 700.
     assert_eq!(
-        place_of(&viewport(1280.25), Some(screen), 0.8).map(<[f32; 5]>::from),
-        Some([101.0, 50.0, 1024.0, 700.0, 2.0]),
+        place_of(&viewport(1280.25), Some(screen), 0.8).map(<[f32; 6]>::from),
+        Some([101.0, 50.0, 1024.0, 700.0, 2.0, 0.0]),
     );
 }
 
@@ -265,6 +283,7 @@ fn the_title_bar_check_overlaps_a_monitor_with_a_positive_area() {
         width: 1100.0,
         height: 700.0,
         scale: 1.0,
+        maximized: false,
     };
     assert!(on_a_monitor(&place(100.0, 50.0), &[at_scale(primary, 1.0)]));
     assert!(!on_a_monitor(
@@ -311,6 +330,7 @@ fn the_title_bar_check_overlaps_a_monitor_with_a_positive_area() {
         width: 1100.0,
         height: 700.0,
         scale: 2.0,
+        maximized: false,
     };
     let four_k = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(3840.0, 2160.0));
     assert!(on_a_monitor(&scaled, &[at_scale(four_k, 2.0)]));
@@ -324,6 +344,7 @@ fn the_title_bar_check_overlaps_a_monitor_with_a_positive_area() {
         width: 1100.0,
         height: 700.0,
         scale: 2.0,
+        maximized: false,
     };
     let left_200 = egui::Rect::from_min_size(egui::pos2(-3840.0, 0.0), egui::vec2(3840.0, 2160.0));
     assert!(!on_a_monitor(&straddler, &[at_scale(primary, 1.0)]));
@@ -438,6 +459,7 @@ fn the_options_stop_a_members_resize_at_the_minimum() {
         width: 1100.0,
         height: 700.0,
         scale: 1.0,
+        maximized: false,
     };
     let options = native_options(&Opening::Place(place));
     assert_eq!(options.viewport.min_inner_size, Some(MIN_SIZE));
@@ -473,6 +495,7 @@ fn both_openings_carry_the_platform_icon() {
         width: 1100.0,
         height: 700.0,
         scale: 1.0,
+        maximized: false,
     };
     let expected = eframe::icon_data::from_png_bytes(if cfg!(windows) {
         SMALL_ICON_PNG
@@ -578,6 +601,7 @@ fn the_place_is_written_at_exit_and_the_next_start_opens_there() {
             width: 1100.0,
             height: 700.0,
             scale: 1.0,
+            maximized: false,
         }),
     );
 
@@ -596,6 +620,7 @@ fn the_place_is_written_at_exit_and_the_next_start_opens_there() {
     assert_eq!(options.viewport.position, Some(egui::pos2(100.0, 50.0)));
     assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
     assert!(!options.centered, "created where it closed, not centered");
+    assert_ne!(options.viewport.maximized, Some(true), "and not maximized");
     app.monitors = |_| {
         vec![Monitor {
             rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
@@ -642,6 +667,7 @@ fn a_place_on_no_monitor_opens_fitted_and_an_empty_list_trusts_it() {
         width: 1100.0,
         height: 700.0,
         scale: 1.0,
+        maximized: false,
     });
     let (a, calls_a) = stub("a", "A", None);
     let (b, calls_b) = stub("b", "B", None);
@@ -704,6 +730,49 @@ fn a_place_on_no_monitor_opens_fitted_and_an_empty_list_trusts_it() {
 
 // ST-WIN-04
 #[test]
+fn a_maximized_place_on_no_monitor_is_unmaximized_before_the_fit() {
+    let egui_ctx = test_context();
+    let dir = TestDir::new("studio_core_window_place_offscreen_maximized");
+    let mut settings = test_settings(dir.path());
+    settings.common.window_main = Some(WindowPlace {
+        x: 2500.0,
+        y: 50.0,
+        width: 1100.0,
+        height: 700.0,
+        scale: 1.0,
+        maximized: true,
+    });
+    let (a, calls_a) = stub("a", "A", None);
+    let (b, calls_b) = stub("b", "B", None);
+    let Shell { mut app, .. } = shell_with(
+        settings,
+        vec![a, b],
+        &[],
+        Some(dir.path().to_path_buf()),
+        vec![calls_a, calls_b],
+    );
+    let options = app.opening();
+    assert_eq!(options.viewport.maximized, Some(true), "the premise");
+    app.monitors = |_| {
+        vec![Monitor {
+            rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
+            scale: 1.0,
+        }]
+    };
+    let out = monitor_frame(&egui_ctx, &mut app, Some(egui::vec2(1920.0, 1080.0)));
+    assert_eq!(
+        fitting(&out),
+        [
+            ViewportCommand::Maximized(false),
+            ViewportCommand::InnerSize(egui::vec2(1280.0, 800.0)),
+            ViewportCommand::OuterPosition(egui::pos2(312.0, 120.5)),
+        ],
+        "the unmaximize first, then ST-WIN-01's fit"
+    );
+}
+
+// ST-WIN-04
+#[test]
 fn a_window_on_a_200_percent_display_records_its_points_and_reopens_in_them() {
     let egui_ctx = test_context();
     let Shell { mut app, _dir, .. } = shell();
@@ -732,6 +801,7 @@ fn a_window_on_a_200_percent_display_records_its_points_and_reopens_in_them() {
             width: 1100.0,
             height: 700.0,
             scale: 2.0,
+            maximized: false,
         }),
     );
 
@@ -775,6 +845,7 @@ fn the_placed_windows_position_is_sent_in_points_of_the_scale_times_the_zoom() {
         width: 1024.0,
         height: 700.0,
         scale: 2.0,
+        maximized: false,
     });
     let (a, calls_a) = stub("a", "A", None);
     let (b, calls_b) = stub("b", "B", None);
@@ -804,47 +875,157 @@ fn the_placed_windows_position_is_sent_in_points_of_the_scale_times_the_zoom() {
     );
 }
 
-// ST-WIN-04
-#[test]
-fn a_window_maximized_at_close_keeps_the_place_before_the_maximize() {
+/// The frames of a window at (100, 50), 1100 × 700 on a 100% display, then
+/// `ends` in order (`Some(true)` a maximized frame, `Some(false)` a normal
+/// one at the place, `None` a minimized one), then the close: the
+/// `window_main` the settings file holds, and the folder it is in.
+fn window_main_after(ends: &[Option<bool>]) -> (Option<WindowPlace>, Shell) {
     let egui_ctx = test_context();
-    let Shell { mut app, _dir, .. } = shell();
-    let dir = _dir.as_ref().unwrap().path().to_path_buf();
-
+    let mut shell = shell();
+    // Three frames at the place: the second is the zoom-landing one, the
+    // third records.
     for _ in 0..3 {
         placed_frame(
             &egui_ctx,
-            &mut app,
+            &mut shell.app,
             egui::pos2(100.0, 50.0),
             egui::vec2(1100.0, 700.0),
             1.0,
             false,
         );
     }
-    // A maximized window reports no normal place: the last one stands.
-    for _ in 0..2 {
-        placed_frame(
-            &egui_ctx,
-            &mut app,
-            egui::Pos2::ZERO,
-            egui::vec2(1920.0, 1041.0),
-            1.0,
-            true,
-        );
+    for end in ends {
+        match end {
+            // A maximized window reports no normal place: the last one stands.
+            Some(true) => placed_frame(
+                &egui_ctx,
+                &mut shell.app,
+                egui::Pos2::ZERO,
+                egui::vec2(1920.0, 1041.0),
+                1.0,
+                true,
+            ),
+            Some(false) => placed_frame(
+                &egui_ctx,
+                &mut shell.app,
+                egui::pos2(100.0, 50.0),
+                egui::vec2(1100.0, 700.0),
+                1.0,
+                false,
+            ),
+            None => minimized_frame(&egui_ctx, &mut shell.app),
+        };
     }
-    app.on_exit();
-
+    shell.app.on_exit();
+    let dir = shell._dir.as_ref().unwrap().path();
     let loaded = Settings::load(&dir.join(SETTINGS_FILE_NAME)).unwrap();
+    (loaded.common.window_main, shell)
+}
+
+// ST-WIN-04
+#[test]
+fn a_window_maximized_at_close_keeps_the_place_before_the_maximize_with_1_last() {
+    let place = |maximized| WindowPlace {
+        x: 100.0,
+        y: 50.0,
+        width: 1100.0,
+        height: 700.0,
+        scale: 1.0,
+        maximized,
+    };
     assert_eq!(
-        loaded.common.window_main,
-        Some(WindowPlace {
-            x: 100.0,
-            y: 50.0,
-            width: 1100.0,
-            height: 700.0,
-            scale: 1.0,
-        }),
+        window_main_after(&[Some(true), Some(true)]).0,
+        Some(place(true)),
+        "closed maximized"
     );
+    assert_eq!(
+        window_main_after(&[Some(true), Some(true), None]).0,
+        Some(place(true)),
+        "minimized from maximized, then closed"
+    );
+    assert_eq!(
+        window_main_after(&[Some(true), Some(false)]).0,
+        Some(place(false)),
+        "maximized, then back to normal before the close"
+    );
+    assert_eq!(
+        window_main_after(&[None]).0,
+        Some(place(false)),
+        "minimized from normal, then closed"
+    );
+}
+
+// ST-WIN-04
+#[test]
+fn a_window_closed_maximized_reopens_maximized_at_its_place() {
+    let (window_main, Shell { _dir, .. }) = window_main_after(&[Some(true)]);
+    let dir = _dir.as_ref().unwrap().path().to_path_buf();
+    let loaded = Settings::load(&dir.join(SETTINGS_FILE_NAME)).unwrap();
+    assert_eq!(loaded.common.window_main, window_main);
+    let (a, calls_a) = stub("a", "A", None);
+    let (b, calls_b) = stub("b", "B", None);
+    let Shell { mut app, .. } = shell_with(
+        loaded,
+        vec![a, b],
+        &[],
+        Some(dir.clone()),
+        vec![calls_a, calls_b],
+    );
+    let options = app.opening();
+    assert_eq!(options.viewport.maximized, Some(true), "created maximized");
+    assert_eq!(options.viewport.position, Some(egui::pos2(100.0, 50.0)));
+    assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
+    assert!(!options.centered);
+
+    // The first frame, the window shown maximized on the monitor: the
+    // position again, then the maximize the move undoes.
+    app.monitors = |_| {
+        vec![Monitor {
+            rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
+            scale: 1.0,
+        }]
+    };
+    let restart_ctx = test_context();
+    let out = placed_frame(
+        &restart_ctx,
+        &mut app,
+        egui::Pos2::ZERO,
+        egui::vec2(1920.0, 1041.0),
+        1.0,
+        true,
+    );
+    assert_eq!(
+        fitting(&out),
+        [
+            ViewportCommand::OuterPosition(egui::pos2(100.0, 50.0)),
+            ViewportCommand::Maximized(true),
+        ],
+    );
+}
+
+// ST-WIN-04
+#[test]
+fn a_five_number_record_opens_not_maximized() {
+    let dir = TestDir::new("studio_core_window_place_five");
+    let mut settings = test_settings(dir.path());
+    settings.common.window_main =
+        Settings::parse("[common]\nwindow_main = [100, 50, 1100, 700, 1]\n")
+            .unwrap()
+            .common
+            .window_main;
+    let (a, calls_a) = stub("a", "A", None);
+    let (b, calls_b) = stub("b", "B", None);
+    let Shell { mut app, .. } = shell_with(
+        settings,
+        vec![a, b],
+        &[],
+        Some(dir.path().to_path_buf()),
+        vec![calls_a, calls_b],
+    );
+    let options = app.opening();
+    assert_ne!(options.viewport.maximized, Some(true), "not maximized");
+    assert_eq!(options.viewport.position, Some(egui::pos2(100.0, 50.0)));
+    assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
 }
 
 // ST-WIN-02

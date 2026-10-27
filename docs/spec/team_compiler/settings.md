@@ -24,7 +24,7 @@ settings** live in the Team compiler's own settings section.
 | `skipped_version` | — | Update state (above): a release the member chose to skip. No row |
 | `theme` | — | `dark` or `light`, default `dark`: the GUI's color theme |
 | `last_tool` | — | The tool active when the GUI last closed, which it reopens; empty on a first run. Written by the shell, no row |
-| `window_main` | — | The main window's last place, `[x, y, width, height, scale]`, written when the window closes; empty until then. No row |
+| `window_main` | — | The main window's last place, `[x, y, width, height, scale, maximized]`, written when the window closes, the sixth number 1 when it was maximized (the first five then being the place its restore button gives back) and 0 when not; a record of five numbers reads as not maximized; empty until the first close. No row |
 | `fpc_hide_boots_id` | — | `55`: the boots ID the FPC hide preset writes, one the game has no boots model for |
 | `fpc_hide_gloves_id` | — | `11`: the gloves ID it writes (gloves 1 to 10 are the goalkeepers' real ones) |
 

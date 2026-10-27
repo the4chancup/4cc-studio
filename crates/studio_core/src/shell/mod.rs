@@ -124,6 +124,10 @@ pub struct StudioApp {
     /// The last normal place a frame reported (not maximized or fullscreen, its rects known
     /// and in the pass's own points), written to `window_main` at exit.
     window_place: Option<WindowPlace>,
+    /// Whether the window was maximized on its last frame that was not minimized (a window
+    /// minimized from maximized and closed from the taskbar closed maximized), written with
+    /// `window_place` at exit: the window reopens maximized, restoring to that place.
+    window_maximized: bool,
     /// Reads the screen's monitors from the frame's window (`window_size::monitors`); a
     /// test replaces it with a fixed list, since a test's frame has no window.
     #[cfg(not(target_arch = "wasm32"))]
@@ -177,6 +181,7 @@ impl StudioApp {
             applied_theme: None,
             window_start: Some(window_size::Opening::Fit),
             window_place: None,
+            window_maximized: false,
             #[cfg(not(target_arch = "wasm32"))]
             monitors: window_size::monitors,
             first_run: FirstRun::new(config_dir),
@@ -369,7 +374,13 @@ impl eframe::App for StudioApp {
         // goes unseen unless the desk's scales changed too (gui.md "Window size classes").
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(window_size::Opening::Place(place)) = self.window_start {
-            self.window_start = Some(window_size::place_or_fit(place, &(self.monitors)(_frame)));
+            let opening = window_size::place_or_fit(place, &(self.monitors)(_frame));
+            // Created maximized before this check could run: kept maximized, its restore
+            // button would put the window back off every monitor.
+            if opening == window_size::Opening::Fit && place.maximized {
+                egui_ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(false));
+            }
+            self.window_start = Some(opening);
         }
         match self.window_start {
             // The window is created at `DEFAULT_SIZE`; the first frame that
@@ -392,6 +403,15 @@ impl eframe::App for StudioApp {
                     egui_ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(
                         (place.position().to_vec2() / (native * zoom)).to_pos2(),
                     ));
+                    // The maximize again, after the move: winit moves a maximized window
+                    // by restoring it first (on Windows `set_outer_position` clears its
+                    // maximized flag, a `ShowWindow(SW_RESTORE)`), and an X11 window
+                    // manager ignores the creation's maximize, asked of the window eframe
+                    // keeps hidden until its first paint (egui-winit's `window_settings.rs`,
+                    // `after_first_show`). This frame's commands run after the show.
+                    if place.maximized {
+                        egui_ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
+                    }
                     self.window_start = None;
                 }
             }
@@ -400,6 +420,9 @@ impl eframe::App for StudioApp {
         // The window's last normal place is kept for `on_exit` to write.
         if let Some(place) = window_size::place_of(&viewport, screen_rect, zoom) {
             self.window_place = Some(place);
+        }
+        if viewport.minimized != Some(true) {
+            self.window_maximized = viewport.maximized == Some(true);
         }
         // Under the design width the whole UI scales down with the window's
         // width. The width is measured at zoom 1 so the zoom cannot feed back:
@@ -533,11 +556,15 @@ impl eframe::App for StudioApp {
         }
     }
 
-    /// The window's last normal place goes into `window_main` as the window closes (gui.md
-    /// "Window size classes"): eframe calls this once, on every exit path.
+    /// The window's last normal place, and whether it was maximized, go into `window_main` as
+    /// the window closes (gui.md "Window size classes"): eframe calls this once, on every exit
+    /// path.
     fn on_exit(&mut self) {
         if let Some(place) = self.window_place {
-            self.ctx.settings().lock().unwrap().common.window_main = Some(place);
+            self.ctx.settings().lock().unwrap().common.window_main = Some(WindowPlace {
+                maximized: self.window_maximized,
+                ..place
+            });
             self.save_settings();
         }
     }

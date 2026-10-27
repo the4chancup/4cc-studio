@@ -3070,7 +3070,15 @@ briefs, review loops, gates and mutation runs as for any step.
     off-monitor case unmaximized before the fit, X11's first-frame maximize as eframe's
     persistence does it → verify: ST-WIN-04's new clauses headless; by hand (the built
     window, with q's checks): close maximized, reopen maximized, restore to the place; the
-    spec's settings row for `window_main` (`spec/team_compiler/settings.md`) says six numbers
+    spec's settings row for `window_main` (`spec/team_compiler/settings.md`) says six numbers.
+    Done 2026-10-27 (Opus, `.tmp/0_0_1q/q4_report.md`): `WindowPlace.maximized`, read from five
+    or six numbers and written as six; the flag kept from the last frame not minimized; the
+    window created maximized; the first frame maximizes again after its position on every
+    platform, not on X11 alone (the sidekick's contradiction: winit restores a maximized
+    window to move it; plan and DECISIONS); an off-monitor maximized place unmaximized before
+    the fit. Files: `studio_core/src/settings/common.rs`, `shell/{mod.rs,window_size/}`,
+    `spec/team_compiler/settings.md`. Open: the built-window check (with q's), and how visible
+    the first frame's restore-and-maximize is
 - [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version

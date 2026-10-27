@@ -169,11 +169,16 @@ pub(crate) fn pes_folder_pattern(folder: &Path, version: PesVersion) -> String {
 }
 
 /// A window's remembered place: its outer position in the screen's physical pixels, its
-/// inner size in points at zoom 1 (the pixels over the monitor's scale), and the scale
-/// factor of the monitor it was on, written in the settings file as
-/// `[x, y, width, height, scale]` (gui.md "Window size classes" says why each unit).
+/// inner size in points at zoom 1 (the pixels over the monitor's scale), the scale factor
+/// of the monitor it was on, and whether it was maximized, written in the settings file as
+/// `[x, y, width, height, scale, maximized]` (gui.md "Window size classes" says why each
+/// unit). The first five are the window's normal place even when it was maximized: the
+/// place its restore button gives back.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(from = "[f32; 5]", into = "[f32; 5]")]
+// Read as a list of any length so a record of five numbers, written before the sixth
+// existed, still loads; a fixed `[f32; 6]` would refuse it, and an untagged enum of the
+// two array lengths would replace the length error with serde's opaque "did not match".
+#[serde(try_from = "Vec<f32>", into = "[f32; 6]")]
 pub struct WindowPlace {
     /// The outer rectangle's left edge, in physical pixels.
     pub x: f32,
@@ -185,23 +190,48 @@ pub struct WindowPlace {
     pub height: f32,
     /// The monitor's scale factor (native pixels per point) when the place was recorded.
     pub scale: f32,
+    /// Whether the window was maximized on its last frame that was not minimized; written
+    /// as 1 or 0, and only 1 reads as maximized.
+    pub maximized: bool,
 }
 
-impl From<[f32; 5]> for WindowPlace {
-    fn from([x, y, width, height, scale]: [f32; 5]) -> WindowPlace {
-        WindowPlace {
+impl TryFrom<Vec<f32>> for WindowPlace {
+    type Error = String;
+
+    fn try_from(numbers: Vec<f32>) -> Result<WindowPlace, String> {
+        let (x, y, width, height, scale, maximized) = match numbers[..] {
+            [x, y, width, height, scale] => (x, y, width, height, scale, false),
+            [x, y, width, height, scale, maximized] => {
+                (x, y, width, height, scale, maximized == 1.0)
+            }
+            _ => {
+                return Err(format!(
+                    "a window place is 5 or 6 numbers, not {}",
+                    numbers.len()
+                ));
+            }
+        };
+        Ok(WindowPlace {
             x,
             y,
             width,
             height,
             scale,
-        }
+            maximized,
+        })
     }
 }
 
-impl From<WindowPlace> for [f32; 5] {
-    fn from(place: WindowPlace) -> [f32; 5] {
-        [place.x, place.y, place.width, place.height, place.scale]
+impl From<WindowPlace> for [f32; 6] {
+    fn from(place: WindowPlace) -> [f32; 6] {
+        [
+            place.x,
+            place.y,
+            place.width,
+            place.height,
+            place.scale,
+            if place.maximized { 1.0 } else { 0.0 },
+        ]
     }
 }
 
@@ -598,10 +628,17 @@ pes_folder_path = '/games/Pro Evolution Soccer 20**'
         assert_eq!(settings.fpc_hide_ids(), Err(fpc::HideIdsError::Boots(627)));
     }
 
-    // The window's place reads as the five numbers a member might write and
-    // writes back the same way, its key inside `[common]`.
+    /// The `window_main` value of `text`'s `[common]` section, as `toml` reads it back.
+    fn window_main_value(text: &str) -> toml::Value {
+        let root: toml::Table = toml::from_str(text).unwrap();
+        root["common"]["window_main"].clone()
+    }
+
+    // The window's place reads from the five numbers a record written before
+    // the sixth existed holds, as not maximized, and writes back six, its key
+    // inside `[common]`.
     #[test]
-    fn a_window_place_loads_from_five_numbers_and_saves_as_five() {
+    fn a_window_place_loads_from_five_numbers_and_saves_as_six() {
         let settings =
             crate::settings::Settings::parse("[common]\nwindow_main = [100, 50, 1100, 700, 1]\n")
                 .expect("parses");
@@ -611,6 +648,7 @@ pes_folder_path = '/games/Pro Evolution Soccer 20**'
             width: 1100.0,
             height: 700.0,
             scale: 1.0,
+            maximized: false,
         };
         assert_eq!(settings.common.window_main, Some(place));
 
@@ -620,13 +658,16 @@ pes_folder_path = '/games/Pro Evolution Soccer 20**'
         ));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("settings.toml");
-        let mut settings = crate::settings::Settings::default();
-        settings.common.window_main = Some(place);
         settings.save(&path).unwrap();
         let loaded = crate::settings::Settings::load(&path).unwrap();
         assert_eq!(loaded.common.window_main, Some(place));
 
         let text = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(
+            window_main_value(&text),
+            toml::Value::try_from([100.0, 50.0, 1100.0, 700.0, 1.0, 0.0]).unwrap(),
+            "six numbers, the sixth 0"
+        );
         let common_at = text.find("[common]").expect("a [common] section");
         let key_at = text.find("window_main").expect("the place is written");
         assert!(key_at > common_at, "the key sits inside [common]");
@@ -634,5 +675,61 @@ pes_folder_path = '/games/Pro Evolution Soccer 20**'
             assert!(key_at < next, "the key sits before the next section");
         }
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // A record of six numbers round-trips its sixth: 1 as maximized, 0 as not.
+    #[test]
+    fn a_window_place_of_six_numbers_round_trips_the_maximized_flag() {
+        let dir = std::env::temp_dir().join(format!(
+            "studio_core_common_window_place_six_{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        for (flag, maximized) in [(1, true), (0, false)] {
+            let text = format!("[common]\nwindow_main = [100, 50, 1100, 700, 1, {flag}]\n");
+            let settings = crate::settings::Settings::parse(&text).expect("parses");
+            assert_eq!(
+                settings.common.window_main,
+                Some(WindowPlace {
+                    x: 100.0,
+                    y: 50.0,
+                    width: 1100.0,
+                    height: 700.0,
+                    scale: 1.0,
+                    maximized,
+                }),
+                "a sixth number of {flag}"
+            );
+            settings.save(&path).unwrap();
+            let written = std::fs::read_to_string(&path).unwrap();
+            assert_eq!(
+                window_main_value(&written),
+                toml::Value::try_from([100.0, 50.0, 1100.0, 700.0, 1.0, f64::from(flag)]).unwrap(),
+                "a sixth number of {flag} is written back"
+            );
+            std::fs::remove_file(&path).unwrap();
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // A record of any other length is refused, as a malformed value of any
+    // other key is: the settings file does not parse.
+    #[test]
+    fn a_window_place_of_four_or_seven_numbers_is_refused() {
+        for numbers in ["[100, 50, 1100, 700]", "[100, 50, 1100, 700, 1, 0, 0]"] {
+            let text = format!("[common]\nwindow_main = {numbers}\n");
+            let error = crate::settings::Settings::parse(&text)
+                .expect_err("a place of the wrong length is refused");
+            let crate::settings::SettingsError::Parse(error) = error else {
+                panic!("{numbers}: a parse error, not {error:?}");
+            };
+            assert!(
+                error
+                    .to_string()
+                    .contains("a window place is 5 or 6 numbers"),
+                "{numbers}: {error}"
+            );
+        }
     }
 }
