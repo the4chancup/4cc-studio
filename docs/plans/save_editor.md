@@ -303,7 +303,7 @@ all side by side.
   more, and a colour code ten. A colour code is typed as \x11c and eight hex digits.", "Up to 18 letters. Western European accents (é, ü, ñ)
   are fine, but other letters and symbols are not."). The save is where
   a member writes the names a tactical export carries to a cup of any version, so its Name and
-  Shirt fields follow `pes_savefile`'s portable limits ("Team TOML" in its operations plan):
+  Shirt fields follow `pes_savefile`'s portable limits (`spec/pes_savefile/operations.md` "Team TOML"):
   - **Name**: the open save's own field (61 bytes on PES 20/21, 46 before), so `(10/61)` on a PES
     21 save (a colour code counts ten, an accented letter two or more). A name past 46
     bytes, which only a PES 20/21 save holds, draws its field and its count with an amber tint
@@ -647,7 +647,7 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   beside `takes_player`), the one place the rule lives. Each list is less Tight Marking: it marks an opponent, which a member sets in a match,
   and Edit mode does not offer it (4ccEditor's lists leave it out for that reason). A record
   that holds it, or an instruction of the other side, shows it as the current choice. The target-player pick is enabled only for the
-  instructions that take one of ours, Counter Target and Defensive (`pes_savefile`'s
+  instructions that take one of ours, Counter Target, Defensive and Anchoring (`pes_savefile`'s
   `Instruction::takes_player`, the one place the rule lives); picking an instruction that takes
   none sets the target to none (255), so no stale target is kept where 4ccEditor left one.
   Under an instruction that takes none of ours the disabled target shows no player of ours:

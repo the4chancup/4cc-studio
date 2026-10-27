@@ -198,7 +198,22 @@ impl TeamToml {
         team: &mut TeamEntry,
         players: &mut [PlayerEntry],
     ) -> Result<Vec<ImportNote>, TeamTomlError> {
-        let mut next_players = players.to_vec();
+        // Only the players the roster names can be written, so only they are
+        // staged: cloning the whole save's players would copy thousands to
+        // patch at most forty. They keep their save order, so a lookup by id
+        // finds the same player it would in `players`.
+        let rostered: Vec<usize> = players
+            .iter()
+            .enumerate()
+            .filter(|(_, player)| {
+                player.id != 0 && team.roster.iter().any(|slot| slot.player_id == player.id)
+            })
+            .map(|(index, _)| index)
+            .collect();
+        let mut next_players: Vec<PlayerEntry> = rostered
+            .iter()
+            .map(|&index| players[index].clone())
+            .collect();
         let from = self.pes_version.unwrap_or(to);
         let foreign = from != to;
         let schema = schema_for(to);
@@ -223,7 +238,9 @@ impl TeamToml {
             &mut notes,
         )?;
         *team = next;
-        players.clone_from_slice(&next_players);
+        for (index, player) in rostered.into_iter().zip(next_players) {
+            players[index] = player;
+        }
         Ok(notes)
     }
 }

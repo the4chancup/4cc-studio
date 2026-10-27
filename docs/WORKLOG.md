@@ -3993,9 +3993,12 @@ briefs, review loops, gates and mutation runs as for any step.
   (`select.rs`, `eval.rs`, `resolve.rs`, `state.rs`, `write.rs` unread; Phase 10). Rework in five slices
   under `.tmp/lib_audit/rework_common.md`, Opus sidekicks, each reviewed and gated before it
   lands, `mutants-diff` over the loop at its end
-  - [ ] A1 `pes_savefile`'s behavior and spec fixes (`slice_a1.md`): first Anchoring, which
-    takes a target player on PES 20/21 (24 of 24 fixture slots) where the Tactics editor
-    shows "No target"
+  - [x] A1 `pes_savefile`'s behavior and spec fixes (`slice_a1.md`): Anchoring takes a
+    target player (PES 20/21), pinned against every fixture's tactics; an ability's range
+    error names the stored 0 to 127; a Team TOML `apply` stages the rostered players only;
+    the PES 15/16 appearance join through a map (25.9 to 16.6 ms on the PES 16 fixture); the
+    dead PES 16 gating test split in two; the spec's text limits, team comparison and
+    `is_fpc_player` brought to the code
   - [x] C the model stack (`slice_c.md`): one carried-weight threshold for the hand detectors;
     `pes_model`'s merge refuses a repeated bone; a split group with LODs or past 256 bones
     stays split; `fmdl`'s vertex encoder fails before it permutes; the anti-blur duplicate's

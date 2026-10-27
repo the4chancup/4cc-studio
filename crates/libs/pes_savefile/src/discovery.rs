@@ -116,7 +116,9 @@ mod tests {
             name,
             std::process::id()
         ));
-        drop(std::fs::remove_dir_all(&dir));
+        if dir.exists() {
+            std::fs::remove_dir_all(&dir).expect("cleanup");
+        }
         dir
     }
 

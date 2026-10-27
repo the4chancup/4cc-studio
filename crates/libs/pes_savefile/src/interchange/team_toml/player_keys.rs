@@ -19,7 +19,7 @@ use crate::schema::schema_for;
 /// How a key's TOML value maps to the stored `u32`, and the range it accepts.
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Kind {
-    /// An ability stat, 40 to 99 (the game's range).
+    /// An ability stat, stored 0 to 127 (the game shows 40 to 99).
     Ability,
     /// A stored integer: 0 to the widest `FieldSpec` bit width's maximum,
     /// measured over every version's player and appearance record schemas.
@@ -592,8 +592,7 @@ impl PlayerKey {
     /// The range/allowed text the kind reports in errors.
     fn range_text(self) -> String {
         match self.spec().kind {
-            Kind::Ability => "40 to 99".to_string(),
-            Kind::Stored => format!("0 to {}", self.stored_max()),
+            Kind::Ability | Kind::Stored => format!("0 to {}", self.stored_max()),
             Kind::Bool => "true, false".to_string(),
             Kind::U16 => "0 to 65535".to_string(),
             Kind::U32 => "0 to 4294967295".to_string(),
@@ -760,5 +759,28 @@ mod tests {
             "{err:?}"
         );
         assert_eq!(section.stats.star, Some(7), "the refused write left it");
+    }
+
+    /// An ability past its stored range is refused with that range, the one
+    /// the parser checks, not the game's 40 to 99: 20 parses, 130 does not.
+    #[test]
+    fn an_ability_past_its_stored_range_reports_the_stored_range() {
+        let path = "players.01.stats.finishing";
+        assert_eq!(
+            PlayerKey::Finishing
+                .parse(&toml_edit::value(20), path)
+                .expect("below the game's range, inside the stored one"),
+            20
+        );
+        let err = PlayerKey::Finishing
+            .parse(&toml_edit::value(130), path)
+            .expect_err("past seven bits");
+        assert!(
+            matches!(
+                err,
+                TeamTomlError::OutOfRange { ref range, value: 130, .. } if range == "0 to 127"
+            ),
+            "{err:?}"
+        );
     }
 }

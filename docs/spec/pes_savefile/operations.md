@@ -296,8 +296,34 @@ pub enum CompareError {
 A face-type change is reported once, as its `Face` row: `FaceRun` fires only when bits outside
 every known field differ, so the row means "something in the face we cannot name changed". The
 hash it carries still masks only gloves and skin (`normalized()`, unchanged), so it equals the
-script's printed fingerprint. Team and tactics comparison is the save editor's later concern
-(`save_editor.md` "Comparator") and not part of this module.
+script's printed fingerprint.
+
+Teams compare here too, for the Save editor's unsaved-changes prompt: the team record's runs in
+schema order, the two texts (name, then short name), the roster record's runs, then the tactics
+record's runs, each through the model.
+
+```rust
+/// `ops/compare.rs`. Every difference between two teams of the same version. `Err` only when a
+/// gated field the schema stores is `None` on either side (an entry not read from a save of
+/// this version), or with `Index` on a roster or tactics entry shorter than the schema.
+pub fn compare_teams(
+    a: &TeamEntry, b: &TeamEntry, schema: &VersionSchema,
+) -> Result<Vec<TeamDiff>, CodecError>;
+
+pub enum TeamDiff {
+    /// A bit-run field of the team record.
+    Field { field: TeamField, old: u32, new: u32 },
+    /// The team name or short name.
+    Text { text: TeamText, old: String, new: String },
+    /// A field of the roster record.
+    Roster { field: RosterField, old: u32, new: u32 },
+    /// A field of the tactics record.
+    Tactics { field: TacticsField, old: u32, new: u32 },
+}
+```
+
+`compare` stays player-level (`SaveDiff`): a caller comparing teams pairs the two entries itself
+and calls `compare_teams`.
 
 Parity: the appearance block is checked against the transplant script's slice rule on every
 player of every fixture (target record after `copy_appearance` + `write_player` equals the
@@ -510,6 +536,9 @@ gegenpress tight_marking counter_target defensive false_winger wing_back anchori
 per-version encodings are `schema/instruction.rs` (below). The reference editor's table ends at
 `wing_back` and is right for PES 17-19 only: on 20/21 Anchoring is stored as 0x0A, 18/19's 0x0A-0x0F
 moving to 0x0B-0x10 (measured in-game on PES 21), canonical 0x10 here and absent before PES 20.
+Three instructions take one of the team's own players as their target, its roster slot in the
+entry's `player`: `counter_target`, `defensive` and `anchoring` (`Instruction::takes_player`);
+under every other instruction the saves hold 0 or 0xFF there, and nothing reads it.
 
 ```rust
 /// `model/instruction.rs`. The canonical advanced instruction, in the reference editor's
@@ -596,6 +625,9 @@ pub enum ImportNote {
     Capped { path: String, from: u8, to: u8 },
     /// A `[players.NN]` whose target roster slot is empty; skipped.
     EmptySlot { slot: u8 },
+    /// A player's `name`/`shirt_name` longer than the target's field, cut to it at whole
+    /// characters and colour codes; `cropped` is the text as stored.
+    TextCropped { path: String, cropped: String },
 }
 
 impl TeamToml {
@@ -630,14 +662,35 @@ id (the file's team id × 100 + slot) becomes the target player's id; a `stats` 
 version lacks is `NotInThisVersion` when the versions differ and `TeamTomlError::NotInThisVersion`
 when they are equal (a same-version file with a foreign key is a mistake, a converted one is
 expected to shed keys); a skill the *source* version lacks is not written (the target's stands,
-pair-wide, no note) and a skill the target lacks is dropped with a note; `name`/`shirt_name`
-(and the team's) must fit the target version's text fields or `apply` is `TextTooLong` before
-any write; the playing style goes
+pair-wide, no note) and a skill the target lacks is dropped with a note; the team's texts must
+fit the target version's text fields or `apply` is `TextTooLong` before any write, while a
+player's `name`/`shirt_name` longer than the target's field is cropped to it with a
+`TextCropped` note ("Portable text limits", below); the playing style goes
 through `schema::playstyle::encode` for the target (2.17f's lists); instructions through
 `schema::instruction::encode`; PES 15/16 targets drop the instructions table silently (the version
 has none: a pair-wide fact). What `shirt_name_from` keeps of the character set beyond upper-casing
 is unmeasured (the game's own edit screen restricts it); the function is the one place to
 tighten when it is.
+
+**Portable text limits.** A Team TOML is meant to apply to a save of any version, so
+`pes_savefile` exposes what every version can hold, computed from the schema tables rather than
+typed in (`portable_text_max(PlayerText)`): a player's name is the shortest name field of PES 15
+to 21 (46 bytes; 20 and 21 hold 61), a shirt name the shortest of PES 15 and 17 to 21 (18
+letters; PES 16's field, 16, is the one outlier left out). A name is not held to 46 bytes where
+it is written: a member may want a long name on the versions that show it.
+
+`apply` onto a version whose field is shorter than a name or shirt name crops it to that field,
+with a `TextCropped` note naming the player's key and the text as cut, never a refusal:
+`crop_player_text(version, PlayerText, &str) -> Cow<str>`, the longest prefix of whole spans
+(`name_spans`: a character or a colour code) that fits, so a crop never splits a character or
+leaves half a colour code drawn as text. The cases real files reach: a PES 20/21 name past 46
+bytes applied to PES 15 to 19, and a shirt name past 16 letters applied to PES 16.
+
+Export from a save writes every name as the save holds it (the dump stays full-fidelity), with
+a note on the line of each name past 46 bytes or shirt name past 18 letters, naming the
+versions that crop it. A crop is never silent: real cup saves show names cut at 45 bytes when a
+team moved from PES 21 to PES 17 (2026-10-21: 12 of 4,830 names in a PES 21 save were past 46
+bytes, the longest 59), and a cut nobody was told about renames the player.
 
 ### Aesthetics patch (new)
 

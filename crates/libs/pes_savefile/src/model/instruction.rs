@@ -70,7 +70,10 @@ impl Instruction {
     /// Whether the instruction is given to one of the team's own players,
     /// picked with it: the instructions whose target-player field applies.
     pub fn takes_player(self) -> bool {
-        matches!(self, Instruction::CounterTarget | Instruction::Defensive)
+        matches!(
+            self,
+            Instruction::CounterTarget | Instruction::Defensive | Instruction::Anchoring
+        )
     }
 
     /// The side the instruction plays for in the game's Game Plan: the
@@ -113,20 +116,60 @@ mod tests {
     use super::*;
 
     // The Tactics editor enables the target-player pick only for the
-    // instructions that take one of ours, Counter Target and Defensive.
-    // This is the one place the rule lives.
+    // instructions that take one of ours, Counter Target, Defensive and
+    // Anchoring. This is the one place the rule lives.
     #[test]
-    fn only_counter_target_and_defensive_take_a_player() {
+    fn only_counter_target_defensive_and_anchoring_take_a_player() {
         for instruction in Instruction::ALL {
             assert_eq!(
                 instruction.takes_player(),
                 matches!(
                     instruction,
-                    Instruction::CounterTarget | Instruction::Defensive
+                    Instruction::CounterTarget | Instruction::Defensive | Instruction::Anchoring
                 ),
                 "{instruction:?}"
             );
         }
+    }
+
+    // The rule above, against the saves: in every fixture tactics record, a
+    // slot whose instruction takes a player names a filled roster slot, and
+    // every other slot holds 0 or 0xFF.
+    #[test]
+    fn only_the_instructions_that_take_a_player_carry_one_in_the_fixtures() {
+        let mut targeted = 0usize;
+        for version in crate::test_support::FIXTURES {
+            let (file, _) = crate::test_support::open(version);
+            for team in file.teams() {
+                for preset in &team.tactics.presets {
+                    let sides = [&preset.attack_instructions, &preset.defence_instructions];
+                    for entry in sides.into_iter().flatten().flatten() {
+                        let instruction =
+                            crate::schema::instruction::decode(version, entry.instruction)
+                                .expect("decodes")
+                                .expect("a version with instructions decodes to Some");
+                        let context = format!(
+                            "{version:?} team {} {instruction:?} player {}",
+                            team.id, entry.player
+                        );
+                        if instruction.takes_player() {
+                            let slot = team.roster.get(usize::from(entry.player));
+                            assert!(
+                                slot.is_some_and(|slot| slot.player_id != 0),
+                                "{context}: not a filled roster slot"
+                            );
+                            targeted += 1;
+                        } else {
+                            assert!(
+                                entry.player == 0 || entry.player == 0xFF,
+                                "{context}: a target on an instruction that takes none"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        assert!(targeted >= 100, "only {targeted} targeted slots");
     }
 
     // The same bullet: an Attack combo lists the attacking instructions,

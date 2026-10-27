@@ -493,12 +493,12 @@ pub fn apply(player: &mut PlayerEntry, appearance: &fpc::Appearance, version: Pe
     -> Result<(), FpcError>;
 /// The player's strip settings as the interference inputs (reads the face run, hence `Result`).
 pub fn strip_style(player: &PlayerEntry) -> Result<fpc::StripStyle, FpcError>;
-/// What the save shows, not what the team intends: the nonexistent boots ID of the 4cc
-/// convention, or a custom skin. A hide preset applied with a substituted (real) boots ID is
-/// indistinguishable from a dressed player by construction, so this is the save editor's
+/// What the save shows, not what the team intends: a boots ID of `ids`'s (the hide ID the
+/// settings give), or a custom skin. A hide preset applied with a substituted (real) boots ID
+/// is indistinguishable from a dressed player by construction, so this is the save editor's
 /// read-only classifier; the compiler, which knows the folder's marker, passes its own
-/// `is_fpc_player` to `fpc::check`.
-pub fn is_fpc_player(player: &PlayerEntry) -> Result<bool, FpcError>;
+/// `is_fpc_player` to `fpc::check`. Reads the skin through the ingame-face run, hence `Result`.
+pub fn is_fpc_player(player: &PlayerEntry, ids: fpc::HideIds) -> Result<bool, FpcError>;
 ```
 
 The authorable appearance tables are one schema shared by export `settings.toml` and Team TOML.

@@ -2732,3 +2732,5 @@ worklog passed 7,000 lines.
   get re-measured in it, each widened only as far as keeps its row's line count (worklog w4).
 - **2026-10-28** — Library rework slice C (the model stack) landed: one carried-weight threshold for the hand detectors, `pes_model`'s merge
   refuses a repeated bone, a split group with LODs or past 256 bones stays split, `fmdl`'s vertex encoder fails before it permutes.
+- **2026-10-28** — Library rework slice A1 (`pes_savefile`) landed: Anchoring takes a target player on PES 20/21, so the Tactics editor
+  offers the pick; a Team TOML apply stages only the rostered players; the spec brought to the text limits and team comparison.

@@ -3,7 +3,7 @@
 //! it keeps the retained container and every unmodeled payload byte, so a
 //! `to_bytes` patches only the modeled records and re-encrypts.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use pes_version::PesVersion;
 
@@ -171,14 +171,16 @@ impl EditFile {
         let mut appearance_records = Vec::with_capacity(players.len());
         if let Some((section, appearance)) = &schema.appearance {
             let records = section_records(payload, section, appearance.size, "appearance")?;
+            let index_of: HashMap<u32, usize> = records
+                .iter()
+                .enumerate()
+                .map(|(i, rec)| (record_id(rec), i))
+                .collect();
             for player in players.iter_mut() {
-                let index = records
-                    .iter()
-                    .position(|rec| record_id(rec) == player.id)
-                    .ok_or(SaveError::RecordId {
-                        section: "appearance",
-                        id: player.id,
-                    })?;
+                let index = *index_of.get(&player.id).ok_or(SaveError::RecordId {
+                    section: "appearance",
+                    id: player.id,
+                })?;
                 read_player_into(player, records[index], appearance)?;
                 appearance_records.push(index);
             }

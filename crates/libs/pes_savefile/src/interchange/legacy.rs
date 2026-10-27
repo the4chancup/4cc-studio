@@ -781,39 +781,50 @@ mod tests {
         );
     }
 
-    /// A PES 16 header gates off the fields 16 does not store and decodes the
-    /// playing style with 16's list.
+    /// A PES 19 squad relabelled `16` holds style bytes 16's list does not
+    /// have (16 is its hole, and it has only 19 entries), so the playing
+    /// style is decoded with 16's list and the file is refused.
     #[test]
-    fn a_pes16_header_gates_the_newer_fields() {
+    fn a_16_label_on_a_file_with_an_unlisted_style_is_unknown_playing_style() {
         let (file, _) = open(PesVersion::Pes19);
         let (team, players) = squad_target(&file);
         let mut v16 = SQUAD.to_vec();
         v16[3..5].copy_from_slice(b"16");
-        // If any record's style byte is unlisted in 16, the whole file is
-        // UnknownPlayingStyle — check that case honestly.
-        let all_decode = (0..23).all(|i| {
-            playstyle::decode(PesVersion::Pes16, v16[HEADER + i * RECORD + PLAY_STYLE]).is_ok()
-        });
-        if !all_decode {
-            assert!(matches!(
-                read_squad(&v16, team, players),
-                Err(LegacyError::UnknownPlayingStyle { .. })
-            ));
-            return;
-        }
-        let doc = read_squad(&v16, team, players).expect("decodes under 16");
-        for section in doc.players.values() {
-            assert!(section.stats.physical_contact.is_none());
-            assert!(section.stats.star.is_none());
-            assert!(section.stats.tight_possession.is_none());
-            assert!(section.positions.stronger_hand.is_none());
-            assert!(section.appearance.motion.dribbling.is_none());
-        }
-        let raw = v16[HEADER + PLAY_STYLE];
-        assert_eq!(
-            doc.players[&1].positions.playing_style,
-            playstyle::decode(PesVersion::Pes16, raw).ok()
+        assert!(
+            (0..23).any(|i| {
+                playstyle::decode(PesVersion::Pes16, v16[HEADER + i * RECORD + PLAY_STYLE]).is_err()
+            }),
+            "premise: a style byte 16's list lacks"
         );
+        let err = read_squad(&v16, team, players).expect_err("an unlisted style");
+        assert!(
+            matches!(
+                err,
+                LegacyError::UnknownPlayingStyle {
+                    version: PesVersion::Pes16,
+                    ..
+                }
+            ),
+            "{err:?}"
+        );
+    }
+
+    /// A PES 16 squad leaves the fields 16 does not store `None`, whatever
+    /// its record bytes hold there, and reads the ones it does.
+    #[test]
+    fn a_pes16_squad_gates_the_fields_16_does_not_store() {
+        let (file, _) = open(PesVersion::Pes16);
+        let (team, players) = pes16_target(&file);
+        let doc = read_squad(PARITY16, team, players).expect("a valid .4ccs");
+        assert!(!doc.players.is_empty(), "premise: the squad has players");
+        for (slot, section) in &doc.players {
+            assert!(section.stats.physical_contact.is_none(), "slot {slot}");
+            assert!(section.stats.star.is_none(), "slot {slot}");
+            assert!(section.stats.tight_possession.is_none(), "slot {slot}");
+            assert!(section.positions.stronger_hand.is_none(), "slot {slot}");
+            assert!(section.appearance.motion.dribbling.is_none(), "slot {slot}");
+            assert!(section.stats.attacking_prowess.is_some(), "slot {slot}");
+        }
     }
 
     /// A 404-byte block is `Truncated`, not a short parse.
