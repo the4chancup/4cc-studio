@@ -1101,7 +1101,7 @@ mod tests {
     }
 
     /// A team colour's three channel diffs merge into the swatch's one
-    /// row: `Colour 1`, the baseline's and the current's stored channels'
+    /// row: `Col. 1`, the baseline's and the current's stored channels'
     /// hex as the view draws them.
     #[test]
     fn a_colour_edit_is_one_hex_row() {
@@ -1148,7 +1148,7 @@ mod tests {
             ],
         );
         assert_eq!(terms.len(), 1, "the three channels merge");
-        assert_term(&terms[0], "Colour 1", "#FFAA41", "#4182C2");
+        assert_term(&terms[0], "Col. 1", "#FFAA41", "#4182C2");
 
         // Only red changed: green and blue keep the stored ones.
         let mut team = baseline.clone();
@@ -1166,7 +1166,7 @@ mod tests {
             }],
         );
         assert_eq!(terms.len(), 1);
-        assert_term(&terms[0], "Colour 1", "#FFAA41", "#00AA41");
+        assert_term(&terms[0], "Col. 1", "#FFAA41", "#00AA41");
     }
 
     /// Colour 2's three channels merge into its swatch's one row the same
@@ -1214,7 +1214,7 @@ mod tests {
             ],
         );
         assert_eq!(terms.len(), 1, "the three channels merge");
-        assert_term(&terms[0], "Colour 2", "#000000", "#4182C2");
+        assert_term(&terms[0], "Col. 2", "#000000", "#4182C2");
     }
 
     /// A name edit's two diffs in `compare_teams`' order: the side-effect

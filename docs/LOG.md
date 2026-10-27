@@ -2610,3 +2610,5 @@ worklog passed 7,000 lines.
   elsewhere) and, through a `winresource` build script, the exe's file icon, its version details naming Unlimited Tool Works (0.0.1v2).
 - **2026-10-27** — The Tactics pitch as drafted: the player popover stays where it opened and a press outside closes it, a drag
   over another starter marks the swap before the drop, and each starter's badge carries his medal letter (0.0.1s5d).
+- **2026-10-27** — The team view's header is one row as drafted, so the Tactics grid fits the 1280 x 800 window with 19.5 points
+  to spare; the short name takes three letters, a team picked in the selector opens its view, team rows read `[click for tactics]` (0.0.1s5e).

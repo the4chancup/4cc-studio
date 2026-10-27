@@ -1,9 +1,10 @@
 //! The team view (`plans/save_editor.md` "Editing UI", the team view
 //! bullet; the draft's `teamView`): the selected team's name with its
-//! colours as the title, its name, short name and colours 1-2 fields (the
-//! former team bar's pairs), a row of the manager and stadium IDs with a
-//! `Kit slots…` button opening the kit slot assignments in a dialog, then
-//! the Tactics editor. Every control edits a copy of the team's entry and,
+//! colours as the title, one row holding the name, short name and colours
+//! 1-2 fields (the former team bar's pairs), the manager and stadium IDs
+//! and the `Kit slots…` button opening the kit slot assignments in a
+//! dialog, then the Tactics editor. Every control edits a copy of the
+//! team's entry and,
 //! when it changes, pushes it with `Session::edit_team` under the control's
 //! `egui::Id` (the undo stack's merge key, as `info_strip.rs` does). A
 //! field the version does not store is drawn disabled in its place, its
@@ -22,20 +23,46 @@ use pes_version::PesVersion;
 use team_widgets::names::append_name;
 
 use crate::session::Session;
-use crate::view::{SaveView, edit_team, scoped, selected_team, tactics};
+use crate::view::{SaveView, edit_team, selected_team, tactics};
 
-/// The width the view's four field pairs take on one line, measured once
-/// in a headless frame at 1600 x 1400 (the drawn row's `min_rect`: ~724.8
-/// points — the pairs' widths are fixed, a longer team name changes
-/// nothing). A wrong estimate wraps a bit early or late; it never splits
-/// a pair, since the fallback is whole pairs on two rows.
-pub(super) const TEAM_FIELDS_ONE_ROW: f32 = 725.0;
+/// One unit of the header's row: a label with its field, or the button.
+#[derive(Debug, Clone, Copy)]
+pub(super) enum HeaderUnit {
+    /// The `Team` pair.
+    Name,
+    /// The `Short` pair.
+    Short,
+    /// `Col. 1` (0) or `Col. 2` (1), its picker and hex.
+    Colour(usize),
+    /// The `Manager ID` pair.
+    Manager,
+    /// The `Stadium ID` pair.
+    Stadium,
+    /// The `Kit slots…` button.
+    KitSlots,
+}
+
+/// The header's units in their order, each with its claimed width on the
+/// row, measured once in a headless frame at 1600 x 1400 (each unit's
+/// drawn `min_rect` width; the widths are fixed, a longer team name
+/// changes nothing). A claim a bit wide wraps the unit a bit early; it
+/// never splits it, each unit being one `allocate_ui` inside the
+/// `horizontal_wrapped`.
+pub(super) const TEAM_ROW: [(HeaderUnit, f32); 7] = [
+    (HeaderUnit::Name, 180.0),
+    (HeaderUnit::Short, 80.5),
+    (HeaderUnit::Colour(0), 143.5),
+    (HeaderUnit::Colour(1), 143.5),
+    (HeaderUnit::Manager, 116.0),
+    (HeaderUnit::Stadium, 112.5),
+    (HeaderUnit::KitSlots, 77.0),
+];
 /// The view's Team field.
 pub(super) const TEAM_LABEL: &str = "Team";
 /// The view's Short field.
 pub(super) const SHORT_LABEL: &str = "Short";
-/// The two colours' labels.
-pub(super) const COLOUR_LABELS: [&str; 2] = ["Colour 1", "Colour 2"];
+/// The two colours' labels (the draft's `Col.` shortening).
+pub(super) const COLOUR_LABELS: [&str; 2] = ["Col. 1", "Col. 2"];
 /// The view's Manager ID field.
 pub(super) const MANAGER_LABEL: &str = "Manager ID";
 /// The view's Stadium ID field.
@@ -47,12 +74,12 @@ pub(super) const KIT_NUMBER_LABEL: &str = "Number";
 /// A kit slot's bound team field.
 pub(super) const BOUND_TEAM_LABEL: &str = "Bound team ID";
 
-/// The team view for the selected team: the name as the title, the name,
-/// short name and colour pairs — one row where the pane holds
-/// `TEAM_FIELDS_ONE_ROW`, else the names on the first row and the colours
-/// on the second, so a pair always stays whole — the manager and stadium
-/// IDs with the `Kit slots…` button, then the Tactics editor. Nothing when
-/// the selection names no team of the save.
+/// The team view for the selected team: the name as the title in the body
+/// text's strong weight, one wrapped row holding the name, short name and
+/// colour pairs, the manager and stadium IDs and the `Kit slots…` button
+/// (whole units wrap to a second row where the view is narrower, a pair
+/// never splits), then the Tactics editor. Nothing when the selection
+/// names no team of the save.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, version, team)) = selected_team(view) else {
         return;
@@ -64,76 +91,74 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // popup and the pickers' state never cross teams — nor saves (the
     // `generation` half), nor the player view's, the kind in the salt (a
     // save outside 4cc conventions can give a rostered player a team's
-    // id). Each pair under `scoped`'s fixed `scope_id` in
-    // both arrangements too: an id follows call order inside a scope, so
-    // crossing `TEAM_FIELDS_ONE_ROW` would re-key the fields. The session
-    // is re-taken per block so the Tactics editor can borrow the whole
-    // view.
+    // id). The session is re-taken per unit so the Tactics editor can
+    // borrow the whole view.
     ui.push_id(("team", generation, team_id), |ui| {
         // The view's title: the team's name, its colour codes drawn as the
-        // list paints them (`append_name`), at the heading text style — as
-        // `info_strip` draws the player's name.
+        // list paints them (`append_name`), in the body text's strong
+        // weight — the plain runs' `PLACEHOLDER` takes the strong colour;
+        // the app installs no bold face.
         let mut title = egui::text::LayoutJob::default();
         append_name(&mut title, &team.name);
-        let heading = egui::TextStyle::Heading.resolve(ui.style());
+        let body = egui::TextStyle::Body.resolve(ui.style());
+        let strong = ui.visuals().strong_text_color();
         for section in &mut title.sections {
-            section.format.font_id = heading.clone();
+            section.format.font_id = body.clone();
+            if section.format.color == egui::Color32::PLACEHOLDER {
+                section.format.color = strong;
+            }
         }
         ui.label(title);
-        let ids = ["name", "short", "colour 1", "colour 2"].map(|salt| ui.make_persistent_id(salt));
-        let rows: &[&[usize]] = if ui.available_width() >= TEAM_FIELDS_ONE_ROW {
-            &[&[0, 1, 2, 3]]
-        } else {
-            &[&[0, 1], &[2, 3]]
-        };
-        for row in rows {
-            ui.horizontal(|ui| {
-                for &unit in *row {
-                    scoped(ui, ids[unit], |ui| {
-                        if let Some(session) = view.session.as_mut() {
-                            field_unit(ui, session, team_id, version, &team, unit);
+        // The fields, the ids and the button on one row (the maintainer's
+        // 2026-10-26 ask: the Tactics below need the height). Each unit is
+        // one `allocate_ui` inside `horizontal_wrapped`, so a narrower
+        // view wraps whole units to a second row, never inside a pair; the
+        // units' widget ids follow their fixed call order inside the
+        // wrapped child, so a wrap never re-keys a field.
+        let mut open_kit_slots = false;
+        ui.horizontal_wrapped(|ui| {
+            for (unit, width) in TEAM_ROW {
+                ui.allocate_ui_with_layout(
+                    egui::vec2(width, ui.spacing().interact_size.y),
+                    egui::Layout::left_to_right(egui::Align::Center),
+                    |ui| {
+                        let Some(session) = view.session.as_mut() else {
+                            return;
+                        };
+                        match unit {
+                            HeaderUnit::Name => name_pair(ui, session, team_id, version, &team),
+                            HeaderUnit::Short => short_pair(ui, session, team_id, version, &team),
+                            HeaderUnit::Colour(index) => {
+                                colour_unit(ui, session, team_id, &team, index);
+                            }
+                            HeaderUnit::Manager => {
+                                manager_unit(ui, session, team_id, schema, &team)
+                            }
+                            HeaderUnit::Stadium => {
+                                stadium_unit(ui, session, team_id, schema, &team)
+                            }
+                            HeaderUnit::KitSlots => {
+                                if ui
+                                    .button(KIT_SLOTS_LABEL)
+                                    .on_hover_text("The kit slot assignments, rarely edited")
+                                    .clicked()
+                                {
+                                    open_kit_slots = true;
+                                }
+                            }
                         }
-                    });
-                }
-            });
-        }
-        ui.horizontal(|ui| {
-            egui::Grid::new("team fields").show(ui, |ui| {
-                if let Some(session) = view.session.as_mut() {
-                    ids_row(ui, session, team_id, schema, &team);
-                }
-                ui.end_row();
-            });
-            if ui
-                .button(KIT_SLOTS_LABEL)
-                .on_hover_text("The kit slot assignments, rarely edited")
-                .clicked()
-            {
-                view.kit_slots = Some(team_id);
+                    },
+                );
             }
         });
+        if open_kit_slots {
+            view.kit_slots = Some(team_id);
+        }
         // Half the item spacing: the default separator's whole gap would
         // push the Tactics' last control under the pane's fold.
         ui.add(egui::Separator::default().spacing(ui.spacing().item_spacing.y / 2.0));
         tactics::show(ui, view);
     });
-}
-
-/// The field pairs' `unit`, in their order: the name pair, the short pair,
-/// then the two colours.
-fn field_unit(
-    ui: &mut egui::Ui,
-    session: &mut Session,
-    team_id: u32,
-    version: PesVersion,
-    team: &TeamEntry,
-    unit: usize,
-) {
-    match unit {
-        0 => name_pair(ui, session, team_id, version, team),
-        1 => short_pair(ui, session, team_id, version, team),
-        colour => colour_unit(ui, session, team_id, team, colour - 2),
-    }
 }
 
 /// The Kit slot assignments dialog while `view.kit_slots` names its team
@@ -183,11 +208,11 @@ fn name_pair(
 ) {
     ui.label(TEAM_LABEL);
     let mut name = team.name.clone();
-    // `add_sized` allocates the width itself: the field keeps its own 240
-    // whatever the wrapped row offers it.
+    // `add_sized` allocates the width itself: the field keeps its own 140
+    // (the draft's `#team-name`) whatever the wrapped row offers it.
     let response = ui.add_sized(
-        [240.0, ui.spacing().interact_size.y],
-        egui::TextEdit::singleline(&mut name).desired_width(240.0),
+        [140.0, ui.spacing().interact_size.y],
+        egui::TextEdit::singleline(&mut name).desired_width(140.0),
     );
     if response.changed() && team_text_fits(version, TeamText::Name, &name) {
         edit_team(session, team_id, response.id.value(), |team| {
@@ -210,10 +235,14 @@ fn short_pair(
 ) {
     ui.label(SHORT_LABEL);
     let mut short = team.short_name.clone();
-    // The same `add_sized` allocation as the name field's above.
+    // The same `add_sized` allocation as the name field's above (the
+    // draft's 40-point `#team-short`); `char_limit` is the draft's
+    // `maxlength: 3`: a fourth character never enters the box.
     let response = ui.add_sized(
-        [60.0, ui.spacing().interact_size.y],
-        egui::TextEdit::singleline(&mut short).desired_width(60.0),
+        [40.0, ui.spacing().interact_size.y],
+        egui::TextEdit::singleline(&mut short)
+            .desired_width(40.0)
+            .char_limit(3),
     );
     if response.changed() {
         let upper = short.to_uppercase();
@@ -285,11 +314,9 @@ fn colour_unit(
     }
 }
 
-/// The manager and stadium IDs (PES 19+, `Option` on the entry): a changed
-/// stadium ID sets the stadium flag where the version has it (PES 20/21).
-/// Elsewhere both draw disabled with the `PES NN+` tooltip, in the same
-/// place.
-fn ids_row(
+/// The manager ID pair (PES 19+, `Option` on the entry). Elsewhere the
+/// pair draws disabled with the `PES NN+` tooltip, in the same place.
+fn manager_unit(
     ui: &mut egui::Ui,
     session: &mut Session,
     team_id: u32,
@@ -316,6 +343,19 @@ fn ids_row(
             gated_number(ui, TeamField::ManagerId);
         }
     }
+}
+
+/// The stadium ID pair (PES 19+, `Option` on the entry): a changed
+/// stadium ID sets the stadium flag where the version has it (PES
+/// 20/21). Elsewhere the pair draws disabled with the `PES NN+` tooltip,
+/// in the same place.
+fn stadium_unit(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    team_id: u32,
+    schema: &VersionSchema,
+    team: &TeamEntry,
+) {
     match team.stadium_id {
         Some(stored) => {
             number(

@@ -72,7 +72,16 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some(session) = view.session.as_ref() else {
         return;
     };
+    let team_before = view.team;
     team_selector(ui, &mut view.team, session.file(), "save_editor_team");
+    // Picking a team selects its team row, so the detail shows that team's
+    // view, its tactics with it; picking ALL keeps the selection (the
+    // plan's Team selector bullet).
+    if view.team != team_before
+        && let TeamChoice::Team(id) = view.team
+    {
+        view.selected = Some(Selection::Team(id));
+    }
     ui.add(
         egui::TextEdit::singleline(&mut view.filter)
             .hint_text("Filter every team (name, shirt name or id)"),
@@ -205,8 +214,10 @@ fn paint_row_frame(
 /// A team's own row (the draft's `trow`): one click target the row's width
 /// — the team's id in the weak colour, its colours 1 and 2 as small filled
 /// squares (the shown colour, `channel_to_show`), the name with its colour
-/// codes in the strong text colour, and a `●` at the row's right end while
-/// the team's own entry has unsaved changes (`Session::team_dirty`).
+/// codes in the strong text colour, `[click for tactics]` after it in the
+/// weak colour (the hint is elided before the name is), and a `●` at the
+/// row's right end while the team's own entry has unsaved changes
+/// (`Session::team_dirty`).
 /// `mark`, while Live AATF holds this team's check, is the team's own
 /// violations' glyph at the row's right end, after the dot. A click
 /// selects the team
@@ -301,6 +312,27 @@ fn team_row(
             name_galley.clone(),
             text,
         );
+        // `[click for tactics]` after the name, in the weak colour at the
+        // normal weight (the draft's `.thint`): what a click on the row
+        // opens. It takes only the room the name left, so it is elided
+        // before the name is.
+        let hint_x = x + name_galley.size().x + ui.spacing().item_spacing.x;
+        let hint_room = rect.max.x - padding - room - hint_x;
+        if hint_room > 0.0 {
+            let mut hint = egui::text::LayoutJob::default();
+            hint.append(
+                "[click for tactics]",
+                0.0,
+                egui::TextFormat::simple(egui::FontId::default(), weak),
+            );
+            hint.wrap = egui::text::TextWrapping::truncate_at_width(hint_room);
+            let hint_galley = ui.painter().layout_job(hint);
+            ui.painter().galley(
+                egui::pos2(hint_x, centre - hint_galley.size().y / 2.0),
+                hint_galley,
+                weak,
+            );
+        }
         // The dot at the row's right end in the warning colour, one item
         // spacing plus `DOT_MARK_GAP` before the mark when the row has
         // one.

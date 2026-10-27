@@ -3,9 +3,12 @@ The Save editor's window opens a save (`EDIT00000000`, or a copy of it) and edit
 square brackets after the editor's name, and the toolbar shows `• unsaved changes` while
 edits wait unsaved.
 
-**Teams and players.** The dropdown picks a team, or ALL for every team of the save. The
+**Teams and players.** The dropdown picks a team, or ALL for every team of the save;
+picking a team selects its row, so the right side shows the team's fields and tactics
+(ALL keeps what you had selected). The
 list below it holds a row per team and, under it, one per player: the team's row shows
-its id, its two colours and its name, a player's row his shirt number, position, the team
+its id, its two colours and its name followed by `[click for tactics]`, a player's row
+his shirt number, position, the team
 when the list crosses teams, and the name as the game draws it, colors included. A `●` on
 a row marks a player or the team itself with unsaved changes. The filter box above the
 list finds a team, or a player of any team, by part of a name, shirt name or id, so you

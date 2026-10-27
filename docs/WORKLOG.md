@@ -3120,13 +3120,23 @@ briefs, review loops, gates and mutation runs as for any step.
       letters as literals. Files: `team_widgets/src/{pitch/{mod,popover}.rs,tactics/{mod,
       assignments}.rs,test_support.rs}` and their tests, `save_editor/src/view/{mod,tactics,
       prompt,terms}.rs`, the view tests, `help/08_tactics.md`
-    - [ ] s5e the list and team view: s6's three-character short name, s7's picked team
+    - [x] s5e the list and team view: s6's three-character short name, s7's picked team
       selecting its row and `[click for tactics]`; the team view's header as the draft has it
       (DECISIONS "The team view's header on one row, its title in strong body text": the title
       in strong body text, the ids and Kit slots… on the fields' row, `Col. 1`/`Col. 2`, the
       name box 140) → verify: at the 1280 x 800 default pane the team view's last row ends
       inside the pane's content (its two panel margins counted), so nothing scrolls; the built
-      window shows the lists' and Automatic settings' bottom strokes
+      window shows the lists' and Automatic settings' bottom strokes. Done 2026-10-27 (SWE-2,
+      one session): the header one `horizontal_wrapped` row of seven units, each claiming its
+      measured width (`TEAM_ROW`), so a narrow view wraps whole units; the lowest stroke at
+      740.5 against the content's 760 (19.5 to spare; the old header's 764.5 was the built
+      window's overflow); the short box 40 wide with `char_limit(3)`, a stored longer name
+      kept until edited; a team picked in the selector selects its row (ALL keeps it); the
+      hint elided before the name (the brief had it inverted; the sidekick followed the plan).
+      Lead: the units an enum (`HeaderUnit`) with the manager and stadium halves their own
+      functions, in place of index arithmetic. Open: the built window. Files:
+      `save_editor/src/view/{team,player_list,mod,terms}.rs`, `view/tests/{team,list}.rs`,
+      `help/{02_window,05_team}.md`
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";

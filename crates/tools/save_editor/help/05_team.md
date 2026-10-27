@@ -1,6 +1,7 @@
-Clicking a team's row in the list opens the team view: the team's name,
-three-letter short name and two colours on the first lines, then the manager and
-stadium IDs with the **Kit slots…** button, and the Tactics below. **Kit
+Clicking a team's row in the list opens the team view: the team's name
+as its title, one row holding the name, three-letter short name and two
+colour fields, the manager and stadium IDs and the **Kit slots…** button,
+and the Tactics below. **Kit
 slots…** opens the kit slot assignments in a dialog (PES 2017 only) and closes
 on OK. A field the save's version does not hold stays in its place, disabled,
 with a note naming the first version that has it.

@@ -83,7 +83,10 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
 
     // The list lays out only the visible rows (`show_rows`): a screenful is
     // drawn, and scrolling reaches every rostered player (the tail's test).
+    // Picking the team selected its own row (the selector's pick rule);
+    // re-select the first player for the info-strip checks below.
     view.team = TeamChoice::All;
+    view.selected = Some(Selection::Player(701, 0));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let drawn = nodes.iter().filter(|node| player_row(node)).count();
     assert!(
@@ -1024,5 +1027,168 @@ fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
     assert!(
         (after - list_edge).abs() <= 1.0,
         "the drag left the list at 240 ({after} vs {list_edge})"
+    );
+}
+
+/// The team selector's combo (the list panel's leftmost), clicked open;
+/// the popup's `entry` item picked through its AccessKit action.
+fn pick_in_selector(window: &mut Headless, view: &mut SaveView, entry: &str) {
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    // The popup stays open after an AccessKit pick; a second call's click
+    // would toggle it closed.
+    if !nodes
+        .iter()
+        .any(|node| node.role() == Role::Button && node.label() == Some(entry))
+    {
+        let selector = nodes
+            .iter()
+            .filter(|node| node.role() == Role::ComboBox)
+            .min_by(|a, b| {
+                let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(f64::MAX);
+                x(a).partial_cmp(&x(b)).expect("ordered bounds")
+            })
+            .expect("the team selector");
+        click(window, selector, view);
+    }
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (item, _) = pairs
+        .iter()
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some(entry))
+        .unwrap_or_else(|| panic!("no selector entry {entry:?}"));
+    let item = *item;
+    action_click(window, view, item);
+}
+
+// plans/save_editor.md "Editing UI", the Team selector bullet: picking a
+// team selects its team row, so the detail shows the team's view and its
+// tactics; picking ALL keeps the selection.
+#[test]
+fn picking_a_team_in_the_selector_selects_its_team_row() {
+    let path = fixture(PesVersion::Pes21, "selector_selects_row");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::new();
+    assert_eq!(
+        view.selected,
+        Some(Selection::Player(701, 0)),
+        "premise: the first row"
+    );
+
+    pick_in_selector(&mut window, &mut view, "/a/");
+    assert_eq!(
+        view.selected,
+        Some(Selection::Team(702)),
+        "picking /a/ selected its team row"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.role() == Role::Button && node.label() == Some("Kit slots\u{2026}")),
+        "the detail shows the team view"
+    );
+
+    pick_in_selector(&mut window, &mut view, "ALL");
+    assert_eq!(
+        view.selected,
+        Some(Selection::Team(702)),
+        "picking ALL keeps the selection"
+    );
+}
+
+// plans/save_editor.md "Editing UI", the Player list bullet (the team
+// row): `[click for tactics]` after the name, in the weak colour.
+#[test]
+fn the_team_row_hints_click_for_tactics() {
+    let path = fixture(PesVersion::Pes21, "team_row_hint");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    let mut window = Headless::new();
+    let weak = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .weak_text_color();
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let bounds = team_row(&nodes, &view, 701)
+        .bounds()
+        .expect("the team row's bounds");
+    let hint = text_in_rect(&shapes, "[click for tactics]", bounds);
+    assert_eq!(galley_color(hint), weak, "the hint in the weak colour");
+    let name = text_in_rect(&shapes, "/3/", bounds);
+    assert!(
+        hint.pos.x >= name.pos.x + name.galley.size().x,
+        "the hint follows the name"
+    );
+}
+
+// The hint gives way first on a narrow row (the draft's `.thint`, the
+// plan's Player list bullet): a name leaving part of its room elides the
+// hint while painting whole itself; a name that fills the row drops the
+// hint entirely.
+#[test]
+fn the_team_rows_hint_elides_before_the_name() {
+    let path = fixture(PesVersion::Pes21, "team_row_hint_elides");
+    // A name that leaves only part of the hint's room.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    let name = "N".repeat(12);
+    file.team_mut(701).unwrap().name = name.clone();
+    file.save(&path).unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    let mut window = Headless::new();
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let bounds = team_row(&nodes, &view, 701)
+        .bounds()
+        .expect("the team row's bounds");
+    let name_shape = text_in_rect(&shapes, &name, bounds);
+    assert!(!name_shape.galley.elided, "the name still paints whole");
+    let hint = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape)
+                if shape.galley.job.text.starts_with("[click")
+                    && f64::from(shape.pos.y) >= bounds.y0
+                    && f64::from(shape.pos.y) <= bounds.y1 =>
+            {
+                Some(shape)
+            }
+            _ => None,
+        })
+        .next()
+        .expect("the hint still paints, elided");
+    assert!(hint.galley.elided, "the hint elides before the name does");
+
+    // A name the panel cannot hold keeps the row to itself: no hint at
+    // all, the name elided instead.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    let name = "N".repeat(52);
+    file.team_mut(701).unwrap().name = name.clone();
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let bounds = team_row(&nodes, &view, 701)
+        .bounds()
+        .expect("the team row's bounds");
+    let name_shape = text_in_rect(&shapes, "NNNN", bounds);
+    assert!(name_shape.galley.elided, "the name elides");
+    assert!(
+        !shapes.iter().any(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) => {
+                shape.galley.job.text.starts_with("[click")
+                    && f64::from(shape.pos.y) >= bounds.y0
+                    && f64::from(shape.pos.y) <= bounds.y1
+            }
+            _ => false,
+        }),
+        "no hint paints on the full row"
     );
 }
