@@ -460,6 +460,14 @@
   /* The flow slot a pinned panel leaves behind (applyTweak), so the move
      pushes nothing: invisible, marked while the toggle is on. */
   .layout-editing .le-slot { outline: 1px dotted #464646; }
+  /* Remarks: the note popup at the click, above the menus, and the saved
+     notes' numbered markers, which a click passes through to the control. */
+  .rm-pop { position: fixed; z-index: 140; background: var(--panel); border: 1px solid var(--stroke);
+    border-radius: 6px; padding: 6px 8px; box-shadow: 0 4px 16px #000a; }
+  .rm-pop .title { color: var(--strong); margin-bottom: 4px; }
+  .rm-mark { position: fixed; z-index: 135; pointer-events: none; transform: translate(-50%, -50%);
+    min-width: 14px; height: 14px; padding: 0 3px; box-sizing: border-box; border-radius: 7px;
+    background: var(--sel-fg); color: #1a1a1a; font-size: 10px; line-height: 14px; text-align: center; }
 </style>
 </head>
 <body>
@@ -752,6 +760,9 @@ const S = { activeTool: "team-compiler", sidebarOpen: false, pesVersion: "2019",
   // Layout edit (gui.md "Prototypes before implementation"): the draft
   // controls' toggle; the tweaks themselves live in localStorage.
   layoutEdit: false,
+  // Remarks (gui.md "The host's other review aids"): the Remark toggle; the
+  // notes live in localStorage.
+  remarkEdit: false,
   // Log panel (gui.md "Log panel"): the Team compiler's lines { severity, code,
   // scope, text }; its height, collapse and filter; the auto-scroll's stick, the
   // count of lines arrived while paused, the body's scrollTop kept across
@@ -2054,6 +2065,7 @@ function render() {
   else if (windowDrawer) windowDrawer();
   drawHelp();
   layoutApply();
+  remarksApply();
   updateLink();
 }
 
@@ -2173,11 +2185,16 @@ function renderDraftControls() {
         text: "Info - bulk - filler line " + (S.log.length + i + 1) })))),
     button("Fatal line", () => appendLog([mkLine("source_changed_during_run", "run")])),
     grp("Layout"),
-    cb("Layout edit", S.layoutEdit, v => S.layoutEdit = v),
+    // Remark and Layout edit exclude each other: each takes over the window's clicks.
+    cb("Layout edit", S.layoutEdit, v => { S.layoutEdit = v; if (v) S.remarkEdit = false; }),
+    cb("Remark", S.remarkEdit, v => { S.remarkEdit = v; if (v) S.layoutEdit = false; }),
     button("Copy layout", copyLayout,
       { title: "Copy each tweaked panel's rectangle, for pasting to the lead" }),
-    button("Reset", () => { localStorage.removeItem(LAYOUT_KEY); render(); },
-      { title: "Clear every layout tweak" }),
+    button("Copy remarks (" + loadRemarks().length + ")", copyRemarks,
+      { title: "Copy each note with what it is pinned to and its link, for pasting to the lead" }),
+    button("Reset", () => {
+      localStorage.removeItem(LAYOUT_KEY); localStorage.removeItem(REMARKS_KEY); render();
+    }, { title: "Clear every layout tweak and remark" }),
     grp("Launch"),
     button("Request the window's close", requestWindowClose,
       { title: "As the window's close button would: a tool holding unsaved work or a run asks first" }),
@@ -2856,6 +2873,132 @@ function copyLayout() {
   if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
   window_("Copy layout", h("textarea", { class: "mono", readonly: true,
     style: "width:620px; height:220px" }, text), [button("OK", closeWindow)]);
+}
+
+// ---- Remarks (gui.md "The host's other review aids") ----
+// The maintainer pins a note to the panel or control it is about, and Copy
+// remarks hands the lead one line per note with the link that reopens the
+// state it was made on. While the toggle is on, a click inside the window
+// opens a note instead of acting, and the screen's notes show as numbered
+// markers. One localStorage list, like the layout tweaks.
+const REMARKS_KEY = "drafts.remarks";
+const loadRemarks = () => JSON.parse(localStorage.getItem(REMARKS_KEY) || "[]");
+const saveRemarks = list => localStorage.setItem(REMARKS_KEY, JSON.stringify(list));
+// The controls a note pins to: the nearest of these around the click.
+const REMARK_CONTROLS = "button, select, input, textarea, label, .sel, td";
+// A control's name: its visible text, else its title, placeholder or label.
+// A select shows its picked option; an input's typed value is not its name,
+// since an edit would lose the note's element.
+function remarkControlName(el) {
+  const text = el.tagName === "SELECT" ? (el.selectedOptions[0] || {}).text
+    : el.tagName === "INPUT" || el.tagName === "TEXTAREA" ? "" : el.innerText;
+  const label = el.labels && el.labels[0] ? el.labels[0].innerText : "";
+  const name = [text, el.title, el.placeholder, label]
+    .map(s => (s || "").replace(/\s+/g, " ").trim()).find(s => s) || "";
+  return name.slice(0, 40);
+}
+// What a click is about: the nearest named panel (or the window), and the
+// control it landed on, null on a panel's empty area.
+function remarkTarget(el) {
+  const panel = el.closest("[data-panel]"), control = el.closest(REMARK_CONTROLS);
+  return { panel: panel ? panel.dataset.panel : "window",
+    control: control ? remarkControlName(control) || null : null };
+}
+// The element a note is drawn on now (the first drawn control of its name in
+// its panel, or the panel), or null.
+function remarkElement(note) {
+  const win = document.getElementById("win");
+  const drawn = el => el && el.getClientRects().length > 0 ? el : null;
+  if (note.control === null)
+    return drawn(note.panel === "window" ? win : win.querySelector(`[data-panel="${note.panel}"]`));
+  return [...win.querySelectorAll(REMARK_CONTROLS)].find(el => {
+    if (el.closest(".rm-pop") || !drawn(el)) return false;
+    const t = remarkTarget(el);
+    return t.panel === note.panel && t.control === note.control;
+  }) || null;
+}
+const closeRemarkPopup = () => document.querySelectorAll(".rm-pop").forEach(p => p.remove());
+// The note's popup at the click, titled with what it is pinned to; index is
+// the saved note's place in the list, or -1 for a new one.
+function remarkPopup(x, y, target, index) {
+  closeRemarkPopup();
+  const field = h("textarea", { style: "width:280px; height:80px" },
+    index >= 0 ? loadRemarks()[index].text : "");
+  const store = change => {
+    const notes = loadRemarks();
+    change(notes);
+    saveRemarks(notes);
+    closeRemarkPopup();
+    render();
+  };
+  const save = () => store(notes => {
+    const note = { ...target, text: field.value.trim(),
+      link: location.pathname.split("/").pop() + location.hash };
+    if (index >= 0) notes[index] = note; else notes.push(note);
+  });
+  const win = document.getElementById("win");
+  // Keys typed into the note stay out of the view's shortcuts.
+  const pop = h("div", { class: "rm-pop", onkeydown: e => e.stopPropagation() },
+    h("div", { class: "title" }, target.panel + (target.control ? " › " + target.control : "")),
+    field,
+    h("div", { class: "row", style: "justify-content:flex-end; margin-top:6px" },
+      button("Save", save),
+      index >= 0 ? button("Delete", () => store(notes => notes.splice(index, 1))) : null,
+      button("Cancel", closeRemarkPopup)));
+  win.append(pop);
+  // Kept inside the window, as a menu is.
+  const [left, top] = inWin(x, y);
+  pop.style.left = Math.max(4, Math.min(left, win.clientWidth - pop.offsetWidth - 4)) + "px";
+  pop.style.top = Math.max(4, Math.min(top, win.clientHeight - pop.offsetHeight - 4)) + "px";
+  field.focus();
+}
+// Caught in the capture phase on the window, before the page's own handlers,
+// so the control under the click does not act: a pointer press would start
+// a drag, a mouse press open a select, a click toggle or switch. The note's
+// popup and the Copy remarks window keep their own clicks.
+function remarkCatch(e) {
+  if (!S.remarkEdit || e.target.closest(".rm-pop, [data-dlg='copy-remarks']")) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.type !== "click") return;
+  const target = { tool: S.activeTool, screen: viewScreen(), ...remarkTarget(e.target) };
+  const index = loadRemarks().findIndex(n => n.tool === target.tool && n.screen === target.screen
+    && n.panel === target.panel && n.control === target.control);
+  remarkPopup(e.clientX, e.clientY, target, index);
+}
+for (const type of ["pointerdown", "mousedown", "click", "dblclick"])
+  document.getElementById("win").addEventListener(type, remarkCatch, true);
+// After every render(): the screen's notes as markers at their element's
+// top-right corner, numbered by their line in Copy remarks; none, and no
+// popup, while the toggle is off.
+function remarksApply() {
+  const win = document.getElementById("win");
+  win.querySelectorAll(".rm-mark").forEach(m => m.remove());
+  if (!S.remarkEdit) { closeRemarkPopup(); return; }
+  const scr = viewScreen();
+  loadRemarks().forEach((note, i) => {
+    if (note.tool !== S.activeTool || note.screen !== scr) return;
+    const el = remarkElement(note);
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const [left, top] = inWin(r.right, r.top);
+    // Clamped, so the window's own corner (a note on no panel) stays in view.
+    win.append(h("span", { class: "rm-mark", style:
+      `left:${Math.min(left, win.clientWidth - 8)}px; top:${Math.max(top, 8)}px` }, String(i + 1)));
+  });
+}
+// Every tool's notes, one line each: what it is pinned to, the note (its
+// line breaks joined) and its link; the window_'s field shows them too (a
+// page from disk may refuse the clipboard).
+function copyRemarks() {
+  const lines = ["The drafts' remarks, one per note: tool/screen › panel › control: note, then the link to its state:"];
+  for (const n of loadRemarks())
+    lines.push(`${n.tool}/${n.screen} › ${n.panel}${n.control ? " › " + n.control : ""}: `
+      + `${n.text.split(/\r?\n/).join(" / ")}  ${n.link}`);
+  const text = lines.join("\n");
+  if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+  window_("Copy remarks", h("textarea", { class: "mono", readonly: true,
+    style: "width:620px; height:220px" }, text), [button("OK", closeWindow)], "copy-remarks");
 }
 
 </script>
