@@ -3399,6 +3399,21 @@ briefs, review loops, gates and mutation runs as for any step.
     (no mark) and released on (the snapped point), SE-GUI-12's two WHENs; red: the old
     starting-eleven exchange (three tests), `swap_target` taking the keeper. Open: the built
     window, the maintainer's look (QUESTIONS)
+  - [ ] y3 the position areas (the maintainer, 2026-10-27: "Can we try mapping the areas, as
+    well?"): in PES 2021's formation screen a player dragged out of his position's area takes
+    the area's position (an AMF dragged lower became a DMF, `.tmp/0_0_1x/captures.md`); the
+    editor keeps the position today. Steps, each its own check:
+    - [ ] y3a the evidence first: Marco's RE index (`Tools_Marco/GodotFootball/docs/re/
+      README.md`: a first grep found only the in-match role classes, `pes-re-role-writer.md`,
+      not the edit screen's drag), the game's data files (a formation-area table in a CPK),
+      community knowledge; then the in-game measurement if none gives it: one outfield player
+      dragged across the pitch on the pad (`scripts/ingame/`, the save backed up and restored
+      by hash), the position label read at each step (PrintWindow capture), each area's
+      boundary found by scanning lines in stored units; left/right symmetry and per-version
+      sameness (PES 2021 first) checked, not assumed
+    - [ ] y3b the draft (`swapOnPitch`'s grass move gives the area's position), the plan
+      ("A pitch player dropped on another" and the grass-move bullet), DECISIONS
+    - [ ] y3c the code (`team_widgets`' grass drop), its tests on the measured boundaries
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
