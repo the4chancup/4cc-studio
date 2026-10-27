@@ -1,6 +1,6 @@
 //! Where the settings file lives: next to the executable or in the user config directory, chosen
-//! by which one already holds the file (core plan, `distribution.md` "Data location"). Resolution
-//! only looks; asking the user and writing the file belong to the GUI's first start.
+//! by which one already holds the file. Resolution only looks; asking the user and writing the
+//! file belong to the GUI's first start (spec/core/distribution.md "Data location").
 
 use std::path::{Path, PathBuf};
 
@@ -9,7 +9,7 @@ use directories::BaseDirs;
 /// The settings file's name, in either data location.
 pub const SETTINGS_FILE_NAME: &str = "settings.toml";
 
-/// The data directory, by presence (core plan, `distribution.md` "Data location"):
+/// The data directory, by presence:
 /// `<exe_dir>/data` when it holds the settings file, else `config_dir` when it does,
 /// else `None` (no settings file yet: the first GUI start asks). Never creates anything.
 pub fn resolve_data_dir(exe_dir: &Path, config_dir: Option<&Path>) -> Option<PathBuf> {
@@ -27,13 +27,13 @@ pub fn resolve_data_dir(exe_dir: &Path, config_dir: Option<&Path>) -> Option<Pat
 /// The user config location: `%APPDATA%\4cc-studio` on Windows, `~/.config/4cc-studio`
 /// on Linux. `None` when the OS reports no home.
 pub fn user_config_dir() -> Option<PathBuf> {
-    // `BaseDirs`, not `ProjectDirs`: the latter appends `\config` on Windows, which is not the
-    // folder the plan names.
+    // `BaseDirs`, not `ProjectDirs`: the latter appends `\config` on Windows, and the settings
+    // belong in `%APPDATA%\4cc-studio` itself.
     Some(BaseDirs::new()?.config_dir().join("4cc-studio"))
 }
 
 /// Whether the data directory's settings file opens for writing — the CLI's source of
-/// `data_dir_read_only` (gui.md "Status bar" "CLI equivalence"): the CLI writes no settings,
+/// `data_dir_read_only`. The CLI writes no settings,
 /// so nothing else could raise the condition. The probe opens the file for writing without
 /// creating or truncating it and writes nothing, so the file's bytes and modified time are
 /// untouched; it reports `false` on a read-only file or folder, or a missing file.

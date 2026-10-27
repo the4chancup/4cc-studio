@@ -1,5 +1,5 @@
-//! The help window (core plan, "Help window"; the draft `docs/prototypes/index.html`'s
-//! `drawHelp`): a non-modal, resizable `egui::Window` the sidebar's `?`, F1, the About
+//! The help window, the draft `docs/prototypes/index.html`'s `drawHelp`: a non-modal,
+//! resizable `egui::Window` the sidebar's `?`, F1, the About
 //! popup's Help link and a notice's `ActionEffect::OpenHelp` open. It reads the chapters
 //! `help::chapters` assembles (the core chapters first, then one per registered tool),
 //! draws the current topic's Markdown with `egui_commonmark`, generates each chapter's
@@ -132,8 +132,9 @@ impl HelpWindow {
     }
 
     /// Draws the window while open; the × closes it. egui keeps the rectangle by the
-    /// window's id across a close and a reopen — session only, no settings field
-    /// (DECISIONS.md 2026-10-21).
+    /// window's id across a close and a reopen, for the session only. Keeping it across
+    /// restarts would mean a settings save after every drag or resize of a window members
+    /// open now and then.
     pub(super) fn show(&mut self, egui_ctx: &egui::Context) {
         if !self.open {
             return;
@@ -331,7 +332,7 @@ impl HelpWindow {
 
     /// `(chapter id, topic slug — `messages` for the generated topic)` the window shows,
     /// `None` while closed. The harness reads position and highlight from state, which a
-    /// frame's nodes do not carry (gui.md "Acceptance").
+    /// frame's nodes do not carry.
     #[cfg(test)]
     pub(super) fn showing(&self) -> Option<(&'static str, &'static str)> {
         if !self.open {

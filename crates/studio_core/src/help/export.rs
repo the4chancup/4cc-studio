@@ -1,7 +1,7 @@
 //! The help's Markdown side: a chapter rendered for `4cc-studio help`, and `run_help`, the
-//! command itself (core plan, "Help window" "CLI equivalence"). A chapter prints as
-//! `# <title>`, each topic as `## <title>` and its body, and the tool's catalog as the
-//! Messages table last; `--export <dir>` writes `<id>.md` per chapter.
+//! command itself. A chapter prints as `# <title>`, each topic as `## <title>` and its body,
+//! and the tool's catalog as the Messages table last. `--export <dir>` writes each chapter as
+//! a Markdown file named by the chapter's id.
 
 use std::io::Write;
 use std::path::Path;
@@ -49,9 +49,10 @@ fn table(rows: &[CatalogRow]) -> String {
 }
 
 /// `4cc-studio help`: prints the chapter list, one chapter or one topic to `out`, or with
-/// `export` writes `<id>.md` per chapter under the folder (created as needed), printing
-/// nothing. An unknown chapter or topic id is a refusal (exit 2) naming the ones that exist;
-/// a folder or file that cannot be written is a failure (exit 3) naming the path.
+/// `export` writes each chapter under the folder (created as needed) as a Markdown file named
+/// by the chapter's id, printing nothing. An unknown chapter or topic id is a refusal (exit 2)
+/// naming the ones that exist; a folder or file that cannot be written is a failure (exit 3)
+/// naming the path.
 pub fn run_help(
     tools: &[Box<dyn StudioTool>],
     chapter: Option<&str>,

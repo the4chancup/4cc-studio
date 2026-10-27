@@ -296,9 +296,8 @@ fn an_open_prompts_and_each_answer_does_what_it_says() {
     );
 }
 
-// plans/ruleset_editor.md "Settings": the Open the prompt's own save
-// unblocks starts in the folder that save chose, not the `last_folder`
-// read before it.
+// The Open the prompt's own save unblocks starts in the folder that save
+// chose, not the `last_folder` read before it.
 #[test]
 fn the_open_after_the_prompts_save_starts_in_the_folder_it_chose() {
     let (dir_a, ctx, mut window) = prompt_setup("prompt_save_start_a");

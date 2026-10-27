@@ -1,21 +1,21 @@
-//! Step 7's `.mtl` texture references and FMDL path-table entries into the
-//! team's `Common/` (`spec/export_upgrader.md` step 7, `DECISIONS.md`
-//! 2026-10-18 "old `.mtl` references keep their extension, and a Common
-//! reference no link can spell is kept" and "an FMDL's texture entries,
-//! class by class"): a reference naming a `Common/` file becomes the bare
-//! name plus the `.common` link spelling it, and one no link can spell
-//! stays as written, its `???` respelled the identity's path ID, reported
-//! `common_reference_kept`. A shared folder's (`Boots/`, `Gloves/`) or a
-//! `Common/` `.mtl` keeps its Common references as written — `???`
-//! respelled, no link — with `common_reference_kept` only when `Common/`
-//! lacks what it names (`DECISIONS.md` 2026-10-18 "a shared folder's
-//! `.mtl` keeps its Common references, and a link needs one texture"); a
-//! shared folder's `.fmdl` links as a player folder's (the Fox compile
-//! reads a shared folder's links), and a `Common/` `.fmdl` gets the shared
-//! `.mtl` rule.
+//! The `.mtl` texture references and FMDL path-table entries into the
+//! team's `Common/`. A reference naming a `Common/` file becomes the bare
+//! name plus the `.common` link spelling it. One no link can spell stays as
+//! written, its `???` respelled the identity's path ID, and is reported
+//! `common_reference_kept`: a link beside a local file of its stem would
+//! drop the folder, and a nearer local file would win the lookup silently.
 //!
-//! A referee's file (step 12) is checked against his flattened folder
-//! first: a Common reference naming a texture the folder holds at that path
+//! A shared folder's (`Boots/`, `Gloves/`) or a `Common/` `.mtl` keeps its
+//! Common references as written, `???` respelled and no link, with
+//! `common_reference_kept` only when `Common/` lacks what it names. An
+//! `.mtl` is read by the pre-Fox compile alone, which does not read a shared
+//! folder's links, so a link there would lose the texture. A shared
+//! folder's `.fmdl` links as a player folder's, since the Fox compile reads
+//! a shared folder's links, and a `Common/` `.fmdl` gets the shared `.mtl`
+//! rule.
+//!
+//! A referee's file, in the flattened referee layout, is checked against
+//! his folder first: a Common reference naming a texture the folder holds at that path
 //! (his old `common/`'s files, now at the root) becomes `./<sub>`, no link
 //! and no finding; a bare `./x` (or empty-directory) reference his folder
 //! lacks and the export's `Common/` root holds gets the link, as a game
@@ -234,11 +234,10 @@ enum Reference {
     GameDir,
 }
 
-/// One FMDL texture entry's outcome, class by class (`DECISIONS.md`
-/// 2026-10-18 "an FMDL's texture entries, class by class"): a `dummy_`
-/// stem is kept as written (the game substitutes it); a `./` or empty
-/// directory has its kit magic respelled only; the game's kit texture
-/// folder is kept; the team's Common (`common/<3>/[sub/]sourceimages/`)
+/// One FMDL texture entry's outcome, class by class: a `dummy_` stem is kept
+/// as written (the game substitutes it); a `./` or empty directory has its
+/// kit magic respelled only; the game's kit texture folder is kept, as the
+/// compiler keeps it; the team's Common (`common/<3>/[sub/]sourceimages/`)
 /// is linked as an `.mtl`'s Common reference (a `Common/` FMDL's kept,
 /// `???` respelled, reported when `Common/` lacks the texture); any other
 /// directory below `common/` is kept; every other directory becomes `./`,
@@ -512,10 +511,10 @@ fn is_referee_file(ctx: &FileContext) -> bool {
 
 /// Whether a referee's Common reference (`sub`, ending in `/` or empty, and
 /// `file_name`, both respelled) names a texture his folder holds at
-/// `<model folder>/<sub>`, where the flatten put his old `common/`'s files
-/// (`spec/export_upgrader.md` step 12, `DECISIONS.md` 2026-10-18 "steps 9
-/// and 12's gaps…" (6)): the caller then writes `./<sub>`, no link and no
-/// finding. A file in a subfolder naming a `sub` is never held: its `./<sub>`
+/// `<model folder>/<sub>`, where the flatten put his old `common/`'s files.
+/// The caller then writes `./<sub>`, no link and no finding, wherever the
+/// file came from: the compiler looks a folder's own file up before a game
+/// path. A file in a subfolder naming a `sub` is never held: its `./<sub>`
 /// would name a path below its own subfolder, so the team rule keeps it.
 fn referee_folder_holds(
     ctx: &FileContext,
@@ -565,12 +564,12 @@ fn link_referee_bare(
     }
 }
 
-/// What step 7 makes of the migrated model folders' `.mtl` and `.fmdl`
-/// files for an export of `identity` — one pass, one `planned` link map, so
-/// a link is planned once and each format's clash walk sees the other's
-/// links: `copies` the plans' (input, output) list (the player plan's and
-/// the carried `Common/` files'), `common` the `Common/` output paths (the
-/// respelled names the links are spelled after).
+/// What the upgrade makes of the migrated model folders' `.mtl` and `.fmdl`
+/// files for an export of `identity`. It is one pass with one `planned` link
+/// map, so a link is planned once and each format's clash walk sees the
+/// other's links. `copies` is the (input, output) list of the player folders'
+/// files and the carried `Common/` files; `common` is the `Common/` output
+/// paths, the respelled names the links are spelled after.
 pub(crate) fn material_references(
     copies: &[(String, String)],
     common: &[String],

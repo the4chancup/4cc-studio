@@ -1,4 +1,4 @@
-//! Step 8's `settings.toml` generation (the plan's "Player settings"
+//! The `settings.toml` generation (the `spec/export_upgrader.md` "Player settings"
 //! scenarios): the save record's values as keys, the folder-claimed and
 //! coverage ID rules, the name rule, the stripped save, the missing custom
 //! model and the value no key can hold.

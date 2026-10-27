@@ -1,7 +1,7 @@
 //! The section rail (the draft's left column; the help window's
-//! `help-tree` is the `Panel` precedent): one entry per section in the
-//! plan's order, Custom checks only when the document has them, a "⚠"
-//! on a section holding a `check()` error.
+//! `help-tree` is the `Panel` precedent): one entry per section in
+//! `Section::RAIL`'s order, Custom checks only when the document has them,
+//! a "⚠" on a section holding a `check()` error.
 
 use aatf::RuleError;
 

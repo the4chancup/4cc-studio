@@ -1,6 +1,6 @@
 //! The sidebar, a 56-point rail that opens the full sidebar over the tool's left
-//! edge when the pointer rests on it (core plan, "Sidebar" item 4; draft
-//! `docs/prototypes/index.html`): the logo doubling as the About click target, the
+//! edge when the pointer rests on it, as the draft `docs/prototypes/index.html` draws
+//! it: the logo doubling as the About click target, the
 //! PES version selector with its live exe check, its blocker and the once-per-life
 //! auto-switch to a running PES, the tool list with the planned tools grayed, and
 //! the help `?` with the settings gear pinned at the bottom. There is no collapse
@@ -23,21 +23,21 @@ mod tests;
 
 use super::about;
 
-/// The rail's width: the shell's `Panel::left` exact size (gui.md "Sidebar"
-/// item 4: "always an icon-only rail (~56 px)").
+/// The rail's width: the shell's `Panel::left` exact size. The rail is always there,
+/// icons only.
 pub(super) const RAIL_WIDTH: f32 = 56.0;
-/// The tool icons', the help's and the gear's point size (gui.md "Sidebar"
-/// item 3: about twice the body text, so the rail alone tells the tools apart).
+/// The tool icons', the help's and the gear's point size: about twice the body text, so
+/// the rail alone tells the tools apart.
 const ICON_SIZE: f32 = 24.0;
-/// One entry row: the 24-point icon and its padding; with the default 4-point
-/// item spacing, fourteen rows take 476 points, the plan's "about 470" (item 3).
+/// One entry row: the 24-point icon and its padding. With the default 4-point item
+/// spacing, fourteen rows take 476 points of the 776-point rail at the default window,
+/// leaving the logo, the version dropdown, the help and the gear their room.
 const ENTRY_HEIGHT: f32 = 30.0;
-/// Seconds the pointer rests on the rail before the overlay opens (gui.md
-/// "Sidebar" item 4: "a short delay, ~150 ms").
+/// Seconds the pointer rests on the rail before the overlay opens: a short delay.
 const HOVER_DELAY: f64 = 0.15;
 /// The accent bar on the active entry's left edge (draft: 3 px).
 const ACTIVE_BAR_WIDTH: f32 = 3.0;
-/// Seconds between running-PES polls of the auto-switch (gui.md "Sidebar" item 2).
+/// Seconds between running-PES polls of the auto-switch.
 const PES_POLL_SECONDS: f64 = 5.0;
 
 /// What one frame of the sidebar draws from: the registered tools in sidebar
@@ -145,7 +145,7 @@ pub(super) enum ExeCheck {
 impl Sidebar {
     /// Draws the sidebar and returns the click's ask, if any. `tools` are in sidebar
     /// order, `active` the index of the one on screen, `cli_only` the registered tools'
-    /// ids drawn as planned entries (gui.md "Sidebar" item 3).
+    /// ids drawn as planned entries.
     pub(super) fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -186,11 +186,10 @@ impl Sidebar {
             inner: egui::vec2(inner_width, rail_content.height()),
         };
 
-        // Open and close (gui.md "Sidebar" item 4): the pointer resting on the
-        // rail for HOVER_DELAY opens it (a pointer that leaves restarts the wait);
-        // it stays open while the pointer is inside the overlay's rect, while a
-        // popup it opened is open, or under the keyboard rule — and closes on the
-        // first frame none of those holds.
+        // Open and close: the pointer resting on the rail for HOVER_DELAY opens it,
+        // and a pointer that leaves restarts the wait. It stays open while the
+        // pointer is inside the overlay's rect, while a popup it opened is open, or
+        // under the keyboard rule, and closes on the first frame none of those holds.
         let now = egui_ctx.input(|input| input.time);
         let pointer = egui_ctx.input(|input| input.pointer.latest_pos());
         let on_rail = pointer.is_some_and(|pos| rail_outer.contains(pos));
@@ -252,7 +251,7 @@ impl Sidebar {
     }
 
     /// The overlay: the full sidebar as a floating layer over the view, at the
-    /// rail's top-left and as tall as it (gui.md "Sidebar" item 4). `Order::Foreground`
+    /// rail's top-left and as tall as it. `Order::Foreground`
     /// puts it above the `Middle` help and settings windows: the open sidebar is
     /// where the pointer is.
     fn show_overlay(
@@ -543,11 +542,11 @@ impl Sidebar {
         ctx.request(ShellRequest::SettingsChanged);
     }
 
-    /// The once-per-life auto-switch to a running PES (gui.md "Sidebar" item 2, ST-SIDE-05),
-    /// called from the shell's `logic` every `PES_POLL_SECONDS` on egui's clock — and only
-    /// while the switch is unspent, so a spent switch polls nothing. Each call asks for the
-    /// repaint at the next poll so it runs while no input arrives. Of the running games the
-    /// first detected wins ("Sidebar" item 2): the poll switches only when that game's
+    /// The once-per-life auto-switch to a running PES (ST-SIDE-05), called from the shell's
+    /// `logic` every `PES_POLL_SECONDS` on egui's clock, and only while the switch is
+    /// unspent, so a spent switch polls nothing. Each call asks for the repaint at the next
+    /// poll so it runs while no input arrives. Of the running games the first detected
+    /// wins: the poll switches only when that game's
     /// version differs from the selection, and a `version_change_blocker` defers the
     /// switch without spending it. A switch writes `pes_version` and saves like a manual
     /// pick, and announces itself in the status bar, with a "Fix PES path" action when the
@@ -636,7 +635,7 @@ impl Sidebar {
     }
 }
 
-/// The overlay `egui::Area`'s id (gui.md "Sidebar" item 4).
+/// The overlay `egui::Area`'s id.
 fn overlay_id() -> egui::Id {
     egui::Id::unique("sidebar-overlay")
 }
@@ -653,10 +652,10 @@ fn drawn_planned<'a>(args: &'a SidebarFrame<'a>) -> impl Iterator<Item = &'a Pla
     })
 }
 
-/// The widest body-text galley among the labels the open sidebar shows (gui.md
-/// "Sidebar" item 4: the overlay is "as wide as the longest label needs on one
-/// line"): the registered tools', the planned entries' as `contents` draws them,
-/// `Help` and `Settings` — measured each frame with the fonts; no constant.
+/// The widest body-text galley among the labels the open sidebar shows, since the overlay
+/// is as wide as the longest label needs on one line: the registered tools', the planned
+/// entries' as `contents` draws them, `Help` and `Settings`. Measured each frame with the
+/// fonts; no constant.
 fn widest_label(ui: &egui::Ui, args: &SidebarFrame) -> f32 {
     let font = egui::TextStyle::Body.resolve(ui.style());
     let mut widest: f32 = 0.0;
@@ -787,7 +786,7 @@ pub(super) fn exe_tooltip(check: ExeCheck, folder: &Path) -> String {
 }
 
 /// The combo's item label: `PES 2021` in the open sidebar and the settings menu,
-/// `21` on the rail (draft, gui.md "Sidebar" item 4).
+/// `21` on the rail, as the draft shows it.
 pub(super) fn version_label(version: PesVersion, rail: bool) -> String {
     if rail {
         version.number().to_string()

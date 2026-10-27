@@ -10,8 +10,8 @@ use studio_core::{CliError, ToolContext};
 use crate::messages::TOOL_ID;
 use crate::{model_folders, upgrade};
 
-// The exit codes are the command line's contract with scripts (the plan's
-// "CLI"; the Team compiler's mapping).
+// The exit codes are the command line's contract with scripts. They mean
+// what the Team compiler's do.
 /// Exit code of a run that finished with no Error finding and nothing
 /// dropped.
 pub(crate) const CLEAN: u8 = 0;

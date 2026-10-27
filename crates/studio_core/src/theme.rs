@@ -1,5 +1,5 @@
-//! The shared look (core plan, "Other UI components"): the fonts, the drafts'
-//! style and the `theme` setting's application to the egui context. `install`
+//! The shared look: the fonts, the drafts' style and the `theme` setting's
+//! application to the egui context. `install`
 //! puts the one font set and the pinned style on a context: `run_gui` calls it
 //! at window creation and every view test's harness calls it too, so a size a
 //! test measures is the size a member sees. The spacing and both themes'
@@ -19,8 +19,8 @@ pub const SUCCESS_FG: egui::Color32 = egui::Color32::from_rgb(0x4c, 0xd9, 0x64);
 /// own link and warning colours are darker for the same reason).
 pub const SUCCESS_FG_LIGHT: egui::Color32 = egui::Color32::from_rgb(0x13, 0x73, 0x33);
 
-/// The colour a notice's text is drawn in: its kind's bright colour ("A notice
-/// is seen, not found", core plan "Status bar").
+/// The colour a notice's text is drawn in: its kind's bright colour, since a
+/// notice is seen, not found.
 pub fn notice_color(kind: NoticeKind, visuals: &egui::Visuals) -> egui::Color32 {
     match kind {
         NoticeKind::Success if visuals.dark_mode => SUCCESS_FG,
@@ -48,8 +48,7 @@ pub(crate) fn apply(ctx: &egui::Context, theme: Theme) {
 /// drafts the GUI is built from were reviewed in: 0.37 moved them (the button
 /// padding to 8 by 2, the controls to 20 high, the dark buttons to grey 50
 /// with text at 215), so `install` pins them on both themes itself and an egui
-/// upgrade cannot move the approved look (core plan "Other UI components", the
-/// "Dark/light theme" row).
+/// upgrade cannot move the approved look.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn install(ctx: &egui::Context) {
     install_fonts(ctx);
@@ -66,8 +65,7 @@ pub fn install(ctx: &egui::Context) {
             style.spacing.interact_size = egui::vec2(40.0, 18.0);
             // The drafts' text sizes (the stylesheet's `.small`, body, `.mono`
             // and `h2`), where egui defaults to 9, 13, 13, 13 and 18: at those
-            // every approved width and row moves (core plan "Other UI
-            // components", the "Dark/light theme" row).
+            // every approved width and row moves.
             for (text_style, font_id) in [
                 (egui::TextStyle::Small, egui::FontId::proportional(11.0)),
                 (egui::TextStyle::Body, egui::FontId::proportional(12.5)),
@@ -187,23 +185,22 @@ fn widgets_light() -> egui::style::Widgets {
 /// Registers the suite's fonts on `ctx`: proportional text resolves from
 /// Selawik, the symbols font, the icon font and `egui-icons`, in that order,
 /// and monospace from egui's Hack, then the same four. The body font
-/// `"Selawik"` (the file `resources/fonts/Selawik-Regular.ttf` bundles,
-/// `resources/fonts/README.md`) is first because a member's text must resolve
+/// `"Selawik"` (the file `resources/fonts/Selawik-Regular.ttf` bundles) is
+/// first because a member's text must resolve
 /// from it before any other font. The symbols font `"symbols"`
 /// (`resources/fonts/symbols.ttf`: the →, ✔, ⏷ and the like the views draw
 /// that Selawik lacks) follows it, so the body font keeps every character it
 /// has. The symbols are a file of their own, not glyphs of the icon font,
 /// because that file's vertical metrics are the body font's: egui centres a
 /// later font's line height on the body font's, so in the icon font's metrics
-/// a symbol would sit off the text's baseline (core plan "Other UI
-/// components", the "Dark/light theme" row). The icon font `"icons"` (the
+/// a symbol would sit off the text's baseline. The icon font `"icons"` (the
 /// subset `resources/fonts/phosphor-subset.ttf` ships; `crate::icons` names
 /// its glyphs) comes ahead of egui's own icons, so the icon codepoints come
 /// from it, and is its own `icons` family too. The `label` family is
 /// `"Selawik Semibold"` (`resources/fonts/Selawik-Semibold.ttf`), then the
 /// proportional chain: the Tactics pitch's formation name, the one text
-/// the suite draws in a heavier weight, to match the game's stroke
-/// (`plans/save_editor.md` "Tactics editor"). Every build that has
+/// the suite draws in a heavier weight, to match the game's stroke. Every
+/// build that has
 /// `studio_core` has egui's default fonts, through its `eframe` dependency's
 /// `default_fonts`. Installed fonts resolve
 /// before the system fallback eframe registers (`Context::set_fonts` replaces the

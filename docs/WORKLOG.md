@@ -3880,7 +3880,12 @@ briefs, review loops, gates and mutation runs as for any step.
     contradictions: resource READMEs exempted like fixture READMEs, rejected (the
     `include_bytes!` path names the folder); a pointer split across two lines escapes
     `doc_pointers.py`, accepted (cm6)
-  - [ ] cm3 `studio_core`, `export_upgrader`, `ruleset_editor` (brief `.tmp/cm/brief_cm3.md`)
+  - [x] cm3 `studio_core`, `export_upgrader`, `ruleset_editor` (brief `.tmp/cm/brief_cm3.md`,
+    Opus). Done 2026-10-27 (`.tmp/cm/cm3_report.md`): 181 hits in 70 files, comment lines
+    only; step numbers and decision pointers replaced by what the step does and the
+    decision's reason (each checked against its DECISIONS entry or plan paragraph by the
+    lead), pointers kept only into `spec/`; the three crates' and `studio`'s tests, clippy
+    and fmt green; 282 hits left, all in `save_editor` and `team_widgets` (cm4)
   - [ ] cm4 `save_editor` and `team_widgets`, once the Tactics surface's review loop ends
   - [ ] cm5 `comment-refs` in `just gates` and CI
   - [ ] cm6 `scripts/doc_pointers.py` reads a pointer whose quoted title a comment wraps onto

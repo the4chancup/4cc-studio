@@ -185,7 +185,7 @@ fn the_gear_opens_the_menu_on_the_active_tools_section_and_resets_each_opening()
 }
 
 // A CLI-only tool has no section, whatever its table holds: its window is not built
-// and its keys are edited in the settings file (gui.md "Settings menu").
+// and its keys are edited in the settings file.
 #[test]
 fn a_cli_only_tool_has_no_section_even_with_settings() {
     let (a, calls_a) = stub("a", "A", None);
@@ -395,7 +395,7 @@ fn the_hide_id_rows_write_the_common_settings() {
 }
 
 // The update check's two rows are not drawn while nothing reads the keys:
-// they wait for the updater (DECISIONS.md 2026-10-25).
+// they wait for the updater.
 #[test]
 fn the_update_check_rows_are_not_drawn_yet() {
     let dir = TestDir::new("studio_core_settings_no_update_rows");
@@ -448,9 +448,8 @@ fn opening_the_menu_keeps_a_thread_count_above_the_core_count() {
     assert_eq!(ctx.common().thread_count, 4096);
 }
 
-// The theme setting, never the system's theme, decides (gui.md "Other UI
-// components"); a pick applies at the next frame. Cites no scenario: the
-// Acceptance section has none for it.
+// The theme setting, never the system's theme, decides, and a pick applies at
+// the next frame. No acceptance scenario covers it.
 #[test]
 fn the_theme_setting_decides_and_a_pick_applies_at_the_next_frame() {
     let dir = test_dir("studio_core_settings_theme");
@@ -519,7 +518,7 @@ fn the_theme_setting_decides_and_a_pick_applies_at_the_next_frame() {
 }
 
 // A text row commits when its edit loses focus or Enter is pressed, not per
-// keystroke (gui.md "Settings menu", "No Save or Apply").
+// keystroke.
 #[test]
 fn a_path_row_commits_on_enter_not_per_keystroke() {
     let dir = test_dir("studio_core_settings_path_commit");
@@ -644,9 +643,8 @@ fn a_path_row_edit_survives_the_window_losing_focus() {
     fs::remove_dir_all(&dir).unwrap();
 }
 
-// A path row draws its Browse button right of the edit (gui.md "Settings
-// menu", the path rows' bullet). The picker itself is `rfd`'s native
-// dialog, so the test sees the button, never a click.
+// A path row draws its Browse button right of the edit. The picker itself is
+// `rfd`'s native dialog, so the test sees the button, never a click.
 #[test]
 fn a_path_row_draws_browse_right_of_the_edit() {
     let dir = TestDir::new("studio_core_settings_browse");
@@ -1111,10 +1109,10 @@ fn emptying_the_last_folder_of_a_version_leaves_the_rows_shown() {
     );
 }
 
-// A path edit shows Steam's PES 2019 install path whole (gui.md "Settings
-// menu", the path row bullet): the drawn text run is the path's galley at the
-// body font, starting inside the edit's left margin and ending inside its
-// right one, and the common grid's widest row then fits the menu's width.
+// A path edit shows Steam's PES 2019 install path whole: the drawn text run is
+// the path's galley at the body font, starting inside the edit's left margin
+// and ending inside its right one, and the common grid's widest row then fits
+// the menu's width.
 #[test]
 fn every_path_edit_shows_steams_pes_2019_folder_whole() {
     const STEAM_2019: &str =

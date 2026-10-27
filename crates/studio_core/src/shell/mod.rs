@@ -3,8 +3,7 @@
 //! first-run data-location dialog while no data location exists, the active tool's view,
 //! every tool ticked each frame and the tools' shell requests applied; the window's close
 //! asks the tools in sidebar order until one holds it. Plus the launch modes' argument
-//! parsing (`launch`). The common widgets live in `crate::widgets` (core plan, "Shell
-//! layout", "Crate structure").
+//! parsing (`launch`). The common widgets live in `crate::widgets`.
 
 mod about;
 mod first_run;
@@ -41,9 +40,9 @@ use self::sidebar::{Sidebar, SidebarClick};
 use self::status_bar::StatusBar;
 use self::title::WindowTitle;
 
-/// The executable's name in every release before 1.0.0 (`plans/core/development_plan.md`
-/// "The preview's codename: Unlimited Tool Works"), as a literal so a `&'static str` table
-/// can `concat!` it; `EXE_NAME` is the same name for code that formats at run time.
+/// The executable's name in every release before 1.0.0, the preview's codename. It is a
+/// literal so a `&'static str` table can `concat!` it; `EXE_NAME` is the same name for code
+/// that formats at run time.
 #[macro_export]
 macro_rules! exe_name {
     () => {
@@ -65,9 +64,9 @@ pub const EXE_NAME: &str = exe_name!();
 /// use the macro, so the constant serves the shell alone).
 pub(crate) const APP_NAME: &str = app_name!();
 
-/// The version line the shell shows in the four places the plan names — the status bar's
-/// left slot, the About block's first line, `4cc-studio --version` and the window's log's
-/// first line: `v{version}`, the release stage while there is one (`pre-alpha` for 0.0.x,
+/// The version line the shell shows in four places: the status bar's left slot, the About
+/// block's first line, `4cc-studio --version` and the window's log's first line. It reads
+/// `v{version}`, the release stage while there is one (`pre-alpha` for 0.0.x,
 /// `alpha` for 0.y.z, nothing from 1.0.0), then ` (debug)` for a debug build.
 pub fn version_label() -> String {
     version_label_of(env!("CARGO_PKG_VERSION"), cfg!(debug_assertions))
@@ -118,8 +117,7 @@ pub struct StudioApp {
     applied_theme: Option<Theme>,
     /// What the first frame does to the window: `Some(Opening::Fit)` from `new` (the fit of
     /// ST-WIN-01), `Some(Opening::Place(_))` once `opening` found a remembered place (the
-    /// first frame checks it against the monitors), `None` once sent (gui.md "Window size
-    /// classes").
+    /// first frame checks it against the monitors), `None` once sent.
     window_start: Option<window_size::Opening>,
     /// The last normal place a frame reported (not maximized or fullscreen, its rects known
     /// and in the pass's own points), written to `window_main` at exit.
@@ -256,8 +254,7 @@ impl StudioApp {
                 // A settings write queues this; the save is best-effort, at the next frame.
                 ShellRequest::SettingsChanged => self.save_settings(),
                 // A close prompt's answer: sent back through the window's own close
-                // path, which asks the tools again — there is no second path
-                // (gui.md "Cancellation").
+                // path, which asks the tools again: there is no second path.
                 ShellRequest::Close => {
                     egui_ctx.send_viewport_cmd(egui::ViewportCommand::Close);
                 }
@@ -303,9 +300,8 @@ impl StudioApp {
         texts
     }
 
-    /// Opens the help window at `target` (gui.md "Help window" "Window"): a shell modal
-    /// (the settings menu, the About popup) closes first so it cannot cover the
-    /// non-modal window.
+    /// Opens the help window at `target`. A shell modal (the settings menu, the About popup)
+    /// closes first so it cannot cover the non-modal window.
     fn open_help(&mut self, target: &HelpTarget) {
         self.settings_menu.close();
         self.sidebar.about_open = false;
@@ -346,15 +342,15 @@ impl StudioApp {
 
 impl eframe::App for StudioApp {
     fn logic(&mut self, egui_ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // The setting, never the system's theme, decides (gui.md "Other UI components"):
-        // applied once per change, so a change is live at the next frame.
+        // The setting, never the system's theme, decides. It is applied once per change, so a
+        // change is live at the next frame.
         let theme = self.ctx.common().theme;
         if self.applied_theme != Some(theme) {
             crate::theme::apply(egui_ctx, theme);
-            // The zoom factor is the shell's alone (gui.md "Scaling with the
-            // width"): the width rule below sets it every frame and would undo
-            // a keyboard zoom one frame later; a member who wants larger text
-            // has the system's display scaling, which points follow.
+            // The zoom factor is the shell's alone: the width rule below sets it
+            // every frame and would undo a keyboard zoom one frame later. A member
+            // who wants larger text has the system's display scaling, which points
+            // follow (spec/core/gui.md "Scaling with the width").
             egui_ctx.options_mut(|options| options.zoom_with_keyboard = false);
             self.applied_theme = Some(theme);
         }
@@ -371,7 +367,7 @@ impl eframe::App for StudioApp {
         // The window exists now, so the remembered place it was created at is checked
         // against its monitors: on none (a monitor unplugged since), the first frame fits it
         // as a first start does. The window was created there, off every monitor, so the move
-        // goes unseen unless the desk's scales changed too (gui.md "Window size classes").
+        // goes unseen unless the desk's scales changed too.
         #[cfg(not(target_arch = "wasm32"))]
         if let Some(window_size::Opening::Place(place)) = self.window_start {
             let opening = window_size::place_or_fit(place, &(self.monitors)(_frame));
@@ -451,11 +447,11 @@ impl eframe::App for StudioApp {
         self.sidebar
             .poll_running_pes(egui_ctx, &self.tools, &self.ctx);
         self.apply_requests(egui_ctx);
-        // The window's close asks the tools in sidebar order until one holds it (gui.md
-        // "Cancellation"): the holder cancels the close and becomes the active view,
-        // its prompt answering through `ToolContext::request_close`. A close the shell
-        // initiated itself takes the same path — `ShellRequest::Close` comes back as a
-        // close request — so no second path exists. A CLI-only tool is never asked:
+        // The window's close asks the tools in sidebar order until one holds it. The holder
+        // cancels the close and becomes the active view, its prompt answering through
+        // `ToolContext::request_close`. A close the shell initiated itself takes the same
+        // path, `ShellRequest::Close` coming back as a close request, so no second path
+        // exists. A CLI-only tool is never asked:
         // it can never become the active view, so it could never show its prompt.
         let cli_only = self.cli_only;
         if egui_ctx.input(|input| input.viewport().close_requested())
@@ -486,7 +482,7 @@ impl eframe::App for StudioApp {
 
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         // The status bar claims its row first, so it spans the whole width under the sidebar
-        // and the tool view (gui.md "Shell layout").
+        // and the tool view.
         let activities = self.activities(false);
         let effect = egui::Panel::bottom("status_bar")
             .exact_size(24.0)
@@ -559,8 +555,7 @@ impl eframe::App for StudioApp {
     }
 
     /// The window's last normal place, and whether it was maximized, go into `window_main` as
-    /// the window closes (gui.md "Window size classes"): eframe calls this once, on every exit
-    /// path.
+    /// the window closes. eframe calls this once, on every exit path.
     fn on_exit(&mut self) {
         if let Some(place) = self.window_place {
             self.ctx.settings().lock().unwrap().common.window_main = Some(WindowPlace {
@@ -583,7 +578,7 @@ pub fn run_gui(mut app: StudioApp) -> anyhow::Result<()> {
         Box::new(|creation| {
             crate::theme::install(&creation.egui_ctx);
             // The context's clones share the wake slot, so a `with_events` sink made before
-            // the window exists still wakes it (gui.md "Event wiring").
+            // the window exists still wakes it.
             let egui_ctx = creation.egui_ctx.clone();
             app.ctx
                 .set_wake(move |delay| egui_ctx.request_repaint_after(delay));

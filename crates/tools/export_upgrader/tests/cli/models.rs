@@ -1,4 +1,4 @@
-//! The `upgrade-models` command line (the plan's "CLI" scenarios): the input
+//! The `upgrade-models` command line (the `spec/export_upgrader.md` "CLI" scenarios): the input
 //! and output refusals, and a run's output folders and report.
 
 use std::fs;

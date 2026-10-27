@@ -1,12 +1,13 @@
-//! Step 7's carried-over folders, `Portraits/`, `Collars/` and `Logo/`
-//! (`spec/export_upgrader.md` step 7, `DECISIONS.md` 2026-10-18 "the logo
-//! rule remeasured with the compiler's resampler, and its member grammar"):
-//! portraits renamed to the only name the compiler accepts, with a bytes
-//! check against the face folder's own portrait; collars as they are; the
-//! logo members into the root `logo.png` and, only when it is a different
-//! drawing, `logo_small.png`. What cannot be placed is left for the run's
-//! fallback, which reports it as unmigrated content or drops it as a
-//! leftover (step 10).
+//! The carried-over folders, `Portraits/`, `Collars/` and `Logo/`
+//! (spec/export_upgrader.md "Carries over"). Portraits are renamed to the
+//! only name the compiler accepts, with a bytes check against the face
+//! folder's own portrait. Collars are kept as they are. The logo members go
+//! into the root `logo.png` and, only when it is a different drawing,
+//! `logo_small.png`: the compile regenerates a small logo that is a
+//! downscale. The drawings are compared through the compiler's own
+//! resampler, so the verdict matches what the compile makes. What cannot be
+//! placed is left for the run's fallback, which reports it as unmigrated
+//! content or drops it as a leftover.
 
 use std::collections::{BTreeMap, BTreeSet};
 

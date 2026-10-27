@@ -1,8 +1,7 @@
-//! A bottom dock's frame (core plan, "Log panel"): a resizable `Panel` docked at the
-//! bottom of the `Ui` it is given, its header row carrying a collapse chevron and the
-//! title ahead of whatever the caller draws in it. The frame holds no log-specific
-//! state: the Save editor's Live AATF list docks in it too (`plans/save_editor.md`
-//! "Configurable AATF rules").
+//! A bottom dock's frame: a resizable `Panel` docked at the bottom of the `Ui` it is
+//! given, its header row carrying a collapse chevron and the title ahead of whatever the
+//! caller draws in it. The frame holds no log-specific state: the Save editor's Live AATF
+//! list docks in it too.
 
 /// The open dock's starting height in points; egui keeps the resized one across
 /// frames for the session, never in settings.

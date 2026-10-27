@@ -2,9 +2,8 @@
 //!
 //! `studio_core` holds the tool plugin trait, the settings framework, the pipeline event types
 //! every tool emits, the status bar's typed items, the help chapter types and the widgets the
-//! tools' views share. The module tree is closed (core plan, "Crate structure"): format knowledge
-//! belongs in a lib crate, a widget used by one tool in that tool's `view/`. This file only
-//! re-exports.
+//! tools' views share. The module tree is closed: format knowledge belongs in a lib crate, and a
+//! widget used by one tool in that tool's `view/`. This file only re-exports.
 
 pub mod events;
 pub mod help;

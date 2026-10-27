@@ -1,4 +1,4 @@
-//! The face folders' migration into `Players/` (the plan's "Player folders"
+//! The face folders' migration into `Players/` (the `spec/export_upgrader.md` "Player folders"
 //! scenarios): the folder naming order, portraits, `ingame_face` markers, the
 //! empty roster slot and the doubled `Faces/Faces/` flattening.
 

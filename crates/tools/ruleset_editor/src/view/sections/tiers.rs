@@ -469,8 +469,10 @@ fn expander(ui: &mut egui::Ui, ruleset: &mut Ruleset, index: usize) {
 
 /// The per-stat targets, five columns as the draft's `perStatGrid`:
 /// each ability stat's "own target" checkbox and its number while it
-/// has one (unticked, the stat follows the rate and has no `stats`
-/// entry — `DECISIONS.md` 2026-10-24).
+/// has one. Unticked, the stat follows the rate and has no `stats` entry.
+/// A checkbox, not an empty number field, because egui's number field
+/// cannot be empty, and 0 cannot stand for "the rate": a ruleset may set
+/// a target of 0.
 fn stat_targets(ui: &mut egui::Ui, ruleset: &mut Ruleset, index: usize) {
     egui::Grid::new(("stat-targets", index))
         .num_columns(5)

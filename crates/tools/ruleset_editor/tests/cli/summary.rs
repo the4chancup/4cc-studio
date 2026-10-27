@@ -10,8 +10,8 @@ use crate::{
     duplicate_id_file, embedded_file, parse_error_file, schema_error_file, valid_file, write,
 };
 
-/// `tests/fixtures/summary/<name>.md`: the ruleset's summary as the
-/// draft writes it.
+/// The golden summary of the ruleset `name`, a Markdown file of
+/// `tests/fixtures/summary/`: the ruleset's summary as the draft writes it.
 fn golden(name: &str) -> String {
     fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR"))

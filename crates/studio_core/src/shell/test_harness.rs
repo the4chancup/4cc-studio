@@ -1,6 +1,6 @@
 //! The headless shell harness: stub tools, a `StudioApp` over them and the helpers that drive
-//! frames, read the AccessKit tree and click widgets (core plan, "GUI Design" "Acceptance":
-//! what a scenario observes is what a frame draws).
+//! frames, read the AccessKit tree and click widgets. What a scenario observes is what a frame
+//! draws.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -26,7 +26,7 @@ pub(super) type Activity = (&'static str, Option<(usize, usize)>, Duration);
 
 /// What the stub's close prompt asks about while `hold_close` holds a close: unsaved
 /// work offers `Discard`/`Cancel`, a run in flight `Close when it ends`/`Keep the
-/// window` (gui.md "Cancellation").
+/// window`.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum ClosePrompt {
     /// `Discard` and `Cancel`, for unsaved work.
@@ -614,8 +614,8 @@ pub(super) fn titles(output: &FrameOutput) -> Vec<String> {
 }
 
 /// Rests the pointer on `node` (a rail widget) until the sidebar's overlay has
-/// had time to open, as a member's hover does (gui.md "Sidebar" item 4): the
-/// pointer arrives at `time` and stays `0.2 s` past it. Returns the last frame.
+/// had time to open, as a member's hover does: the pointer arrives at `time` and
+/// stays `0.2 s` past it. Returns the last frame.
 pub(super) fn open_sidebar(
     ctx: &egui::Context,
     app: &mut StudioApp,

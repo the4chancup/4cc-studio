@@ -1,6 +1,6 @@
 //! The Ruleset editor: an AATF ruleset for your own invitational built through
 //! forms and saved as a rules file the Save editor and the Team creator use
-//! like the official one (`plans/ruleset_editor.md`).
+//! like the official one.
 //!
 //! `Tool` registers the tool with the shell: its help chapter and its
 //! `ruleset-editor` command line (`validate`, `update-logic`), and the window
@@ -28,7 +28,7 @@ use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};
 use crate::messages::TOOL_ID;
 
 /// The Ruleset editor, as registered with the `studio` binary. `view` is the
-/// window's state (`plans/ruleset_editor.md` "The editor").
+/// window's state.
 #[derive(Default)]
 pub struct Tool {
     /// The window's state; `pub(crate)` so the view's tests drive it.

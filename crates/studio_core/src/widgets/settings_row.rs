@@ -1,14 +1,14 @@
-//! A settings row (core plan, "Settings menu"; the draft `docs/prototypes/index.html`'s
-//! `sRow`): the label cell, its tooltip leading with the settings key, and the widget
-//! cell. `path_row` is the one row every section's path setting draws — the common
-//! folders' and a tool's file alike — so no tool's path commits differently from the
-//! common ones: the text edit commits on Enter or focus loss, never per keystroke, and
+//! A settings row, the draft `docs/prototypes/index.html`'s `sRow`: the label cell, its
+//! tooltip leading with the settings key, and the widget cell. `path_row` is the one row
+//! every section's path setting draws, the common folders' and a tool's file alike, so
+//! no tool's path commits differently from the common ones. The text edit commits on
+//! Enter or focus loss, never per keystroke, and
 //! the Browse button opens `rfd`'s native picker of the row's kind, a pick committing
 //! at once.
 
 use std::path::PathBuf;
 
-/// What `path_row`'s Browse button opens (gui.md "Settings menu"): the native picker
+/// What `path_row`'s Browse button opens: the native picker
 /// of the setting's kind, a folder or a file filtered to the type the tool reads.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PathKind {

@@ -1,5 +1,5 @@
-//! The window title (core plan, "Window title"): the one surface a user sees while the window
-//! is behind others — the taskbar button, alt-tab. While a tool reports an activity the title
+//! The window title: the one surface a user sees while the window is behind others, on the
+//! taskbar button and in alt-tab. While a tool reports an activity the title
 //! carries it (`Team compiler · 12/48 · 01:12 - Unlimited Tool Works`, `APP_NAME` last; the
 //! active tool's first, then sidebar order); idle with a notice that arrived unfocused it holds
 //! the notice's text until focus returns; idle it names the active tool, bracketing the

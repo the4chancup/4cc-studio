@@ -1,11 +1,11 @@
-//! Step 7's respelling of a member `face.xml`, and step 1's unwrapping
-//! (`spec/export_upgrader.md` steps 1 and 7, `DECISIONS.md` 2026-10-18
-//! "a WESYS-wrapped `face.xml` is written unwrapped"): `path` and
-//! `material` attributes whose values name the player folder's own or the
-//! team's Common get the kit magic respelled; everything else, the `<dif>`
-//! included, is byte for byte as written — a wrapped one is written
-//! unwrapped. Step 12 reads the model names its `path` values give
-//! (`named_paths`).
+//! A member `face.xml`'s kit magic respelled, and its WESYS wrapper removed.
+//! `path` and `material` attributes whose values name the player folder's
+//! own or the team's Common get the kit magic respelled. Everything else,
+//! the `<dif>` included, is byte for byte as written. A wrapped one is
+//! written unwrapped, whether a rewrite touched it or not: the compiler
+//! reads a member's `face.xml` as plain XML and discards a wrapped one's
+//! folder. The flattening of a referee layout reads the model names its
+//! `path` values give (`named_paths`).
 
 use std::borrow::Cow;
 use std::collections::BTreeSet;
@@ -206,11 +206,9 @@ fn common_below(value: &str, identity: &Identity) -> Option<String> {
 }
 
 /// The `Common/` paths (folded, below `Common/`) that keep their names
-/// through step 7's renames (`spec/export_upgrader.md` step 7,
-/// `DECISIONS.md` 2026-10-18 "a pre-Fox leading type moves only when `_`
-/// follows it…" (4)): those a member `face.xml`'s `path`/`material` values
-/// name, and those a `.common` link in such a folder names — the link is
-/// left as written with its folder, so its target keeps its name too.
+/// through the model renames: those a member `face.xml`'s `path`/`material`
+/// values name, and those a `.common` link in such a folder names. The link
+/// is left as written with its folder, so its target keeps its name too.
 pub(crate) fn kept_common_files(
     copies: &[(String, String)],
     identity: &Identity,

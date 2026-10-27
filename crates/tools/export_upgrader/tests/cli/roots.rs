@@ -1,5 +1,5 @@
-//! Team identity and the root files (the plan's "Team identity and root
-//! files" scenarios): the Note's `Team:` line first, the export name's first
+//! Team identity and the root files (the `spec/export_upgrader.md` "Team identity and root files"
+//! scenarios): the Note's `Team:` line first, the export name's first
 //! word as the fallback.
 
 use std::fs;

@@ -1,4 +1,4 @@
-//! `upgrade`'s input forms (the plan's "Input" scenarios): a folder, a `.zip`
+//! `upgrade`'s input forms (the `spec/export_upgrader.md` "Input" scenarios): a folder, a `.zip`
 //! or a `.7z`, the AET page's one-main-folder packing, and the no-old-export
 //! refusal.
 
@@ -60,7 +60,7 @@ fn the_three_input_forms_upgrade_the_same() {
         "{}",
         stdout[0]
     );
-    // The Note's kit entries give kits without configs (6.3b).
+    // The Note's kit entries give kits without configs.
     assert!(
         stdout[0].contains("- co Spring: Warning kit_without_config at co Note.txt (slot=p1)"),
         "{}",

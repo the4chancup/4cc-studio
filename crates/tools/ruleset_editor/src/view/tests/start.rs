@@ -83,9 +83,9 @@ fn the_recent_files_list_the_later_open_first_and_skip_a_deleted_file() {
     assert!(drawn(&frame.nodes, "first.4ccrules"));
 }
 
-/// The rail's labels in the plan's order, `Custom checks` when the
-/// document has them — spelled out so a swapped constant fails here
-/// too.
+/// The rail's labels in the order the rail shows them, `Custom checks`
+/// when the document has them. They are spelled out, not read from
+/// `Section::RAIL`, so a swapped constant fails here too.
 fn rail_expected(custom_checks: bool) -> Vec<String> {
     [
         "General",

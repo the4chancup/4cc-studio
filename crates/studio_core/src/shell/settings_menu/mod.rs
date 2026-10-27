@@ -1,5 +1,5 @@
-//! The settings menu (core plan, "Settings menu"; draft `docs/prototypes/index.html`):
-//! an `egui::Modal` the sidebar's gear opens, as does a notice's
+//! The settings menu, as the draft `docs/prototypes/index.html` draws it: an `egui::Modal`
+//! the sidebar's gear opens, as does a notice's
 //! `ActionEffect::OpenSettings`. It holds the common grid every tool shares — one row
 //! per `CommonSettings` field a member edits, in the draft's order and wording — then
 //! one `CollapsingHeader` per registered tool that has settings, its body the tool's
@@ -78,7 +78,7 @@ impl SettingsMenu {
     }
 
     /// Closes the menu without a click: a held window close makes the holder's prompt the
-    /// view, and the menu's modal must not cover it (gui.md "Cancellation").
+    /// view, and the menu's modal must not cover it.
     pub(super) fn close(&mut self) {
         self.open = false;
     }
@@ -341,8 +341,8 @@ impl SettingsMenu {
                 ui.end_row();
 
                 // The update check's two rows wait for the updater that reads the
-                // keys (Release 0.2.0; DECISIONS.md 2026-10-25): drawn
-                // now, a checkbox a member switches off would change nothing.
+                // keys. Drawn now, a checkbox a member switches off would change
+                // nothing.
             });
         if changed {
             ctx.settings().lock().unwrap().common = common;

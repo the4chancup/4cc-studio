@@ -1,5 +1,5 @@
-//! The carried folders `Portraits/`, `Collars/` and `Logo/` (the plan's
-//! "Portraits, logo, models and Common" scenarios): the portrait rename
+//! The carried folders `Portraits/`, `Collars/` and `Logo/` (the
+//! `spec/export_upgrader.md` "Portraits, logo, models and Common" scenarios): the portrait rename
 //! and its face-folder conflict check, collars as they are, and the logo
 //! members' root files and their downscale-or-drawing test.
 

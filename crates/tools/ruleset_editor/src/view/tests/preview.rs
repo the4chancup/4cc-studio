@@ -1,7 +1,6 @@
 //! The data-block preview: **Show preview** draws the block read-only,
 //! and the last recorded edit's changed lines are the view's `changed`
-//! set (the plan's preview paragraph; the highlight's own scenario is a
-//! later build's).
+//! set. The highlight's own scenario waits for a later build.
 
 use super::*;
 

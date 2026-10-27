@@ -22,8 +22,8 @@ pub(crate) const INPUT: ExportId = ExportId(1);
 pub(crate) const OUTPUT: ExportId = ExportId(2);
 
 /// The codes the tool reports itself. `team_name_unknown` and
-/// `source_read_failed` are shared with the structure pass's `ISSUE_CODES`
-/// (the plan's catalog takes the compiler's codes), so they live in
+/// `source_read_failed` are shared with the structure pass's `ISSUE_CODES`:
+/// the catalog reuses the compiler's codes for them. So they live in
 /// `CATALOG`'s issue rows and are emitted by string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Code {

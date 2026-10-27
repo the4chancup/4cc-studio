@@ -1,6 +1,6 @@
 //! The tool plugin interface. Tools are compile-time plugins: each tool crate implements
-//! `StudioTool`, and the `studio` binary registers them in a static list (core plan, "Tool plugin
-//! interface"). `ToolContext` is the tool's one handle on the platform: settings, the event sink,
+//! `StudioTool`, and the `studio` binary registers them in a static list. `ToolContext` is the
+//! tool's one handle on the platform: settings, the event sink,
 //! and requests to the shell (switch tool, notify).
 
 use std::fmt;
@@ -71,12 +71,12 @@ pub trait StudioTool {
     }
 
     /// Called when the window's close is requested, in sidebar order until one tool returns
-    /// `true` (gui.md "Cancellation"): a tool with unsaved work or a run in flight returns
-    /// `true` and opens its own prompt in its view, which the shell makes the active one; the
-    /// tools after it are not asked. The prompt answers by calling
-    /// `ToolContext::request_close` — the work saved or discarded, or the run ended after the
-    /// member chose to close once it ends — or by doing nothing, which keeps the window and
-    /// ends the close. Default: nothing holds the close.
+    /// `true`. A tool with unsaved work or a run in flight returns `true` and opens its own
+    /// prompt in its view, which the shell makes the active one; the tools after it are not
+    /// asked. The prompt answers by calling `ToolContext::request_close` once the work is
+    /// saved or discarded, or once the run has ended after the member chose to close when it
+    /// ends. Or it does nothing, which keeps the window and ends the close. Default: nothing
+    /// holds the close.
     fn hold_close(&mut self) -> bool {
         false
     }
@@ -95,7 +95,7 @@ pub trait StudioTool {
     }
 }
 
-/// A suite tool a build does not register (core plan, "Tool plugin interface"). `studio` keeps
+/// A suite tool a build does not register. `studio` keeps
 /// the full registry as data and hands it to the shell, which lists every entry whose `id` no
 /// registered tool has, grayed after the registered ones, as the roadmap.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -129,8 +129,8 @@ impl CliError {
     }
 }
 
-/// The base folders relative path settings resolve against (`team_compiler/settings.md`
-/// "Path resolution").
+/// The base folders relative path settings resolve against
+/// (spec/team_compiler/settings.md "Path resolution").
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppPaths {
     /// The folder holding the executable.
@@ -155,7 +155,7 @@ pub enum ShellRequest {
     Close,
 }
 
-/// The GUI's repaint waker (`gui.md` "Event wiring"): `run_gui` installs
+/// The GUI's repaint waker: `run_gui` installs
 /// `egui::Context::request_repaint_after` once the window exists, so a run's `emit` or a tool's
 /// own deadline reaches a frame while no input arrives. egui stays out of this type, which the
 /// CLI never fills.
@@ -216,8 +216,8 @@ impl ToolContext {
         &self.paths
     }
 
-    /// Sets the data directory the first-run dialog's choice wrote (distribution.md "Data
-    /// location"). Crate-private, called once by the shell before any tool's `view` has
+    /// Sets the data directory the first-run dialog's choice wrote. Crate-private, called
+    /// once by the shell before any tool's `view` has
     /// run: `paths` is a per-clone copy, so a `ToolContext` cloned earlier (a run's
     /// `with_events` sink) keeps the copy it was made with. The browser build asks no
     /// data-location question and has no caller for it.
@@ -297,16 +297,16 @@ impl ToolContext {
         self.request(ShellRequest::Notify(notice));
     }
 
-    /// Asks the shell to open the help window at `target` (gui.md "Help window",
-    /// "Opening"): the way a tool's view opens it, a log line's message-code link
-    /// being the case it exists for. The shell closes a modal first, so it cannot
+    /// Asks the shell to open the help window at `target`: the way a tool's view opens
+    /// it, a log line's message-code link being the case it exists for. The shell
+    /// closes a modal first, so it cannot
     /// cover the window. The send wakes the GUI, as every request does.
     pub fn open_help(&self, target: HelpTarget) {
         self.request(ShellRequest::OpenHelp(target));
     }
 
-    /// Asks the shell to close the window: the way a tool's close prompt answers (gui.md
-    /// "Cancellation"). The close goes back through the window's own close path, so the
+    /// Asks the shell to close the window: the way a tool's close prompt answers. The close
+    /// goes back through the window's own close path, so the
     /// tools are asked again and another one may still hold. The send wakes the GUI, as
     /// every request does.
     pub fn request_close(&self) {

@@ -1,8 +1,8 @@
 //! `ruleset` as readable rules text (Markdown): the Summary section's
-//! text and `ruleset-editor summary`'s output
-//! (`plans/ruleset_editor.md` "The editor", the Summary bullet; the
-//! wording's source is `docs/prototypes/tools/ruleset_editor.js` "Readable
-//! rules").
+//! text and `ruleset-editor summary`'s output. An organizer copies it to
+//! post an invitational's rules, and two summaries diffed in any text tool
+//! compare two rulesets. The wording is the draft's,
+//! `docs/prototypes/tools/ruleset_editor.js` "Readable rules".
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Display;
@@ -16,9 +16,8 @@ fn section(title: &str) -> Vec<String> {
     vec![String::new(), format!("## {title}")]
 }
 
-/// `ruleset` as readable rules text, Markdown (`plans/ruleset_editor.md`
-/// "The editor", the Summary bullet): the draft's wording, ending with
-/// one newline.
+/// `ruleset` as readable rules text, Markdown: the draft's wording, ending
+/// with one newline.
 pub(crate) fn summary(ruleset: &Ruleset) -> String {
     let mut lines = header_lines(ruleset);
     lines.extend(tier_lines(ruleset));

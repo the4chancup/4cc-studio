@@ -1,6 +1,7 @@
-//! The team's roster as the save records it (step 2): each rostered player's
-//! display name and, for 6.2b, his worn boots and gloves IDs, and his player
-//! ID for step 8's record read.
+//! The team's roster as the save records it: each rostered player's display
+//! name, his worn boots and gloves IDs for pairing the item folders with
+//! their wearers, and his player ID for reading his record when
+//! `settings.toml` is generated.
 
 use std::collections::BTreeMap;
 

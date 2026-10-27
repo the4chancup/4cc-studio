@@ -1,4 +1,4 @@
-//! The status bar's typed items (core plan, "Status bar"). Three slots, one item kind each; tools
+//! The status bar's typed items. Three slots, one item kind each; tools
 //! cannot draw into the bar, they return a `ToolActivity` and publish `Notice`s. Conditions are
 //! the shell's alone. There is no free-text status API, on purpose.
 
@@ -91,7 +91,7 @@ pub struct Notice {
     pub action: Option<NoticeAction>,
 }
 
-/// How a notice's text is coloured (core plan, "Status bar": a notice is seen, not found).
+/// How a notice's text is coloured: a notice is seen, not found.
 /// There is no `Default`: the publisher knows which reading fits its event.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NoticeKind {

@@ -1,22 +1,23 @@
-//! Steps 9 and 12's referee export (`spec/export_upgrader.md` steps 9 and
-//! 12, `DECISIONS.md` 2026-10-18 "steps 9 and 12's gaps…"): `refs.txt`
-//! rewritten as the root `players.txt` in the canonical grammar, the root
-//! files, and each referee folder under `Players/` with the old layout's
-//! `face/`, `boots/`, `gloves/` and `common/` subfolders folded into its root:
+//! The referee export (spec/export_upgrader.md "Migrates referee exports",
+//! "Flattens the AET referee layout's subfolders"): `refs.txt` rewritten as
+//! the root `players.txt` in the canonical grammar, the root files, and each
+//! referee folder under `Players/` with the old layout's `face/`, `boots/`,
+//! `gloves/` and `common/` subfolders folded into its root:
 //!
 //! - a file of one of the four lands at its path below it (`face/kit/x.dds`
 //!   becomes `kit/x.dds`), every other file stays where it is;
 //! - one of the four names again inside one of them (`face/face/`) is the
 //!   refused layout once more: reported, the folder left as it was;
 //! - either `ingame_face` spelling that lands at the root becomes the one
-//!   `ingame_face.toml`, as for a team's player folder (step 9);
+//!   `ingame_face.toml`, as for a team's player folder;
 //! - a `common/` model no `face.xml` of the folder names is reported and left
-//!   out (decision (4));
+//!   out: a `face.xml` `path` is the only reference that names a model;
 //! - one name in two locations is copied once when the bytes agree and is a
-//!   clash otherwise, as is one texture stem from two locations (decision
-//!   (5)): a clash leaves the folder as it was;
-//! - a folder left as it was is copied at its old paths, out of step 7's
-//!   renames and rewrites (`PlayerFolders::untouched`, decision (3)).
+//!   clash otherwise, as is one texture stem from two locations; a clash
+//!   leaves the folder as it was;
+//! - a folder left as it was is copied at its old paths, out of the model
+//!   renames and reference rewrites (`PlayerFolders::untouched`), so the
+//!   folder the author repairs by hand still shows what the report named.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -502,7 +503,7 @@ mod tests {
         })
     }
 
-    /// `pairs` as owned (input, output) pairs, for comparing with a plan's.
+    /// `pairs` as owned (input, output) pairs, for comparing with `PlayerFolders::copies`.
     fn pairs(pairs: &[(&str, &str)]) -> Vec<(String, String)> {
         pairs
             .iter()

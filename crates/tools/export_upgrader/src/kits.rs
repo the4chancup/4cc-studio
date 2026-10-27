@@ -1,14 +1,16 @@
-//! Step 5's `Kit Configs/` and `Kit Textures/` folders into `Kits/`
-//! (`spec/export_upgrader.md` step 5, `DECISIONS.md` 2026-10-18 "the kit
-//! configs' and kit textures' rules of 6.3a", "the Note's kit entries'
-//! grammar and the two kit Warnings of 6.3b" and "the kit-texture copy
-//! covers every field naming another texture"): every config becomes its
-//! kit folder's `config.toml` (its texture-name fields dropped — the
-//! compiler re-derives them from the textures present, its undecoded bits
-//! kept in the `[unknown]` table), every kit texture lands in its kit's
-//! folder under the generic `kit` name, the Note's kit entries give each
-//! kit its `colors.txt` and icon, a field naming another texture gives the
-//! kit a copy of it, and a texture every kit shares moves to `Kits/all/`.
+//! The `Kit Configs/` and `Kit Textures/` folders moved into `Kits/`
+//! (spec/export_upgrader.md "Restructures kits"):
+//!
+//! - every config becomes its kit folder's `config.toml`, its undecoded bits
+//!   kept in the `[unknown]` table. Its texture-name fields are dropped: the
+//!   compiler re-derives them from the textures present;
+//! - every kit texture lands in its kit's folder under the generic `kit` name;
+//! - the Note's kit entries give each kit its `colors.txt` and icon;
+//! - a field naming another texture gives the kit a copy of it, since the
+//!   compiler derives each field from its own stem's file and the field
+//!   would otherwise compile blank;
+//! - a texture every kit shares moves to `Kits/all/`.
+//!
 //! What never reached the game lands in `leftovers` and is reported
 //! `leftover_dropped`, the run clean; what cannot be placed is left for the
 //! run's fallback to report as unmigrated content.
@@ -647,12 +649,12 @@ pub(crate) fn kit_folders(
         }
     }
 
-    // The hoist (step 5): with two kit folders or more — every slot the plan
-    // writes into, plus the empty `p1` a Full export gains when no player
-    // kit is written and the empty `g1` when no `g1` is — a texture every
-    // kit folder holds with byte-identical contents moves to `Kits/all/`
-    // under the first kit's spelling, its per-kit copies dropped from the
-    // plan.
+    // The hoist. The kit folders are every slot `KitFolders` writes into,
+    // plus the empty `p1` a Full export gains when no player kit is written
+    // and the empty `g1` when no `g1` is. With two of them or more, a texture
+    // every kit folder holds with byte-identical contents moves to
+    // `Kits/all/` under the first kit's spelling, its per-kit copies dropped
+    // from `KitFolders`.
     let mut kits: BTreeSet<KitSlot> = BTreeSet::new();
     for output in folders
         .written

@@ -1,5 +1,5 @@
-//! The Ruleset editor's window (`plans/ruleset_editor.md` "The editor"):
-//! with no document the start page (`start`); with one, the toolbar over
+//! The Ruleset editor's window: with no document the start page
+//! (`start`); with one, the toolbar over
 //! the section rail (`rail`), the section forms (`sections`) and the
 //! optional data-block preview (`preview`), the bottom status bar, the
 //! logic banners and the unsaved-changes prompt (`prompt`). The forms
@@ -37,12 +37,13 @@ pub(crate) struct RulesetView {
     /// The drawn section.
     pub(crate) section: Section,
     /// The **Show preview** toggle at the toolbar's right: a plain
-    /// field, never written to settings — off at every start (the
-    /// plan's rail-and-preview paragraph).
+    /// field, never written to settings, so off at every start. Open
+    /// beside the form, the preview leaves the sections a third of the
+    /// window, and it is a check on the form, not where the work happens.
     pub(crate) show_preview: bool,
     /// The document as the gesture in flight began, taken at its first
     /// write inside the section form; sealing a changed one pushes the
-    /// undo snapshot (the plan's undo paragraph).
+    /// undo snapshot.
     pending: Option<Snapshot>,
     /// The widget holding the keyboard at the last frame's end (the
     /// Save editor's `focused`): its loss seals the widget's gesture.
@@ -423,8 +424,8 @@ fn read_settings(ctx: &ToolContext) -> RulesetEditorSettings {
 }
 
 /// `path` into the recent files and `last_folder`, written back through
-/// `set_tool_settings` after every open and save (the plan's
-/// "Settings"). The two keys are written into the table as read, so a
+/// `set_tool_settings` after every open and save. The two keys are written
+/// into the table as read, so a
 /// key this version does not know survives (`spec/core/gui.md`
 /// "Settings menu"). A table that fails to read is not overwritten: the
 /// recent files it may hold would be emptied, so the write is skipped
@@ -612,8 +613,8 @@ fn history_step(view: &mut RulesetView, step: fn(&mut Document) -> bool) {
     }
 }
 
-/// The logic banners under the toolbar (the plan's "Opening and
-/// saving"): the file's own code kept, or an older official one with
+/// The logic banners under the toolbar: the file's own code kept, or an
+/// older official one with
 /// **Update logic**.
 fn banners(ui: &mut egui::Ui, view: &mut RulesetView) {
     let Some(document) = view.document.as_mut() else {
@@ -732,10 +733,10 @@ fn dialog(ui: &mut egui::Ui, view: &mut RulesetView) {
     }
 }
 
-/// One undo entry per gesture (the plan's undo paragraph, the Save
-/// editor's sealing): the pre-gesture snapshot `edit` took is recorded
-/// when the gesture ends — the pointer up with no widget holding the
-/// keyboard, or the focused widget losing it. A `None` to `Some` focus
+/// One undo entry per gesture, sealed as the Save editor seals its own:
+/// the pre-gesture snapshot `edit` took is recorded when the gesture ends,
+/// on the pointer up with no widget holding the keyboard, or when the
+/// focused widget loses it. A `None` to `Some` focus
 /// move never seals.
 fn seal_gesture(ui: &mut egui::Ui, view: &mut RulesetView) {
     let focused = ui.ctx().memory(|memory| memory.focused());

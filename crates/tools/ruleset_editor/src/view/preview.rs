@@ -1,5 +1,5 @@
-//! The data-block preview (`plans/ruleset_editor.md` "The editor"): the
-//! ruleset's `to_data_block()` in monospace, read-only, the lines the
+//! The data-block preview: the ruleset's `to_data_block()` in monospace,
+//! read-only, the lines the
 //! last edit changed highlighted (the draft's `refresh`).
 
 use crate::view::RulesetView;

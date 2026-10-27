@@ -44,8 +44,7 @@ pub(crate) struct Snapshot {
     pub(crate) logic: Logic,
 }
 
-/// The undo stacks: snapshots (a ruleset is a few kilobytes,
-/// `plans/ruleset_editor.md` "The editor", the undo paragraph).
+/// The undo stacks: whole snapshots, since a ruleset is a few kilobytes.
 #[derive(Debug, Default)]
 pub(crate) struct History {
     /// The snapshots undone to the oldest, newest on top.
@@ -123,8 +122,8 @@ pub(crate) enum SaveError {
 }
 
 impl Document {
-    /// A document for a template or Blank (`plans/ruleset_editor.md` "The
-    /// editor"): no path, the current logic, no custom checks, unsaved.
+    /// A document for a template or Blank: no path, the current logic, no
+    /// custom checks, unsaved.
     pub(crate) fn new(ruleset: Ruleset) -> Document {
         Document {
             path: None,
@@ -287,8 +286,7 @@ pub(crate) fn tier(id: &str, label: &str, count: Option<u8>, rate: u8) -> Tier {
     }
 }
 
-/// The start page's Blank ruleset (`plans/ruleset_editor.md` "The editor",
-/// the start page paragraph): "New ruleset", squad 23, Autumn 26's rating
+/// The start page's Blank ruleset: "New ruleset", squad 23, Autumn 26's rating
 /// and at-most stats, one `regular` tier (the rest of the squad, rate 75,
 /// form 4, injury resistance 1, weak foot 2 and 2, 3 paid cards, 1 A
 /// position), no brackets, no specials, and the universal rules on.
@@ -716,7 +714,7 @@ mod tests {
         assert!(doc.is_dirty(), "updated again");
     }
 
-    /// Blank is the plan's paragraph exactly.
+    /// Blank holds exactly the values `blank`'s doc comment lists.
     #[test]
     fn blank_is_the_plans_blank_ruleset() {
         let blank = blank();

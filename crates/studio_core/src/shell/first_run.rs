@@ -1,8 +1,8 @@
-//! The first-run dialog (core plan, `distribution.md` "Data location: asked on first
-//! run"; draft `docs/prototypes/index.html`): a modal with no Cancel that asks where
-//! settings and data live, drawn instead of any other window while the app has no
-//! data directory — the choice is needed to start. The browser build never asks (it
-//! persists to browser storage), so there `FirstRun` is a stub that is never up.
+//! The first-run dialog, as the draft `docs/prototypes/index.html` draws it: a modal with no
+//! Cancel that asks where settings and data live (spec/core/distribution.md "Data location").
+//! It is drawn instead of any other window while the app has no data directory: the choice is
+//! needed to start. The browser build never asks, since it persists to browser storage, so
+//! there `FirstRun` is a stub that is never up.
 
 use std::path::PathBuf;
 
@@ -280,7 +280,7 @@ mod tests {
     }
 
     // A location that cannot be written keeps the dialog open with the error, so the
-    // member picks the other (distribution.md "Data location"). The exe path is a
+    // member picks the other. The exe path is a
     // regular file, so `<exe>/data` cannot be created on any platform.
     #[test]
     fn a_failed_write_keeps_the_dialog_open_with_the_error() {

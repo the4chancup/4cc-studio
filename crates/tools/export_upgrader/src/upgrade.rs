@@ -79,7 +79,7 @@ pub(crate) fn resolve_input(path: &Path) -> Result<PathBuf, CliError> {
     Ok(resolved)
 }
 
-/// The run's verdict (the plan's "Message catalog"): `migration_clean` and
+/// The run's verdict: `migration_clean` and
 /// exit 0 when no finding is an Error or Fatal and no finding drops anything
 /// but a leftover; `migration_not_clean` and exit 1 otherwise, a Warning that
 /// drops a folder included, since the compile would lose it.
@@ -331,8 +331,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             Ok(bytes) => Some(note::text(&bytes)),
             Err(failure) => {
                 // The Note decides the team: its failure stops the run with
-                // nothing written (DECISIONS 2026-10-18 "the first slice's
-                // review and the face-folder rules of 6.2a" (2)).
+                // nothing written.
                 events.message(read_failed(INPUT, failure, Disposition::DropExport));
                 events.processed(INPUT);
                 return Ok(ERRORS);
@@ -606,12 +605,13 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         }
     };
     let mut carried = carried_files(&files, &plan.portraits, |path| export.read(path));
-    // The kit magic respells the plans' output names, then step 7's model
-    // renames apply (`kept` the `Common/` names a member `face.xml` or an
-    // xml folder's link spells, computed from the respelled plan copies;
-    // both plans renamed in one call, so a link sees its `Common/` target's
-    // rename); a path another already takes is the later input's, reported,
-    // its finding following the plan's own.
+    // The kit magic respells the output names of the player folders' and the
+    // carried files' copies, then the model renames apply. `kept` holds the
+    // `Common/` names a member `face.xml` or an xml folder's link spells,
+    // computed from the respelled player-folder copies. Both lists are
+    // renamed in one call, so a link sees its `Common/` target's rename. A
+    // path another already takes is the later input's and is reported, the
+    // finding joining its own list's findings.
     let plan_copies = respell_outputs(std::mem::take(&mut plan.copies), &identity);
     let kept = kept_common_files(&plan_copies, &identity, |path| export.read(path));
     let plan_len = plan_copies.len();
@@ -673,9 +673,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         match export.read(from) {
             Ok(bytes) => write_output_file(&staging, to, &bytes)?,
             Err(failure) => {
-                // One file's failure does not cost the rest (DECISIONS
-                // 2026-10-18 "the first slice's review and the face-folder
-                // rules of 6.2a" (2)).
+                // One file's failure does not cost the rest.
                 events.message(read_failed(INPUT, failure, Disposition::DropFile));
             }
         }
@@ -1007,10 +1005,9 @@ pub(crate) fn output_issues(
     let context = ValidationContext {
         version,
         // On, as the compiler's default has it: a file type no step
-        // expected stops the run rather than being written, the output the
-        // clean export a clean run promises ("Verification"; DECISIONS
-        // 2026-10-19 "the output's validation runs with the strict
-        // file-type check").
+        // expected stops the run rather than being written. Off, the output
+        // was written and the compile then refused the player's folder, so
+        // it was not the clean export a clean run promises.
         strict_file_type_check: true,
         pass_through: false,
         installed_common_textures: BTreeSet::new(),
@@ -1095,8 +1092,7 @@ mod tests {
     fn a_warning_finding_that_drops_something_is_not_clean() {
         // The verdict's "nothing dropped" half sees the tool's own findings
         // too: a finding below Error that drops a folder still refuses
-        // `migration_clean` (DECISIONS 2026-10-18 "its own input read, and
-        // the gaps the first slice meets" (7)).
+        // `migration_clean`, since the compile would lose the folder.
         let (ctx, _events_rx) = test_ctx();
         let mut events = RunEvents::new(&ctx);
         assert!(!events.dropped());
@@ -1323,8 +1319,7 @@ mod tests {
     fn a_disallowed_file_type_drops_its_folder_in_the_output_validation() {
         // The output's check runs with the strict file-type check on, as the
         // compiler's default has it: a disallowed file refuses the folder and
-        // stops the run ("Verification"; DECISIONS 2026-10-19 "the output's
-        // validation runs with the strict file-type check").
+        // stops the run.
         let output = scratch("output_issues_strict");
         fs::create_dir_all(output.join("Players/03 - A")).unwrap();
         fs::write(output.join("Players/03 - A/readme.doc"), b"x").unwrap();

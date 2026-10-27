@@ -1,5 +1,4 @@
-//! Argument parsing for the launch modes (core plan, "Launch modes"; `gui.md` "Help window"
-//! "CLI equivalence"):
+//! Argument parsing for the launch modes:
 //!
 //! | Invocation | Mode |
 //! |---|---|
@@ -31,7 +30,7 @@ pub struct Launch {
     /// How the binary was started.
     pub mode: LaunchMode,
     /// Diagnostic verbosity: `0` warnings only, `1` (`-v`) info, `2` (`-vv`) debug, more is trace.
-    /// `RUST_LOG`, when set, overrides it (core plan, "Diagnostic logging").
+    /// `RUST_LOG`, when set, overrides it.
     pub verbosity: u8,
 }
 
@@ -60,7 +59,8 @@ pub enum LaunchMode {
         chapter: Option<String>,
         /// A topic slug within the chapter; `None` prints the whole chapter.
         topic: Option<String>,
-        /// `--export`: write every chapter as `<id>.md` under this folder instead of printing.
+        /// `--export`: write every chapter under this folder, as a Markdown file named by its
+        /// id, instead of printing.
         export: Option<PathBuf>,
     },
 }

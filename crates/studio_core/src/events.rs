@@ -3,11 +3,10 @@
 //!
 //! The CLI prints events as console lines; the GUI turns them into grid cells and log lines. Every
 //! event travels in a `PipelineEventEnvelope`, whose run and revision ids let the GUI drop results
-//! from a run or a filesystem snapshot that is no longer current (core plan, "Event system").
+//! from a run or a filesystem snapshot that is no longer current.
 //!
-//! `EventLines` is the console's line format (core plan, "Event system", "CLI translates
-//! events"), used by the `studio` binary's printer and by a tool's plain run log, so a finding
-//! reads the same in the terminal and in the window.
+//! `EventLines` is the console's line format. The `studio` binary's printer and a tool's plain
+//! run log both use it, so a finding reads the same in the terminal and in the window.
 
 use std::borrow::Cow;
 use std::collections::HashMap;

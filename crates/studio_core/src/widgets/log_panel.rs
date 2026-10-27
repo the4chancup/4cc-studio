@@ -1,9 +1,9 @@
-//! The log panel (core plan, "Log panel"; the draft `docs/prototypes/index.html`'s
-//! `logPanel`): a `BottomDock` titled `Log` holding a run's lines — the newest
-//! `LOG_CAP` of them, colored by severity, filterable, stuck to the bottom until the
-//! member scrolls up — each finding's message code a link to its row in the help.
-//! The other half of the draft's cross-linking, a line click highlighting its grid
-//! cell, waits for the grid itself (worklog 8.10): only the code is clickable here.
+//! The log panel, the draft `docs/prototypes/index.html`'s `logPanel`: a `BottomDock`
+//! titled `Log` holding a run's newest `LOG_CAP` lines. They are colored by severity,
+//! filterable, and stuck to the bottom until the member scrolls up; each finding's
+//! message code links to its row in the help. The other half of the draft's
+//! cross-linking, a line click highlighting its grid cell, waits for the grid itself:
+//! only the code is clickable here.
 
 use std::cell::Cell;
 
@@ -105,9 +105,8 @@ struct Follow {
 /// filter and the follow state. The lines live with the tool.
 pub struct LogPanel {
     dock: BottomDock,
-    /// The body scroll area's salt, derived from the dock's: two tools' panels keep
-    /// their scroll and dock heights apart (the Export upgrader's own log, worklog
-    /// 8.10).
+    /// The body scroll area's salt, derived from the dock's, so two tools' panels keep
+    /// their scroll and dock heights apart: the Export upgrader has a log of its own.
     salt: egui::Id,
     filter: Filter,
     follow: Follow,

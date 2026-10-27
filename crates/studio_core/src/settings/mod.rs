@@ -1,7 +1,7 @@
 //! The settings framework: one TOML file holding the common settings under `[common]` and one
 //! table per tool under its id (`[team-compiler]`). Loading fills missing common keys with their
 //! defaults; each tool's `default_settings()` is merged into its table the same way, which is what
-//! carries settings across versions without a migration step (core plan, "Settings menu").
+//! carries settings across versions without a migration step.
 //!
 //! Saving is the caller's policy: this module writes the file and reports failure; the shell
 //! keeps the in-memory settings and raises the `data_dir_read_only` condition.
@@ -84,8 +84,8 @@ impl Settings {
     /// over `path`, so a failure mid-write never leaves a truncated file behind, and two saves
     /// at once (two Studio processes, the GUI open while `quick_compile.bat` starts another; or
     /// two threads of one) never share a temporary file. An existing file is edited in place:
-    /// a save moves only the values that changed (gui.md "Settings menu", the best-effort
-    /// bullet), so comments, blank lines and key order written by hand survive.
+    /// a save moves only the values that changed, so comments, blank lines and key order
+    /// written by hand survive.
     pub fn save(&self, path: &Path) -> io::Result<()> {
         static SAVE_COUNTER: AtomicU64 = AtomicU64::new(0);
         let desired = self.to_table().map_err(io::Error::other)?;
@@ -339,8 +339,8 @@ mod tests {
         fs::remove_dir_all(&dir).unwrap();
     }
 
-    // A save edits the file in place (gui.md "Settings menu", the best-effort bullet):
-    // hand-written comments, blank lines and key order survive a `last_tool` save.
+    // A save edits the file in place: hand-written comments, blank lines and key order survive
+    // a `last_tool` save.
     #[test]
     fn save_edits_in_place_and_only_the_changed_line_moves() {
         let dir = test_dir("studio_core_settings_inplace");

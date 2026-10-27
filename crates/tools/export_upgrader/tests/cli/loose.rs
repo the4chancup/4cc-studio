@@ -1,4 +1,4 @@
-//! Loose mode (the plan's step 11, the EU-LOOSE scenarios): no savefile, so
+//! Loose mode (the `spec/export_upgrader.md` "Loose mode" scenarios): no savefile, so
 //! each item folder's wearer is the player at its ID's position in the team's
 //! old block of 25 IDs, the block its kind's lowest ID falls in, and each
 //! assumed pairing is reported.

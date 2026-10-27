@@ -1,4 +1,4 @@
-//! The report's own rules (the plan's step 10, the EU-REP scenarios): every
+//! The report's own rules (the `spec/export_upgrader.md` "Report" scenarios): every
 //! entry no step migrates is named as unmigrated content and the output
 //! written without it, and a migration needing no manual attention ends
 //! clean.

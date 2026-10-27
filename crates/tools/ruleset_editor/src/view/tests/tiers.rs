@@ -746,8 +746,7 @@ fn removing_a_tier_drops_its_medal_keys() {
     );
 }
 
-/// An "own target" checkbox adds and removes the stat's `stats` entry
-/// (`DECISIONS.md` 2026-10-24).
+/// An "own target" checkbox adds and removes the stat's `stats` entry.
 #[test]
 fn a_per_stat_checkbox_adds_and_removes_the_stats_entry() {
     let (ctx, _events, mut window, mut view) = tiers_view(crate::document::blank(), false);
@@ -781,8 +780,8 @@ fn a_per_stat_checkbox_adds_and_removes_the_stats_entry() {
     );
 }
 
-/// A free-cards count set to 0 removes the group's `free` entry
-/// (`DECISIONS.md` 2026-10-24).
+/// A free-cards count set to 0 removes the group's `free` entry: a count of
+/// 0 and no entry give a player the same cards.
 #[test]
 fn a_free_count_of_zero_removes_the_groups_entry() {
     let (ctx, _events, mut window, mut view) =

@@ -1,5 +1,5 @@
-//! The widgets several tools' views share (core plan, "Shell layout", "Crate
-//! structure"): `BottomDock`, the collapsible bottom panel's frame, `LogPanel`,
+//! The widgets several tools' views share: `BottomDock`, the collapsible bottom
+//! panel's frame, `LogPanel`,
 //! the run log drawn in it, and the settings rows (`settings_row`) the menu's
 //! sections share. Where they sit in a tool's view is that tool's choice;
 //! the widgets themselves know no tool.

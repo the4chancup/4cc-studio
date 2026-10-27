@@ -1,4 +1,4 @@
-//! The command line's own rules (the plan's "CLI" scenarios): the output
+//! The command line's own rules (the `spec/export_upgrader.md` "CLI" scenarios): the output
 //! name's tag, `-o`, the flag and path refusals, and the exit codes.
 
 use std::fs;

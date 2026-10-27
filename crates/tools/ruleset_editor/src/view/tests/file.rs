@@ -274,8 +274,8 @@ fn a_second_document_gets_a_fresh_widget_salt() {
     assert_ne!(view.generation, first, "the id salt differs per document");
 }
 
-// plans/ruleset_editor.md "Settings": a table this build cannot read is
-// not written over (its recent files stay as they were, not emptied).
+// A settings table this build cannot read is not written over: its recent
+// files stay as they were, not emptied.
 #[test]
 fn a_broken_settings_table_is_not_written_over() {
     let (_dir, path) = scratch_file("settings_broken", "rules.4ccrules");

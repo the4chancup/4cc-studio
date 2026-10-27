@@ -1,4 +1,4 @@
-//! Referee exports (the plan's "Referee exports" scenarios): `refs.txt`
+//! Referee exports (the `spec/export_upgrader.md` "Referee exports" scenarios): `refs.txt`
 //! rewritten as the root `players.txt`, `ref_marker.dds` carried, the referee
 //! folders under `Players/` copied with their old `face/`, `boots/`, `gloves/`
 //! and `common/` subfolders folded in, and a `refs` export without a roster

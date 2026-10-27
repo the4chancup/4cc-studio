@@ -1,5 +1,4 @@
-//! The common settings: what every tool shares (core plan, "Settings menu"; Team compiler plan,
-//! "Common settings").
+//! The common settings: what every tool shares.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -54,9 +53,8 @@ pub struct CommonSettings {
     pub skipped_version: Option<String>,
     /// The tool active when the GUI last closed; `studio` with no arguments reopens it.
     pub last_tool: Option<String>,
-    /// The main window class's last place (gui.md "Window size classes"), written when the
-    /// window closes; `None` until the first close, which opens the window fitted and
-    /// centered.
+    /// The main window class's last place, written when the window closes. `None` until the
+    /// first close: the window then opens fitted and centered.
     pub window_main: Option<WindowPlace>,
     /// The boots ID the FPC hide preset writes (the `fpc` crate's `HideIds`), an ID the
     /// game has no boots model for.
@@ -171,8 +169,11 @@ pub(crate) fn pes_folder_pattern(folder: &Path, version: PesVersion) -> String {
 /// A window's remembered place: its outer position in the screen's physical pixels, its
 /// inner size in points at zoom 1 (the pixels over the monitor's scale), the scale factor
 /// of the monitor it was on, and whether it was maximized, written in the settings file as
-/// `[x, y, width, height, scale, maximized]` (gui.md "Window size classes" says why each
-/// unit). The first five are the window's normal place even when it was maximized: the
+/// `[x, y, width, height, scale, maximized]`. The position is in pixels because a point is a
+/// different number of pixels on each monitor, and the OS places windows in pixels. The size
+/// is in points at zoom 1, the size a window keeps when the OS moves it to a monitor of
+/// another scale; zoomed points would reopen a window closed under the design width wider by
+/// the zoom. The first five are the window's normal place even when it was maximized: the
 /// place its restore button gives back.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 // Read as a list of any length so a record of five numbers, written before the sixth

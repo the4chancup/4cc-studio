@@ -2706,3 +2706,5 @@ worklog passed 7,000 lines.
   in and asked, the hook's timing and 2020 branch, the roster rules and writers moved to the shared crates, edge cases ruled.
 - **2026-10-27** — 0.0.1q closed (no flicker, the maintainer's eye); 0.0.1z1: the drafts take the app's sliders (blue handle and
   fill), Reset window, no team name on player rows, a positions label sets the registered position; the font trial gains three fits.
+- **2026-10-27** — 0.0.1cm3: the comments of `studio_core`, `export_upgrader` and `ruleset_editor` stand on their own (comment lines
+  only, each added reason checked against its source; tests, clippy, fmt green); 282 left for cm4.

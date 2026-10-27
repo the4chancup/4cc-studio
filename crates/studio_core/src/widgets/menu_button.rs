@@ -1,11 +1,10 @@
-//! The toolbars' menu button (core plan, "Other UI components", the "Menu
-//! buttons" row): egui's `menu_button`, its label ending in the drafts' arrow.
+//! The toolbars' menu button: egui's `menu_button`, its label ending in the
+//! drafts' arrow.
 
 /// A toolbar menu button: egui's `menu_button` with `label` followed by ` ⏷`
 /// (U+23F7, the symbols font's), as the drafts draw every menu button. egui
 /// draws an arrow only on a submenu's button, and the arrow is what tells a
-/// menu from a button (core plan "Other UI components", the "Menu buttons"
-/// row).
+/// menu from a button.
 pub fn menu_button<R>(
     ui: &mut egui::Ui,
     label: &str,

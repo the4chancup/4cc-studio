@@ -1,4 +1,4 @@
-//! The kit folders' migration into `Kits/` (the plan's "Kits" scenarios):
+//! The kit folders' migration into `Kits/` (the `spec/export_upgrader.md` "Kits" scenarios):
 //! every old binary config becomes its slot's `config.toml`, every kit
 //! texture lands under the generic `kit` name, and what cannot be placed is
 //! unmigrated content.

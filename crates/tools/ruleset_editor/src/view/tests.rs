@@ -1,9 +1,8 @@
-//! The headless-window tests of the view's scenarios
-//! (`plans/ruleset_editor.md` "Acceptance", the Phase 20 scope
-//! paragraph): one egui context with AccessKit on, run a frame at a
-//! time; what a frame draws is its AccessKit nodes, what the clipboard
-//! holds is its platform output, and a mark's colour is read back from
-//! the view state the frame paints from.
+//! The headless-window tests of the view's scenarios: one egui context
+//! with AccessKit on, run a frame at a time. What a frame draws is its
+//! AccessKit nodes, what the clipboard holds is its platform output, and a
+//! mark's colour, which no AccessKit node carries, is read back from the
+//! view state the frame paints from.
 
 mod custom_checks;
 mod file;

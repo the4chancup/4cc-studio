@@ -1,11 +1,11 @@
-//! Step 7's pre-Fox model renames (`spec/export_upgrader.md` step 7,
-//! `DECISIONS.md` 2026-10-18 "a pre-Fox leading type moves only when `_`
-//! follows it…"): the leading type the old export generated `face.xml`
-//! entries from moves to the stem's end (`gloveL_foo` → `foo_gloveL`) and a
-//! model's `oral_`/`_win32` wrappers drop (`oral_parts_body_win32` →
-//! `parts_body`), in `Common/` too, the `.mtl` matched against the
-//! unwrapped name following (`gloveL_foo.mtl` → `foo_gloveL.mtl`); a folder
-//! that ships its own `face.xml` keeps every name.
+//! The pre-Fox model renames. The leading type the old export generated
+//! `face.xml` entries from moves to the stem's end (`gloveL_foo` →
+//! `foo_gloveL`), only when `_` follows it: moving letters off a glued word
+//! would make a name nobody wrote. A model's `oral_`/`_win32` wrappers drop
+//! (`oral_parts_body_win32` → `parts_body`), in `Common/` too, and the
+//! `.mtl` matched against the unwrapped name follows (`gloveL_foo.mtl` →
+//! `foo_gloveL.mtl`). A folder that ships its own `face.xml` keeps every
+//! name.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -275,9 +275,9 @@ fn pair_hair_skeletons(copies: Vec<(String, String)>) -> Vec<(String, String)> {
         .collect()
 }
 
-/// What step 7 makes of the copies' output names (`spec/
-/// export_upgrader.md` step 7): below a `Players/<folder>/` holding no
-/// member `face.xml` (subfolders included), a shared `Boots/<name>/` or
+/// What the model renames make of the copies' output names. Below a
+/// `Players/<folder>/` holding no member `face.xml` (subfolders included),
+/// a shared `Boots/<name>/` or
 /// `Gloves/<name>/`, and below `Common/`, a `.model`
 /// is renamed by `renamed_stem` (its leading type moved last, its
 /// `oral_`/`_win32` wrappers off), a `.model.common` link follows its
@@ -287,7 +287,7 @@ fn pair_hair_skeletons(copies: Vec<(String, String)>) -> Vec<(String, String)> {
 /// in an xml folder names — and every other output keep their names; a
 /// folder shipping a `face.xml` keeps every name. `copies` holds the player
 /// and shared folders' outputs and `Common/`'s alike, so a link sees its
-/// target's rename. Before any of it, step 3's `fcl_hair_sim.skl` pairing
+/// target's rename. Before any of it, the `fcl_hair_sim.skl` pairing
 /// (`pair_hair_skeletons`) applies to every output folder alike.
 pub(crate) fn rename_models(
     copies: Vec<(String, String)>,

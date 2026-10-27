@@ -13,9 +13,9 @@ use crate::shell::test_harness::*;
 use crate::shell::{StudioApp, about, run_cli};
 use crate::tool::{AppPaths, PlannedTool};
 
-/// The overlay's inner width from the same formula the sidebar uses (gui.md
-/// "Sidebar" item 4): the icon cell, one `item_spacing.x` and the widest
-/// body-text galley over `labels`, measured with the context's fonts.
+/// The overlay's inner width from the same formula the sidebar uses: the icon cell,
+/// one `item_spacing.x` and the widest body-text galley over `labels`, measured with
+/// the context's fonts.
 fn overlay_inner_width(egui_ctx: &egui::Context, cell: f64, labels: &[&str]) -> f64 {
     let font = egui::TextStyle::Body.resolve(&egui_ctx.global_style());
     let widest = labels
@@ -319,8 +319,8 @@ fn the_rail_opens_the_sidebar_over_the_view_on_hover_and_closes_on_leave() {
     );
 }
 
-// ST-SIDE-02's popup rule (gui.md "Sidebar" item 4): the overlay stays open
-// while a popup it opened is open, and the popup survives the move.
+// ST-SIDE-02's popup rule: the overlay stays open while a popup it opened is
+// open, and the popup survives the move.
 #[test]
 fn the_version_popup_survives_the_overlay_opening_and_holds_it_open() {
     let Shell {
@@ -393,9 +393,9 @@ fn the_version_popup_survives_the_overlay_opening_and_holds_it_open() {
     assert!(!has_label(&nodes, "PES 2021"), "the popup is closed");
 }
 
-// ST-SIDE-02's keyboard rule (gui.md "Sidebar" item 4): while a sidebar widget
-// holds a focus the keyboard gave it, the overlay is open; a pointer click on
-// an entry gives no focus and keeps nothing open.
+// ST-SIDE-02's keyboard rule: while a sidebar widget holds a focus the keyboard
+// gave it, the overlay is open. A pointer click on an entry gives no focus and
+// keeps nothing open.
 #[test]
 fn the_overlay_opens_on_keyboard_focus_and_a_click_gives_none() {
     let Shell {
@@ -491,8 +491,7 @@ fn the_overlay_opens_on_keyboard_focus_and_a_click_gives_none() {
     );
 }
 
-// gui.md "Sidebar" item 4: the overlay is "as wide as the longest label needs
-// on one line".
+// The overlay is as wide as the longest label needs on one line.
 #[test]
 fn the_overlay_is_as_wide_as_the_longest_label_on_one_line() {
     let (a, calls_a) = stub("a", "A", None);
@@ -525,8 +524,8 @@ fn the_overlay_is_as_wide_as_the_longest_label_on_one_line() {
     );
 }
 
-// gui.md "Sidebar" item 3: a row is a plain row until it is hovered, pressed,
-// focused or active — an inactive, unhovered entry paints no button frame.
+// A row is a plain row until it is hovered, pressed, focused or active: an
+// inactive, unhovered entry paints no button frame.
 #[test]
 fn an_inactive_row_paints_no_background_until_it_is_touched() {
     let Shell { mut app, _dir, .. } = shell();
@@ -605,9 +604,8 @@ fn the_labels_are_painted_in_the_overlay_and_never_on_the_rail() {
     }
 }
 
-// gui.md "Sidebar" item 3's row: the icon centred in the icon cell, the label
-// starting one item-spacing past the cell's right edge, vertically centred on
-// the row.
+// An entry row: the icon centred in the icon cell, the label starting one
+// item-spacing past the cell's right edge, vertically centred on the row.
 #[test]
 fn a_row_paints_its_icon_centred_in_the_cell_and_its_label_after_it() {
     let Shell { mut app, _dir, .. } = shell();
@@ -650,8 +648,8 @@ fn a_row_paints_its_icon_centred_in_the_cell_and_its_label_after_it() {
     );
 }
 
-// gui.md "Sidebar" item 3 (the draft's 3 px accent bar): the active entry
-// alone gets the accent-colored bar at its left edge.
+// The active entry alone gets the accent-colored bar at its left edge, the
+// draft's 3 px accent bar.
 #[test]
 fn the_accent_bar_marks_only_the_active_row() {
     let Shell { mut app, _dir, .. } = shell();
@@ -738,9 +736,8 @@ fn the_overlay_holds_while_the_pointer_is_anywhere_on_it() {
     );
 }
 
-// gui.md "Sidebar" item 3: a row paints its button frame while it is in use,
-// which a keyboard focus alone already makes it; the pointer needn't be
-// anywhere near.
+// A row paints its button frame while it is in use, which a keyboard focus
+// alone already makes it: the pointer needn't be anywhere near.
 #[test]
 fn a_focused_row_paints_its_background_untouched_by_the_pointer() {
     let Shell { mut app, _dir, .. } = shell();
@@ -1671,8 +1668,8 @@ fn the_fix_pes_path_click_rewrites_the_year_the_notice_was_raised_for() {
     fs::remove_dir_all(&dir).unwrap();
 }
 
-// "If several PES versions are running, the first detected wins" (gui.md "Sidebar" item 2):
-// the probe's first game is the one that matters, not the first one that differs.
+// If several PES versions are running, the first detected wins: the probe's first game is
+// the one that matters, not the first one that differs.
 #[test]
 fn the_poll_takes_the_first_detected_game_and_stays_put_when_it_is_the_selection() {
     fn probe() -> Vec<RunningPes> {

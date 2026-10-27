@@ -1,6 +1,5 @@
-//! The Ruleset editor's section of the settings file (`plans/ruleset_editor.md`
-//! "Settings"): where Open and Save as start, and the start page's recent
-//! files.
+//! The Ruleset editor's section of the settings file: where Open and Save as
+//! start, and the start page's recent files.
 
 use std::path::Path;
 

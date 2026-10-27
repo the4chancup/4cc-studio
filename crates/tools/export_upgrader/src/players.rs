@@ -1,15 +1,18 @@
-//! Steps 2-4 for the face folders and the boots and gloves folders
-//! (`spec/export_upgrader.md` steps 2-4): each face folder becomes its player
-//! folder under `Players/`, named by the plan's order (the face folder's name
-//! part, the worn boots folder's, the worn gloves folder's, the save's name,
-//! the number alone), its portrait renamed `portrait.dds` and its
-//! `ingame_face` spellings normalized to `ingame_face.toml`. A boots or gloves folder one player wears
-//! merges into his folder on a Fox export; one worn by two or more, or any
-//! worn one on a pre-Fox export, stays a named shared folder with a link file.
-//! Each slot's output folder lands in `PlayerFolders::folders` for step 8's
-//! `settings.toml` (`settings.rs`); a referee export's folders are
-//! `referees.rs`'s, and loose mode pairs each item folder's wearer from its
-//! ID's position in its kind's old block of 25 (step 11).
+//! The face folders and the boots and gloves folders moved into player
+//! folders (spec/export_upgrader.md "Builds player folders", "Keeps shared
+//! folders"). Each face folder becomes its player folder under `Players/`.
+//! Its name is the first non-empty one of: the face folder's name part, the
+//! worn boots folder's, the worn gloves folder's, the save's name, the
+//! number alone. Its portrait is renamed `portrait.dds` and its
+//! `ingame_face` spellings are normalized to `ingame_face.toml`.
+//!
+//! A boots or gloves folder one player wears merges into his folder on a Fox
+//! export. One worn by two or more, or any worn one on a pre-Fox export,
+//! stays a named shared folder with a link file. Each slot's output folder
+//! lands in `PlayerFolders::folders` for the `settings.toml` generation
+//! (`settings.rs`). A referee export's folders are `referees.rs`'s, and loose
+//! mode pairs each item folder's wearer from its ID's position in its kind's
+//! old block of 25.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -34,7 +37,7 @@ pub(crate) struct PlayerFolders {
     /// Empty marker files to write, output paths (`Players/15 -
     /// Snuffy/ingame_face.toml`, `Players/15 - Snuffy/Crocs.boots`).
     pub(crate) markers: Vec<String>,
-    /// Every input file the plan accounts for (copied, refused as part of a
+    /// Every input file the `PlayerFolders` accounts for (copied, refused as part of a
     /// refused folder, or a marker it normalized): the unmigrated-content
     /// loop skips them.
     pub(crate) consumed: BTreeSet<String>,
@@ -98,7 +101,7 @@ pub(crate) fn clean_folder_name(name: &str) -> Option<String> {
     (!trimmed.is_empty()).then(|| trimmed.to_owned())
 }
 
-/// One slot's player folder as the plan builds it: the face folder's files
+/// One slot's player folder as `player_folders` builds it: the face folder's files
 /// and every folder merged into it later, keyed by relative path for the
 /// byte clash check.
 struct PlayerFolder {
@@ -1725,7 +1728,8 @@ mod tests {
 
     #[test]
     fn a_difference_in_one_file_keeps_the_id_spelling() {
-        // `boots.skl` differing in one byte: the 6.2b rule, `Boots/k0431/`.
+        // `boots.skl` differing in one byte: two shared folders of one name
+        // keep it for the lowest ID, and the other takes its ID, `Boots/k0431/`.
         let files = files(&[
             "Boots/k0430 - Crocs/boots.fmdl",
             "Boots/k0430 - Crocs/boots.skl",

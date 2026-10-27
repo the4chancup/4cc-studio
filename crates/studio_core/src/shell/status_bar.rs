@@ -1,5 +1,5 @@
-//! The status bar (core plan, "Status bar"; draft `docs/prototypes/index.html`): one 24 px row
-//! under the sidebar and the tool view, drawn in every tool. Three slots: the version and the
+//! The status bar, as the draft `docs/prototypes/index.html` draws it: one 24 px row under the
+//! sidebar and the tool view, drawn in every tool. Three slots: the version and the
 //! held `ShellCondition`s left at their content's width, the other tools' `ToolActivity`s
 //! right at their text's width capped at a third of the bar, and the latest `Notice` middle
 //! in the space they leave. Tools cannot draw into the bar; they return an activity and

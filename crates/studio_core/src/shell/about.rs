@@ -1,5 +1,5 @@
-//! The About popup the logo opens (core plan, "Sidebar" item 1; draft
-//! `docs/prototypes/index.html`): the detailed version block a member pastes into a bug
+//! The About popup the logo opens, as the draft `docs/prototypes/index.html` draws it: the
+//! detailed version block a member pastes into a bug
 //! report, with a Copy button and links to the release page, the repository and the
 //! help: the Help link closes the popup and has the shell open the help window on the
 //! `setting-up` chapter (ST-SIDE-06).

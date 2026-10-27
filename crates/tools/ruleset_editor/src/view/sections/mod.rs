@@ -1,5 +1,5 @@
-//! The rail's section forms (`plans/ruleset_editor.md` "The editor"):
-//! General and Tiers are forms, Custom checks and Summary read only,
+//! The rail's section forms: General and Tiers are forms, Custom checks
+//! and Summary read only,
 //! and Heights, Cards, Universal rules, Specials and Suggestions are
 //! later builds' — for now they draw one weak line.
 

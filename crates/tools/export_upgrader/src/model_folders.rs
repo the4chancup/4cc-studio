@@ -147,7 +147,7 @@ pub(crate) fn model_folder_plan(files: &[String], folders: &[String]) -> ModelFo
     }
     // Every top-level folder seeds a group too: one holding no file at all
     // (an empty folder, or only an OS artifact the listing left out) is
-    // still a folder the plan must rule on.
+    // still a folder the `ModelFolderPlan` must rule on.
     for folder in folders {
         if !folder.contains('/') {
             groups.entry(folder.clone()).or_default();

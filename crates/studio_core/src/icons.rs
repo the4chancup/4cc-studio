@@ -1,10 +1,8 @@
 //! The icon glyphs the shell and the tools draw: sidebar rail entries, the Help and
 //! Settings buttons, the status bar's condition and dismiss icons. Each constant is the
 //! glyph's one-character string, at the codepoint `resources/fonts/phosphor-subset.ttf`
-//! keeps it at (that file's `README.md` lists the set and how the subset was cut from
-//! Phosphor Icons). The font is the interim one: the suite's own icon font, drawn per
-//! the core plan's "Styling is code, not CSS", replaces it in worklog step 8.14, and
-//! these constants stay.
+//! keeps it at, a subset of Phosphor Icons. The font is an interim one: the suite's own
+//! icon font will replace it, and these constants stay.
 
 /// The Export upgrader's sidebar glyph.
 pub const ARROW_FAT_UP: &str = "\u{E52E}";

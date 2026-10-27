@@ -1,6 +1,6 @@
 //! Help chapter types. The help window is assembled from the tools: every registered tool
 //! contributes one `HelpSection` through `StudioTool::help()`, and `studio_core` contributes the
-//! core chapters (core plan, "Help window"). `chapters` lists them; `export` renders the
+//! core chapters. `chapters` lists them; `export` renders the
 //! Markdown `4cc-studio help` prints. The search and the window live in `shell::help_window`.
 
 mod export;
@@ -51,8 +51,7 @@ pub struct HelpTarget {
 
 impl HelpTarget {
     /// The catalog row `code` identifies: the generated Messages topic of the code's
-    /// own tool, the code highlighted (a log line's link target — core plan, "Help
-    /// window", "Opening").
+    /// own tool, the code highlighted. A log line's code links here.
     pub fn message(code: &MessageCode) -> HelpTarget {
         HelpTarget {
             tool: code.tool_id.to_owned(),
@@ -76,9 +75,8 @@ pub struct CatalogRow {
     pub effect: &'static str,
 }
 
-/// The chapter list the help window and `4cc-studio help` share (core plan, "Help window"):
-/// the core chapters first, then each registered tool's `help()` under its id, in registry
-/// order.
+/// The chapter list the help window and `4cc-studio help` share: the core chapters first,
+/// then each registered tool's `help()` under its id, in registry order.
 pub(crate) fn chapters(tools: &[Box<dyn StudioTool>]) -> Vec<(&'static str, HelpSection)> {
     let mut chapters = vec![
         (

@@ -1259,8 +1259,8 @@ fn the_frame_after_a_jump_under_the_design_width_lays_out_at_the_design_width() 
     }
 }
 
-// The zoom factor is the shell's alone: egui's keyboard zoom is off
-// (gui.md "Scaling with the width"), so Ctrl with plus changes nothing.
+// The zoom factor is the shell's alone: egui's keyboard zoom is off, so Ctrl
+// with plus changes nothing.
 #[test]
 fn a_ctrl_plus_leaves_the_zoom_alone() {
     let egui_ctx = test_context();
