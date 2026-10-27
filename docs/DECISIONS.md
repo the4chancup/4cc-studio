@@ -11786,3 +11786,16 @@ order, and PES 2021's values are measured, so 2017's are read as the same; a com
 choice the game offers would refuse a value a member sets in game.
 Plan: `plans/save_editor.md` "Tactics editor", the Automatic settings row; `QUESTIONS.md`
 narrowed to PES 2018 to 2020.
+
+## 2026-10-27 — save_editor — The slot popover's anchor, a target picked on the pitch, "No target"
+Decision: the slot popover's header reads `player <n>` (his roster slot from 1), its top-right
+corner sits on the marker's bottom-left as it stood at the click and stays there while the
+player moves, and a press outside it closes it; an advanced instruction's target chip arms a
+one-click pitch pick, as the role chips do; a disabled target reads "No target", "An opponent"
+under a held Tight Marking as before.
+Why: the maintainer's requests on the Tactics layout (2026-10-26), drafted and approved but
+missing from the plan: a popover that follows the marker moves the X and Y arrows away from the
+pointer after each click, and one pick model for every player-taking field. The draft had lost
+"An opponent", which says what Tight Marking's byte holds (the opposing formation's slot).
+Plan: `plans/save_editor.md` "Tactics editor", the pitch, click-to-assign and instruction
+bullets; the draft's `slotPopover` and `instrSet`.

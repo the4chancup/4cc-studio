@@ -2991,14 +2991,37 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] s4t the window title's path (`core/gui.md` "Window title", `StudioTool::title_detail`),
     `studio_core`'s: after side-lead S's chain releases it; with it, `shell/status_bar.rs`'s
     test samples take the version notice's wording "so the editor will keep treating it as"
-    (the maintainer, 2026-10-27; draft and CONTRIBUTING already do)
+    (the maintainer, 2026-10-27; draft and CONTRIBUTING already do); and the fixed-width side
+    panels' edges neutral (the maintainer on the built binary, 2026-10-27: the rail's right
+    edge showed the resize cursor though a drag did nothing, the draft's is plain): egui's
+    `Panel` defaults to `resizable(true)`, which `exact_size` does not turn off, so the shell's
+    `sidebar`, the help window's `help-tree` and the Ruleset editor's `ruleset_rail` each take
+    `.resizable(false)`, with a test that hovering each edge leaves the cursor at the default
   - [ ] s5 the Tactics editor's grid (the maintainer, 2026-10-26; drafted and approved,
     `.tmp/0_0_1s/tactics_layout_request.md`; plan "Tactics editor", DECISIONS "The Tactics
     editor is one grid"): the three-row grid, Formation settings in pairs of equal rows, the
     numbers' three-choice toggles, Join the attack's three rows, Advanced instructions' grid,
     Automatic settings' grid and Substitution combo (Very early on PES 17 and 21: the
     maintainer's look at PES 17's screen, 2026-10-27), Copy/swap on the selection, the medal
-    initials on the badges → verify: SE-GUI-12, SE-GUI-25; then o2b on it
+    initials on the badges → verify: SE-GUI-12, SE-GUI-25; then o2b on it. With s6 and s7 and
+    the popover and pitch-picked targets (DECISIONS "The slot popover's anchor, a target picked
+    on the pitch, "No target""), in slices, each its own commit and review:
+    - [ ] s5a the grid's frame (`view/tactics.rs`): 414 | 320 | the rest, three rows; the
+      preset bar (Preset, Fluid formation, Copy/swap's four entries on the selected preset)
+      level with the formation bar over columns 2-3 (the formations out of `pitch::pitch`,
+      Copy/swap's four, s6's Scroll names in the tool's settings); the lists under columns 2-3,
+      halves, twelve 18-point rows, no titles; the narrow fallback gone; the panels in their
+      cells as they are
+    - [ ] s5b Formation settings (pairs of equal rows, label over a 24-point box, two-choice
+      toggles the half's width, Few | Medium | Many, "Frontline Press.", "All Out Def.") and
+      Player assignments (label over chip, Join the attack three rows, one picker), both as
+      tall as the pitch
+    - [ ] s5c Advanced instructions' grid (s7's sides through `pes_savefile`'s `Instruction`,
+      each target a pitch pick) over Automatic settings' grid (the Substitution combo)
+    - [ ] s5d the pitch: the popover's anchor, outside press and `player <n>`; s6's swap mark;
+      the badges' medal initials
+    - [ ] s5e the list and team view: s6's three-character short name, s7's picked team
+      selecting its row and `[click for tactics]`
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";

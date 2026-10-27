@@ -4733,15 +4733,19 @@ function tacticsTab(t) {
     const ins = instructionsFor(version(), side);
     const targetable = takesTarget(e.instruction);
     // The target is picked as the assignments are: the chip armed, then a
-    // pitch player clicked (an instruction that takes none greys it out).
+    // pitch player clicked (an instruction that takes none greys it out; a
+    // held Tight Marking's byte is the opposing formation's slot, so it
+    // names no player of ours).
     const armed = S.assign && S.assign.kind === "target" && S.assign.side === side && S.assign.i === i;
+    const marking = e.instruction === "tight_marking";
     const pick = h("button", { class: "rolechip" + (armed ? " armed" : ""),
         disabled: !targetable, id: "target-" + side + "-" + i,
         title: targetable ? "The instruction's target: click, then a pitch player"
-          : "This instruction takes no target",
+          : marking ? "Its target is an opponent, picked in a match" : "This instruction takes no target",
         onclick: () => { S.assign = armed ? null
           : { kind: "target", side, i, label: label + "'s target" }; S.slotPop = null; render(); } },
-      !targetable ? "No target" : e.player === 255 ? "Unassigned" : playerName(rosterPlayer(t, e.player)));
+      marking ? "An opponent" : !targetable ? "No target"
+        : e.player === 255 ? "Unassigned" : playerName(rosterPlayer(t, e.player)));
     // The instruction's combo, then its target under it.
     return [combo((ins.includes(e.instruction) ? ins : ins.concat([e.instruction]))
         .map(x => [x, INSTRUCTION_LABEL[x] || titleCase(x)]),

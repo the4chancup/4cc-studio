@@ -469,7 +469,11 @@ Win32 original hurt the most):
 - **The pitch is the editor**: an egui painter canvas draws the formation;
   players are **dragged** to reposition (x/y), with position labels and snapping.
   4ccEditor's per-slot dropdown + coordinate fields remain as a detail popover on
-  click, not the primary interface. The editor is **one grid** of three columns (the
+  click, not the primary interface: its header the starter's name and `player <n>` (his
+  roster slot counted from 1), its top-right corner on the marker's bottom-left corner as it
+  stood at the click, and there it stays while his X and Y change, so the fields' arrows stay
+  under the pointer rather than moving off with the marker; a press outside it closes it, as
+  Close does. The editor is **one grid** of three columns (the
   settings, 414 points; the pitch, 320; the assignments, the rest) and three rows, so every
   panel lines up with its neighbours rather than wrapping on its own:
   1. The **preset bar** (Preset 1/2/3, Fluid formation, then its Copy/swap menu) level with
@@ -581,7 +585,9 @@ Win32 original hurt the most):
   assignment mode — the three dropdowns are gone. Join the attack shows its three players as
   three rows (`Unassigned` where fewer join), and any row arms the one join mode, all three
   highlighted, in which pitch clicks add and remove up to three. Set-piece takers get the
-  same treatment with a role palette. No note explains the armed mode: the highlighted chip
+  same treatment with a role palette, and so does an advanced instruction's target: its chip
+  under the instruction arms a mode in which one pitch click writes the clicked starter and
+  disarms, the chip enabled only while the instruction takes one of ours. No note explains the armed mode: the highlighted chip
   and the candidates' corner brackets on the pitch say it.
 - Copy/swap preset and copy/swap formation are two small menus, on the preset bar and the
   formation bar, each acting on the selected preset or formation: a copy to, then a swap
@@ -611,7 +617,7 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   none sets the target to none (255), so no stale target is kept where 4ccEditor left one.
   Under an instruction that takes none of ours the disabled target shows no player of ours:
   "An opponent" under a held Tight Marking (its byte is the opposing formation's slot),
-  "Unassigned" under the rest (the game reads no target there).
+  "No target" under the rest (the game reads no target there).
 - **Players to join the attack stay packed**: removing one moves the later ones up, as
   4ccEditor's three combos keep them (an empty first entry clears the rest), so the record
   never holds a gap.
