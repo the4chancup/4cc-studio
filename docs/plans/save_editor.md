@@ -667,10 +667,14 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   the other, exchanges the two players in the starting eleven, so it reaches every formation of
   every preset; the editor's is an XI row dropped on another row or on a pitch marker. One
   released on the grass moves to the snapped drop point, his position kept, and one released
-  off the pitch stays where he was. The game also changes the position of a player dragged out
-  of his position's area (an AMF dragged under his becomes a DMF), the areas drawn while he is
-  held; the editor does not, those areas not being mapped, so a member changes the position in
-  the player's box. A lineup row released on the grass
+  off the pitch stays where he was. The game also changes the position of a dragged
+  player (an AMF dragged lower becomes a DMF), but not by fixed areas of the pitch: the same
+  spot gives different positions depending on who is dragged and where his teammates stand (a
+  dragged LMF reads AMF at a spot where a dragged CMF reads LMF; the LMF turns CMF about 11.5
+  short of the nearest CMF, wherever that CMF stands), and the area the screen lights while he
+  is held is not where his position changes. The editor keeps the position, so a member
+  changes it in the player's box, rather than guess at a rule whose wrong guesses would set
+  positions silently. A lineup row released on the grass
   does nothing, as in the draft: a row moves players between the lists, never on the pitch.
   While a dragged starter is held over another, that one carries the selected player's corner
   brackets (`#14fbff`), drawn over everything, and the dragged marker goes to 35% opacity over

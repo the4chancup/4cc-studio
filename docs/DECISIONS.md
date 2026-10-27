@@ -12046,3 +12046,16 @@ Why: the maintainer's answers to the rendered options (the hex alone, the team v
 box, a 12 × 12 swatch): the small swatch; and the line "is obvious enough that we can remove
 it". The prompt shows the same table, so it draws the same swatch: one table, one rule.
 Plan: lands with 8.31's plan text when its draft is approved (worklog 8.31).
+
+## 2026-10-27 — save_editor — A pitch drop keeps the position: the game's rule is not a map of areas
+Decision: a starter dropped on the Tactics pitch's grass keeps his position, as before; the
+editor does not try to change it as PES 2021's drag does. Worklog 0.0.1y3 asked to map the
+position areas instead, and measured that there are none to map.
+Why: in game, the same spot gives different positions by who is dragged (at (24.7, 26) a
+dragged LMF reads AMF, a dragged CMF reads LMF), and the switch moves with the teammates (an
+LMF turns CMF about 11.5 short of the nearest CMF, at x 41.3 or 31.7 as that CMF stands at 53
+or 43); the area the screen lights while a player is held is not where his position changes
+(`.tmp/0_0_1y3/findings.md`). A rule fitted to these scans has three unknown parts, and a
+wrong guess sets a position silently, where today the member sets it in the player's box and
+sees what he set.
+Plan: `plans/save_editor.md` "Tactics editor", the bullet "A pitch player dropped on another".

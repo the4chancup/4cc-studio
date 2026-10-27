@@ -2633,3 +2633,5 @@ worklog passed 7,000 lines.
   draws a 12-point swatch before a colour's hex and the changes list drops its footer line (8.31's draft).
 - **2026-10-27** — The Tactics pitch names its formation in its corner as PES 2021's screen does, and a marker dropped on another
   swaps the two slots in the shown formation alone, as the game's drag (0.0.1x4, y2); round S2's five findings fixed.
+- **2026-10-27** — The position areas measured in PES 2021 (0.0.1y3): there are none to map, the dragged player's new position
+  depending on who is dragged and where his teammates stand; the editor's grass drop keeps the position, as planned.

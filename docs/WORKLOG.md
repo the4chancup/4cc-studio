@@ -3399,21 +3399,21 @@ briefs, review loops, gates and mutation runs as for any step.
     (no mark) and released on (the snapped point), SE-GUI-12's two WHENs; red: the old
     starting-eleven exchange (three tests), `swap_target` taking the keeper. Open: the built
     window, the maintainer's look (QUESTIONS)
-  - [ ] y3 the position areas (the maintainer, 2026-10-27: "Can we try mapping the areas, as
-    well?"): in PES 2021's formation screen a player dragged out of his position's area takes
-    the area's position (an AMF dragged lower became a DMF, `.tmp/0_0_1x/captures.md`); the
-    editor keeps the position today. Steps, each its own check:
-    - [ ] y3a the evidence first: Marco's RE index (`Tools_Marco/GodotFootball/docs/re/
-      README.md`: a first grep found only the in-match role classes, `pes-re-role-writer.md`,
-      not the edit screen's drag), the game's data files (a formation-area table in a CPK),
-      community knowledge; then the in-game measurement if none gives it: one outfield player
-      dragged across the pitch on the pad (`scripts/ingame/`, the save backed up and restored
-      by hash), the position label read at each step (PrintWindow capture), each area's
-      boundary found by scanning lines in stored units; left/right symmetry and per-version
-      sameness (PES 2021 first) checked, not assumed
-    - [ ] y3b the draft (`swapOnPitch`'s grass move gives the area's position), the plan
-      ("A pitch player dropped on another" and the grass-move bullet), DECISIONS
-    - [ ] y3c the code (`team_widgets`' grass drop), its tests on the measured boundaries
+  - [x] y3 the position areas (the maintainer, 2026-10-27: "Can we try mapping the areas, as
+    well?"): measured, and there are no fixed areas to map; the editor keeps the dragged
+    player's position (plan "A pitch player dropped on another", DECISIONS 2026-10-27 "A
+    pitch drop keeps the position: the game's rule is not a map of areas"). Evidence and
+    frames in `.tmp/0_0_1y3/findings.md`:
+    - [x] y3a the evidence: Marco's RE has nothing on the edit screen's drag; in game (PES 2021,
+      /f/ preset 1, the save backed up and unchanged by hash), the area lit while A is held is
+      not where the position changes (an LWF reads LMF one push down, inside his band), and
+      four drag scans read by the cyan brackets show the same spot giving different
+      positions by who is dragged (LMF to AMF, CMF to LMF at (24.7, 26)) and the switch moving
+      with the teammates (an LMF turns CMF about 11.5 short of the nearest CMF, at x 41.3 or
+      31.7 as that CMF stands at 53 or 43)
+    - [x] y3b, y3c dropped: a rule fitted to these scans has three unknown parts, each a study
+      of its own, and a wrong guess sets positions silently; whether a deeper study is wanted
+      is QUESTIONS "The game's rule for a dragged player's position"
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
