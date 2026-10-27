@@ -50,6 +50,23 @@ names where the question came from so the context can be read there.
 
 ## Cup practice
 
+The Music player's three below come from reading Rigdio v2.2.0's controls (worklog 10.0i,
+`plans/music_player.md` "Playback semantics"):
+
+- **Chaoshorn and the score.** Rigdio's Chaoshorn presses every goalhorn button, so it scores
+  one goal for each player and one for the Standard Goalhorn: the scoreboard jumps by the
+  roster size plus one, and each player's horn is chosen as for that goal. Should Studio's
+  Chaoshorn score those goals, or play each button's horn as if for a goal and leave the score
+  as it was? (Is Chaoshorn pressed while the score still matters?)
+- **A button after its song ends.** When a horn with `end stop`, or a victory anthem, plays to
+  its end, Rigdio's button stays pressed, and the next press only releases it (no goal, no
+  sound); the press after scores and plays. Do streamers rely on that extra press, so that a
+  button releasing itself at the song's end would turn their habitual double press into two
+  goals? Or should the button release itself when the song ends, so the next press is a goal?
+- **title.log and chants.** Rigdio writes title.log for anthems, victory anthems and
+  goalhorns, never for a chant. Should the OBS overlay show a chant's title too, or stay on
+  horns and anthems as it always has?
+
 ## Small confirmations
 
 - **Which icon does each tool get?** (worklog 8.14.) Open `docs/prototypes/icons.html`,

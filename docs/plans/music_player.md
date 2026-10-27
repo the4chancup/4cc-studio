@@ -485,8 +485,10 @@ What the soundboard must do, distilled from Rigdio's behavior:
 ### Song selection (per button press)
 
 1. Pressing a player's goalhorn button **scores a goal** for that player (per-player
-   scorer counts + team score; a snapshot is taken for undo). Reserved buttons
-   (anthem, VA, chant) don't score. Pressing again pauses (buttons are toggles).
+   scorer counts + team score; a snapshot is taken for undo), the Standard Goalhorn under
+   the name `goal`. Reserved buttons (anthem, VA, chant) don't score. Pressing again pauses
+   (buttons are toggles); the pausing press takes nothing back. A press while the button's
+   sound fades out is a new press: it scores and selects.
 2. The entry to play is chosen from the button's list, top-down: skip the entry that just
    ended (for `advance`), check the entry's conditions in order ("Conditions"), unload it
    on `NeverAgain`, play the first that passes. The default goalhorn (`goal`) list is
@@ -507,7 +509,8 @@ What the soundboard must do, distilled from Rigdio's behavior:
 5. **`advance` with nothing passing**: when the press follows an `advance` and the walk finds
    nothing, the first non-warcry entry other than the one that ended plays, conditions
    unread; with none, the one that ended plays again (`legacy.py:683-695`).
-6. Otherwise, if nothing passes, report "no song found" (never crash).
+6. Otherwise, if nothing passes, report "no song found" (never crash); the goal the press
+   scored still counts.
 
 ### Playback behavior
 
@@ -516,7 +519,11 @@ What the soundboard must do, distilled from Rigdio's behavior:
 - **A button owns what it plays.** Each button holds one playback state (stopped, playing
   a sound, fading one out), and every sound it starts is held in that state: starting
   another stops the one held, so no sound is ever left playing that its button cannot
-  reach. Song end, a warcry's hand-off to the next entry and `advance` are transitions of
+  reach. One exception: a press during a fade-out that selects another entry lets the
+  fading sound finish its fade beside the new one, as Rigdio does, since a fade ends by
+  itself within its time; a press that selects the fading entry again cancels the fade,
+  and the sound goes on at full volume from where it is (Rigdio jumps it back to where the
+  fade began, an artifact of its position cache). Song end, a warcry's hand-off to the next entry and `advance` are transitions of
   that state taken in the tool's `tick()`, never callbacks of the sound: a warcry hands off
   only while its button is still *playing* it, so a press that turns the button off in
   the same frame the warcry ends, or a warcry that reaches its end during the press's
@@ -524,41 +531,85 @@ What the soundboard must do, distilled from Rigdio's behavior:
   press paused on the GUI thread; a press landing as the warcry ended left the goalhorn
   playing with no button holding it, and nothing could stop it short of a restart (a
   streamer's report, 2026-10-26).
+- What a button shows and does once its song has played to its end (a horn with `end stop`,
+  a victory anthem) waits on `docs/QUESTIONS.md` "A button after its song ends".
+- **⟲** next to a button stops its sound at once, without a fade, and puts the entry it
+  played last back to its start: `start` and `speed` apply again on its next play, its
+  synced position is dropped and its `pause ... every n` count restarts; the VA's ⟲ also
+  zeroes the VA timer. The score, the button's other entries and its unloaded entries are
+  untouched.
 - **Fade-out on pause** (per-type configurable: anthem/goalhorn/victory/chant, default
-  2s, skipped if the song already ended).
+  2s, skipped if the song already ended). No press pauses a chant, so `fade.chant` governs
+  the chant timer's fade and Stop Chant Early (Rigdio fades both always; the default, on,
+  keeps that). A chant that plays to its end does not fade.
 - **Sync**: goalhorn playback positions are cached per absolute file path and restored
   on the next play of the same file — switching between players sharing a file resumes
   where it left off. Excluded for warcries; cleared on reset/reload; opt-out per team
-  via the `sync` flag.
+  via the `sync` flag. Event clips are not synced. `pause restart` restarts under sync
+  too: Rigdio v2.2.0 restores the cached position over the restart's seek, but the
+  exports that use it (12 of the 61 on the maintainer's machine, each on a goalhorn beside
+  `end stop`) were written before its position cache, when it restarted.
 - **Anthem exclusivity**: playing one side's anthem pauses the other side's (waiting
   out its fade). Rigdio only wired this one way — home pausing away — via a button
   hook; the new player makes it symmetric. Other buttons are independent (multiple
   horns *can* overlap; that is the Chaoshorn's whole gimmick).
-- **Victory anthem**: a dropdown selects the default VA or any `special`-marked VA by
-  label; a timer shows elapsed/total duration while it plays.
-- **Playback speed**: a global 0.25–4.00× slider, disabled while a song plays; a song's
-  `speed` instruction overrides the slider on its first play.
-- **Chaoshorn**: plays every loaded button on both teams simultaneously (with a
-  confirmation dialog); Kill Chaoshorn stops them.
+- **Victory anthem**: when the VA list has a `special` entry, a dropdown offers "Default"
+  and each special by its label, or its file's name when it has none; the button shows
+  the choice, which stays until changed, and its press plays that entry with its
+  conditions unread ("Default" walks the list, where `special` never passes). No special,
+  no dropdown. A timer shows the VA's play position over its length, stopping at its end
+  and on pause, zeroed by ⟲ and Reset (Rigdio's counter runs past the end). A team with no
+  `victory` entry loads with a warning naming it, with no VA row and no VA timer.
+- **Playback speed**: a global 0.25–4.00× slider in steps of 0.25, disabled while any
+  button's sound plays. An entry with a `speed` instruction plays at its own speed on every
+  play and the slider never applies to it (Rigdio's code; its comment, which said the
+  slider took over after the first play, describes code that does not exist). A follow-up
+  (a warcry's, an `advance`) plays at the speed its press used; chants and event clips play
+  at 1× or their own `speed`.
+- **Chaoshorn**: after a confirmation, starts every loaded button on both teams that is
+  not playing, and leaves the playing ones playing (Rigdio's toggle paused them). Each entry
+  starts once: a button whose selection is an entry another Chaoshorn button already
+  started stays raised and holds nothing (in Rigdio those buttons shared one sound; started
+  N times in phase it would be louder by about 20·log10 N dB). A second Chaoshorn press is
+  ignored until Kill. Whether its presses score goals waits on `docs/QUESTIONS.md`
+  "Chaoshorn and the score". **Kill Chaoshorn** stops every button's sound and rewinds its
+  last entry as ⟲ does; it starts nothing and scores nothing.
 
 ### Chants
 
-- One chant at a time, globally. Buttons: one per chant plus a Random button per team
-  (Random buttons also sit on the main view).
+- One chant at a time, globally: a chant press while a chant plays does nothing, that
+  chant's own button included (Stop Chant Early stops it). Buttons: one per chant, labelled
+  with its file's stem less `_normalized`, plus a Random button per team (Random buttons
+  also sit on the main view). A chant starts from its `start` offset, or 0, every time; its
+  conditions are never evaluated.
 - Random selection uses **exponential decay weighting** (weight = `w^times_played`,
   `w` configurable, default 0.3) so repeats become increasingly rare; `unrandom`
-  entries are excluded from random selection.
+  entries are excluded from random selection. One tally per team, shared by the main view's
+  Random button and the chants panel's (Rigdio kept one per button and reset the panel's
+  at each opening); a team's load or Reset resets it. With `w` at 0, once every chant has
+  played the tally starts a new round (Rigdio's Random button then raised an error and did
+  nothing until the next load).
 - A chant timer (20–60s, default 30, checkbox to disable) fades the chant out when it
-  expires; "Stop Chant Early" fades immediately.
+  expires; "Stop Chant Early" fades immediately. The timer's checkbox and slider are locked
+  while a chant plays.
 
 ### Match state
 
 - Score display, match-type selector, **Undo Last Goal** (decrements score/scorer and
   restores the pre-goal playback snapshot: cached positions, first-play flags, warcry
-  state).
-- **Per-team Reset**: stops music, seeks everything to the start, clears position
-  caches and VA timer, resets chant randomization and score — in place, no file
-  reloading. Loading a team into an occupied slot performs the same reset implicitly.
+  state, the lists). One level: a second Undo does nothing until the next goal, since an
+  older goal's snapshot no longer describes the buttons after later presses. Undo starts
+  and stops no sound and does not seek the one playing.
+- **Per-team Reset**, after a confirmation: stops that team's music and its chant if one
+  plays, seeks everything to the start, clears position caches and VA timer, resets chant
+  randomization and score, rebuilds the lists (unloaded and spent entries come back) — in
+  place, no file reloading.
+- **Loading a team** sets both scores and both scorer tables to zero and clears the goal
+  minute: a load is how a streamer starts the next match, as in Rigdio. The loaded slot
+  starts fresh; the other side's playback (its lists, unloads, positions) stays as it is.
+  The autopilot's own rule for the same pair again ("Autopilot") is separate.
+- A Reset or a load drops the Undo record of every side whose score it zeroes (Rigdio kept
+  it, and an Undo then drove the score to −1).
 
 ### title.log
 
@@ -566,7 +617,11 @@ When enabled, the currently playing song's `♪ artist — title` (from audio me
 filename fallback) is written to `title.log` for OBS text sources, cleared after a
 configurable duration (or when the song ends). Symphonia exposes the metadata tags
 in-process; the 1-second sleep-for-mpv-metadata hack and its global thread flags
-disappear.
+disappear. Written for goalhorns, anthems and victory anthems, not for a warcry (its
+follow-up is written); whether chants are written waits on `docs/QUESTIONS.md` "title.log
+and chants". One title at a time: a song's start replaces the last one, and the file is
+cleared when the song is paused. Created empty at startup when the setting is on, and
+emptied when the suite closes, so an overlay never keeps a stale title.
 
 ---
 
@@ -713,6 +768,9 @@ and lane contract live in the Match tracker plan).
   the player has several of that type, deduplicated by the feed's
   `(match_id, sequence)`, not by minute (distinct events can share a minute). A `SecondYellow`
   dismissal fires the `event red` clip (the same clip a straight red uses); a single `Yellow` fires `event yellow`.
+  A clip plays over everything and stops nothing, in full every time it fires, with no
+  button; the master volume applies to it as to every sound (Rigdio's clips took the
+  normalization gain and boost but not the master).
   The `event` instruction stops being dead weight.
 - **Stoppage chants** (Full mode, 15 % by default): on `ClockStopped` past the first minute
   (`display_minute > 1`) for a reason other than `Goal`, `OwnGoal` or `HalfEnd`, Full mode
@@ -793,7 +851,11 @@ New implementation, all in-process:
   live, re-applying gain to currently playing tracks and triggering analysis or the
   `_normalized`-file swap (reload) as needed — same observable behavior as Rigdio
   v2.2.0 run from source or as the Rigdio fork's build: the packaged v2.2.0 exe never found
-  its ffmpeg and skipped normalization, so parity checks never run against it.
+  its ffmpeg and skipped normalization, so parity checks never run against it. Two
+  departures: the swap never touches the score, the scorers or the lists (Rigdio's reload
+  ran a team load, which zeroed both scores mid-match), and a playing sound whose file the
+  swap replaces stops. The toggle shows only with normalization on, disabled until a team
+  loads, reading "Normalize: Yes" or a bold "Normalize: No".
 - **Background analysis**: on team load, all files are analyzed on a worker pool in
   priority order (anthems → goalhorns → chants → victory anthems, matching the order
   the streamer will need them). Playing a not-yet-analyzed track **jumps it to the
@@ -804,8 +866,13 @@ New implementation, all in-process:
   and measurement-algorithm version. Include settings affecting a stored derived value, such as
   chant loud-part percentage, or recompute it from cached underlying measurements. A CLI command
   can pre-warm the cache before a stream.
-- The `louder` instruction, the Volume Boost slider (shown only when the team has
-  louder-marked tracks), and the blinking boost label carry over unchanged.
+- The `louder` instruction, the Volume Boost slider and the blinking boost label carry
+  over: the slider is shown, and `louder` acts, only with normalization on and when the team
+  has louder-marked tracks, chants included; it moves in whole dB from −5 to +15, starts at
+  +5 at each team load (a Reset keeps it), and applies live to a boosted sound playing. A
+  team opted out of normalization still gets the boost over its 0 dB. The label blinks while
+  any boosted sound of the team plays (Rigdio stopped the blink at any pause of the team's
+  buttons).
 
 ffmpeg.exe, its MSYS2 build script, and the 30/60-second subprocess timeouts are all
 retired.
@@ -902,18 +969,27 @@ the view's draft. It reproduces Rigdio's proven three-column soundboard inside t
   look like it lived below the victory anthem row; the intended position is the top of
   the team column, and the fixed layout pins it there.
 - **Manual Chants** swaps the center panel's contents for the chants panel (timer
-  checkbox + slider, per-chant buttons for both teams, Stop Chant Early, and a back
-  button) rather than adding another panel — streamer monitor space is often limited.
-  This replaces the separate tkinter Toplevel and its window-lifecycle bookkeeping.
+  checkbox + slider, per-chant buttons for both teams, Stop Chant Early, the Chants Volume
+  slider, the same value as the center column's, and a back button) rather than adding
+  another panel — streamer monitor space is often limited. This replaces the separate
+  tkinter Toplevel and its window-lifecycle bookkeeping. Opening the panel stops nothing
+  (Rigdio's rebuild of the chant buttons faded out the chant playing).
 - Loading runs on a background thread with a progress bar (files analyzed / loaded),
   exactly like the current loading window, but driven by channel events like every
-  other tool in the suite.
+  other tool in the suite. The board stays live meanwhile, except the slot being loaded
+  (Rigdio's loading window took every input). A song file that is missing refuses the
+  team's load, listing every missing file once, and a failed load leaves the slot as it
+  was: a team that loads plays as its author heard it. A missing event clip is a warning
+  naming it, the clip left out (Rigdio loads such an export and never fires its clips).
 - The `time` condition's goal-minute prompt is a small modal opened by the view when
   a scored goal needs it (skipped while the Match tracker feed supplies the minute).
 - When the Match tracker feed is live, the center column gains a feed chip (detected
   teams + game clock) and the Autopilot toggle (see "Autopilot").
-- Individual per-goalhorn volume sliders (the pre-normalization UI) survive only for
-  the normalization-off configuration, matching Rigdio.
+- Individual volume sliders (the pre-normalization UI, 0–200) survive only for the
+  normalization-off configuration, matching Rigdio: one on every team button, anthem and
+  VA included, on the row below it, each with a 🔊 toggle that shows or hides it;
+  `show_goalhorn_volume_default` shows or hides all of a team's at load. A move applies live
+  and to the button's later plays. Chants have none (the Chants Volume slider).
 - Dark/light theme comes from the suite; Rigdio's own palette system and dark-mode
   config disappear. **The functional button colors are preserved**, though — the
   home/away team tints, and the distinct reset/load (green), stop (yellow), kill
@@ -924,7 +1000,12 @@ the view's draft. It reproduces Rigdio's proven three-column soundboard inside t
 ### Settings (tool section)
 
 Rigdio's `config.yml` keys map to the tool's settings section in the suite settings
-menu (same semantics, same defaults):
+menu (same semantics, same defaults), with three of Rigdio's built-in values made settings
+(`target_lufs`, `fade`, the default match type: Rigdio wrote them outside the file's
+`config` mapping, so no streamer could change them; their defaults are those values). A
+change applies at once, except `normalize_volume` and the two sort orders, which reshape the
+board and apply at the next team load; nothing needs a restart (Rigdio's settings all did, a
+relaunch that loses the match). Rigdio's first-run offer to open its settings is dropped.
 
 | Setting | Default | Notes |
 |---------|---------|-------|

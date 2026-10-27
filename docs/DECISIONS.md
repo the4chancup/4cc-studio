@@ -12348,3 +12348,24 @@ edit that clears a size bit, a spacing edit that clears two undecoded bits, a sl
 never enabled) would make an identical-bytes test fail for Kit Manager's reasons.
 Plan: `plans/kit_config_editor.md` "GUI view" (the texture names, Saving, the form's gating and
 numeric fields), "Testing".
+
+## 2026-10-27 — music_player — The Music player's controls, ruled against Rigdio v2.2.0
+Decision: Rigdio's controls are matched where a streamer's habit depends on them: ⟲ stops at
+once and rewinds the last entry; a `speed` entry ignores the slider on every play; a load
+zeroes both scores; Reset asks first; a chant press during a chant does nothing; one Undo
+level; the boost's +5 dB start and whole-dB steps; the per-button volume sliders on every team
+button; a missing song file refuses the load. Departures where Rigdio's behavior is an
+accident of its code: Chaoshorn leaves playing buttons playing and starts each entry once,
+Kill starts nothing; a re-press during a fade lets the fade finish beside the new sound, or
+resumes the same entry at full volume where it is; `pause restart` restarts under sync; the
+VA timer stops at the song's end; one chant tally per team, a new round at weight 0; the
+Normalize swap keeps the score; Undo seeks nothing; the board stays live while one slot
+loads; settings apply without a restart; the master applies to event clips.
+Why: the audit read each control's code (`.tmp/10_0i/rigdio_controls_audit.md`). Where the
+code and its own comments or dialogs disagree, the comment's intent stands ("never repeat",
+"Reset everything the team is using"); where a behavior only follows from a toggle, a cache
+or a thread (Chaoshorn pausing what plays, the sync cache undoing a restart, a toggle zeroing
+the score), no streamer can want it. The 12 exports carrying `pause restart` were written
+when it restarted.
+Plan: `plans/music_player.md` "Song selection", "Playback behavior", "Chants", "Match state",
+"title.log", "Event clips revived", "Loudness normalization", "GUI view", "Settings".

@@ -2696,3 +2696,5 @@ worklog passed 7,000 lines.
 - **2026-10-27** — 0.0.1q: the maintainer's monitor-off reopen fits on the 4K; the maximized reopen's faint flicker becomes q5.
 - **2026-10-27** — 12.0a: Kit Manager's three exes read (43 rows, the format right in every bit they touch); the editor saves on
   Save, texture names editable outside exports, four Kit Manager write defects kept out of the parity test; P41-P42; 12.0b in game.
+- **2026-10-27** — 10.0i: Rigdio v2.2.0's player controls read and ruled into the Music player's plan (22 + 19 rows); three
+  streamer-practice questions (Chaoshorn's score, a button after its song ends, chants in title.log) in QUESTIONS.

@@ -3965,10 +3965,16 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
   deliberate, none for the maintainer. Plan "Background", "What the editor does", "New
   capabilities", "GUI view", "Testing"; four DECISIONS entries; player reordering proposed
   (PROPOSALS P40)
-- [ ] 10.0i 10.0f's part 2, Rigdio's player controls against `plans/music_player.md` (the
-  rows 10.0f marked "later"), ruled the same way, plus the controls part 2 missed. Audit
-  running (Opus, read-only, brief `.tmp/10_0i/brief_rigdio_controls_audit.md`, report
-  `rigdio_controls_audit.md`)
+- [x] 10.0i 10.0f's part 2, Rigdio's player controls against `plans/music_player.md` (the
+  rows 10.0f marked "later"), ruled the same way, plus the controls part 2 missed. Done
+  2026-10-27 (Opus, `.tmp/10_0i/rigdio_controls_audit.md`): 22 + 19 rows, 10.0f's
+  descriptions held but for one fade case; ruled into "Playback semantics" (⟲, the fade
+  re-press, `speed`, Chaoshorn and Kill, sync and `pause restart`, the VA dropdown and
+  timer, chants, Undo's one level, Reset's confirmation, a load zeroing both scores,
+  title.log), "Event clips revived", "Loudness normalization" (the boost, the Normalize
+  swap), "GUI view" (loading, missing files, the volume sliders, the chants panel),
+  "Settings"; DECISIONS "The Music player's controls, ruled against Rigdio v2.2.0";
+  three questions in QUESTIONS "Cup practice"
 
 ### Phase 12 — Kit config editor
 
