@@ -204,7 +204,8 @@ fn window_icon() -> egui::IconData {
 /// centered, the size the first frame's fit keeps on a monitor that holds it, so nothing
 /// jumps there; `Place` creates it at the record's position (its pixels over its scale, the
 /// points winit converts with the scale of the monitor it creates the window on) and inner
-/// size, not centered. Both carry the `MIN_SIZE` minimum and the preview's icon.
+/// size, not centered (`NativeOptions`' default). Both carry the `MIN_SIZE` minimum and the
+/// preview's icon.
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn native_options(opening: &Opening) -> eframe::NativeOptions {
     let viewport = egui::ViewportBuilder::default()
@@ -220,7 +221,6 @@ pub(super) fn native_options(opening: &Opening) -> eframe::NativeOptions {
             viewport: viewport
                 .with_position(place.position() / place.scale)
                 .with_inner_size(place.size()),
-            centered: false,
             ..Default::default()
         },
     }

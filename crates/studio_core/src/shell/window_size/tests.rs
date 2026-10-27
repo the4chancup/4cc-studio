@@ -223,6 +223,34 @@ fn place_of_reads_pixels_points_and_scale_from_a_normal_frame() {
 }
 
 #[test]
+fn place_of_compares_the_rects_in_pixels_at_the_scale_times_the_zoom() {
+    // A 1024-point-wide window on a 200% display, at the zoom 0.8 the width
+    // rule gives it: 1.6 pixels a point, the rects in the zoomed points.
+    let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1280.0, 875.0));
+    let viewport = |inner_width: f32| egui::ViewportInfo {
+        outer_rect: Some(egui::Rect::from_min_size(
+            egui::pos2(63.0, 31.4),
+            egui::vec2(1290.0, 900.0),
+        )),
+        inner_rect: Some(egui::Rect::from_min_size(
+            egui::pos2(68.0, 50.9),
+            egui::vec2(inner_width, 875.0),
+        )),
+        native_pixels_per_point: Some(2.0),
+        ..Default::default()
+    };
+    // 0.4 points wider is 0.64 pixels: the landing frame's difference.
+    assert_eq!(place_of(&viewport(1280.4), Some(screen), 0.8), None);
+    // 0.25 points wider is 0.4 pixels, a rounding error: the frame records.
+    // x = 63 × 1.6 = 100.8, rounded to 101; y = 31.4 × 1.6 = 50.24, to 50;
+    // the size at zoom 1 is 1280 × 0.8 = 1024 by 875 × 0.8 = 700.
+    assert_eq!(
+        place_of(&viewport(1280.25), Some(screen), 0.8).map(<[f32; 5]>::from),
+        Some([101.0, 50.0, 1024.0, 700.0, 2.0]),
+    );
+}
+
+#[test]
 fn the_title_bar_check_overlaps_a_monitor_with_a_positive_area() {
     let at_scale = |rect: egui::Rect, scale: f32| Monitor { rect, scale };
     let primary = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0));
@@ -728,6 +756,46 @@ fn a_window_on_a_200_percent_display_records_its_points_and_reopens_in_them() {
         fitting(&out),
         [ViewportCommand::OuterPosition(egui::pos2(50.0, 25.0))],
         "the position in the frame's own points"
+    );
+}
+
+#[test]
+fn the_placed_windows_position_is_sent_in_points_of_the_scale_times_the_zoom() {
+    let egui_ctx = test_context();
+    let dir = TestDir::new("studio_core_window_place_zoomed");
+    let mut settings = test_settings(dir.path());
+    settings.common.window_main = Some(WindowPlace {
+        x: 100.0,
+        y: 50.0,
+        width: 1024.0,
+        height: 700.0,
+        scale: 2.0,
+    });
+    let (a, calls_a) = stub("a", "A", None);
+    let (b, calls_b) = stub("b", "B", None);
+    let Shell { mut app, .. } = shell_with(
+        settings,
+        vec![a, b],
+        &[],
+        Some(dir.path().to_path_buf()),
+        vec![calls_a, calls_b],
+    );
+    app.opening();
+    // A run starts at zoom 1, so the first frame meets another zoom only
+    // when one is queued before it, as here: it lands at that frame's start.
+    egui_ctx.set_zoom_factor(0.8);
+    let out = placed_frame(
+        &egui_ctx,
+        &mut app,
+        egui::pos2(100.0, 50.0),
+        egui::vec2(2048.0, 1400.0),
+        2.0,
+        false,
+    );
+    // 2.0 × 0.8 = 1.6 pixels a point: 100 / 1.6 = 62.5, 50 / 1.6 = 31.25.
+    assert_eq!(
+        fitting(&out),
+        [ViewportCommand::OuterPosition(egui::pos2(62.5, 31.25))],
     );
 }
 

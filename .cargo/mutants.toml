@@ -298,4 +298,22 @@ exclude_re = [
     # measured (`the_stacked_tab_scrolls_to_its_last_control`): pinned by line and column,
     # since both are `- with /` in `show`.
     "save_editor/src/view/tactics\\.rs:200:30: replace - with / in show",
+    # studio (mutants-diff dc02a76e, worklog 0.0.1o2a and s3): `overflow_the_stack` only has to
+    # recurse until the stack runs out. `depth + 1` -> `depth * 1` keeps `depth` at the 0 it
+    # starts from, never `u64::MAX`, so it still recurses; the `+` after the call adds to a
+    # value no call returns. Both still overflow (ST-RUN-10's test reads the dump's
+    # STATUS_STACK_OVERFLOW). Pinned by column: `depth + 1` -> `-` wraps 0 to `u64::MAX`,
+    # returns, and stays measured (caught).
+    "studio/src/crash_dump\\.rs:\\d+:30: replace \\+ with \\* in overflow_the_stack",
+    "studio/src/crash_dump\\.rs:\\d+:35: replace \\+ with - in overflow_the_stack",
+    # studio: `main` attaches to the parent's console when it has arguments (`args.len() > 1`),
+    # which only a real console shows: the CLI tests read the exe's output through pipes, which
+    # need no console, so `>=` and `<` pass them. Their check is ST-RUN-04's manual run
+    # (worklog 0.0.1l2: a command typed in a terminal prints there). Pinned by column, `main`
+    # being long; `==` timed out and stays measured.
+    "studio/src/main\\.rs:\\d+:19: replace > with (>=|<) in main",
+    # studio_core: `monitors` reads the OS's monitors through the frame's winit window, which a
+    # test frame has none of (its doc says so); the placement it feeds is tested through
+    # `place_or_fit` on given monitors, and the window itself is TC-GUI-01's manual run.
+    "replace monitors -> Vec<Monitor> with vec!\\[\\]",
 ]

@@ -2705,7 +2705,9 @@ briefs, review loops, gates and mutation runs as for any step.
       x (ending before its control, starting after its label; the Skills header's cross before
       the Cards left badge that shares its row), measured on the glyph, since a label in a
       wrapping row is laid out from the row's start (red: the two header marks swapped; the
-      Name cross moved into its field). Open: one `mutants-diff dc02a76e`
+      Name cross moved into its field). Open: one `mutants-diff dc02a76e` (run 2026-10-27,
+      34 survivors triaged; the `studio`/`studio_core` half landed, five survivors excluded in
+      `.cargo/mutants.toml`; the views' and lineup's tests, then a `mutants-diff` over both)
     - [x] o2b the pitch's cross for `FieldedNotA` and the dock row selecting his team's row
       on the named preset's first formation; after the Tactics tab's new layout (the
       maintainer's request of 2026-10-26, drafted first). Drafted 2026-10-27 (lead; DECISIONS

@@ -37,7 +37,7 @@ use crate::crash_dump::{
     HiddenLaunch, hidden_launch, overflow_the_stack, run_monitor, watch_crashes,
 };
 use crate::gui_log::{
-    LastSession, guard_gui, install_gui_logger, install_panic_hook, show_dialog, unclean_text,
+    guard_gui, install_gui_logger, install_panic_hook, show_dialog, unclean_notice,
 };
 
 /// The suite's whole registry as data, in sidebar order (core plan, "Tool plugin
@@ -312,13 +312,8 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>, crash_test: bool) -> ExitCode {
     // A previous session's log without a closing line means a crash the hook could not
     // see, or a session Windows ended (ST-RUN-09): say so before the window opens,
     // naming the old log, and the dump beside it when the monitor wrote one (ST-RUN-10).
-    if let Some(installed) = &installed_log
-        && installed.last_session != LastSession::Closed
-    {
-        show_dialog(
-            MessageLevel::Info,
-            &unclean_text(&installed.old_path(), installed.dump_path().as_deref()),
-        );
+    if let Some(text) = installed_log.as_ref().and_then(unclean_notice) {
+        show_dialog(MessageLevel::Info, &text);
     }
     // The receiver is dropped at once (the `_` pattern): a tool's run has its own sink
     // (`ToolContext::with_events`), and the notices the tools publish reach the status bar

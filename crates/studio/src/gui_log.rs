@@ -324,6 +324,19 @@ pub(crate) fn unclean_text(old_log: &Path, dump: Option<&Path>) -> String {
     }
 }
 
+/// The notice the window's start shows before it opens (ST-RUN-09, ST-RUN-10):
+/// `unclean_text` for `installed`'s previous session when it did not close, naming the
+/// dump when the monitor wrote one; `None` when it closed.
+pub(crate) fn unclean_notice(installed: &InstalledLog) -> Option<String> {
+    if installed.last_session == LastSession::Closed {
+        return None;
+    }
+    Some(unclean_text(
+        &installed.old_path(),
+        installed.dump_path().as_deref(),
+    ))
+}
+
 /// One `session` line through `logger` at `Info`, the level `FileLog` keeps.
 fn session_line(logger: &dyn log::Log, line: &'static str) {
     logger.log(
@@ -784,6 +797,40 @@ mod tests {
             last_session: LastSession::Dumped,
         };
         assert_eq!(installed.dump_path(), None);
+    }
+
+    // ST-RUN-09, ST-RUN-10: the window's start shows the notice only after a session
+    // that did not close, naming the dump when the monitor wrote one.
+    #[test]
+    fn unclean_notice_is_shown_only_for_a_session_that_did_not_close() {
+        let dir = TestDir::new("unclean_notice");
+        fs::write(dir.path().join(DUMP_FILE_NAME), "dump").unwrap();
+        let installed = InstalledLog {
+            path: dir.path().join(LOG_FILE_NAME),
+            last_session: LastSession::Closed,
+        };
+        assert_eq!(unclean_notice(&installed), None);
+
+        let installed = InstalledLog {
+            last_session: LastSession::Unclean,
+            ..installed
+        };
+        assert_eq!(
+            unclean_notice(&installed),
+            Some(unclean_text(&dir.path().join(OLD_LOG_FILE_NAME), None))
+        );
+
+        let installed = InstalledLog {
+            last_session: LastSession::Dumped,
+            ..installed
+        };
+        assert_eq!(
+            unclean_notice(&installed),
+            Some(unclean_text(
+                &dir.path().join(OLD_LOG_FILE_NAME),
+                Some(&dir.path().join(DUMP_FILE_NAME))
+            ))
+        );
     }
 
     // A process sets one global logger ever, and `main`'s verbosity test installs the
