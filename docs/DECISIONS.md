@@ -12121,3 +12121,12 @@ says only that its settings are not built yet. The plan's rule (a tool has setti
 table is not empty) did not catch a table of state, or a tool whose window is not built.
 Plan: `plans/core/gui.md` "Settings menu", the bullet "One collapsible section per registered
 tool that has settings".
+## 2026-10-27 — core — The preview bundle carries VGL 27's rules file too
+Decision: the 0.0.1 bundle's `data/rules/` holds `vgl27.4ccrules` beside `dbc7.4ccrules`,
+assembled the same way; the bundled settings keep naming DBC7's, and the readme's VGL section
+says to pick VGL 27's in the Save editor's settings.
+Why: the maintainer's answer to the default-settings audit's question (worklog 0.0.1j, j5):
+"It should, but as a 'just in case' thing". VGL's organizer works in the Team compiler in this
+preview; if he checks teams in the Save editor, DBC7's rules would otherwise be the only file
+at hand.
+Plan: `plans/core/development_plan.md`, the paragraph on the preview build 0.0.1.

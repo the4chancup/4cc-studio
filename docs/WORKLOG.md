@@ -3700,8 +3700,10 @@ briefs, review loops, gates and mutation runs as for any step.
     `upgrade-dpfl` step under a heading both groups read (the official-list check runs for
     PES 2017 too); stale settings text in `spec/team_compiler/settings.md`,
     `spec/save_editor.md` and `save_editor/src/settings.rs`'s module comment
-  - [ ] j5 whether the bundle ships VGL 27's rules file too: QUESTIONS "Should the preview
-    bundle ship VGL 27's rules file beside DBC7's?"
+  - [ ] j5 the bundle ships VGL 27's rules file too, just in case (the maintainer,
+    2026-10-27; plan `core/development_plan.md`'s 0.0.1 paragraph, DECISIONS "The preview
+    bundle carries VGL 27's rules file too"): `release.py` assembles `rules/vgl27.4ccrules`
+    beside DBC7's, the readme's VGL section says to pick it (with j4's brief)
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming
