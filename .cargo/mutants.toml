@@ -302,8 +302,17 @@ exclude_re = [
     "studio/src/main\\.rs:\\d+:19: replace > with (>=|<) in main",
     # studio_core: `monitors` reads the OS's monitors through the frame's winit window, which a
     # test frame has none of (its doc says so); the placement it feeds is tested through
-    # `place_or_fit` on given monitors, and the window itself is TC-GUI-01's manual run.
+    # `place_or_fit` and `resends_position` on given monitors, the primary flag included, and
+    # the window itself is TC-GUI-01's manual run. So neither the whole body's replacement nor
+    # the primary comparison's `==` -> `!=` is reached by a test.
     "replace monitors -> Vec<Monitor> with vec!\\[\\]",
+    "studio_core/src/shell/window_size/mod\\.rs:\\d+:\\d+: replace == with != in monitors",
+    # studio_core: `resends_position`'s scale tolerance `(scale - place.scale).abs() < 0.001` ->
+    # `<=` is equivalent for every scale of at least 2^-9: f32(0.001) is an odd multiple of
+    # 2^-33 (8589935 * 2^-33), while two such scales within a factor of two subtract exactly
+    # to a multiple of the smaller one's ulp, at least 2^-32, so no difference equals it
+    # (a sweep of every f32 from 1.0 to 3.0 finds none).
+    "studio_core/src/shell/window_size/mod\\.rs:\\d+:\\d+: replace < with <= in resends_position",
     # save_editor: `set_stats_cell` caps the button at the cell less
     # the gap and the number field, a cap that never binds: the list is a fixed 240-point
     # panel, so the cell is at least 83.75 wide (a natural column, or 108.5 when the columns

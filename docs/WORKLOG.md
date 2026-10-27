@@ -3542,8 +3542,14 @@ briefs, review loops, gates and mutation runs as for any step.
       future table change rejected). Rework done 2026-10-27 (Opus,
       `.tmp/0_0_1s/tac_s6_rework_report.md`): a third drop on preset 2's In possession, the
       whole record compared, seen failing on a grass write fixed to Kick-off. Files:
-      `team_widgets/src/pitch/tests/drops.rs`. Next: `gates-changed c244e6e4` and
-      `mutants-diff 3d39aff3`, every survivor triaged
+      `team_widgets/src/pitch/tests/drops.rs`
+    - [x] the loop's checkpoint: `gates-changed c244e6e4` green, then `mutants-diff 3d39aff3`
+      over ten crates (2026-10-27): 2 missed, both in `studio_core`'s `window_size`, both
+      excluded with their reasons in `.cargo/mutants.toml`: `monitors`' primary `==` needs a
+      real window (its body's replacement already excluded so), and `resends_position`'s
+      `< 0.001` -> `<=` is equivalent for every scale (f32(0.001) an odd multiple of 2^-33, no
+      difference of two scales equals it, `.tmp/0_0_1s/tolerance_proof.py`); none in
+      `team_widgets` or `save_editor`. No rework brief
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";

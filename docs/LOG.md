@@ -2716,3 +2716,5 @@ worklog passed 7,000 lines.
   in `docs/` repointed at the sections they name (most moved to `spec/`), the script waits for cm4's fix of the one in `save_editor`.
 - **2026-10-27** — 0.0.1z4: the maintainer's second look in the drafts and plans: Reset window only off the default size (ST-BAR-06), the
   unsaved-changes prompt as wide as its widest row, the drafts' controls in a column left of the window; font trial swaps faces in place.
+- **2026-10-27** — 0.0.1s5: the Tactics loop's mutation run (`mutants-diff 3d39aff3`, ten crates): 2 missed, both `studio_core`
+  `window_size` (a window-only flag, an equivalent f32 tolerance), excluded with reasons; no rework brief.
