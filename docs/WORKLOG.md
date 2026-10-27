@@ -3906,13 +3906,16 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
     `5cf02863` (its mutation run: 5 caught, 1 unviable); Astra A1 (2 of 3, all test gaps)
     ends the Astra loop, its tests in rework 4; the closing SWE-2 round S3 (0 accepted, a nit
     fixed in passing) ends it; rulings `.tmp/10_0g/duck_rulings.md`. Done 2026-10-21
-- [ ] 10.0h the Music export editor's legacy-behavior audit (the maintainer, 2026-10-27: tool
+- [x] 10.0h the Music export editor's legacy-behavior audit (the maintainer, 2026-10-27: tool
   work prepared ahead while 0.0.1's build queue is busy; `AGENTS.md` "Before a tool phase"):
-  every behavior of RigDJ v2.2.0 (`Tools_4cc/rigdio` at `ad604a1`: `rigdj.py` and what it
-  calls) compared with `plans/music_export_editor.md`, citing both sides, each row ruled
-  (match, deliberate, or a QUESTIONS entry) into the plan and DECISIONS, before the editor's
-  Acceptance section is written. Audit running (Fable, read-only, brief
-  `.tmp/10_0h/brief_rigdj_audit.md`, report `rigdj_audit.md`)
+  every behavior of RigDJ (`Tools_4cc/rigdio` at `ad604a1`, rigdio v2.2.0, RigDJ v1.16.0:
+  `rigdj.py` and what it calls) compared with `plans/music_export_editor.md`, citing both
+  sides, each row ruled into the plan and DECISIONS. 42 rows (`.tmp/10_0h/rigdj_audit.md`,
+  with a census of the machine's 67 `.4ccm` files): 21 same, two matched (warcries take
+  Randomise Horns' `randomise`; an empty scorer or label means no argument), the rest
+  deliberate, none for the maintainer. Plan "Background", "What the editor does", "New
+  capabilities", "GUI view", "Testing"; four DECISIONS entries; player reordering proposed
+  (PROPOSALS P40)
 - [ ] 10.0i 10.0f's part 2, Rigdio's player controls against `plans/music_player.md` (the
   rows 10.0f marked "later"), ruled the same way. Queued after 10.0h
 

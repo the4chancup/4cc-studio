@@ -35,9 +35,12 @@ messes the rewrite discards:
 - **Rename implemented as delete + re-add**, shuffling selection state and losing
   list position.
 - **Live bugs**: `print(...).format(...)` crash when saving a file containing an empty
-  player list (`rigdj.py:966`); `updateSongs` calling `dict.delete()` (not a method);
-  the victory-anthem fallback duplicating anthem entries into the VA list on every
-  save pass.
+  player list (`rigdj.py:966`), which leaves the file cut off at that line and the editor
+  failing on the next slot click until New or Load; the victory-anthem fallback copying
+  the anthem entries into the model's empty VA list itself, so both slots then hold the
+  same entries; a refused Load that still takes the new path, so the next Save overwrites
+  the refused file; RigDJ's `match` form writing its words in a different order on each
+  run; its `pause` form dropping `every n` from every line it writes.
 - **tkinter canvas-in-frame scrolling machinery** (~100 lines) that egui gets for free.
 
 ## What the editor does
@@ -45,42 +48,73 @@ messes the rewrite discards:
 Feature parity with RigDJ, restated on the shared model:
 
 - **Open / New / Save / Save As** for `.4ccm` files. Loading uses `music_export`'s
-  parser (no audio loading); saving uses the canonical serializer. What you see in the
-  preview is exactly what is written.
+  parser (no audio loading); saving uses the canonical serializer, with `\n` line ends on
+  every OS (Rigdio strips each line, and RigDJ's CRLF came from Python's platform default,
+  not a choice). What you see in the preview is exactly what is written. A load the parser
+  refuses changes nothing, the open file's path included, and its message names the line.
 - **Team fields**: team name; the `sync` and `normalize` opt-out checkboxes with
   explanatory tooltips (defaults on; only written to the file when opted out).
 - **Slot list**: the four reserved slots (Anthem, Victory Anthem, Goalhorn, chant) plus
-  arbitrary player slots — add, rename (in place, keeping selection and order), delete;
-  players sorted alphabetically in the list.
+  arbitrary player slots — add, rename (in place, keeping selection and order), delete.
+  The players are listed and written in the file's order, which is Rigdio's button order;
+  a new player goes before the first one whose name sorts after it (plain string order,
+  as RigDJ inserted), so a sorted list stays sorted. RigDJ also re-sorted the whole list
+  on every load, undoing the hand order 27 of the 50 RigDJ-written exports on the
+  maintainer's machine carry. A new or renamed player's name is trimmed and refused when
+  empty, a reserved word or slot label in any case (`goal`, `Anthem`: RigDJ took them and
+  emptied that slot's songs, or wrote a line Rigdio reads as something else), when it
+  holds a `;` or starts with `#` (Rigdio would split it or skip the line), or when another
+  player has exactly that name. A name differing from another only in case is allowed,
+  as Rigdio keeps both, and flagged by validation.
 - **Song rows** per slot: file picker (mp3/ogg/opus/flac/m4a/wav filter), editable
   path, priority reorder (up/down; drag-and-drop where egui makes it cheap), delete.
+  The picker writes the path relative to the export's folder when the file is under it,
+  a subfolder included since the player resolves one, and the bare file name otherwise,
+  as RigDJ did for every pick; validation then reports the file missing until it is
+  placed. A typed path is kept as typed. A new row's path is empty, not RigDJ's
+  `New Song`, a name Rigdio looks for as a file. An empty path is a validation error
+  that blocks Save, naming the row: the parser refuses such a line, so the export could
+  not be reopened. In the VA slot, up/down swaps an entry with its neighbour of the same
+  section (special or regular), the file keeping the model's order.
 - **Condition editing**: each condition/instruction renders as a chip on its row;
   clicking opens a typed form (comparison dropdown + integer entry for `goals`/
-  `teamgoals`/`lead`, plain integer for `every`, team-list entry for `opponent`,
-  match-type checkbox grid with a Toggle Knockouts button, subcondition editor for
-  `not`, validated entries for the `start` offset and `speed` rate, plain add/delete
-  for flag instructions). Each type shows its description text, as RigDJ's dialog
-  does. The `time` condition (comparison + minute) and the `event` instruction
+  `teamgoals`/`lead`, an integer from 1 for `every` (`every 0` crashes Rigdio), a
+  team-list entry for `opponent` that also takes free text (a guest team is not on the
+  list), match-type checkbox grid with a Toggle Knockouts button, subcondition editor for
+  `not`, validated entries for the `start` offset and `speed` rate, an action dropdown
+  (`continue`/`restart`) with an "every n" integer from 1 for `pause`, a `stop`-only
+  dropdown for `end`, plain add/delete for flag instructions). Each type shows its
+  description text, as RigDJ's dialog does. The match grid refuses OK with no type
+  checked (the parser refuses a bare `match`), and a confirmed grid writes its words in
+  the match types' own order; a `match` condition the form did not touch keeps the
+  file's order. A loaded `end loop` is kept and shown as its chip; confirming its form
+  makes it `stop`. The `time` condition (comparison + minute) and the `event` instruction
   (event-type dropdown: red/yellow/owngoal/sub) get working forms too — RigDJ had no
-  `time` editor and `event` was dead code; the new parser and the
-  [Match tracker](match_tracker/README.md) revive both (see the
-  [Music player plan](music_player.md)).
+  `time` editor, and offered `event` with a deprecation note only to lose the row at its
+  next load; the new parser and the [Match tracker](match_tracker/README.md) revive both
+  (see the [Music player plan](music_player.md)).
 - **Guard rails carried over**: `special` and `unrandom` are hidden from the general
   condition menu; rows with `randomise`/`special` don't offer Add Condition; `not`
-  refuses instructions and double negation. An empty label, scorer or team name is refused
-  at entry: the writer writes an empty token as no token, so it would not survive a save.
+  refuses instructions and double negation. An empty team name is refused at entry. An
+  empty `mostgoals` scorer or `special` label means no argument, as in RigDJ's forms: a
+  bare `mostgoals` checks this player and a bare `special` is labelled by its file name.
 - **Randomise Horns** checkbox per slot: applies/removes `randomise` on all of the
-  slot's entries (skipping `special`/warcry entries), reflecting mixed state. This
-  matches the player's activation check, which counts every entry that can play in
-  the slot's rotation — including `advance` entries.
+  slot's entries but `special` ones, reflecting mixed state. Warcry entries take it too,
+  as RigDJ's box gave it them: Rigdio then draws the warcry at random, so a slot built in
+  Studio plays as one built in RigDJ. The box's state follows the player's activation
+  check, which counts every entry that can play in the slot's rotation — including
+  `advance` entries, which RigDJ's box wrongly counted as satisfied.
 - **Chant rows** show only the "Exclude from Random" (`unrandom`) checkbox instead of
   condition chips.
 - **Special victory anthems**: a dedicated section under the VA slot listing
   `special`-marked entries with their labels; add-special creates the entry with the
   condition preattached.
 - **Victory fallback on save**: if the VA slot has no non-special entries, the anthem
-  entries are written as the victory anthems (once — the duplication bug dies).
-  Empty slots are skipped when writing.
+  entries are written as the victory anthems. The editor applies this to a copy of the
+  export that both the preview and Save write, the model's VA slot staying empty, so the
+  preview shows the `victory;` lines the file will carry and the two slots never share
+  entries. RigDJ copied only into an empty VA, so a VA holding only `special` entries left
+  Rigdio's VA button with nothing to play. Empty slots are skipped when writing.
 - **Live preview pane**: the serialized `.4ccm` text, read-only, updated on every
   model change, copyable.
 
@@ -92,8 +126,10 @@ Cheap wins from sitting inside the suite:
   honoring the row's `start` and `speed` instructions — managers currently have to
   load the export into Rigdio to hear anything.
 - **Validation panel**: file-existence checks (with the player's case-insensitive +
-  `_normalized` resolution), unknown-condition warnings, empty-slot notices, duplicate
-  player names, missing anthem — shown inline and summarized before save. Flag known legacy
+  `_normalized` resolution), unknown-condition warnings, empty-slot notices, player
+  names differing only in case, a player named like a reserved slot in another case
+  (`Anthem;x.mp3` is a player for Rigdio, not the anthem), missing anthem — shown inline
+  and summarized before save. Flag known legacy
   compatibility exceptions such as `time` (unregistered in affected Rigdio parsers; see the
   Music player plan). RigDJ only discovers missing files when Rigdio errors on load.
 - **Unsaved-changes tracking** (dirty flag + confirm-on-close), which RigDJ lacks
@@ -122,7 +158,9 @@ Cheap wins from sitting inside the suite:
 ```
 
 Condition forms open as small egui modals (like RigDJ's `ConditionDialog`), with
-OK/Delete/Cancel. The preview pane is collapsible for small screens.
+OK/Delete/Cancel; Enter confirms and Escape cancels, as in RigDJ. Deleting is the button
+alone: RigDJ's Delete key also fired while the cursor was in a text field. The preview pane
+is collapsible for small screens.
 
 ## CLI
 
@@ -145,7 +183,7 @@ and `config.yml` handling all disappear into the platform.
 ## Testing
 
 - **Round-trip**: RigDJ-written files from the community library load and re-save
-  byte-identically (golden files); hand-written files re-save semantically equal
+  byte-identically once their CRLF line ends are made `\n` (golden files); hand-written files re-save semantically equal
   (model-level comparison), including bracketed spaced values on *all* condition
   types — the regression class RigDJ's bracket hack papered over.
 - **Editing operations** as model-level unit tests: rename keeps order and songs,

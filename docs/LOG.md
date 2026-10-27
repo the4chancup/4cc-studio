@@ -2685,3 +2685,5 @@ worklog passed 7,000 lines.
   the default CPK name is the cup's `4cc_38_balls`, only the textures a model names ship, legacy import keeps the DDS of a pair.
 - **2026-10-27** — 0.0.1s5: Astra A2's rework, seven Tactics tests that passed on a wrong implementation now fail on it (a
   non-identity eleven, whole-record comparisons, seven named role holders); test code only.
+- **2026-10-27** — 10.0h: the Music export editor's plan checked row by row against RigDJ; players keep the file's (Rigdio's
+  button) order, new names are checked at entry, the `pause`, `end`, `every` and `match` forms stop losing or breaking values.

@@ -12259,3 +12259,58 @@ refuse a ball pointing at a texture the game itself ships; a model that names no
 own textures shows through the `file_not_used` warnings on them. 2.03's GzsTool manifest
 named the entry `ball.fmdl`.
 Plan: `plans/balls_compiler.md` "Compilation pipeline" steps 2 and 3.
+## 2026-10-27 — music_export_editor — Files: a refused load changes nothing, saves end lines with `\n`, the VA fallback is written from a copy
+Decision: a load the parser refuses leaves the editor as it was, the open file's path
+included. A save writes `\n` line ends on every OS; RigDJ files re-save byte-identically once
+their CRLF is made `\n`. The victory fallback (the anthem entries written as victory anthems
+when the VA slot has no non-special entries) is applied to a copy of the export that both the
+preview and Save write; the model's VA slot stays empty.
+Why: RigDJ took a refused file's path, so its next Save overwrote that file with the export on
+screen. Its CRLF was Python's platform default; Rigdio strips each line, so either reads the
+same, and one line end on every OS keeps the files equal. RigDJ copied the anthem entries into
+the model itself, so both slots then held the same objects, and its preview never showed the
+fallback; applying it to a copy keeps "the preview is what is written" true. RigDJ copied only
+into an empty VA, which left a VA of only `special` entries with nothing for Rigdio's VA
+button.
+Plan: `plans/music_export_editor.md` "Background", "What the editor does" (Open / New / Save,
+Victory fallback), "Testing".
+## 2026-10-27 — music_export_editor — Players keep the file's order, and a new name is checked at entry
+Decision: the slot list shows and writes the players in the file's order; a new player goes
+before the first whose name sorts after it. A new or renamed name is trimmed and refused when
+empty, a reserved word or slot label in any case, holding `;`, starting with `#`, or an exact
+duplicate. A case-only duplicate is allowed and flagged, as is a player named like a reserved
+slot in another case. Reordering the players is proposal P40, not built.
+Why: the file's order is Rigdio's button order, and 27 of the 50 RigDJ-written exports on the
+maintainer's machine carry a hand order that RigDJ's re-sort on load undid. Inserting at the
+sorted position, as RigDJ did, keeps a sorted list sorted without re-sorting a hand-ordered one.
+Each refused name made RigDJ write a line Rigdio reads as something else, or empty a reserved
+slot's songs silently. Rigdio keys players as written, so `Billy` and `billy` are two.
+Plan: `plans/music_export_editor.md` "What the editor does" (Slot list), "New capabilities"
+(Validation panel).
+## 2026-10-27 — music_export_editor — A song row's path: the picker's form, empty refused
+Decision: the file picker writes the path relative to the export's folder when the file is
+under it, else the bare file name; a typed path is kept. A new row's path is empty, and an empty
+path is a validation error that blocks Save. In the VA slot, up/down moves an entry past its
+neighbour of the same section.
+Why: RigDJ wrote every pick as its bare name, so no community export carries a folder; the
+player resolves a subfolder, so keeping one under the export costs nothing. RigDJ's new row
+read `New Song`, a file Rigdio then looks for. The parser refuses an empty path, so a saved one
+could not be reopened. RigDJ's arrows moved entries across the special and regular sections.
+Plan: `plans/music_export_editor.md` "What the editor does" (Song rows).
+## 2026-10-27 — music_export_editor — The condition forms RigDJ lacked or got wrong
+Decision: `every` takes an integer from 1; `opponent` takes free text beside the team list;
+the `match` grid refuses OK with nothing checked and writes a confirmed grid in the match
+types' order, an untouched condition keeping the file's order; `pause` gets an action dropdown
+and an "every n" integer; `end` a `stop`-only form, a loaded `end loop` kept until its form is
+confirmed. An empty `mostgoals` scorer or `special` label means no argument. Randomise Horns
+gives `randomise` to warcry entries too. Enter confirms and Escape cancels a form; deleting is
+the button alone.
+Why: `every 0` crashes Rigdio. A guest team is not on the teams list. The parser refuses a bare
+`match`, and RigDJ wrote the words in a set's order, different on each run. RigDJ's `pause`
+form had no `every` field and dropped it from every line on save. A bare `mostgoals` means this
+player and a bare `special` is labelled by its file, which the plan's "refused at entry" had
+wrong. Rigdio draws warcries at random when they all carry `randomise`, which is what a slot
+built with RigDJ's box does; matching it keeps those slots playing the same. RigDJ's Delete key
+also deleted the chip while the cursor was in a text field.
+Plan: `plans/music_export_editor.md` "What the editor does" (Condition editing, Guard rails,
+Randomise Horns), "GUI view".

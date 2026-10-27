@@ -19,3 +19,16 @@ and P32-P38 accepted", "A folder per PES version", "Red's settings are not impor
 first run" and "Live AATF stays off by default"). P39 (a window closed maximized reopens
 maximized) was accepted on 2026-10-27 (`DECISIONS.md` "A window closed maximized reopens
 maximized").
+
+## P40 — The Music export editor reorders its players
+
+From the RigDJ audit (10.0h, 2026-10-27). The editor lists and writes the players in the
+file's order, which is the order of Rigdio's buttons (`plans/music_export_editor.md` "What
+the editor does", the slot list). 27 of the 50 RigDJ-written exports on the maintainer's
+machine have their players out of sorted order, so managers reorder them by hand in a text
+editor; RigDJ re-sorted them on every load.
+
+Adds: up/down buttons (or a drag) on a player in the slot list, so a manager sets the button
+order the streamer sees without leaving the editor. Costs: two buttons beside Rename and
+Delete, and the drag the song rows already plan reused for the slot list; nothing new in the
+format.
