@@ -376,7 +376,10 @@ for native conversion), Phase 7 (glTF support), and Phase 8 (the shell).
 - List editor view (storage box + ordered list, thumbnails, utility buttons); `import-legacy` CLI
 
 **Verification:** output comparison against 2.03 on the same library (accounting for the intentional
-drops: no `name.txt`/`ball.fpk.xml` in the CPK); `Ball.bin` byte-parity for identical lists;
+drops: no `name.txt`/`ball.fpk.xml` in the CPK, no texture the model does not name, and nothing a
+stale 2.03 `patches_contents/` folder carried over from an earlier run); `Ball.bin` byte-parity for
+identical lists, the expected file from a fresh 2.03 run (the `Ball.bin` shipped in its `Bin Files/`
+is an older four-ball run's output, not a template);
 interrupted/observed atomic `balls.txt` replacement tests (including Windows); shared `CpkStem`
 boundary tests; in-game menu check.
 

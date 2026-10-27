@@ -82,7 +82,7 @@ balls 4cc/
     │   ├── ball_col.ftex      ← textures: any image format (DDS, FTEX, PNG, JPEG, BMP,
     │   ├── *.png / *.jpg      ←   WebP, TGA, TIFF) — referenced by stem, interchangeable;
     │   │                         see Unified model format plan
-    │   ├── name.txt           ← optional display name (UTF-8, ≤135 bytes);
+    │   ├── name.txt           ← optional display name (UTF-8, ≤135 bytes, one line);
     │   │                         falls back to the folder name
     │   └── thumbnail.dds      ← menu thumbnail, fixed root-level name
     └── ...
@@ -102,13 +102,24 @@ Improvements over the 2.03 folder format:
   per-target the same way (DDS→FTEX for Fox, FTEX→DDS for pre-Fox).
 - **Folder names may contain spaces** (a batch tokenization limit, not a format
   need).
-- **`name.txt` is optional** — the folder name is the fallback display name.
+- **`name.txt` is optional** — the folder name is the fallback display name. The
+  name is the file's text with a UTF-8 byte-order mark dropped and trimmed at both
+  ends; a line break left inside it is an error naming the file. 2.03 kept the last
+  line and passed a byte-order mark into `Ball.bin` as name bytes; no shipped
+  `name.txt` has a second line or a mark, so nobody relies on either.
 - **`thumbnail.dds` at the folder root** replaces the `thumbnail/` subfolder with
   its any-name `.dds`; a legacy `thumbnail/*.dds` is still accepted with a warning
-  (used in memory, never rewritten — the message suggests renaming).
+  (used in memory, never rewritten — the message suggests renaming). More than one
+  candidate (a root `thumbnail.dds` beside a legacy one, or two `.dds` in `thumbnail/`)
+  is an error naming them: 2.03 silently took the last one its directory listing gave.
 
 `balls.txt` keeps the 2.03 shape: one folder name per line, order defining both the
-menu order and the `ballXXX` numbering, at most 50 lines, duplicates rejected.
+menu order and the `ballXXX` numbering, at most 50 lines. Blank lines are skipped and
+each line is trimmed, as 2.03's tokenizer did. There is no comment syntax: a line
+starting with `;`, which 2.03 dropped silently, is a folder name like any other, so a
+commented-out ball shows as a missing folder instead of vanishing. Duplicates are
+rejected: a ball listed twice spends a second of the 50 slots on the same model and is
+a typo far more often than intent.
 
 The *export* format knowledge (`balls.txt`, the folder layout) lives **inside the tool crate**:
 unlike `aesthetics_export` it has exactly one consumer, so it earns no lib crate (core plan,
@@ -144,13 +155,20 @@ drains them. For each listed ball at 1-based position N (id `ball%03d`):
    sources. The [library crates plan](libs/README.md) owns alpha and normal-map exceptions.
 2. **Fox path** (PES 18+): convert target-compatible DDS textures to FTEX; rewrite the FMDL's texture
    path table to the `ballXXX` id (paths of the form
-   `/Assets/pes16/model/ball/ballXXX/...` — segment 5, `fmdl` crate); pack
-   `ball.fmdl` into `ball.fpk` (`fpk` crate) paired with the embedded generic
+   `/Assets/pes16/model/ball/ballXXX/...` — segment 5, `fmdl` crate); a directory of
+   any other form is left as authored, since it may name a texture the game itself
+   ships; pack `ball.fmdl` into `ball.fpk` (`fpk` crate) as its one entry, named
+   `ball.fmdl` as 2.03's manifest named it, paired with the embedded generic
    `ball.fpkd` template; emit to `Asset/model/ball/ballXXX/#Win/` with textures
-   under `Asset/model/ball/ballXXX/#windx11/`.
+   under `Asset/model/ball/ballXXX/#windx11/`. Only the textures the rewritten FMDL
+   names ship; any other file in the folder is `file_not_used` (W), as in the Team
+   compiler. 2.03 shipped every `.ftex`, which the game never loads; the warning is
+   also how a model that never names its own textures shows.
 3. **Pre-Fox path** (PES ≤17): convert FTEX textures to DDS; emit `ball.model`,
-   `ball.mtl`, and textures loose to `common/render/model/ball/ballXXX/`. No id
-   rewriting — the `.mtl` uses relative `./` texture paths.
+   `ball.mtl`, and the textures the `.mtl` names, loose to
+   `common/render/model/ball/ballXXX/`. No id rewriting — the `.mtl` uses relative
+   `./` texture paths. Any other file in the folder is `file_not_used` (W): 2.03 copied
+   the whole folder, `name.txt` and stray files included.
 4. **Thumbnail** — emit as `common/render/thumbnail/ball/ball_%03d.dds` (missing:
    warning, ball kept, slot has no menu image — 2.03's behavior).
 5. **Bins** — build `Ball.bin` (see the format reference below) with number = menu
@@ -158,7 +176,7 @@ drains them. For each listed ball at 1-based position N (id `ball%03d`):
    verbatim; both to `common/etc/pesdb/`.
 6. **CPK** — validate the configured name as shared `pipeline::CpkStem`, pack everything into one
    CPK (`cpk` crate; default stem
-   `4cc_39_balls`), deploy it to the download folder (`elevation` lib when needed),
+   `4cc_38_balls`), deploy it to the download folder (`elevation` lib when needed),
    and **check** the name is listed in `DpFileList.bin` — never write to it. Deployment follows the
    Team compiler's model: staged under `output/.staging/`, always attempted, degraded to
    `output/{name}.cpk` with the reason when it cannot happen, CLI-only `--no-deploy` for the
@@ -186,9 +204,11 @@ bytes. A UTF-8 `name.txt` therefore produced UTF-8 in `Ball.bin`, but what
 encoding PES actually renders is unverified (see Open questions).
 
 **`BallCondition.bin`** is a static 1800-byte file the old tool never generates or
-edits — only copies. It is carried as an embedded template verbatim. (Structure:
-repeating 8-byte records `u16 1, u16 n, u32 n-1` — undecoded semantics; see Open
-questions.)
+edits — only copies. It is carried as an embedded template verbatim. Its structure:
+225 little-endian 8-byte records `u16 ball, u16 index, u32 code`, where `ball` runs
+1-50, `index` counts the records from 1, ball 1 has 29 records with codes 0-28 and
+balls 2-50 have four each with codes 0, 4, 5 and 13. What the codes mean is undecoded;
+see Open questions.
 
 ## GUI
 
@@ -208,12 +228,17 @@ editable list, with live validation via the `pipeline` lib's folder watcher.
   prefixed by the owning team's name, so this groups by team), **Reverse**,
   **Remove all** (clear the list); per-entry: remove, move to top/bottom.
 - **Validation** (per-ball statuses on both panels): no model for the target
-  version and none convertible (E, ball skipped), pre-Fox `.model` without a valid
+  version and none convertible (E), pre-Fox `.model` without a valid
   `.mtl` pair (E for that representation), invalid `materials.toml` or glTF image
   dependency (E), model converted from another format (I), thumbnail missing (W),
   legacy `thumbnail/` location (W), name over
   135 bytes (E), listed folder missing (E), duplicate list entry (E), over 50
   balls (E), multiple `balls*` exports found (E, tool inactive until resolved).
+  An error on any listed ball, or on the list, means the compile writes no CPK. A ball's
+  id is its list position, so skipping one would either shift every later ball off the
+  number the organizer sees (2.03 did that, with a pause and a message) or leave a gap
+  in `Ball.bin` that PES may not accept; the statuses show the error before Compile, and
+  the fix is to the list or the folder.
 - **Save**: writes `balls.txt` into the export. Same convention as the Refs
   arranger, for consistency: write a sibling temporary file, flush it, and
   atomically replace the target so watchers never observe a half-written list;
@@ -235,15 +260,14 @@ studio balls-compiler import-legacy "<path to old compiler folder>"
 name in the union of `Balls_fmdl/` and `Balls_mtl/`, merge both folders' contents
 into one `Balls/<name>/` (the sparse library makes the union essential — most balls
 exist in only one tree), move `thumbnail\*.dds` to `thumbnail.dds`, drop
-`ball.fpk.xml`, and convert `balls_list.txt` to `balls.txt`. Worth a subcommand
-rather than a manual merge at 100+ balls. Migration builds a separate output and leaves the old
-library untouched.
+`ball.fpk.xml`, and convert `balls_list.txt` to `balls.txt`, each line's first
+whitespace-delimited token becoming the line (2.03 read only that token as the folder
+name). Worth a subcommand rather than a manual merge at 100+ balls. Migration builds a
+separate output and leaves the old library untouched.
 
-When merging produces same-stem DDS and FTEX alternatives, **keep the one with the newer source
-modification time** and omit the other from the migrated folder. Compare the original files' times,
-not times assigned while copying into the output. Equal timestamps prefer DDS as the editable
-format; if either timestamp cannot be read, report the conflict rather than inventing an order.
-A timestamp is a selection heuristic, not proof of which content is correct. Keep a lone DDS or
+When merging produces same-stem DDS and FTEX alternatives, **keep the DDS** and omit the
+FTEX from the migrated folder: every 2.03 compile converted the DDS over its same-stem FTEX,
+so the DDS is what the game showed and the FTEX never reached a CPK. Keep a lone DDS or
 FTEX source as-is. This rule is confined to legacy import; ordinary compiler validation still
 rejects ambiguous same-stem sources. Identical duplicate files coalesce; other differing duplicates
 (including two DDS files, names, or thumbnails) are reported for user selection, not silently
@@ -253,7 +277,7 @@ overwritten.
 
 | Setting | Default | Purpose |
 |---------|---------|---------|
-| `cpk_name` | `4cc_39_balls` | Output `pipeline::CpkStem`, using the same filename-stem contract as the Team compiler |
+| `cpk_name` | `4cc_38_balls` | Output `pipeline::CpkStem`, using the same filename-stem contract as the Team compiler |
 
 `CpkStem` accepts 1–28 characters from ASCII alphanumeric, `_`, `-`, and `.` only (no spaces),
 rejects separators/control characters/trailing dot/Windows reserved-device names or a
@@ -269,10 +293,10 @@ explicitly on Windows. Model fixtures cover a missing/invalid pre-Fox MTL making
 unavailable, atomic FMDL/glTF→`.model`+`.mtl` output, `materials.toml` parsing, native-model raster
 texture sources, and resolved glTF image dependencies, all producing target PES textures. `CpkStem` boundary
 tests are shared with the Team compiler, including empty/29-character, invalid-character,
-reserved-name, explicit-extension, and case-collision cases. Legacy-import fixtures cover either
-DDS or FTEX winning by source modification time, DDS winning equal timestamps, single-format
-content surviving, unreadable timestamps/other conflicts remaining reported, and the original
-library staying unchanged.
+reserved-name, explicit-extension, and case-collision cases. Legacy-import fixtures cover the
+DDS winning a same-stem pair, single-format content surviving, a list line with trailing text
+migrating as its first token, other conflicts remaining reported, and the original library
+staying unchanged.
 
 ## Development phase
 
@@ -287,8 +311,8 @@ Phase 14 in the core plan's Development Plan. Needs the format/archive libs and
   shipped sample names are all ASCII. Whether PES decodes non-ASCII names as UTF-8
   (or a legacy codepage) needs an in-game test with a known non-ASCII name before
   the validator's byte-count limit is finalized.
-- **`BallCondition.bin` semantics** — the 8-byte records are undecoded (some flag +
-  ball number + index). Carrying the template verbatim matches 2.03 and works
+- **`BallCondition.bin` semantics** — the records' codes are undecoded (the format
+  reference above gives the layout). Carrying the template verbatim matches 2.03 and works
   in-game; decoding is only needed if a future feature wants to edit it.
 - **Pre-Fox version quirks** — 2.03 treated PES 14–17 as one path and never
   zlib-compressed ball DDS textures (unlike the Team compiler's optional PES ≤17

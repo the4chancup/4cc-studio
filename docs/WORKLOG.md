@@ -3934,11 +3934,15 @@ The phase's steps are itemized when it opens; prepared ahead:
 
 The phase's steps are itemized when it opens; prepared ahead:
 
-- [ ] 14.0a the legacy-behavior audit: every behavior of the 4cc balls compiler 2.03
+- [x] 14.0a the legacy-behavior audit: every behavior of the 4cc balls compiler 2.03
   (`Tools_Mine/4cc balls compiler/4cc balls compiler 2.03`: `balls_compile.bat`, its engines'
   scripts, `Ball.bin`'s offsets) compared with `plans/balls_compiler.md`, citing both sides,
-  each row ruled into the plan and DECISIONS. Audit running (Fable, read-only, brief
-  `.tmp/14_0a/brief_balls_audit.md`, report `balls_audit.md`)
+  each row ruled into the plan and DECISIONS. 49 rows (`.tmp/14_0a/balls_audit.md`): 19 same,
+  the rest deliberate or matched, none left for the maintainer (the CPK-name question answered
+  from the cup's PES 2021 install: `4cc_38_balls`). `Ball.bin` and `BallCondition.bin`
+  re-decoded by the lead: the former as the plan had it, the latter's description corrected.
+  Plan "The balls export", "Compilation pipeline", "GUI", "CLI", "Testing"; core plan
+  Phase 14's verification; five DECISIONS entries
 
 ### Phase 16 — Polish and distribution
 

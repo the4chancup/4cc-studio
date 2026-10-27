@@ -2681,3 +2681,5 @@ worklog passed 7,000 lines.
   number; five-number records still load); its first frame maximizes again after the position resend, which winit restores.
 - **2026-10-27** — 0.0.1m2b: a player's first frame is drawn where every later one is (a frame may run three passes, so the
   pass laid out on a new grid's sizing widths is discarded); the view tests' default window is the design pane.
+- **2026-10-27** — 14.0a: the Balls compiler's plan checked row by row against 2.03's batch and bins; an error now writes no CPK,
+  the default CPK name is the cup's `4cc_38_balls`, only the textures a model names ship, legacy import keeps the DDS of a pair.

@@ -12213,3 +12213,49 @@ decision dates and step tags, where a reader wants one sentence; and a plan poin
 when the plan moves to the spec. Decisions live in this file alone.
 Plan: `CONTRIBUTING.md` "Code style", the bullet "A comment stands on its own"; `AGENTS.md`'s
 design sweep.
+## 2026-10-27 — balls_compiler — An error on a listed ball means the compile writes no CPK
+Decision: any error on a listed ball (no usable model, a missing folder, a name too long) or on
+the list itself stops the compile before a CPK is written; the per-ball statuses already show
+it. The validation list's "E, ball skipped" became "E".
+Why: a ball's id is its list position. Skipping one, as 2.03 did, shifts every later ball off
+the number the organizer sees; keeping the position empty leaves a gap in `Ball.bin` that PES
+may not accept (unchecked). An export with an error gets a human's attention anyway, so the
+simplest rule wins.
+Plan: `plans/balls_compiler.md` "GUI" (the Validation bullet).
+## 2026-10-27 — balls_compiler — The default CPK name is `4cc_38_balls`
+Decision: `cpk_name` defaults to `4cc_38_balls`, not `4cc_39_balls`.
+Why: the cup's PES 2021 install loads `4cc_38_balls.cpk` and lists it in its `DpFileList.bin`,
+and a real 2.03 run's output and the earlier balls compilers carry the same name. 2.03's own
+default, `4cc_39_balls_test`, appears only in a test copy; `4cc_39_balls` appears nowhere.
+Plan: `plans/balls_compiler.md` "Compilation pipeline" step 6, "Settings".
+## 2026-10-27 — balls_compiler — `import-legacy` keeps the DDS of a same-stem DDS and FTEX pair
+Decision: when merging the two 2.03 trees gives a DDS and an FTEX of one stem, the migrated
+folder keeps the DDS. The newer-modification-time rule, its tie and unreadable-time cases and
+their fixtures are gone. A `balls_list.txt` line migrates as its first whitespace-delimited token.
+Why: every 2.03 compile converted the DDS over its same-stem FTEX, so the DDS is what the game
+showed and the FTEX never reached a CPK; a timestamp could pick content no cup ever saw. 2.03
+read only a line's first token as the folder name, so the rest of a line was never a name.
+Plan: `plans/balls_compiler.md` "CLI", "Testing".
+## 2026-10-27 — balls_compiler — How `balls.txt`, `name.txt` and the thumbnail are read
+Decision: `balls.txt` skips blank lines and trims each line; it has no comment syntax, so a
+`;` line is a folder name. `name.txt` is the file's text with a UTF-8 byte-order mark dropped
+and trimmed at both ends; a line break inside it is an error. More than one thumbnail candidate
+(a root `thumbnail.dds` beside a legacy one, or two in `thumbnail/`) is an error naming them.
+Duplicates in the list stay rejected, now with the reason.
+Why: 2.03's tokenizer skipped blank lines and trimmed, invisibly to the organizer. Its `;`
+comments were undocumented and dropped a ball silently, where a missing-folder error shows it.
+It kept a name file's last line, passed a byte-order mark into `Ball.bin` as name bytes, and
+took the last of several thumbnails silently. No shipped file relies on any of these. A
+duplicate spends a second of the 50 slots on the same model and is far more often a typo.
+Plan: `plans/balls_compiler.md` "The balls export (the format)".
+## 2026-10-27 — balls_compiler — Only the textures a ball's model names ship
+Decision: on Fox the CPK carries the textures the rewritten FMDL names, and on pre-Fox the
+`.model`/`.mtl` pair and the textures the `.mtl` names; any other file in the folder is
+`file_not_used` (W). FMDL texture directories of the `ballXXX` form are rewritten to the
+ball's id and any other directory is left as authored. The FPK's one entry is `ball.fmdl`.
+Why: 2.03 shipped every `.ftex` (Fox) or the whole folder (pre-Fox), files the game never
+loads, as the Team compiler already rules. An error for a directory of another form would
+refuse a ball pointing at a texture the game itself ships; a model that names none of its
+own textures shows through the `file_not_used` warnings on them. 2.03's GzsTool manifest
+named the entry `ball.fmdl`.
+Plan: `plans/balls_compiler.md` "Compilation pipeline" steps 2 and 3.
