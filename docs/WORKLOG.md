@@ -3727,7 +3727,18 @@ briefs, review loops, gates and mutation runs as for any step.
     as the reference, through the drafts' `?fontsrc=&scale=` hook (inert without the keys;
     `draft_fonts.py` 0 findings). Seen there: scaled, Open Sans, Noto Sans, Source Sans 3 and
     Fira Sans wrap "Shirt number" (Noto also "Registered position"); Inter and Lato fit as
-    Selawik does. Waits for the maintainer's pick (QUESTIONS)
+    Selawik does. Picked (the maintainer, DECISIONS "The body font is Roboto Flex at its
+    default axes, unscaled"): Roboto Flex, untuned and unscaled. The work, a slice of its
+    own: the static instance cut at the default axes into `resources/fonts/`, `theme.rs`'s
+    body font and both fallback chains, `make_symbols.py`'s `BODY_FONT` and `symbols.ttf`
+    rebuilt, the drafts' `@font-face`, then every width constant re-measured (the draft
+    first, then the code), each widened only as far as keeps its row's line count, the
+    tests that pin widths following. The three the maintainer named (2026-10-28): the
+    player view's General Info column wider, so "Shirt number" and "Registered position"
+    stay on one line; the Tactics tab's Formation settings column a little wider, so
+    "Frontline Press." is drawn whole, not elided; Player assignments narrower to pay for
+    it → verify: `draft_fonts.py` 0 findings; the built window's player and team views at
+    1280 x 800 with the same rows as the drafts
   - [ ] w5 a modal window's title at the drafts' 14 points (`.window .title`), a text style of
     its own, where the app draws egui's `Heading` (15 after w2r1)
 - [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the

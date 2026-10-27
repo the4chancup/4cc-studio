@@ -2728,3 +2728,5 @@ worklog passed 7,000 lines.
   host's Remarks (a note pinned to a panel and control, Copy remarks with each state's link), checked in Chromium and Firefox.
 - **2026-10-27** — The drag rule's overall: PES 2016's formula until a version's own is measured (the maintainer); PES 2017, DBC7's game, is
   checked in game first (y4d). The library audit's rework opens as step `la`: 55 findings, 43 accepted, five slices.
+- **2026-10-27** — The body font is Roboto Flex at its default axes, unscaled (the maintainer's pick from the trial); the width constants
+  get re-measured in it, each widened only as far as keeps its row's line count (worklog w4).

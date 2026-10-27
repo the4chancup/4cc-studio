@@ -12444,3 +12444,14 @@ within 2 of each other can differ from the game's, and reading PES 2021's own fo
 take hours of executable analysis. PES 2017 is the game DBC7 plays, so its drag gets the same
 check PES 2021's had.
 Plan: `plans/save_editor.md` "A pitch player dropped on another".
+
+## 2026-10-27 — core — The body font is Roboto Flex at its default axes, unscaled
+Decision: the app and the drafts draw body text in Roboto Flex at its default axes, bundled as
+a static instance, at its own width (no `FontTweak::scale`, no axis tuning). The width constants
+are re-measured in it, each widened only as far as keeps every row's line count, and the
+symbols font is rebuilt on its metrics.
+Why: the maintainer's pick from the font trial (Selawik, Segoe UI and ten open fonts over the
+Save editor's views), after Selawik's look did not please. Unscaled, it is 1.8% wider than Segoe
+UI on the measured path, so a few labels need a little more room, which the maintainer accepts
+over a scaled or tuned face.
+Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row.

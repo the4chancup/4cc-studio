@@ -20,20 +20,6 @@ names where the question came from so the context can be read there.
 
 ## Draft looks
 
-- **Which body font? (0.0.1w4.)** Open `.tmp/0_0_1w/font_trial/index.html`: a dropdown draws
-  the Save editor's player or team view in Selawik (now), Segoe UI (the reference, not
-  bundleable) or one of six open fonts, each scaled to Segoe UI's width (the checkbox shows it
-  unscaled). Scaled, Open Sans, Noto Sans, Source Sans 3 and Fira Sans wrap "Shirt number";
-  Inter and Lato fit as Selawik does. Three more, the search's best fits for Segoe UI's
-  heights at its width (`.tmp/0_0_1w/font_search/report.md`): **Reddit Sans** (x-height and
-  caps within 2.2%, round letters normal width), **Roboto Flex tuned to Segoe UI** (its
-  parametric axes set so every measured proportion matches to 0.03%) and **Libre Franklin**
-  (heights within 0.7%, ascenders 6% shorter). Selawik itself is the one font in the list
-  with a smaller x-height (95% of Segoe UI's). Roboto and Roboto Flex as shipped are in the
-  list too (scaled 96.9% and 98.2%). A switch now redraws the draft in place once the new
-  face has loaded, so no frame draws in a fallback font (the page reloaded the draft before,
-  which flashed whenever the face loaded after the first paint). A pick is bundled and the
-  symbols font rebuilt on it.
 - **The sliders, the player rows, the positions labels and Reset window (0.0.1z1).** Open
   `docs/prototypes/index.html`, the Save editor: the sliders are drawn as the app's, the
   handle and the rail up to it blue (a team's Formation settings, a player's Appearance);
