@@ -96,16 +96,16 @@ fn table_of(table: &toml::Table, name: &str) -> anyhow::Result<BTreeMap<u16, Str
     };
     let entries = value
         .as_table()
-        .with_context(|| format!("[{name}] is not a table"))?;
+        .with_context(|| format!("[{name}] is not a list of shared IDs and folder names"))?;
     entries
         .iter()
         .map(|(key, value)| {
             let id: u16 = key
                 .parse()
-                .with_context(|| format!("[{name}]'s {key} is not a shared ID"))?;
+                .with_context(|| format!("in [{name}], {key} is not a shared ID"))?;
             let folder = value
                 .as_str()
-                .with_context(|| format!("[{name}]'s {key} is not a folder name"))?;
+                .with_context(|| format!("in [{name}], {key}'s value is not a folder name"))?;
             Ok((id, folder.to_owned()))
         })
         .collect()

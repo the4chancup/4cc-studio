@@ -1,7 +1,7 @@
 //! The savefile update (`spec/team_compiler/pipeline.md` "6. Post-processing"): a deployed or
 //! sideloaded run applies the `aesthetics_patch.toml` it just wrote to the local
-//! savefile (`pes_savefile`'s `apply`), never while the target's PES runs and never when the
-//! game loads nothing of the run.
+//! savefile (`pes_savefile`'s `apply`), skipped while the target's PES runs unless the run
+//! was given `--edit-mode-closed`, and never when the game loads nothing of the run.
 
 use std::fs;
 use std::path::PathBuf;
@@ -10,6 +10,7 @@ use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 use pes_savefile::model::team::RosterSlot;
 use pes_savefile::{EditFile, fixture_save};
 use pes_version::PesVersion;
+use studio_core::RunningPes;
 
 use crate::common::Sandbox;
 use crate::compile::{pes_settings, pes21_settings};
@@ -468,9 +469,8 @@ fn a_pre_fox_compile_writes_no_patch_and_leaves_the_savefile_alone() {
     assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
 }
 
-// The automatable half (the running-PES skip is `src/output/savefile.rs`'s unit test and
-// the worklog's `manual: checked` line).
-// TC-SAV-10
+// TC-SAV-17's no-game case: nothing running, the sideloaded run writes the save.
+// TC-SAV-17
 #[test]
 fn a_sideload_run_writes_the_savefile_and_a_patch_naming_no_cpk() {
     let sandbox = Sandbox::new("savefile_sideload");
@@ -491,6 +491,67 @@ fn a_sideload_run_writes_the_savefile_and_a_patch_naming_no_cpk() {
     );
     assert!(lines.contains(&written), "{lines:#?}");
     assert_eq!(read_patch(&sandbox).cpks, Vec::<String>::new());
+}
+
+// The scenario's running-game cases, three runs in sequence on one sandbox: skipped while
+// the target's PES runs, written with the flag, written when only another version runs.
+// TC-SAV-17
+#[test]
+fn a_sideload_run_with_its_game_running_writes_the_savefile_only_given_edit_mode_closed() {
+    fn pes21_running() -> Vec<RunningPes> {
+        vec![RunningPes {
+            version: PesVersion::Pes21,
+            exe: None,
+        }]
+    }
+    fn pes19_running() -> Vec<RunningPes> {
+        vec![RunningPes {
+            version: PesVersion::Pes19,
+            exe: None,
+        }]
+    }
+
+    let sandbox = Sandbox::new("savefile_sideload_running");
+    sandbox.write("PES/PES2021.exe", b"the game");
+    let save = install_save(&sandbox, PesVersion::Pes21);
+    let before = fs::read(&save).unwrap();
+    motion_export(&sandbox, "co Full Motions");
+    let sideload = ["compile", "--mode", "sideload"];
+    let written = format!(
+        "Info savefile_written [Keep] (path={}, teams=714)",
+        sandbox.display("save/EDIT00000000")
+    );
+
+    // Its own game running, no flag: the save is skipped, the patch written naming no CPK.
+    let run = sandbox.run_with_running(&pes21_settings(&sandbox), &sideload, pes21_running);
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let skipped = format!(
+        "Warning savefile_skipped_pes_running [Keep] (path={}, version=PES 2021, flag=--edit-mode-closed)",
+        sandbox.display("save/EDIT00000000")
+    );
+    assert!(lines.contains(&skipped), "{lines:#?}");
+    assert!(
+        lines.iter().all(|line| !line.contains("savefile_written")),
+        "{lines:#?}"
+    );
+    assert_eq!(read_patch(&sandbox).cpks, Vec::<String>::new());
+    assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
+
+    // The flag is the member's word that Edit mode is closed: the save is written.
+    let mut flagged = sideload.to_vec();
+    flagged.push("--edit-mode-closed");
+    let run = sandbox.run_with_running(&pes21_settings(&sandbox), &flagged, pes21_running);
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(lines.contains(&written), "{lines:#?}");
+    assert_ne!(fs::read(&save).unwrap(), before, "the save is written");
+
+    // Another version's game never writes this save back: written without the flag.
+    let run = sandbox.run_with_running(&pes21_settings(&sandbox), &sideload, pes19_running);
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(lines.contains(&written), "{lines:#?}");
 }
 
 // The other modes the game loads nothing of (`spec/team_compiler/pipeline.md` "6.

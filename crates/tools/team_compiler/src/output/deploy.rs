@@ -90,10 +90,10 @@ impl Staging {
     pub(crate) fn create(output: &Path) -> anyhow::Result<Staging> {
         let root = output.join(STAGING);
         fs::create_dir_all(&root)
-            .with_context(|| format!("{}: cannot create the staging folder", root.display()))?;
+            .with_context(|| format!("cannot create the folder {}", root.display()))?;
         let run_id = run_id();
         let lock_path = root.join(lock_name(&run_id));
-        let cannot_lock = || format!("{}: cannot lock the run's staging", lock_path.display());
+        let cannot_lock = || format!("cannot lock {} for this run", lock_path.display());
         let lock = File::create_new(&lock_path).with_context(cannot_lock)?;
         lock.try_lock()
             .map_err(io::Error::from)
@@ -207,9 +207,9 @@ pub(crate) fn cpk_file_name(cpk_stem: &CpkStem) -> String {
 /// names the folder, not the probe.
 pub(crate) fn prepare_output_folder(output: &Path) -> anyhow::Result<()> {
     fs::create_dir_all(output)
-        .with_context(|| format!("{}: cannot create the output folder", output.display()))?;
+        .with_context(|| format!("cannot create the output folder {}", output.display()))?;
     probe_folder(output)
-        .with_context(|| format!("{}: cannot write in the output folder", output.display()))
+        .with_context(|| format!("cannot write in the output folder {}", output.display()))
 }
 
 /// Probes `folder` for writing: a file created in it and removed.
@@ -584,7 +584,7 @@ pub(crate) fn promote(
     let name = cpk_file_name(cpk_stem);
     let promoted = output.join(&name);
     fs::rename(staging.folder.join(&name), &promoted)
-        .with_context(|| format!("{}: cannot replace it with the new CPK", promoted.display()))?;
+        .with_context(|| format!("cannot replace {} with the new CPK", promoted.display()))?;
     Ok(promoted)
 }
 
@@ -595,7 +595,7 @@ pub(crate) fn promote(
 /// fails (the output folder on another drive than the game). Nothing outside `target` is
 /// deleted. Failing to remove the previous tree or to move the new one is the error.
 pub(crate) fn promote_tree(staging: &Staging, tree: &str, target: &Path) -> anyhow::Result<()> {
-    let cannot_replace = || format!("{}: cannot replace it with the new tree", target.display());
+    let cannot_replace = || format!("cannot replace {} with the new files", target.display());
     match fs::remove_dir_all(target) {
         Ok(()) => {}
         Err(error) if error.kind() == io::ErrorKind::NotFound => {}
@@ -971,7 +971,7 @@ mod tests {
 
         assert!(
             error.to_string().starts_with(&format!(
-                "{}: cannot create the staging folder",
+                "cannot create the folder {}",
                 output.join(STAGING).display()
             )),
             "{error}"
@@ -1122,7 +1122,7 @@ mod tests {
         let text = error.to_string();
         assert!(
             text.starts_with(&format!(
-                "{}: cannot create the output folder",
+                "cannot create the output folder {}",
                 output.display()
             )),
             "{text}"
@@ -1495,7 +1495,7 @@ mod tests {
         assert_eq!(
             error.to_string(),
             format!(
-                "{}: cannot replace it with the new tree",
+                "cannot replace {} with the new files",
                 pes_folder.join("livecpk").display()
             )
         );
@@ -1552,7 +1552,7 @@ mod tests {
         assert_eq!(
             error.to_string(),
             format!(
-                "{}: cannot replace it with the new tree",
+                "cannot replace {} with the new files",
                 pes_folder.join("livecpk").display()
             )
         );

@@ -5,7 +5,9 @@
 use std::thread::JoinHandle;
 
 use crossbeam_channel::{Receiver, unbounded};
-use studio_core::{CliError, EventLines, LogLine, PipelineEventEnvelope, Severity, ToolContext};
+use studio_core::{
+    CliError, EventLines, LogLine, PipelineEventEnvelope, RunningPes, Severity, ToolContext,
+};
 
 use crate::cli;
 use crate::messages::TOOL_ID;
@@ -28,9 +30,10 @@ pub(crate) struct RunLog {
 impl RunLog {
     /// Starts `compile` with no arguments on a thread of its own, through the command line's own
     /// parser, preflight and verdict, so the button cannot compile anything the command line
-    /// would refuse. The previous run's lines go. Called only while no run is in flight (the
-    /// button is disabled while one runs).
-    pub(crate) fn start_compile(&mut self, ctx: &ToolContext) {
+    /// would refuse. `running` is the tool's running-PES probe, handed to `cli::run`. The
+    /// previous run's lines go. Called only while no run is in flight (the button is disabled
+    /// while one runs).
+    pub(crate) fn start_compile(&mut self, ctx: &ToolContext, running: fn() -> Vec<RunningPes>) {
         self.lines.clear();
         // A fresh formatter: export ids restart with each run.
         self.formatter = EventLines::new();
@@ -39,7 +42,7 @@ impl RunLog {
             .expect("`compile` with no arguments is a valid team-compiler command line");
         let (sender, events) = unbounded();
         let ctx = ctx.with_events(sender);
-        let thread = std::thread::spawn(move || cli::run(&matches, &ctx));
+        let thread = std::thread::spawn(move || cli::run(&matches, &ctx, running));
         self.run = Some(Run { events, thread });
     }
 
@@ -59,19 +62,22 @@ impl RunLog {
         let outcome = run.thread.join();
         self.append(&run.events);
         let (severity, last) = match outcome {
-            Ok(Ok(code)) => (Severity::Info, format!("Run finished: exit code {code}")),
+            Ok(Ok(code)) => (
+                Severity::Info,
+                format!("Run finished with exit code {code}"),
+            ),
             Ok(Err(error)) => {
                 // As the binary prints a refusal, then the code it exits with.
                 self.lines
                     .push(LogLine::plain(Severity::Error, format!("error: {error}")));
                 (
                     Severity::Info,
-                    format!("Run finished: exit code {}", error.exit_code),
+                    format!("Run ended with exit code {}", error.exit_code),
                 )
             }
             Err(_) => (
                 Severity::Error,
-                "Run stopped: the compile thread panicked".to_owned(),
+                "Run stopped because the compile crashed".to_owned(),
             ),
         };
         self.lines.push(LogLine::plain(severity, last));
@@ -170,7 +176,7 @@ mod tests {
                     root.join("save").join("EDIT00000000").display(),
                     crate::output::savefile::APPLY_COMMAND
                 ),
-                "Run finished: exit code 0".to_owned(),
+                "Run finished with exit code 0".to_owned(),
             ])
             .collect()
     }
@@ -193,13 +199,13 @@ mod tests {
         let mut log = RunLog::default();
         assert!(!log.is_running());
 
-        log.start_compile(&ctx);
+        log.start_compile(&ctx, Vec::new);
         assert!(log.is_running());
         finish(&mut log);
         assert_eq!(log.texts(), tracer_lines(root));
         assert!(root.join("PES/download/4cc_99_test.cpk").is_file());
 
-        log.start_compile(&ctx);
+        log.start_compile(&ctx, Vec::new);
         finish(&mut log);
         assert_eq!(log.texts(), tracer_lines(root));
     }
@@ -217,7 +223,7 @@ mod tests {
             log.poll();
             log.is_running()
         });
-        assert_eq!(log.texts(), ["Run finished: exit code 0"]);
+        assert_eq!(log.texts(), ["Run finished with exit code 0"]);
     }
 
     #[test]
@@ -227,7 +233,7 @@ mod tests {
         install_pes(root);
         let ctx = tool_context(root, "");
         let mut tool = Tool::new();
-        tool.run_log.start_compile(&ctx);
+        tool.run_log.start_compile(&ctx, Vec::new);
         poll_until_done(|| {
             tool.tick(&ctx);
             tool.run_log.is_running()
@@ -241,7 +247,7 @@ mod tests {
         let root = temp.path();
         let ctx = tool_context(root, "[team-compiler]\ncpk_name = 'a/b'\n");
         let mut log = RunLog::default();
-        log.start_compile(&ctx);
+        log.start_compile(&ctx, Vec::new);
         finish(&mut log);
         let lines = log.lines();
         assert_eq!(lines.len(), 2, "{lines:?}");
@@ -251,7 +257,7 @@ mod tests {
             Severity::Error,
             "the refusal is an error"
         );
-        assert_eq!(lines[1].text, "Run finished: exit code 2");
+        assert_eq!(lines[1].text, "Run ended with exit code 2");
         assert_eq!(lines[1].severity, Severity::Info, "the exit line is info");
     }
 }

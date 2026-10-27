@@ -437,7 +437,7 @@ fn an_installed_bin_that_does_not_parse_stops_the_run_before_any_export_is_read(
     assert_eq!(
         run.messages(),
         [format!(
-            "Fatal installed_bin_unreadable [AbortRun] (path={}, error=cannot parse {UNI_COLOR}: \
+            "Fatal installed_bin_unreadable [AbortRun] (path={}, error=cannot read {UNI_COLOR}: \
              UniColor.bin is 84 bytes, not a whole number of 85-byte records)",
             sandbox.display("PES/download/4cc_61_midcup.cpk")
         )],

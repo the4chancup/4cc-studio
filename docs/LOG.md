@@ -2635,3 +2635,36 @@ worklog passed 7,000 lines.
   swaps the two slots in the shown formation alone, as the game's drag (0.0.1x4, y2); round S2's five findings fixed.
 - **2026-10-27** — The position areas measured in PES 2021 (0.0.1y3): there are none to map, the dragged player's new position
   depending on who is dragged and where his teammates stand; the editor's grass drop keeps the position, as planned.
+- **2026-10-26** — 8.29c1: the Team compiler's catalog, its first 80 rows (the help's Messages topic), rewritten as
+  sentences that flow (89 texts, three SWE-2 rounds), the meaning kept; the injected TOML comments (c6) live in lib
+  crates outside track U.
+- **2026-10-26** — 8.29c2: the Team compiler's catalog rows 81-161 (textures, model conversion, deployment, the save)
+  rewritten as sentences that flow (115 texts, five SWE-2 rounds), the meaning kept.
+- **2026-10-26** — 8.29c3: the Team compiler's format-check and structure-pass rows rewritten as sentences that flow
+  (58 texts), the Export upgrader's 13 copies of the structure-pass conditions following word for word.
+- **2026-10-26** — 8.29c4a: the Team compiler's command-line refusals, `--help` and window status lines rewritten as
+  sentences that flow (20 texts); the window's settings note now points at the settings menu, which had shipped.
+- **2026-10-27** — 8.29c4b: the first half of the Team compiler's help chapter reread for flow (55 passages, its
+  long sentences split and pronouns named); two `.mtl` search facts brought to the spec.
+- **2026-10-27** — 8.29c4c: the second half of the Team compiler's help chapter reread for flow (62 passages), its
+  restated catalog rows brought to the catalog's wording (`old_cpk_locked`, the sideload `livecpk` files).
+- **2026-10-27** — 8.29c4d: the Team compiler's error texts on the terminal and in findings' `error=` fields reread for
+  flow (54 texts): the path now said where a person would say it, not put first and pointed back to.
+- **2026-10-27** — 8.29c5a: the Export upgrader's catalog reread for flow (45 texts, the structure pass's conditions
+  kept the Team compiler's); `common_reference_kept` now says either of its two conditions reports it.
+- **2026-10-27** — 8.29c5b: the Export upgrader's `--help`, refusals, error texts and help chapter reread for flow
+  (31 strings, 12 passages); its input refusals worded as the Team compiler's.
+- **2026-10-27** — 8.29c4e1: the Team compiler's help chapter, first half, audited for facts: 48 passages made
+  true to the code over the audit and five review rounds (versions, conditions, the `.common` link cases); nine
+  catalog Whens and the spec's Common `.mtl` repoint brought to the code.
+- **2026-10-27** — 8.29c4e2: the Team compiler's help chapter, second half, audited for facts: 33 passages made
+  true to the code (the install, the bins, the templates, the save); three catalog rows and two spec passages
+  brought to the code.
+- **2026-10-27** — 8.29c4e3: the Export upgrader's help chapter audited for facts: 12 passages made true to the code
+  (the report line's path, the referee fold's clashes, exit code 3's aborts, letter case); the spec's report line
+  brought to the code. 8.29c is done but c6, outside side-lead U's locks.
+- **2026-10-27** — 8.9l5b (TC-SAV-17): `compile --edit-mode-closed` writes the save while its PES runs; without it the skip's
+  line names the flag. The running-PES probe is the tool's, so no test reads the machine's processes; TC-SAV-17
+  replaces TC-SAV-10 in the spec.
+- **2026-10-27** — 0.0.1f1: the release recipe stages the bundle's `data/settings.toml` and DBC7's rules file, checked by the
+  staged exe; the readme gains DBC's and VGL's organizer's steps; the exe measured at 37.6 MiB with `cargo bloat`.

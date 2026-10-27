@@ -173,6 +173,6 @@ fn a_dds_compression_other_than_true_false_or_auto_is_a_configuration_error_nami
             pes_settings(&sandbox, 17)
         );
         let run = sandbox.run(&settings, &["check"]);
-        run.assert_refused(2, &["settings [team-compiler]", "dds_compression"]);
+        run.assert_refused(2, &["the [team-compiler] settings", "dds_compression"]);
     }
 }

@@ -3,9 +3,12 @@
 
 The recipe builds `studio` with `--locked`, reads the executable's name from the built exe's
 `--help` usage line (the codename lives in `studio_core`'s `EXE_NAME`, not in this script),
-stages `<name>-<version>/` — the exe, the two launchers, the readme, the two licenses and the
-empty `exports/` and `old_exports/` — under a temporary folder in cargo's target directory
-(asked of `cargo metadata`, since a developer may have moved it), packs it as
+stages `<name>-<version>/` — the exe, the two launchers, the readme, the two licenses, the
+bundled `data/settings.toml` and DBC7's rules file `data/rules/dbc7.4ccrules`, joined from
+`aatf`'s sources, and the empty `exports/` and `old_exports/` — under a temporary folder in
+cargo's target directory (asked of `cargo metadata`, since a developer may have moved it),
+checks the rules file with the staged exe's own `ruleset-editor validate` and `update-logic`,
+packs it as
 `<target>/dist/<name>-<version>-windows.7z` with a `sha256sum`-format `.sha256` beside it,
 then lists the archive and refuses unless the listing equals the staged set exactly, the empty
 folders included. Beside it it packs `<name>-<version>-symbols.7z` (the exe and its `.pdb`,
@@ -16,7 +19,8 @@ Every refusal prints one `error: <what>` line on stderr and exits 1: a platform 
 Windows, a version that is not the workspace's, a readme whose first line names another
 version, an archive that already exists (a release is never overwritten), a dirty tree, a
 `--help` with no usage line, a launcher that does not call the exe's name, a 7-Zip that
-cannot be found, and a listing that differs from the staged set (that archive is left for
+cannot be found, a rules file the staged exe does not load or whose logic is not current,
+and a listing that differs from the staged set (that archive is left for
 inspection). The pure helpers take their input as text so `release_test.py` can call them
 without git, cargo or 7-Zip.
 """
@@ -37,6 +41,17 @@ SEVEN_Z = Path(r"C:\Program Files\7-Zip\7z.exe")
 # The exe records this name for its symbols and `llvm-symbolizer` finds the .pdb beside
 # the exe by it, so the symbols archive keeps the build's name, not the bundle exe's.
 PDB_NAME = "4cc_studio.pdb"
+# DBC7's data block, the rules file's first section, kept as `.rhai` in `aatf`'s sources.
+RULES_SOURCE = "crates/libs/aatf/rulesets/dbc7.rhai"
+# The current logic section, banner included: `aatf`'s `LOGIC` constant's source file.
+LOGIC_SOURCE = "crates/libs/aatf/logic/logic.rhai"
+# The rules file's path under the bundle's `data/`; a relative `aatf_rules` resolves there.
+BUNDLED_RULES = "rules/dbc7.4ccrules"
+# `aatf`'s `custom_checks_stub()`, verbatim: the file's ending when the block has no CUSTOM CHECKS.
+CUSTOM_CHECKS_STUB = (
+    "// ==== CUSTOM CHECKS: optional, hand-written; the Ruleset editor keeps this section as it is ====\n"
+    "fn custom_checks(team) { [] }"
+)
 
 
 class Refusal(Exception):
@@ -73,6 +88,16 @@ def symbols_entries(name: str) -> set[str]:
     return {f"{name}.exe", PDB_NAME}
 
 
+def assemble_rules(data_block: str, logic: str) -> str:
+    """The whole rules file for a data block, the layout `aatf` assembles: the block up to
+    its own CUSTOM CHECKS section, the logic, then that section (the empty stub when the
+    block has none, as DBC7's has not), each part trimmed of trailing whitespace and
+    separated by a blank line."""
+    data, banner, custom = data_block.partition("\n// ==== CUSTOM CHECKS")
+    custom = banner.lstrip("\n") + custom if banner else CUSTOM_CHECKS_STUB
+    return f"{data.rstrip()}\n\n{logic.rstrip()}\n\n{custom.rstrip()}\n"
+
+
 def expected_entries(name: str, version: str) -> set[str]:
     top = f"{name}-{version}"
     return {
@@ -85,6 +110,10 @@ def expected_entries(name: str, version: str) -> set[str]:
         f"{top}/LICENSE-APACHE",
         f"{top}/exports",
         f"{top}/old_exports",
+        f"{top}/data",
+        f"{top}/data/settings.toml",
+        f"{top}/data/rules",
+        f"{top}/data/{BUNDLED_RULES}",
     }
 
 
@@ -121,6 +150,39 @@ def find_7z() -> str | None:
     if on_path:
         return on_path
     return str(SEVEN_Z) if SEVEN_Z.exists() else None
+
+
+def stage_data(top: Path, exe: Path) -> None:
+    """Stage `top/data/`: the bundled settings and DBC7's rules file, which the staged
+    exe itself must load and report as carrying the current logic."""
+    rules = top / "data" / BUNDLED_RULES
+    rules.parent.mkdir(parents=True)
+    shutil.copyfile(
+        ROOT / "resources/bundle/data/settings.toml", top / "data/settings.toml"
+    )
+    rules.write_bytes(
+        assemble_rules(
+            (ROOT / RULES_SOURCE).read_text(encoding="utf-8"),
+            (ROOT / LOGIC_SOURCE).read_text(encoding="utf-8"),
+        ).encode("utf-8")
+    )
+    for subcommand, proof in (
+        ("validate", None),
+        ("update-logic", "logic_already_current"),
+    ):
+        run = subprocess.run(
+            [str(exe), "ruleset-editor", subcommand, str(rules.absolute())],
+            capture_output=True,
+            text=True,
+        )
+        if run.returncode != 0 or (
+            proof is not None and proof not in run.stdout + run.stderr
+        ):
+            raise Refusal(
+                f"data/{BUNDLED_RULES}: `ruleset-editor {subcommand}` exited "
+                f"{run.returncode}; stdout: {run.stdout.strip()}; "
+                f"stderr: {run.stderr.strip()}"
+            )
 
 
 def release(version: str) -> None:
@@ -173,6 +235,7 @@ def release(version: str) -> None:
         shutil.copyfile(exe, top / f"{name}.exe")
         for bundled in ("quick_compile.bat", "quick_upgrade.bat", "README.txt"):
             shutil.copyfile(ROOT / "resources/bundle" / bundled, top / bundled)
+        stage_data(top, top / f"{name}.exe")
         for license_file in ("LICENSE-MIT", "LICENSE-APACHE"):
             shutil.copyfile(ROOT / license_file, top / license_file)
         (top / "exports").mkdir()

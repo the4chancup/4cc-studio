@@ -39,22 +39,22 @@ enum ExportUpgraderCommand {
 /// `upgrade <export> (--savefile <EDIT> | --loose) [--coverage full|midcup] [-o <dir>]`.
 #[derive(Debug, Args)]
 pub(crate) struct UpgradeArgs {
-    /// The old export: a folder, a .zip or a .7z.
+    /// The old export: a folder, a .zip or a .7z file.
     pub(crate) export: PathBuf,
-    /// The save (EDIT00000000) whose records say which player wears which
+    /// The save (EDIT00000000) that says which player wears which
     /// boots and gloves.
     #[arg(long, value_name = "EDIT")]
     pub(crate) savefile: Option<PathBuf>,
-    /// No savefile: the wearers are inferred from the IDs' positions in the
-    /// team's old block.
+    /// Without a savefile, the wearer of each boots or gloves folder is
+    /// inferred from its ID's position in the team's old block of 25 IDs.
     #[arg(long)]
     pub(crate) loose: bool,
     /// The coverage tag the output's name takes, instead of the one guessed
     /// from the old name.
     #[arg(long, value_enum)]
     pub(crate) coverage: Option<Coverage>,
-    /// The folder the output goes in, created when missing; the input's own
-    /// folder by default.
+    /// The folder the output goes in, created when missing. Without it, the
+    /// input's own folder is used.
     #[arg(short, long, value_name = "DIR")]
     pub(crate) output: Option<PathBuf>,
 }
@@ -81,11 +81,11 @@ impl Coverage {
 /// `upgrade-models <folder> [-o <dir>]`.
 #[derive(Debug, Args)]
 pub(crate) struct UpgradeModelsArgs {
-    /// The folder of old-format model folders (face, boots and gloves
-    /// folders, and an optional Common).
+    /// The folder holding the old-format model folders (face, boots and
+    /// gloves folders, and an optional Common).
     pub(crate) folder: PathBuf,
-    /// The output folder, created; `<folder> upgraded` beside the input by
-    /// default. It must not exist yet.
+    /// The output folder, created by the run. `<folder> upgraded` beside the
+    /// input by default. It must not exist yet.
     #[arg(short, long, value_name = "DIR")]
     pub(crate) output: Option<PathBuf>,
 }

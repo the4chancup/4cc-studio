@@ -160,7 +160,7 @@ struct ScanRoot {
 
 /// The exports root's sources, and the `.upgrading` folders skipped beside them.
 fn scan_root(exports_root: &Path) -> anyhow::Result<ScanRoot> {
-    let cannot_read = || format!("{}: cannot read the exports folder", exports_root.display());
+    let cannot_read = || format!("cannot read the exports folder {}", exports_root.display());
     let mut paths = Vec::new();
     let mut skipped = Vec::new();
     for entry in fs::read_dir(exports_root).with_context(cannot_read)? {
@@ -187,7 +187,10 @@ fn named_paths(exports: &[PathBuf]) -> anyhow::Result<Vec<(PathBuf, SourceKind)>
         .iter()
         .map(|path| match source_kind(path) {
             Some(kind) => Ok((path.clone(), kind)),
-            None => anyhow::bail!("--export {}: not a folder, .zip or .7z", path.display()),
+            None => anyhow::bail!(
+                "--export {} is not a folder, a .zip or a .7z file",
+                path.display()
+            ),
         })
         .collect()
 }
@@ -464,7 +467,7 @@ mod tests {
         assert_eq!(
             error.to_string(),
             format!(
-                "--export {}: not a folder, .zip or .7z",
+                "--export {} is not a folder, a .zip or a .7z file",
                 root.join("gone.txt").display()
             )
         );

@@ -468,9 +468,11 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    names it with `XXX` for the team), since the Fox directory means nothing to PES 15-17 and
    the modded exes substitute the stem there. The other way, a `.mtl` path naming the
    pre-Fox Common texture directory (`model/character/uniform/common/<team>/<stem>.dds`, how
-   a member's pre-Fox `.mtl` names a texture in `Common/`) is pointed at the Fox Common
-   texture directory when `Common/` holds the stem, the evidence on which the deep check
-   calls it supplied; otherwise it is left as written, as any path the folder does not hold.
+   a member's pre-Fox `.mtl` names a texture in `Common/`) is pointed at the first of the
+   part's texture places holding its stem, nearest first, as any reference is, and with none
+   at the Fox Common texture directory, at its subdirectory below `Common/`, whether or not
+   `Common/` holds the stem, since an installed CPK may hold it there; whether it is supplied is decided apart,
+   by the deep check (`fmdl_texture_not_found` for a path nothing supplies).
 2. **ID replacement** — dummy team IDs are replaced in file contents (FMDL texture path tables via
    the `fmdl` crate's texture-path rewriting, `ops::paths::rewrite_texture_paths`; `.mtl` texture
    IDs pre-Fox) and in file names.
@@ -1104,7 +1106,7 @@ describes behavior, not a serial scheduling requirement:
   kit folder gives only what it holds: without `config.toml` it emits no config of its own —
   its slot's installed config is edited in place like an unresent slot's (the FPC values,
   then the collar, with the same findings, and the template written where nothing is
-  installed, `kit_config_generated` on the kit folder); without `kit.dds` it is no
+  installed or the installed config does not decode, `kit_config_generated` on the kit folder); without `kit.dds` it is no
   placeholder — the textures it holds are emitted, the installed ones staying for the rest;
   the `config.toml` it does supply names a `back`, `chest`, `leg` or `name` texture it holds or the
   installed CPKs before the run's already hold for its slot (a number font sent once in the
@@ -1583,17 +1585,35 @@ describes behavior, not a serial scheduling requirement:
   and the rest is applied; a save holding none of the patch's players is not rewritten, so its
   `.bak` stays the user's previous backup. A missing
   savefile stays a warning (`savefile_missing`, naming the patch): even the DLC builder is expected
-  to compile against a template save, to test the DLC in PES. **The savefile is never written while
-  the compile target's PES is running**, in any output mode: the game holds its edit data in memory
-  and writes it back on exit, so a write made now would not go live without a restart and would be overwritten by whatever
-  the player changed in-game before closing. The step is skipped with `savefile_skipped_pes_running`
-  (W) telling the user the settings will be applied by the next compile made with PES closed; the
-  rest of the run is unaffected. This matters mostly for **sideload mode**, whose whole point is
-  compiling while PES stays open — model iterations land immediately through sideloading, and the savefile
-  half of the export (on Fox the motions and names; on pre-Fox also boots/gloves IDs and player
-  settings) catches up on the first compile after PES is closed. On Fox the patch's write leaves
-  every appearance id as it is, so a stripped local save stays stripped. In normal mode a running PES already fails deployment on the locked CPK, so the rule
-  adds nothing there. The check uses the same running-PES detection as the core plan's
+  to compile against a template save, to test the DLC in PES. **While the compile target's PES
+  runs, the savefile is written only when `compile` is given `--edit-mode-closed`**, in any
+  output mode: PES writes the save it holds over the file when the member leaves Edit mode, so a
+  write made while Edit mode is open is lost then, while one made with Edit mode closed stands,
+  and Edit mode's **Load** reads it in without restarting the game. The flag is the member's
+  word that Edit mode is closed. Without it the step is skipped with `savefile_skipped_pes_running`
+  (W), whose line names the game and the flag (`version=PES 2021, flag=--edit-mode-closed`,
+  as `savefile_missing` carries the command that applies the patch: a console line prints a
+  finding's code and context, not the catalog's text) and whose catalog text asks the member to
+  close Edit mode and compile again with the flag; the rest of the run is unaffected. We do not
+  refuse the write outright, as the first rule did on the belief that the game writes its save
+  back when it exits: that made a member close the whole game for every edit, which Load makes
+  unnecessary. Nor do we write with a warning: a write made while Edit mode is open is lost
+  without a word, and the warning would come after it. This matters mostly for **sideload
+  mode**, whose whole point is compiling while PES stays open: model iterations land through
+  sideloading, and the savefile half of the export (on Fox the motions and names; on pre-Fox
+  also boots/gloves IDs and player settings) lands with the flag, or catches up on the first
+  compile given it or made with PES closed. On Fox the patch's write leaves every appearance id
+  as it is, so a stripped local save stays stripped. In normal mode a running PES already fails
+  deployment on the locked CPK, so the rule adds nothing there. The window (Phase 8) asks the
+  Save editor's Edit mode question instead of taking the flag (`plans/team_compiler/gui.md`);
+  until then its Compile button runs `compile` without it. The words the compiler shares with
+  the Save editor's writing commands, so the two read as one rule: the flag's `--help` line is
+  "The game's Edit mode is closed: write the savefile even while its PES runs."; the message
+  names the game and the flag and says "Close the game's Edit mode, then <run> again with
+  `--edit-mode-closed`. The save is then written, and Edit mode's Load reads it in without
+  restarting the game." The tests never read the machine's process list: the tool carries its
+  running-PES probe (`Tool::with_running_probe`), which the in-process command-line tests set,
+  and a unit test's is one reporting no game. The check uses the same running-PES detection as the core plan's
   version-selector poll; the CLI performs it once, at the savefile stage. Only the target
   version's game counts, the Save editor's rule for its writing commands (`save_editor.md`
   "Writing a save"): the savefile is always the target's version (another is
@@ -1604,8 +1624,8 @@ describes behavior, not a serial scheduling requirement:
   `output/` the game never reads; and after a deployment the game will not load
   (`dpfilelist_cpk_missing`: the installed list names a CPK `download/` lacks, so the game
   runs vanilla), which commits silently, the warning having said why. Sideload mode counts as deployed: its tree in `livecpk\` is
-  what the game loads, and its savefile half catching up once PES is closed is the reason the
-  running-PES skip exists. The incoherence it prevents is pre-Fox's, where a savefile can point at
+  what the game loads, and its savefile half waiting for Edit mode to be closed is the reason
+  the running-PES skip exists. The incoherence it prevents is pre-Fox's, where a savefile can point at
   boots/gloves IDs whose content is not installed — exactly what the "only for content actually
   written" rule exists to prevent; on Fox a compiled player's IDs live in the CPK's own table
   rows, but the same skip keeps one rule for both engines.

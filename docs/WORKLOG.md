@@ -22,12 +22,13 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 (8.9j1-j3), the comparator done (8.9j4), the save-writing transplant removed (8.9j5c; the
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
-window, catalog, CLI, help and draft) done; 8.9l, the open and save scenarios, briefed in
+window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
+on side-lead U's branch, c1 to c5 done, the help chapters' fact audit (c4e) included, c6 outside its locks; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h, done 2026-10-25: the compiler,
-the upgrader and the Save editor's generation on the new file, SE-GUI-34 checked in game), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+the upgrader and the Save editor's generation on the new file, SE-GUI-34 checked in game), then the 0.0.1 cut (0.0.1f, its preparation f1 done on side-lead U's branch: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
@@ -427,7 +428,7 @@ version), the placeholder views (issue of 2026-10-16), the phase's other open is
 
 The phase's manual checks:
 
-TC-SAV-10 manual: checked 2026-10-15, against a stripped copy of the maintainer's save
+TC-SAV-10 (withdrawn at 8.9l5b for TC-SAV-17, which tests prove), checked by hand 2026-10-15, against a stripped copy of the maintainer's save
 and a sandbox PES folder (`.tmp/5_5/studio_sl/`): with PES 21 running, sideload compile
 exit 0, the patch's `cpks = []`, `savefile_skipped_pes_running`, the copy byte-identical;
 with only PES 17 running, `savefile_written` and the copy's `.bak` kept
@@ -1797,10 +1798,25 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         PES 2021, the file unchanged, the live save equal to its backup after) is replaced by
         the Edit mode question ("Writing a save while its game runs", DECISIONS 2026-10-25):
         the check is redone on l2's build, Edit mode's Load included
-      - [ ] l5 the same rule for the command line and the compiler: the Save editor's writing
-        commands take `--edit-mode-closed` (SE-CLI-03, replacing SE-CLI-02 in the spec once
-        built), the Team compiler's `compile` the same flag for its savefile step (TC-SAV-17,
-        replacing TC-SAV-10), `savefile_skipped_pes_running`'s text naming it
+      - [ ] l5 the same rule for the command line and the compiler
+        - [ ] l5a the Save editor's writing commands take `--edit-mode-closed` (SE-CLI-03,
+          replacing SE-CLI-02 in the spec once built), its message in the words
+          `spec/team_compiler/pipeline.md` "6. Post-processing" gives both tools
+        - [x] l5b 2026-10-27 (side-lead U, SWE-2): the Team compiler's `compile` takes
+          `--edit-mode-closed`, and with it the savefile step writes the save while the target's
+          PES runs; without it `savefile_skipped_pes_running` skips as before, its line naming
+          the flag (`flag=--edit-mode-closed`) and its catalog text and the help chapter saying
+          to close Edit mode and compile again with it. The running-PES probe is the tool's
+          (`Tool::with_running_probe`), so no test reads the machine's processes (the live
+          probe failed nine savefile tests while PES 2021 ran). TC-SAV-17 built and moved to
+          the spec in TC-SAV-10's place. The window's Edit mode question stays Phase 8's
+          (`plans/team_compiler/gui.md`). Files: `team_compiler/src/{lib,cli,compile,gui_run,
+          messages,messages/catalog,output/savefile}.rs`, `team_compiler/tests/{common/mod,
+          cli/savefile}.rs`, `team_compiler/help/01_command_line.md`,
+          `spec/team_compiler/{pipeline,settings,messages,README}.md`,
+          `plans/team_compiler/{pipeline,gui,README}.md`. Review: SWE-2 S1 (6 accepted, 4 of
+          them routed to the top lead) and S2 (1 accepted), `.tmp/tc_sav_17/rulings.md` on
+          side-lead U's worktree
   - [ ] 8.10 after 0.0.1: the progress grid (with the log panel's cross-link: a warning or
     error line's click highlights its grid cell, `plans/core/gui.md` "Log panel", which 8.6d3 leaves for
     the grid), the run strip, the exports folder watcher and check cache, cancellation, the launcher (`quick_compile.bat` to its `--gui` form, `quick_upgrade.bat` dropped once the upgrader's view lands), the Team
@@ -2185,6 +2201,215 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       launch and title texts) and the drafts host `docs/prototypes/index.html`
     - [ ] c the Team compiler and the Export upgrader: their message catalogs, help chapters,
       CLI output and the comments injected into `settings.toml`/`config.toml`/`materials.toml`
+      (side-lead U, branch `side/text`), in six slices, the last outside its locks:
+      - [x] c1 the Team compiler's catalog, its first 80 rows (`export_extract_failed` to
+        `xml_ignored_fox`): 89 texts rewritten (the lead retouched ten: four the sidekick had
+        left, six where the rewrite kept a hard-to-parse clause or lost a "so"), the version
+        or case put in front with a colon now a clause ("In PES 2018 to 2021, ..."), the
+        semicolons now *but*, *so* or a new sentence. `export_extract_failed` stays as it was
+        (`studio`'s `help_cli` pins it, and it reads naturally); the spec's Catalog table keeps
+        its own wording (a2's ruling). SWE-2 round S1: 24 concerns, 16 accepted (among them
+        `kit_config_option_ignored` now saying the FPC values make the shirt model 176, and
+        three texts whose clause could bind to the wrong noun), 7 nits, 1 rejected; S2: 7, 6
+        accepted (five more clauses or pronouns with a second, wrong reading); S3: 8, 3
+        accepted, 4 nits, the loop's end. Table
+        `.tmp/8_29/c1_table.md`, rulings `.tmp/8_29/rulings.md` (side/text worktree).
+        Files: `team_compiler/src/messages/catalog.rs`
+      - [x] c2 the catalog's rows 81-161 (`xml_ignored_shared` to `source_changed_during_run`):
+        96 texts rewritten (the lead retouched ten: a lost main verb, a dangling "Found on
+        ...", two causes the sidekick's "so" invented or dropped, "promoted" and "rows" for a
+        bin's entries), the `upgrade-dpfl` and Cup DLC rows now sentences with the command or
+        mode as subject, `mtl_broken`'s position worded as c1's `xml_broken`. SWE-2 round S1:
+        14 concerns, 11 accepted, 2 nits, 1 rejected; S2: 10, 9 accepted (among them a
+        `.common` link that always conflicts with a file, and a missing listed CPK that makes the
+        game reject all of `download/`, which the texts hid); S3: 7, 7 accepted (an Error
+        naming only the first missing texture, said wrongly before); S4: 9, 5 accepted; S5: 7, 2,
+        the loop's end (115 texts in all, and c1's `mtl_texture_not_found` "listed before this
+        run's own"). Table `.tmp/8_29/c2_table.md`. Files: `team_compiler/src/messages/catalog.rs`
+      - [x] c3 the catalog's format-check and structure-pass rows (162-237): 58 texts
+        rewritten (the lead retouched one, whose "and sits below a subfolder" reached the
+        disallowed-extension case too), the upgrader's 13 structure-pass copies following word
+        for word (`.tmp/8_29/shared_whens.py` compares all 46 shared `when`s, side/text
+        worktree); `notes_encoding_invalid` keeps its effect (`studio`'s `help_cli` pins it).
+        SWE-2 round S1: 8 concerns, 4 accepted (the retouch's own scope again), 3 nits, the
+        loop's end.
+        Table `.tmp/8_29/c3_table.md`. Files: `team_compiler/src/messages{,/catalog}.rs`,
+        `export_upgrader/src/messages.rs`
+      - [x] c4 the Team compiler's CLI output, `--help`, window strings and help chapter, in three
+        slices (the chapter alone is 862 lines):
+        - [x] c4a the CLI's refusals and `--help` (`cli.rs`), the window's strings (`view/mod.rs`,
+          `gui_run.rs`): 20 texts rewritten, the tests pinning them following; the lead's three
+          follow-ups: the settings note, which said the settings menu "comes later" (it
+          shipped at 8.6c1), `reader/mod.rs`'s copy of the `--export` refusal, and the spec's
+          quote of the missing exports folder's refusal. Table `.tmp/8_29/c4a_table.md`.
+          Files: `team_compiler/src/{cli,gui_run,reader/mod,view/mod}.rs`, two `tests/cli/`
+          files, `docs/spec/team_compiler/messages.md`. SWE-2 round S1: 10 concerns, 3 accepted
+          (among them the download-folder refusal, which sent a member with the right PES
+          folder to change it), the loop's end; `libs/fpc`'s hide-ID refusals keep a
+          "key = value: must be" shape, for whoever holds that crate
+        - [x] c4b `help/01_command_line.md`, its first half (lines 1-440, to the referees CPK's
+          paragraph): 55 passages rewritten, mostly a semicolon or a stacked colon made a new
+          sentence and a pronoun named (the lead retouched eight and reverted one: a "that name"
+          left without its noun, a face diff that "counts as the player's own" where it counts
+          as a `face_diff.bin`, "an FPC team's own collar"). Two facts brought to the spec
+          (`spec/model_format.md` "Pre-Fox: the `.mtl` a `.model` uses"): a model's `.mtl` is
+          searched in the player's or shared folder holding it, and a `.common` link's search
+          ends in the player's folder. SWE-2 round S1: 14 concerns, 12 accepted (one the rewrite's
+          own: a `.mtl`'s name match said backwards; the others facts the chapter had narrower
+          than the catalog or the code: PES 2015 to 2017's texture codecs, `skl_no_slot`'s and
+          `face_file_not_used`'s scope, `shared_folder_no_model`'s condition, link files in
+          subfolders, which work), 2 nits; S2: 11, 9 accepted (`texture_unreadable`, which the
+          chapter called `folder_pack_failed`, a shared folder one player links taking his own
+          ID, `.jpeg` and `.tiff`, `.common` links never the same as a real file), 2 rejected; S3: 15, 10 accepted (the
+          chapter's opening still said `compile` builds PES 2018 to 2021 only, a `logo_small`
+          alone builds no logo, a plain `Faces` link reports nothing), 2 nits, 3 rejected; S4: 7,
+          5 accepted (among them an unlisted `.model` said to be kept), 2 nits; S5: 10, 7 accepted
+          (pre-Fox and Fox rules told as one: the `.common` model link, the bundled `.fclo`, a
+          `face_diff.xml`'s packing; the referee kits' bins CPK under `multicpk_mode`); S6: 18,
+          8 accepted, 4 nits, 2 rejected, 4 routed to c4e; S7 (scoped to the slice's flow and its
+          own fixes): 7, 4 accepted, the loop's end.
+          Tables `.tmp/8_29/c4b_table.md` and `c4b_s{1,...,7}_table.md`, checked against the diff by `.tmp/8_29/prose_table_check.py`
+          (side/text worktree). Files:
+          `team_compiler/help/01_command_line.md`
+        - [x] c4c `help/01_command_line.md`, its second half (lines 467 to the end, from the
+          CPK's install to "The aesthetics patch and your save"): 62 passages rewritten, mostly
+          a colon or semicolon made a new sentence, a garden path ("the kits the game lists for
+          the team that the export does not hold") reordered, and "record" now the save data
+          or the appearance a member sees (the lead retouched six: two pronouns named, "a CPK
+          listed before the CPK being compiled" as the paragraph above says it, `auto` named
+          before what it does). The catalog's wording followed: `old_cpk_locked` "most likely
+          because PES is running", the `livecpk` files, the default face a bad
+          `ingame_face.toml` leaves. SWE-2 round S1: 3 concerns, 2 accepted (a missing save
+          "only" a warning again, a kept clause saying the number textures are never touched
+          beside the sentence that re-arranges them), 1 nit, the loop's end. Tables
+          `.tmp/8_29/c4c_table.md` and `c4c_s1_table.md` (side/text worktree).
+          Files: `team_compiler/help/01_command_line.md`
+        - [x] c4d the crate's other texts a member reads: the `anyhow` contexts and `bail!`
+          texts printed as `error: ...` on the terminal and in the window, or carried in a
+          finding's `error=` field (`folder_pack_failed`, `installed_bin_unreadable`): 54 texts
+          rewritten, the path no longer put first and pointed back to with "it" (`cannot
+          rename {from} to {}, because a file of that name already exists`), "unwrap" and
+          "parse" now "decompress" and "read", the tests pinning them following (the lead
+          retouched six: a `face.xml` or `.mtl` path named twice, "placed in two of the teams
+          CPKs" where the check is "twice", the staging and "new tree" texts; and the
+          teamnotes test's path check given its verb back). SWE-2 round S1: 8 concerns, none
+          accepted (six asked for contexts the code never had or for other values than the
+          texts format, two for invariants only a bug reaches), the loop's end. Table `.tmp/8_29/c4d_table.md`
+          (side/text worktree). Files: 19 `team_compiler/src/` modules, six `tests/cli/`
+          files. The Save editor's `view/portraits.rs` keeps its own "not a CPK the reader
+          accepts", for whoever holds that crate
+        - [x] c4e a fact audit of `help/01_command_line.md` (and the upgrader's) against the
+          catalog and the spec: c4b's review rounds S1 to S6 found over fifty facts the chapter's first half stated
+          narrower, staler or for one engine only, and their last ones need the code read
+          (side-lead U's rulings, `.tmp/8_29/rulings.md` "Round S6c4b", routed: pre-Fox
+          `Common` subfolders, a shared folder's subfolder rules, the PES 2021 skeleton default's
+          reason, the pre-Fox merge twin of `fmdl_merged`, how a `.skl` is packed); the second
+          half (c4c) likely holds as many. c4c's sidekick found two: an installed
+          `DpFileList.bin` that cannot be read stops the compile (`installed_bin_unreadable`),
+          which the bins paragraph does not say, and `savefile_missing` excludes a configured
+          path naming a folder (`savefile_invalid`), which the patch section does not say.
+          The Export upgrader's chapter gets the same audit (c5b's review S1, rulings "Round
+          S1c5b", routed: a finding on the output names the output's path, or none; the
+          referee fold's other clash cases; an unnamed `common/` model left out only when the
+          folder folds; exit code 3's other aborts). In three slices:
+          - [x] c4e1 the compiler's chapter, lines 1-466: 15 facts made true, the five S6c4b
+            items among them (a pre-Fox `Common` subfolder's images built as `Common`'s; a
+            shared folder's tree rules; the PES 2021 skeleton default's reason; the pre-Fox
+            merge, `model_merged`, boots only; a `.skl` packed under its slot on Fox and nowhere
+            on pre-Fox), and the summary's skipped exports, `Portraits/` names, a texture's
+            container and mip levels, `_fit`, a pre-Fox link combining only beside
+            `ingame_face.toml`, the `.common` link cases (the lead retouched eight). The Common
+            `.mtl` repoint brought to `spec/team_compiler/pipeline.md` as the code does it.
+            SWE-2 rounds: S1 7 concerns, 7 accepted (a `face_diff.xml` standing for the bin, the
+            repoint after a nearer texture, `Portraits/` subfolders, gloves named by suffix);
+            S2 12, 11 (the Fox combine's parts, a `Faces` link giving a face, a link's `.mtl`
+            beside its model in `Common`, per-directory `texture_stem_conflict`); S3 10, 8
+            (`xml_dif_conflict` on both engines, `logo_upscaled` on either side, the bundled
+            diff); S4 10, 8 (`xml_ignored_shared` pre-Fox only, a `Full` kit's built-in mask,
+            `_boots` after an underscore); S5 8, 3, the loop's end. Nine catalog Whens followed
+            the code (`fmdl_name_invalid`, `model_name_invalid`,
+            `ingame_face_explicit_face_model`, `shared_folder_no_model`, `face_file_not_used`,
+            `xml_dif_conflict`, `fmdl_fcl_hair_fallback`, `fmdl_merged`, the upgrader's copies
+            kept word for word) and four spec rows. Tables `.tmp/8_29/c4e1_table.md`,
+            `c4e1_s{1,...,5}_table.md`, `c4e1_evidence.md` (side/text worktree). Files:
+            `team_compiler/help/01_command_line.md`, `team_compiler/src/messages/catalog.rs`,
+            `export_upgrader/src/messages.rs`, `spec/team_compiler/{pipeline,messages}.md`.
+            `spec/aesthetics_export/player_folders.md` ~720 still says a shared folder with no
+            model of its kind takes no ID without the `.common` link case, for whoever holds it
+          - [x] c4e2 the compiler's chapter from "`compile` installs the CPK into the game." to
+            the end: 33 facts made true, c4c's two items among them (an unreadable installed
+            `DpFileList.bin` is `installed_bin_unreadable`; a `savefile_path` naming a folder is
+            `savefile_invalid`), and a pre-Fox kit config no compile can remove, a `Midcup`
+            kit's kept menu colors and config, a `Full` kit's derived colors, the deep pass
+            reading only what the compile uses, `model_hidden_dropped`, the twelve template
+            names, the extraction refusals, the multicpk bins and `placeholder.cpk`, a save of
+            another version (the lead reverted one: PES 2015's shirt patterns 14 and 15, which
+            the old text had right, and retouched one). The catalog rows of
+            `kit_config_collar_unpatched`, `player_table_missing` and
+            `deploy_target_unwritable`, and two spec passages (`template_override_unreadable`,
+            a `Midcup` kit's template over an unreadable config) brought to the code. SWE-2
+            rounds: S1 12 concerns, 9 accepted (a bare `./name.dds` resolving nearest first, a
+            `Full` export dropping the colors of kits it does not hold, the Fox-only boots and
+            gloves clearing, a save that cannot take the patch; `kit_config_generated`'s row);
+            S2 5, 4 (a combined shared folder's textures, the Fox-only `fcl_hair_sim.fclo`
+            template, the bins a listed CPK is read for), the loop's end. Tables
+            `.tmp/8_29/c4e2_table.md`, `c4e2_s{1,2}_table.md`, `c4e2_evidence.md` (side/text
+            worktree). Files:
+            `team_compiler/help/01_command_line.md`, `team_compiler/src/messages/catalog.rs`,
+            `spec/team_compiler/{messages,pipeline}.md`
+          - [x] c4e3 the upgrader's chapter: 12 facts made true, S1c5b's four routed items
+            among them (a report line names a path only for a file or folder, the output's
+            for a check of the output; the referee fold's clash cases; an unnamed `common/`
+            model left out only when the folder folds; exit code 3's other aborts), and `refs`,
+            the coverage words and tags matched in any letter case, a referee export refusing
+            `--coverage`, a roster that is not UTF-8, `Refs list.txt` only without `refs.txt`,
+            `no_old_export` before `refs_txt_missing`, a Team Note entry left unmigrated (the
+            lead retouched one). The spec's report line (`spec/export_upgrader.md` "CLI" and
+            "Acceptance") brought to the code. SWE-2 rounds: S1 9 concerns, 5 accepted (the
+            report's last line for a run that stops at once, the usage line a referee export
+            follows, a second-word tag before the `midcup` guess; the spec's usage line); S2
+            4, 4 (an input of the wrong kind, an unparsable teams list), the loop's end.
+            Tables `.tmp/8_29/c4e3_table.md`, `c4e3_s{1,2}_table.md`, `c4e3_evidence.md`
+            (side/text worktree). Files:
+            `export_upgrader/help/01_command_line.md`, `spec/export_upgrader.md`
+      - [x] c5 the Export upgrader, in two slices:
+        - [x] c5a its catalog (`messages.rs`): its own rows' two texts and the structure-pass
+          rows' effects, whose `when`s stay the Team compiler's word for word: 45 texts
+          rewritten, "entry" and "member" now the file or folder a member sees, "item folder"
+          the boots or gloves folder, the bare `Removed ...`/`Kept ...` effects sentences (the
+          lead retouched four: a "them" with no plural before it, a semicolon left in
+          `custom_model_missing` and its save "record", and `common_reference_kept`'s two
+          conditions joined by "and" where the spec and the code take either, which the
+          sidekick found). SWE-2 round S1: 10 concerns, 5 accepted (an unmigrated Team Note
+          entry, which "file or folder" left out; content only meant for the game; an Error
+          that keeps its content also ends the run with exit code 1; `settings_value_refused`
+          covering `ingame_face.toml`), 1 nit, 4 rejected; S2: 11, 7 accepted (a `refs list.txt`
+          roster, which two rows left out; a `Midcup` kit without config updating only its
+          colors; three folders or files the text could not tell apart), 1 nit, 3 rejected; S3:
+          5, 4 accepted (`upgrade-models` input, which S1's "old export" left out), the loop's
+          end. Tables `.tmp/8_29/c5a_table.md` and `c5a_s{1,2,3}_table.md` (side/text worktree).
+          Files:
+          `export_upgrader/src/messages.rs`. The drafts host's mock catalog
+          (`docs/prototypes/index.html` 1418-1446) copies the old texts, for the top lead
+        - [x] c5b its `cli.rs` (`--help`), its refusals and error texts and
+          `help/01_command_line.md`: 31 strings and 12 help passages rewritten, the input
+          refusals now worded as the Team compiler's `--export` ones (`{} does not exist`,
+          `{} is not a folder, a .zip or a .7z file`), the save's "records" the save itself,
+          the exit codes one sentence each (the lead retouched six: `--coverage midcup`'s
+          line reverted, its rewrite naming what is installed where the old one named what
+          the export holds; "the resolved team"; the `.upgrading` folder named the incomplete
+          output twice; the help's referee roster now `refs.txt` or `Refs list.txt`, as
+          c5a's catalog rows, which the sidekick found). SWE-2 round S1: 13 concerns, 1
+          accepted, 5 nits, 4 facts of kept sentences routed to c4e, 3 rejected, the loop's
+          end. Tables `.tmp/8_29/c5b_table.md`, `c5b_help_table.md` and their `c5b_s1_*`
+          twins (side/text worktree). Files: `export_upgrader/src/{cli,upgrade,
+          staging,model_folders,naming}.rs`, `help/01_command_line.md`, two `tests/cli/`
+          files. The drafts `docs/prototypes/tools/export_upgrader.js` (417-424, 578, 682) and
+          `docs/prototypes/index.html` (1055-1064) quote the old texts, for the top lead
+      - [ ] c6 the injected comments: they live in `pes_savefile` (`settings_toml/`, the
+        `settings.toml` and `ingame_face.toml` headers and key comments) and `kit_config`
+        (`toml_form.rs`, `config.toml`), outside side-lead U's locks: for whoever holds those
+        crates (no code writes comments into `materials.toml` today)
     - [ ] d `libs/aatf`'s violation texts and the other tools' catalogs and help
   - [ ] 8.21 the app's font in the drafts (`core/gui.md` "The host's other review aids"; after
     8.9f4e picks the bundled font): `@font-face` rules at egui's sizes → verify: one width
@@ -3442,10 +3667,11 @@ briefs, review loops, gates and mutation runs as for any step.
     `the_update_check_rows_are_not_drawn_yet` replaces the interval test
     (`shell/settings_menu.rs`). The drafts host keeps the rows and its Updates help topic: it
     draws the design, the 0.2.0 rows included
-  - [ ] j2 `pes_version` defaults to PES 2019 (VGL's game); DBC's window testers are on
+  - [x] j2 `pes_version` defaults to PES 2019 (VGL's game); DBC's window testers are on
     PES 2017, so their first open shows SE-GUI-28's version warning until they pick 2017 in
     the sidebar. Not a bundle default, since VGL's organizer compiles from the same bundle on
-    PES 2019: the readme says to pick the version first (0.0.1f's readme)
+    PES 2019: the readme says to pick the version first (0.0.1f's readme). Done 2026-10-27
+    with 0.0.1f's preparation: the readme's "The first time" step 3
   - [x] j3 Live AATF off by default (the plan's choice): P37 proposed it on; vetoed
     2026-10-26, its visibility asked for instead (0.0.1o)
   - the rest read right for a first start: the Team compiler's names and `multicpk_mode` off
@@ -3466,6 +3692,26 @@ briefs, review loops, gates and mutation runs as for any step.
   frozen in `LOGIC_VERSIONS` only after the maintainer's final confirmation, given once the UI
   is polished (the maintainer, 2026-10-25: never before it) (`plans/aatf_rules.md` "Loading and validation": a later logic
   change is version 2), `just release 0.0.1`, handed to DBC's testers and VGL's organizer
+  - [x] f1 the preparation (side-lead U, 2026-10-27; DECISIONS "The bundle's `data/` holds its
+    settings and DBC7's rules file"): `just release` stages `data/settings.toml`
+    (`resources/bundle/data/`: `aatf_rules = "rules/dbc7.4ccrules"`, `multicpk_mode` and
+    `cpk_name` at their defaults) and `data/rules/dbc7.4ccrules`, joined from `rulesets/dbc7.rhai`
+    and `logic/logic.rhai`, refused unless the staged exe's `ruleset-editor validate` and
+    `update-logic` pass it (`scripts/release.py` `stage_data`, 5 new or widened tests in
+    `release_test.py`). Checked on the release exe: the staged folder holds those files alone;
+    each check refuses a perturbed copy; `save-editor check-aatf` from it without `--rules`
+    prints what `--rules data/rules/dbc7.4ccrules` prints (DBC7's medal systems). The readme:
+    the Ruleset editor greyed out too, no first-run question (the bundle is portable), DBC's
+    testers pick PES 2017 first (j2), the DBC rules file, and "For VGL's organizer"
+    (`upgrade-dpfl` then `--yes`, `multicpk_mode` for the first DLC, `cpk_name` a midcup for a
+    matchday). `cargo bloat` at 745ea9f4: 37.6 MiB (39,380,992 bytes), the growth the tools and
+    the GUI (`spec/core/distribution.md` "Size budget"; tables `.tmp/0_0_1f/head745/`). The
+    clean-machine check's "first-run dialog" does not apply to this bundle: its settings file
+    makes it portable, so the first start asks nothing. Review: SWE-2 S1 3 of 7 accepted (two
+    routed: `plans/core/gui.md` and `plans/core/distribution.md` still list the old bundle;
+    a block's own CUSTOM CHECKS now kept), `.tmp/0_0_1f/rulings.md`
+  - [ ] f2 logic version 1's hash frozen (on the maintainer's confirmation), `just release
+    0.0.1`, the clean-machine check, the hand-over
 
 ### Phase 10 — Music tools
 

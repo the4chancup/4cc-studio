@@ -118,9 +118,13 @@ changed on its own.
   save with the strip operation its case needs (`strip-and-seed` for a save never stripped,
   `check-stripped --strip-again` otherwise) and the named players listed. Both are the tool
   switch with an argument the Upgrade button uses; the save is written by the Save editor's own
-  apply and strip, the one save-writing path. `savefile_skipped_pes_running` gets no button: the
-  pending patch is applied when PES closes (`plans/aesthetics_export/settings_toml.md` "Edits
-  made in PES come back to the export", "Into the save only when PES is closed").
+  apply and strip, the one save-writing path. `savefile_skipped_pes_running` gets no button:
+  the view asks the Save editor's Edit mode question (`plans/save_editor.md` "Writing a save
+  while its game runs") in place of the command line's `--edit-mode-closed`
+  (`spec/team_compiler/pipeline.md` "6. Post-processing"), its Save running the savefile step
+  as the flag does; the question is drafted before it is built. Until then the window's
+  Compile runs without the flag, and the skip's catalog text, which names the flag, is the
+  command line's.
 - **Disabled exports stay visible.** An export with its `NO_USE` marker is a greyed row with
   **Enable** (removing the marker) rather than left out of the grid, so what was disabled can
   be seen and undone. Where two exports clash (`duplicate_aesthetics_export`,

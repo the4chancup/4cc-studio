@@ -248,8 +248,9 @@ pub(super) fn package(
                 // The deep pass has dropped a folder whose face diff fails to decode, or that
                 // gives it in both forms, so a failure here is not a member's mistake.
                 PlayerFile::FaceDiffXml if package == ModelPackage::Face => {
-                    let bytes = face_diff::from_xml(&take(files, file))
-                        .map_err(|error| anyhow::anyhow!("{}: {error}", file.path.as_str()))?;
+                    let bytes = face_diff::from_xml(&take(files, file)).map_err(|error| {
+                        anyhow::anyhow!("cannot read the face diff {}: {error}", file.path.as_str())
+                    })?;
                     contents.insert("face_diff.bin".to_owned(), bytes);
                 }
                 // The textures are the textures task's, and a linked one the Common textures

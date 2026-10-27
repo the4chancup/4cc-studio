@@ -204,7 +204,7 @@ fn a_failed_cpk_write_discards_the_staging_and_leaves_the_previous_cpk() {
     // The error names the staging folder; the platform's own text at the end is left free.
     let previous = sandbox.root.join("output").join("4cc_99_test.cpk");
     let prefix = format!(
-        "Fatal cpk_write_failed [AbortRun] (path={}, error={}: cannot create the staging folder: ",
+        "Fatal cpk_write_failed [AbortRun] (path={}, error=cannot create the folder {}: ",
         previous.display(),
         sandbox.root.join("output").join(".staging").display()
     );
@@ -235,7 +235,7 @@ fn assert_commit_failed(sandbox: &Sandbox, run: &Run, before: &BTreeMap<PathBuf,
     );
     // The error ends with the platform's own text, so only its shape is fixed.
     let prefix = format!(
-        "Fatal output_commit_failed [AbortRun] (path={previous}, error={previous}: cannot replace it with the new CPK: ",
+        "Fatal output_commit_failed [AbortRun] (path={previous}, error=cannot replace {previous} with the new CPK: ",
         previous = previous.display()
     );
     assert!(last.starts_with(&prefix) && last.ends_with(')'), "{last}");

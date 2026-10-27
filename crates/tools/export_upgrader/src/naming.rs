@@ -106,7 +106,8 @@ pub(crate) fn coverage_choice(
                 source: TagSource::Name,
             }),
             Some(carried) => Err(invalid(anyhow!(
-                "--coverage {}: the export's name already carries the {} tag",
+                "--coverage {} does not apply, because the export's name already carries \
+                 the {} tag",
                 flag.as_str(),
                 tag_name(carried)
             ))),

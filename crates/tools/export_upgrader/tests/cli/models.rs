@@ -22,8 +22,8 @@ fn a_missing_input_or_a_file_is_refused() {
     fs::write(sandbox.path("notes.txt"), b"text").unwrap();
     let before = sandbox.listing("");
 
-    upgrade_models(&sandbox, "gone", &[]).assert_refused(2, &["gone", "no such folder or file"]);
-    upgrade_models(&sandbox, "notes.txt", &[]).assert_refused(2, &["notes.txt", "not a folder"]);
+    upgrade_models(&sandbox, "gone", &[]).assert_refused(2, &["gone", "does not exist"]);
+    upgrade_models(&sandbox, "notes.txt", &[]).assert_refused(2, &["notes.txt", "is not a folder"]);
 
     assert_eq!(sandbox.listing(""), before, "nothing is written");
 }

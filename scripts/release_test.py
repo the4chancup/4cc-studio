@@ -3,10 +3,14 @@
 import re
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
 from release import (
+    BUNDLED_RULES,
+    CUSTOM_CHECKS_STUB,
+    assemble_rules,
     existing_glob,
     expected_entries,
     exe_name,
@@ -59,6 +63,59 @@ class Pure(unittest.TestCase):
         self.assertTrue(readme_names_version("4cc Studio 1.0.0\n", "1.0.0"))
         self.assertFalse(readme_names_version("4cc Studio 1.0.0.1\n", "1.0.0"))
 
+    def test_assemble_rules(self) -> None:
+        self.assertEqual(
+            assemble_rules(
+                'const RULESET = #{ name: "T" };\n\n\n',
+                "// ==== LOGIC (ruleset-logic 1): the Ruleset editor replaces this section ====\n"
+                "fn check_team(team) { [] }\n\n",
+            ),
+            'const RULESET = #{ name: "T" };\n'
+            "\n"
+            "// ==== LOGIC (ruleset-logic 1): the Ruleset editor replaces this section ====\n"
+            "fn check_team(team) { [] }\n"
+            "\n"
+            "// ==== CUSTOM CHECKS: optional, hand-written; the Ruleset editor keeps this section as it is ====\n"
+            "fn custom_checks(team) { [] }\n",
+        )
+
+    def test_assemble_rules_keeps_a_blocks_own_custom_checks(self) -> None:
+        # As `aatf`'s `assemble`: the block's section goes after the logic, and no stub
+        # beside it, which would define `custom_checks` twice.
+        self.assertEqual(
+            assemble_rules(
+                "const RULESET = #{};\n\n"
+                "// ==== CUSTOM CHECKS: the cup's own ====\n"
+                "fn custom_checks(team) { [1] }\n",
+                "// ==== LOGIC (ruleset-logic 1): x ====\nfn check_team(team) { [] }\n",
+            ),
+            "const RULESET = #{};\n"
+            "\n"
+            "// ==== LOGIC (ruleset-logic 1): x ====\n"
+            "fn check_team(team) { [] }\n"
+            "\n"
+            "// ==== CUSTOM CHECKS: the cup's own ====\n"
+            "fn custom_checks(team) { [1] }\n",
+        )
+
+    def test_the_stub_is_aatfs(self) -> None:
+        source = (ROOT / "crates/libs/aatf/src/file.rs").read_text(encoding="utf-8")
+        banner = next(
+            line
+            for line in source.splitlines()
+            if line.startswith('pub(crate) const CUSTOM_CHECKS: &str = "')
+        )
+        self.assertEqual(CUSTOM_CHECKS_STUB.split("\n")[0], banner.split('"')[1])
+        self.assertIn("fn custom_checks(team) {{ [] }}", source)
+
+    def test_the_bundled_settings_name_the_rules_file(self) -> None:
+        settings = tomllib.loads(
+            (ROOT / "resources/bundle/data/settings.toml").read_text(encoding="utf-8")
+        )
+        self.assertEqual(settings["save-editor"]["aatf_rules"], BUNDLED_RULES)
+        self.assertIs(settings["team-compiler"]["multicpk_mode"], False)
+        self.assertEqual(settings["team-compiler"]["cpk_name"], "4cc_99_test")
+
     def test_expected_entries(self) -> None:
         self.assertEqual(
             expected_entries("UnlimitedToolWorks", "0.0.1"),
@@ -72,6 +129,10 @@ class Pure(unittest.TestCase):
                 "UnlimitedToolWorks-0.0.1/LICENSE-APACHE",
                 "UnlimitedToolWorks-0.0.1/exports",
                 "UnlimitedToolWorks-0.0.1/old_exports",
+                "UnlimitedToolWorks-0.0.1/data",
+                "UnlimitedToolWorks-0.0.1/data/settings.toml",
+                "UnlimitedToolWorks-0.0.1/data/rules",
+                "UnlimitedToolWorks-0.0.1/data/rules/dbc7.4ccrules",
             },
         )
 
@@ -121,6 +182,9 @@ class Listing(unittest.TestCase):
             top = stage / "Tiny-9.9.9"
             (top / "exports").mkdir(parents=True)
             (top / "old_exports").mkdir()
+            (top / "data/rules").mkdir(parents=True)
+            (top / "data/settings.toml").write_bytes(b"x")
+            (top / "data/rules/dbc7.4ccrules").write_bytes(b"x")
             for bundled in (
                 "Tiny.exe",
                 "quick_compile.bat",

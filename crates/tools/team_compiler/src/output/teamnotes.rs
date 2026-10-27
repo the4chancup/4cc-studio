@@ -47,9 +47,7 @@ pub(crate) fn write(path: &Path, text: Option<&str>) -> anyhow::Result<()> {
         return match fs::remove_file(path) {
             Ok(()) => Ok(()),
             Err(error) if error.kind() == ErrorKind::NotFound => Ok(()),
-            Err(error) => {
-                Err(error).with_context(|| format!("{}: cannot remove it", path.display()))
-            }
+            Err(error) => Err(error).with_context(|| format!("cannot remove {}", path.display())),
         };
     };
     replace_file(path, text.as_bytes())
@@ -144,7 +142,7 @@ mod tests {
             let error = write(&path, text).unwrap_err();
             let chain = format!("{error:#}");
             assert!(
-                chain.starts_with(&format!("{}: ", path.display())),
+                chain.starts_with("cannot ") && chain.contains(&path.display().to_string()),
                 "{text:?}: {chain}"
             );
             assert!(path.join("kept").is_dir(), "{text:?}");

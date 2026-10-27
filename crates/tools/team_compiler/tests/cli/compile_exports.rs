@@ -730,7 +730,7 @@ fn a_teamnotes_txt_that_cannot_be_written_is_reported_and_the_cpk_stays() {
     assert_eq!(first, before_last);
     // The error ends with the platform's own text, so only its shape is fixed.
     let prefix = format!(
-        "Error teamnotes_write_failed [Keep] (path={path}, error={path}: ",
+        "Error teamnotes_write_failed [Keep] (path={path}, error=cannot replace {path}: ",
         path = teamnotes(&sandbox).display()
     );
     assert!(last.starts_with(&prefix) && last.ends_with(')'), "{last}");
@@ -1114,7 +1114,7 @@ fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits()
     );
     assert!(
         failed.starts_with(
-            "Error folder_pack_failed [DropFolder] at Kits/p2 (error=kit.dds: cannot convert"
+            "Error folder_pack_failed [DropFolder] at Kits/p2 (error=cannot convert kit.dds"
         ),
         "{failed}"
     );

@@ -158,19 +158,6 @@ TC-SRC-11  GIVEN an exports root holding "co Full Spring.upgrading", a folder an
                 a folder THEN it is compiled as any export
 ```
 
-The savefile step while the game runs (`pipeline.md` "Savefile step while the game runs"),
-whose scenario replaces the spec's TC-SAV-10 once built:
-
-```
-TC-SAV-17  GIVEN a running PES of the compile target's version (the tests' running-PES probe)
-                 with a savefile present
-           WHEN the export is compiled in sideload mode
-           THEN without --edit-mode-closed the patch is written naming no CPK,
-                savefile_skipped_pes_running is reported naming the game and the flag, and the
-                savefile is byte-identical; with it, the savefile is written (savefile_written);
-                with only a PES of another version running, it is written without the flag
-```
-
 **Phase 8 scope.** Phase 8 delivers the view: the live-validating grid (`gui.md`), the toolbar
 with its split Compile button, the run strip, the log panel's cross-links, cancellation
 (`spec/core/gui.md` "Cancellation") and the tool's settings section. What a scenario observes

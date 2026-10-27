@@ -859,7 +859,7 @@ and left unchanged).
 ## CLI
 
 ```text
-4cc-studio export-upgrader upgrade <export> [--savefile <EDIT>] [--loose] [--coverage full|midcup] [-o <dir>]
+4cc-studio export-upgrader upgrade <export> [--savefile <EDIT> | --loose] [--coverage full|midcup] [-o <dir>]
 4cc-studio export-upgrader upgrade-models <folder> [-o <dir>]
 ```
 
@@ -900,7 +900,8 @@ after the input with ` upgraded` appended, or the directory `-o` names. That dir
 output folder, refused like `upgrade`'s when it exists: we do not write into an existing one,
 because an earlier run's folders, edited since, would sit beside this run's with nothing telling
 them apart. Both print step 10's report, one line per finding
-naming its code and the input path it is about, and exit with the Team compiler's mapping
+naming its code and, for a finding about a file or folder, its path (the input's, or the
+output's for a check run on the output), and exit with the Team compiler's mapping
 (`spec/team_compiler/settings.md` "CLI"): **0** clean (Warning and Info findings allowed when
 they drop nothing but a leftover, step 10), **1** not clean (unmigrated content, an Error
 finding, a finding that drops something else, the unknown team, or an archive that does not
@@ -1043,7 +1044,8 @@ and `.mtl`, is a pre-Fox export upgraded with a PES 16 save); its folders and fi
 AET page names them (`XXX15 - Snuffy`, `k0430 - Crocs`, `g0432 - Mitts`,
 `XXX_DEF_1st_realUni.bin`, `u0XXXp1.dds`). A GIVEN names the files that decide its outcome.
 "The output" is the folder `upgrade` or `upgrade-models` writes; "the report" is step 10's,
-printed on stdout, one line per finding naming its code and the input path it is about.
+printed on stdout, one line per finding naming its code and, for a finding about a file or
+folder, its path.
 
 **Phase 6 scope.** Phase 6 delivered the structural migration (steps 1 to 12) and model-folder
 mode, through the CLI: the GUI's two drop targets are Phase 8's, and step 13, the glTF pass, is

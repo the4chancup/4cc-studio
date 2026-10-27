@@ -202,7 +202,7 @@ impl Referees {
 /// for `version`. A config that does not decode is the error, naming its path.
 fn wearing_marker(path: &str, bytes: &[u8], version: PesVersion) -> anyhow::Result<Vec<u8>> {
     let mut config =
-        KitConfig::decode(bytes, version).with_context(|| format!("{path}: not a kit config"))?;
+        KitConfig::decode(bytes, version).with_context(|| format!("{path} is not a kit config"))?;
     config.shirt.collar = REFEREE_MARKER_COLLAR;
     config.shirt.winter_collar = REFEREE_MARKER_COLLAR;
     Ok(config.encode(version).to_vec())
@@ -747,7 +747,7 @@ impl CpkOutput {
         }
         for (path, file) in &self.overrides {
             let bytes = fs::read(file)
-                .with_context(|| format!("{}: cannot read the override", file.display()))?;
+                .with_context(|| format!("cannot read the override {}", file.display()))?;
             self.sink.add(path, &bytes)?;
             self.entries += 1;
         }
@@ -1831,7 +1831,7 @@ mod tests {
             .expect_err("an undecodable config with the marker");
 
         assert!(
-            format!("{error:#}").starts_with(&format!("{def_1}: not a kit config")),
+            format!("{error:#}").starts_with(&format!("{def_1} is not a kit config")),
             "{error:#}"
         );
     }
@@ -1935,7 +1935,7 @@ mod tests {
         let gone = overrides(folder, &["a/over.bin"]);
         let file = gone["a/over.bin"].clone();
         fs::remove_file(&file).unwrap();
-        let expected = format!("{}: cannot read the override", file.display());
+        let expected = format!("cannot read the override {}", file.display());
 
         // At the first entry a task commits.
         let mut output = CpkOutput::new(

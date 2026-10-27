@@ -12059,3 +12059,44 @@ or 43); the area the screen lights while a player is held is not where his posit
 wrong guess sets a position silently, where today the member sets it in the player's box and
 sees what he set.
 Plan: `plans/save_editor.md` "Tactics editor", the bullet "A pitch player dropped on another".
+## 2026-10-27 — team_compiler — `--edit-mode-closed` reaches the line as `flag`; the tests set the tool's probe
+Decision: `savefile_skipped_pes_running`'s line carries the flag as a context entry,
+`flag=--edit-mode-closed`, after `path` and `version`; the flag has no settings counterpart;
+the words the compiler shares with the Save editor's writing commands (the flag's `--help`
+line, the message's "Close the game's Edit mode, then <run> again with `--edit-mode-closed`.
+The save is then written, and Edit mode's Load reads it in without restarting the game.") are
+written in the spec. The running-PES probe is a field of the tool (`fn() -> Vec<RunningPes>`):
+`Tool::new()` takes the real process list (a unit test's build, none), and a new `pub fn
+Tool::with_running_probe` lets the in-process command-line tests set it, the default sandbox
+reporting no game. The flag is accepted in a run that writes no save (`--no-deploy`,
+`--mode test`) and changes nothing there.
+Why: a console line prints a finding's code and context, never the catalog's text, so a flag
+named only in the catalog is not on the line TC-SAV-17 reads; `savefile_missing` already
+carries its command the same way. A setting would be a standing "yes" to a question about the
+game's state at each compile, answered before it is asked. Accepted where unused rather
+than refused as `--no-deploy` is with the loose-file modes: the member's word about Edit
+mode is not wrong in any mode, and a refusal would break a launcher line that always passes
+it. The probe on the tool, not a
+`#[cfg(test)]` stub alone: an integration test links the crate without `cfg(test)`, and the
+live probe made nine savefile tests fail while PES 2021 ran on the developer's machine.
+Plan: `spec/team_compiler/pipeline.md` "6. Post-processing" (the plan's "Savefile step while
+the game runs" moved there), `spec/team_compiler/settings.md` "CLI", `spec/team_compiler/README.md`
+TC-SAV-17 (replacing TC-SAV-10), `plans/team_compiler/gui.md` the save findings' bullet.
+
+## 2026-10-27 — development plan — The bundle's `data/` holds its settings and DBC7's rules file; `just release` assembles the file
+Decision: the 0.0.1 bundle ships `data/settings.toml` (the Save editor's `aatf_rules =
+"rules/dbc7.4ccrules"`, and the Team compiler's `multicpk_mode` and `cpk_name` at their
+defaults) and `data/rules/dbc7.4ccrules`. `scripts/release.py` writes the rules file by joining
+`rulesets/dbc7.rhai`, `logic/logic.rhai` and the empty CUSTOM CHECKS section, the layout the
+Ruleset editor writes, and refuses unless the staged exe's `ruleset-editor validate` passes it
+and its `update-logic` reports the logic current.
+Why: the plan's "its settings name it" can only be a settings file in the bundle, and the only
+place one is read without a first-run choice is `data/` beside the exe, which makes the bundle
+portable, so its first start asks nothing (a preview's testers lose the location choice; DBC's
+managers get DBC's check from the first open, the 2026-10-24 entry's aim). The rules file sits
+in `data/` because a relative `aatf_rules` resolves there, where one beside the exe would show
+`../rules/...` in the settings row. No command of the build writes a template, and a new
+`ruleset-editor` command for one build-time use is CLI surface no member needs; the exe's own
+checks catch a join that drifts from the format. The two Team compiler lines let the readme
+tell VGL's organizer which value to change instead of what to type in.
+Plan: `plans/core/development_plan.md` "Divegrass Before Christmas".

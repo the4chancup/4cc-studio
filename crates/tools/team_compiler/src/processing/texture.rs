@@ -74,7 +74,7 @@ pub(super) fn conversion_failure(name: &str, error: ConvertError) -> TextureErro
         | ConvertError::Image(_)
         | ConvertError::InvalidDecoded(_)
         | ConvertError::Truncated => TextureError::Other(
-            anyhow::Error::from(error).context(format!("{name}: cannot convert")),
+            anyhow::Error::from(error).context(format!("cannot convert {name}")),
         ),
     }
 }
@@ -773,7 +773,7 @@ mod tests {
         let TextureError::Other(error) = error else {
             panic!("a DDS without its header is no finding");
         };
-        assert_eq!(format!("{error}"), "kit.dds: cannot convert");
+        assert_eq!(format!("{error}"), "cannot convert kit.dds");
     }
 
     #[test]
@@ -965,7 +965,7 @@ mod tests {
         ) else {
             panic!("PNG bytes under a `.dds` name are not a DDS");
         };
-        assert_eq!(format!("{error}"), "portrait.dds: cannot convert");
+        assert_eq!(format!("{error}"), "cannot convert portrait.dds");
     }
 
     #[test]

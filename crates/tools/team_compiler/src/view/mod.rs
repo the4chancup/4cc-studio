@@ -49,7 +49,7 @@ fn show_settings(ui: &mut egui::Ui, ctx: &ToolContext) {
     for (key, value) in &ctx.tool_settings(TOOL_ID) {
         ui.monospace(format!("{key} = {value}"));
     }
-    ui.label("Edit them in settings.toml; the settings menu comes later.");
+    ui.label("Edit them in the settings menu, or in settings.toml.");
 }
 
 #[cfg(test)]
@@ -203,7 +203,7 @@ mod tests {
             log.poll();
             log.is_running()
         });
-        assert_eq!(log.texts(), ["Run finished: exit code 0"]);
+        assert_eq!(log.texts(), ["Run finished with exit code 0"]);
     }
 
     // TC-GUI-03
@@ -271,7 +271,7 @@ mod tests {
                     root.join("save").join("EDIT00000000").display(),
                     crate::output::savefile::APPLY_COMMAND
                 ),
-                "Run finished: exit code 0".to_owned(),
+                "Run finished with exit code 0".to_owned(),
             ]
         );
     }

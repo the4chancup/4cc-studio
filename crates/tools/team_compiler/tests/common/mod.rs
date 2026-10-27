@@ -6,7 +6,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use crossbeam_channel::unbounded;
-use studio_core::{AppPaths, CliError, PipelineEventEnvelope, Settings, StudioTool, ToolContext};
+use studio_core::{
+    AppPaths, CliError, PipelineEventEnvelope, RunningPes, Settings, StudioTool, ToolContext,
+};
 use team_compiler::Tool;
 
 /// The teams list every sandbox carries, so identities are predictable: `/co/` for the tests'
@@ -73,9 +75,21 @@ impl Sandbox {
     }
 
     /// Runs `team-compiler <args>` with `settings` as the settings file's text, its game folder
-    /// the sandbox's unless it names one (`sandboxed`).
+    /// the sandbox's unless it names one (`sandboxed`), and a probe reporting no game: no test
+    /// reads the machine's processes.
     pub fn run(&self, settings: &str, args: &[&str]) -> Run {
-        let tool = Tool::new();
+        self.run_with_running(settings, args, Vec::new)
+    }
+
+    /// `run` with `running` as the tool's running-PES probe in place of the no-game one
+    /// (`Tool::with_running_probe`), for the tests of the savefile step's running-game cases.
+    pub fn run_with_running(
+        &self,
+        settings: &str,
+        args: &[&str],
+        running: fn() -> Vec<RunningPes>,
+    ) -> Run {
+        let tool = Tool::with_running_probe(running);
         let mut parsed = Settings::parse(&self.sandboxed(settings)).unwrap();
         parsed.merge_defaults(tool.id(), &tool.default_settings());
         let (events_tx, events_rx) = unbounded();

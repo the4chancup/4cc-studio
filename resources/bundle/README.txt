@@ -4,20 +4,31 @@ Unlimited Tool Works 0.0.1
 A test version, for the testers of DBC and VGL. If anything goes wrong or reads strangely,
 tell us: that is what this version is for.
 
-In the window, the Save editor and the Ruleset editor are on the left bar. The Team compiler
-and the Export upgrader are greyed out there: in this version they run through the two
-launchers below.
+In the window, the Save editor is on the left bar. The Team compiler, the Export upgrader and
+the Ruleset editor are greyed out there, because their windows come in a later version. In
+this one, the Team compiler and the Export upgrader run through the two launchers below.
 
 
 The first time
 --------------
 
 1. Unpack this archive into a folder of its own, anywhere you like.
-2. Open UnlimitedToolWorks.exe. It asks where to keep its settings: either answer works.
-3. On the left bar, pick your PES. If the PES box turns yellow or red, click the gear at the
-   bottom of the bar (Settings) and set "PES folder" to the folder that holds the game's
-   PES20xx.exe.
+2. Open UnlimitedToolWorks.exe. It keeps its settings in the data folder beside it, so
+   everything it needs stays in this one folder.
+3. On the left bar, pick your PES. The window starts on PES 2019, the game VGL is played on.
+   DBC is played on PES 2017, so DBC's testers pick PES 2017 there before opening a save.
+   If the PES box turns yellow or red, click the gear at the bottom of the bar (Settings) and
+   set "PES folder" to the folder that holds the game's PES20xx.exe.
    Then close the window.
+
+
+Checking a team for DBC
+-----------------------
+
+The Save editor checks teams against DBC7's rules from the start: it reads them from the file
+dbc7.4ccrules in the data\rules folder, so there is nothing to set up. To check against
+another cup's rules, click the gear and set "AATF rules file" to that cup's .4ccrules file.
+With the box left empty, it checks against the 4cc's official rules.
 
 
 Upgrading old exports
@@ -42,6 +53,48 @@ Compiling
 2. Close PES, then double-click quick_compile.bat. It compiles every export in the exports
    folder and installs the result in the game.
 3. Read the report, then press a key to close the window.
+
+
+For VGL's organizer
+-------------------
+
+1. The game needs the cup's official DpFileList.bin. If yours is another list, the compile's
+   report says so (dpfilelist_outdated or dpfilelist_not_official) and names the command that
+   installs the official one. To run it, close PES, open the folder that holds
+   UnlimitedToolWorks.exe, click the address bar at the top of the window, type cmd and press
+   Enter. In the black window that opens, type
+
+       UnlimitedToolWorks.exe team-compiler upgrade-dpfl
+
+   and press Enter. It changes nothing yet: it lists what it would do (CPKs renamed to their
+   official names, empty placeholders for the ones missing, the list replaced and the old one
+   kept as DpFileList.bin.bak). If that reads right, run it again with --yes at the end:
+
+       UnlimitedToolWorks.exe team-compiler upgrade-dpfl --yes
+
+   This is needed once per game folder.
+
+2. The league's first DLC is compiled into several CPKs. With the window closed, open
+   data\settings.toml in Notepad, change the line
+
+       multicpk_mode = false
+
+   to
+
+       multicpk_mode = true
+
+   and save the file. quick_compile.bat then puts the teams into 4cc_41_teams.cpk and the CPKs
+   after it, filling each one up to its size limit, and the files every team shares into
+   4cc_08_bins.cpk.
+
+3. A later matchday is compiled into one CPK of its own. Change the line back to
+   multicpk_mode = false, and change the line
+
+       cpk_name = "4cc_99_test"
+
+   to that matchday's CPK, one of 4cc_61_midcup to 4cc_75_midcup, such as
+
+       cpk_name = "4cc_61_midcup"
 
 
 When something goes wrong

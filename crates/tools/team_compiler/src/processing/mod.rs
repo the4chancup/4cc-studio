@@ -1524,7 +1524,7 @@ mod tests {
         assert!(
             message.context[0]
                 .1
-                .starts_with("logo_small.png: cannot convert"),
+                .starts_with("cannot convert logo_small.png"),
             "{:?}",
             message.context
         );
@@ -3370,7 +3370,7 @@ mod tests {
             panic!("{:?}", message.context);
         };
         assert_eq!(key, "error");
-        assert!(error.starts_with("Cloth.dds: cannot convert"), "{error}");
+        assert!(error.starts_with("cannot convert Cloth.dds"), "{error}");
     }
 
     #[test]
@@ -3493,7 +3493,7 @@ mod tests {
             message.context,
             [(
                 "error".to_owned(),
-                "portrait.dds: cannot convert: container conversion failed: invalid magic: invalid magic"
+                "cannot convert portrait.dds: container conversion failed: invalid magic: invalid magic"
                     .to_owned()
             )]
         );
