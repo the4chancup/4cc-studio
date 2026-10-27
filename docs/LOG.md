@@ -2569,3 +2569,5 @@ worklog passed 7,000 lines.
   restated catalog rows brought to the catalog's wording (`old_cpk_locked`, the sideload `livecpk` files).
 - **2026-10-27** — 8.29c4d: the Team compiler's error texts on the terminal and in findings' `error=` fields reread for
   flow (54 texts): the path now said where a person would say it, not put first and pointed back to.
+- **2026-10-27** — 8.29c5a: the Export upgrader's catalog reread for flow (45 texts, the structure pass's conditions
+  kept the Team compiler's); `common_reference_kept` now says either of its two conditions reports it.

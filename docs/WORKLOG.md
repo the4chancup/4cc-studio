@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 to c3 and c4a to c4d done; 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 to c3, c4a to c4d and c5a done; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2260,8 +2260,27 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           `DpFileList.bin` that cannot be read stops the compile (`installed_bin_unreadable`),
           which the bins paragraph does not say, and `savefile_missing` excludes a configured
           path naming a folder (`savefile_invalid`), which the patch section does not say
-      - [ ] c5 the Export upgrader's catalog (its own `effect`s and rows), `cli.rs` and
-        `help/01_command_line.md`
+      - [ ] c5 the Export upgrader, in two slices:
+        - [x] c5a its catalog (`messages.rs`): its own rows' two texts and the structure-pass
+          rows' effects, whose `when`s stay the Team compiler's word for word: 45 texts
+          rewritten, "entry" and "member" now the file or folder a member sees, "item folder"
+          the boots or gloves folder, the bare `Removed ...`/`Kept ...` effects sentences (the
+          lead retouched four: a "them" with no plural before it, a semicolon left in
+          `custom_model_missing` and its save "record", and `common_reference_kept`'s two
+          conditions joined by "and" where the spec and the code take either, which the
+          sidekick found). SWE-2 round S1: 10 concerns, 5 accepted (an unmigrated Team Note
+          entry, which "file or folder" left out; content only meant for the game; an Error
+          that keeps its content also ends the run with exit code 1; `settings_value_refused`
+          covering `ingame_face.toml`), 1 nit, 4 rejected; S2: 11, 7 accepted (a `refs list.txt`
+          roster, which two rows left out; a `Midcup` kit without config updating only its
+          colors; three folders or files the text could not tell apart), 1 nit, 3 rejected; S3:
+          5, 4 accepted (`upgrade-models` input, which S1's "old export" left out), the loop's
+          end. Tables `.tmp/8_29/c5a_table.md` and `c5a_s{1,2,3}_table.md` (side/text worktree).
+          Files:
+          `export_upgrader/src/messages.rs`. The drafts host's mock catalog
+          (`docs/prototypes/index.html` 1418-1446) copies the old texts, for the top lead
+        - [ ] c5b its `cli.rs` (`--help`), its refusals and error texts (the input refusals
+          worded as the Team compiler's `--export` ones) and `help/01_command_line.md`
       - [ ] c6 the injected comments: they live in `pes_savefile` (`settings_toml/`, the
         `settings.toml` and `ingame_face.toml` headers and key comments) and `kit_config`
         (`toml_form.rs`, `config.toml`), outside side-lead U's locks: for whoever holds those
