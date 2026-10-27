@@ -109,6 +109,9 @@ input[type=range]:focus { outline: none; }
    name and its values read without scrolling sideways (save_editor.md, the closing bullet). */
 .window[data-dlg="unsaved-changes"] { max-width: 90%; }
 #unsaved-changes td, #unsaved-changes th { white-space: nowrap; }
+/* A colour's old and new value: a 12-point swatch before the hex. */
+.chswatch { display: inline-block; width: 12px; height: 12px; border: 1px solid #000;
+  border-radius: 2px; box-sizing: border-box; vertical-align: middle; margin-right: 5px; }
 /* The toolbar's unsaved-changes label is a clickable label (egui: a Label
    with Sense::click and the pointing-hand cursor); its popup lists the
    changes, the close prompt's table without the prompt's three answers
@@ -2891,10 +2894,14 @@ function unsavedChanges() {
 function changesTable() {
   const show = v => v === undefined || v === null ? "" : typeof v === "boolean" ? (v ? "on" : "off")
     : typeof v === "object" ? JSON.stringify(v) : String(v);
+  // A colour's value draws its swatch before the hex (the app's rows carry the
+  // colour itself; the draft reads it back from the hex).
+  const cell = v => { const s = show(v);
+    return h("td", { class: "mono" }, /^#[0-9A-F]{6}$/i.test(s)
+      ? h("span", { class: "chswatch", style: "background:" + s }) : null, s); };
   const changes = h("table", { class: "grid", id: "unsaved-changes" },
     h("tr", {}, h("th", {}, "Item"), h("th", {}, "Old value"), h("th", {}, "New value")),
-    unsavedChanges().map(([item, o, n]) => h("tr", {},
-      h("td", {}, item), h("td", { class: "mono" }, show(o)), h("td", { class: "mono" }, show(n)))));
+    unsavedChanges().map(([item, o, n]) => h("tr", {}, h("td", {}, item), cell(o), cell(n))));
   return h("div", { style: "max-height:240px; overflow:auto" }, changes);
 }
 function drawUnsavedPrompt(then) {
@@ -3115,7 +3122,7 @@ function renderToolbar() {
 // or an edit; the toolbar's Undo is a click outside, so it closes the list
 // and the label reopens it one row shorter. Not a window: a glance at what
 // Save would write, not a workspace to keep open.
-// sample wording: the tooltip and the line under the table.
+// sample wording: the tooltip.
 function unsavedLabel() {
   return h("span", { class: "chfield" },
     h("span", { class: "weak unsaved", id: "unsaved-label",
@@ -3124,9 +3131,7 @@ function unsavedLabel() {
     S.changesPop ? changesPopup() : null);
 }
 function changesPopup() {
-  const pop = h("div", { class: "chpop", id: "changes-popup" }, changesTable(),
-    h("div", { class: "weak", style: "margin-top:6px" },
-      "Compared with the file as opened or last saved."));
+  const pop = h("div", { class: "chpop", id: "changes-popup" }, changesTable());
   // Measured once drawn: the label sits late in the toolbar, so a wide
   // table under it can pass the window's edge (egui's Area is constrained
   // to the screen; here the popup slides left by the overhang).
