@@ -2125,7 +2125,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `help/0{4,5,6,7}_*.md`, `docs/prototypes/tools/save_editor.js`
   - [ ] 8.30 after 0.0.1 (the maintainer, 2026-10-26, not a priority): the Save editor's
     Nation field shows the nation's name beside its number, from a map of the game's nation
-    ids to names (which versions share the ids, and where the names come from, first)
+    ids to names (which versions share the ids, and where the names come from, first).
+    Drafted (`side/drafts2`); answered 2026-10-27 (DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers"): 4cc's nations in PES 16's
+    table, PES 20 read as 21; the draft revised (side-lead D's step 5), then the look
   - [ ] 8.31 after 0.0.1 (the maintainer, 2026-10-27): a click on the toolbar's `• unsaved
     changes` opens the list of the changes, the table the close prompt already shows
     (`plans/save_editor.md`, the "Closing, or opening another save" bullet: Item, Old value,
@@ -2133,11 +2135,16 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   - [ ] 8.32 after 0.0.1 (the maintainer, 2026-10-27): the pitch draws the formation's name
     (`4-3-3`) in its corner, exactly as PES's formation screen draws it. First: the game's
     rule for the name from the slots' positions and the label's look, from in-game captures
-    (ask before taking them); then the draft, then the plan
+    (ask before taking them); then the draft, then the plan. Moved into 0.0.1 as 0.0.1x
+    (the maintainer, 2026-10-27)
   - [ ] 8.33 after 0.0.1 (the maintainer, 2026-10-27): a menu entry that saves a picture of
     the team's formations to a folder: a grid, one row per preset, one column per formation,
     a preset with fluid formation off showing its first formation only. Drafted first (which
-    menu, the folder asked or a setting, the image's format and cell size), then the plan
+    menu, the folder asked or a setting, the image's format and cell size), then the plan.
+    Drafted (`side/drafts2`); answered 2026-10-27 (DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers"): pitch-size cells, a second
+    set of entries with the presets' settings, a save dialog for one team, no fluid-off
+    line, a narrow picture when no preset is fluid; the draft revised (side-lead D's step
+    5), then the look
   - [ ] 8.34 after 8.33 (the maintainer, 2026-10-27): the same for a range of team ids asked
     for, one picture per team, in one go
   - [ ] 8.29 the text pass: every line a member reads reread against CONTRIBUTING's "That text
@@ -3296,6 +3303,25 @@ briefs, review loops, gates and mutation runs as for any step.
     (`FontTweak::scale`, `size-adjust` in the drafts) to Segoe UI's measured width (Steam's PES
     2019 path, 425.7 points at 12.5), shown side by side for the maintainer to pick; a pick
     rebuilds `symbols.ttf` on its metrics (`scripts/make_symbols.py`'s `BODY_FONT`)
+- [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the
+  maintainer, 2026-10-27: "Since the formation name work is almost done"; DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers": the
+  typeface need not be the game's, its stroke thickness must match the game's label; the
+  formation pictures' cells carry it too, when 8.33 comes). Drafted by side-lead D
+  (`side/drafts2` `0f653350`; the rule, its evidence and open points in
+  `../4cc-studio-temp/wt-drafts2/.tmp/8_32/rule.md`)
+  - [ ] x1 the draft revised (side-lead D's step 5): rebased onto main (Selawik, the symbols
+    font), the name drawn in the bundled Selawik weight whose stroke matches the game's label
+    (Bold or Semibold of the same release, measured against the 8.9g capture), no other bold
+  - [ ] x2 the captures that settle the rule (lead, in game, the save backed up and restored by
+    hash): `rule.md`'s C1 (/f/ 718's three formations: where LMF/RMF and LWF/RWF count, a DMF
+    beside a CMF), C2 (/gd/ 722 presets 1 and 3, /o/ 739: a DMF's own line), C3 (/3/ 701: the
+    position, not the spot, counts); C4 (the typeface at 4K) only if the thickness cannot be
+    read at 1080p
+  - [ ] x3 the plan text (`plans/save_editor.md` "Tactics editor", look.md's proposal with the
+    captures' answers), its acceptance scenario, the maintainer's look at the draft
+  - [ ] x4 the code (Opus sidekick, after w2 registers the fonts and the S1 rework lands): the
+    rule in `team_widgets` beside the pitch, unit-tested on the captured teams' slots; the
+    painter's corner label; the font registered by `theme::install`
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

@@ -11954,3 +11954,21 @@ Why: the plan names those icons the icon font's (worklog 8.14's general icons), 
 implements them so, and the drafts drew stand-ins from system fonts; the title bar is the OS's
 in the app; a member's typing is not the suite's symbol set.
 Plan: `plans/core/gui.md` "Prototypes before implementation" (the Fonts bullet).
+
+## 2026-10-27 — save_editor — Formation pictures, the formation's name and the nation names: the maintainer's answers
+Decision (maintainer, answering Track D's drafts' questions):
+- Formation pictures (8.33, 8.34): cells at the pitch's own size (a 1112 x 1260 picture for
+  three columns); a second set of entries exports the pictures with each preset's formation
+  settings beside its row; the one team's picture is named in a save-file dialog, not a folder
+  picker; a preset with fluid formation off draws its Kick-off formation alone, with no
+  explaining line, and a team with fluid off on every preset gets a narrow picture, one
+  column.
+- The formation's name (8.32): the typeface need not be the game's, but its stroke thickness
+  must match the game's label; the formation pictures' cells carry the name too. 8.32 moves
+  into 0.0.1 ("the formation name work is almost done"), as step 0.0.1x.
+- Nation names (8.30): PES 2016's table includes 4cc's own nations of the VGL database
+  (OFFSIDE 249, EQUESTRIA 251); PES 2020 uses PES 2021's table.
+Why: the maintainer's preferences. The narrow picture drops the columns a fluid-less team
+never uses; the save dialog lets a member name a picture they share.
+Plan: lands with each step's plan text when its revised draft is approved (worklog 8.30,
+0.0.1x, 8.33, 8.34; the proposals in `side/drafts2`'s `.tmp/<step>/look.md`).
