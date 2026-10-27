@@ -1,7 +1,6 @@
 //! A compiled CPK's record of which shared boots or gloves folder of a team took which of the
-//! team's block's shared IDs: `4cc_studio/shared_ids/<team_id>.toml`, a path no game reads
-//! (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team
-//! already has"). A `Midcup` export numbered on its own would give a new folder the ID an
+//! team's block's shared IDs: `4cc_studio/shared_ids/<team_id>.toml`, a path no game reads. A
+//! `Midcup` export numbered on its own would give a new folder the ID an
 //! absent folder holds in the main CPK, so every compiled CPK carries the record its team's
 //! IDs came from and a `Midcup` compiled over it keeps them.
 
@@ -47,8 +46,8 @@ impl SharedIds {
     }
 
     /// Whether neither kind's table names a folder: a `Midcup` over no installed record
-    /// writes none rather than an empty one (`player_folders.md` "A `Midcup` export keeps
-    /// the shared IDs the team already has").
+    /// writes none rather than an empty one, which a later `Midcup` would read as "no shared
+    /// folders".
     pub(crate) fn is_empty(&self) -> bool {
         self.boots.is_empty() && self.gloves.is_empty()
     }

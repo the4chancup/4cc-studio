@@ -1,13 +1,15 @@
-//! The `compile` command (`spec/team_compiler/pipeline.md` "Run driver shapes"): for a run
-//! that deploys, the checks that it can install into the game (`pipeline.md` "6.
-//! Post-processing"), then the validation `check` runs (the structure pass and the deep pass),
-//! run planning, each task's files read in manifest order and the task processed on the worker
-//! pool, the writer thread committing the batches in manifest order, and the CPK installed into
-//! the game's `download/` or promoted from staging to the output folder (in multi-CPK mode,
-//! the bins CPK and the teams parts; with a refs export, the refs CPK too; in test and sideload
-//! mode, the loose tree promoted to its place), or the staging discarded when writing or
-//! promoting it fails, when a team does not fit the teams parts, or when an export's file
-//! changes while it is read (`pipeline.md` "Resolved decisions", "Source snapshot").
+//! The `compile` command (`spec/team_compiler/pipeline.md` "Run driver shapes"). For a run
+//! that deploys, it first checks that it can install into the game. Then it runs the
+//! validation `check` runs (the structure pass and the deep pass) and run planning. Each task's
+//! files are read in manifest order and the task processed on the worker pool, and the writer
+//! thread commits the batches in manifest order.
+//!
+//! At the end the CPK is installed into the game's `download/` or promoted from staging to the
+//! output folder: in multi-CPK mode, the bins CPK and the teams parts; with a refs export, the
+//! refs CPK too; in test and sideload mode, the loose tree promoted to its place. The staging
+//! is discarded instead when writing or promoting it fails, when a team does not fit the teams
+//! parts, or when an export's file changes while it is read, so the previous CPK stays as it
+//! was.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -45,8 +47,7 @@ use crate::settings::SavefilePath;
 use crate::templates::{self, Templates};
 use crate::validation::{run_budget, run_pool, validation_pass};
 
-/// Where a compile puts what it writes (`pipeline.md` "5. Writer", step 5), decided on the
-/// command line before the run starts.
+/// Where a compile puts what it writes, decided on the command line before the run starts.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum OutputMode {
     /// The CPKs of the run's `CpkLayout`, installed into the PES folder's `download/`, or
@@ -84,27 +85,24 @@ impl OutputMode {
     }
 }
 
-/// How the savefile step treats the compile target's game running (`pipeline.md` "6.
-/// Post-processing"): the running-PES probe it asks, and whether the member said the game's
-/// Edit mode is closed (`--edit-mode-closed`), which lets the step write the save while the
-/// game runs.
+/// How the savefile step treats the compile target's game running: the running-PES probe it
+/// asks, and whether the member said the game's Edit mode is closed (`--edit-mode-closed`),
+/// which lets the step write the save while the game runs.
 pub(crate) struct RunningGame {
     pub(crate) probe: fn() -> Vec<RunningPes>,
     pub(crate) edit_mode_closed: bool,
 }
 
-/// The two destinations a run's outputs go to, resolved on the command line (`settings.md`
-/// "Path resolution"): the output folder, and the local save the `aesthetics_patch.toml` is
-/// applied to when the game loads the run's output; with how the savefile step treats the
-/// compile target's game running.
+/// The two destinations a run's outputs go to, resolved on the command line: the output
+/// folder, and the local save the `aesthetics_patch.toml` is applied to when the game loads the
+/// run's output. Also how the savefile step treats the compile target's game running.
 pub(crate) struct RunPaths {
     pub(crate) output_folder: PathBuf,
     pub(crate) savefile_path: SavefilePath,
     pub(crate) game: RunningGame,
 }
 
-/// The CPKs a normal compile writes (`pipeline.md` "5. Writer", steps 5 and 6), decided on
-/// the command line from the settings.
+/// The CPKs a normal compile writes, decided on the command line from the settings.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum CpkLayout {
     /// One CPK, `name`, warned past `cap` (`cpk_size_over_limit`).
@@ -120,8 +118,8 @@ pub(crate) enum CpkLayout {
 
 impl CpkLayout {
     /// The CPK the working-bin walk and the installed texture lookup start below: the run's
-    /// first CPK in the list's order, which is the bins CPK in multi-CPK mode (`pipeline.md`
-    /// "The run's first CPK is its boundary").
+    /// first CPK in the list's order, which is the bins CPK in multi-CPK mode. Every part the
+    /// run writes replaces the one installed under its name, so the lookup starts below them.
     pub(crate) fn boundary(&self) -> &CpkStem {
         match self {
             CpkLayout::Single { name, .. } => name,
@@ -131,8 +129,7 @@ impl CpkLayout {
 
     /// The CPKs the run writes, in the order they are installed and promoted: the one CPK, or
     /// the bins CPK, then the `official` list's teams slots by number (`parts::slots`); then
-    /// the refs CPK `refs`, when the run holds a refs export (`pipeline.md` "5. Writer", step
-    /// 5).
+    /// the refs CPK `refs`, when the run holds a refs export.
     pub(crate) fn cpks(&self, official: &[String], refs: Option<&CpkStem>) -> Vec<CpkStem> {
         let mut cpks = match self {
             CpkLayout::Single { name, .. } => vec![name.clone()],
@@ -816,7 +813,7 @@ fn referee_tasks(tasks: &[BuildTask]) -> Range<usize> {
 }
 
 /// `cpk_size_over_limit` when the CPK `name` staged in `run_folder` is longer than `cap`
-/// bytes (`pipeline.md` "`cpk_part_max_size`": a single CPK is not split, only warned about).
+/// bytes: a single CPK is not split, only warned about.
 /// The CPK was just written, so a size that cannot be read is the error.
 fn size_over_limit(run_folder: &Path, name: &CpkStem, cap: u64) -> anyhow::Result<Option<Message>> {
     let file_name = deploy::cpk_file_name(name);

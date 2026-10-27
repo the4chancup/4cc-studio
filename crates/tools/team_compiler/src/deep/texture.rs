@@ -9,7 +9,7 @@ use pes_version::{Engine, PesVersion};
 
 use crate::messages::Code;
 
-/// The size rule a texture is held to past the smallest side (`messages.md` "Textures").
+/// The size rule a texture is held to past the smallest side.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum SizeRule {
     /// A kit's main texture on PES 15-17: `kit_texture_too_big` past 2048 pixels a side or

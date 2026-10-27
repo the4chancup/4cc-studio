@@ -1,9 +1,8 @@
-//! The `face.xml` a pre-Fox face CPK lists its models in (`team_compiler/pipeline.md` "3.
-//! Per-model-folder parallel steps", step 4): each model's type, read from its file name
-//! (`player_folders.md` "Model names"), the name it is packed under, its `ratio`, and the file
-//! itself, in the shape the game's own face CPKs carry; a member's own `face.xml` written back
-//! in that shape (`user_face_xml`); and the `glove.xml` of a shared gloves output, the same
-//! file without the face diff (step 7).
+//! The `face.xml` a pre-Fox face CPK lists its models in: each model's type, read from its file
+//! name (`spec/aesthetics_export/player_folders.md` "Model names"), the name it is packed
+//! under, its `ratio`, and the file itself, in the shape the game's own face CPKs carry. Also a
+//! member's own `face.xml` written back in that shape (`user_face_xml`), and the `glove.xml`
+//! of a shared gloves output, the same file without the face diff.
 
 use aesthetics_export::{ModelSuffix, ends_with_name, model_suffix, without_kit_token};
 use base64::Engine;
@@ -83,16 +82,15 @@ pub(crate) fn xml_type(stem: &str) -> String {
 /// Whether `xml_type` is a `face.xml` type this module generates: a native type name, a
 /// glove's or a hand's side, or `uniform_sub`, PES 2015's `uniform` (`version_type`). The
 /// vocabulary verified in the game; a member's own `face.xml` naming another type is reported
-/// (`xml_type_unknown`, `messages.md` "User-supplied `face.xml`").
+/// (`xml_type_unknown`).
 pub(crate) fn is_generated_type(xml_type: &str) -> bool {
     NATIVE_TYPES.contains(&xml_type)
         || ["gloveL", "gloveR", "handL", "handR", "uniform_sub"].contains(&xml_type)
 }
 
 /// The `face.xml` type `xml_type` is written as for `version`: `uniform` is `uniform_sub` on
-/// PES 2015, every other type, and every type on the other versions, as it is
-/// (`player_folders.md` "Model names", the `uniform` row; `messages.md` `xml_uniform_pes15`,
-/// whose plan text says where the rule comes from).
+/// PES 2015, every other type, and every type on the other versions, as it is. The rewrite is
+/// reported as `xml_uniform_pes15`.
 pub(crate) fn version_type(version: PesVersion, xml_type: &str) -> &str {
     match version {
         PesVersion::Pes15 if xml_type == "uniform" => "uniform_sub",
@@ -218,12 +216,12 @@ pub(crate) enum WrittenChild<'a> {
     Other(&'a Element),
 }
 
-/// A member's own `face.xml` written back (`messages.md` "User-supplied `face.xml`"):
-/// `children` in their order, then `dif`, the face's face diff, as its `<dif>`, in the shape of
-/// a generated one (`face_xml`): the same declaration, `<config>` root, three-space indent, CRLF
-/// line ends and `<dif>` line. Each child is one line: a `<model>` with its attributes in the
-/// order given, any other element with its attributes, its text and its child elements inline,
-/// closed by ` />` when it has neither text nor children. Values and text are escaped.
+/// A member's own `face.xml` written back: `children` in their order, then `dif`, the face's
+/// face diff, as its `<dif>`, in the shape of a generated one (`face_xml`): the same
+/// declaration, `<config>` root, three-space indent, CRLF line ends and `<dif>` line. Each
+/// child is one line: a `<model>` with its attributes in the order given, any other element
+/// with its attributes, its text and its child elements inline, closed by ` />` when it has
+/// neither text nor children. Values and text are escaped.
 pub(crate) fn user_face_xml(children: &[WrittenChild], dif: &[u8]) -> Vec<u8> {
     let mut text = String::from(HEAD);
     for child in children {

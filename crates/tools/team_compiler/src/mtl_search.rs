@@ -1,7 +1,8 @@
-//! The `.mtl` a pre-Fox `.model` uses (`model_format.md` "Pre-Fox: the `.mtl` a `.model`
-//! uses"): each model uses exactly one, the first a search finds, and the generated `face.xml`
-//! names it. The deep pass reports a model it finds none for, and the face task names the one
-//! it finds, so the two never disagree.
+//! The `.mtl` a pre-Fox `.model` uses
+//! (`spec/model_format.md` "Pre-Fox: the .mtl a .model uses"): each model uses exactly one,
+//! the first a search finds, and the generated `face.xml` names it. The deep pass reports a
+//! model it finds none for, and the face task names the one it finds, so the two never
+//! disagree.
 
 use aesthetics_export::{FileDescriptor, FileKind, classify, common_link_target};
 use vtree::ScopePath;

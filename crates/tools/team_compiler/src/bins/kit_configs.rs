@@ -35,12 +35,12 @@ enum FpcPatch {
 }
 
 /// Edits `bin`, the working `UniformParameter.bin`, for `team_kits` in order, then inserts
-/// `committed_configs` (name, bytes), the committed kits' configs (`pipeline.md` "Bins
-/// accumulation"). A `Full` export's team loses its configs of kits it does not hold
-/// (`remove_other_configs`), and nothing else of it is edited, there being no absent kit. A
-/// `Midcup` export edits the configs of its `patchable_slots`: each of its committed kits
-/// that emitted no config (`edit_configless_slot`, `configless` their teams and slots), and
-/// each slot of `absent_slots` (`edit_absent_slot`). Returns whether the bin changed (a
+/// `committed_configs` (name, bytes), the committed kits' configs. A `Full` export's team
+/// loses its configs of kits it does not hold (`remove_other_configs`), and nothing else of it
+/// is edited, there being no absent kit. A `Midcup` export edits the configs of its
+/// `patchable_slots`: each of its committed kits that emitted no config
+/// (`edit_configless_slot`, `configless` their teams and slots), and each slot of
+/// `absent_slots` (`edit_absent_slot`). Returns whether the bin changed (a
 /// config inserted, patched or removed), the generated configs to write as loose files
 /// (`paths::kit_config`) as a committed kit's own is written, and the findings.
 pub(crate) fn kit_configs(
@@ -98,21 +98,21 @@ pub(crate) fn kit_configs(
     Ok((changed, loose, messages))
 }
 
-/// The PES 15-17 counterpart of `kit_configs` (`fpc_toggle.md` "Kit slots absent from the
-/// export are patched in place": on pre-Fox the team's current kit-config bins are located in
-/// the installed CPKs, patched, and re-emitted; `pipeline.md` "Bins accumulation";
-/// `messages.md` `kit_config_fpc_adjusted`, `kit_config_fpc_unpatched`). Each kit config is a
-/// loose file there, so for each `Midcup` export of `team_kits`, in order, the config of each
-/// of its `patchable_slots` — each committed kit that emitted no config
-/// (`edit_configless_slot`, `configless` their teams and slots) and each of its
-/// `absent_slots` — is taken from `installed` (the installed loose configs by entry name,
-/// `WorkingBins::loose_kit_configs`) and edited for `version` as on Fox
-/// (`edit_absent_slot`), with the same findings. Returns the configs the edit changed or
+/// The PES 15-17 counterpart of `kit_configs`: on pre-Fox the team's current kit configs are
+/// located in the installed CPKs, patched, and re-emitted
+/// (`spec/aesthetics_export/fpc_toggle.md` "Kit slots absent from the export"). Each kit config
+/// is a loose file there, so for each `Midcup` export of `team_kits`, in order, the config of
+/// each of its `patchable_slots` is taken from `installed` (the installed loose configs by
+/// entry name, `WorkingBins::loose_kit_configs`) and edited for `version` as on Fox
+/// (`edit_absent_slot`), with the same findings. Those slots are each committed kit that
+/// emitted no config (`edit_configless_slot`, `configless` their teams and slots) and each of
+/// its `absent_slots`. Returns the configs the edit changed or
 /// wrote, each at its CPK path (`paths::kit_config`), for the output CPK to carry above the
 /// installed ones, and the findings; a config the edit left as it was is not returned, the
 /// installed copy standing. A `Full` export gives nothing: its own kits' configs are its kit
-/// tasks' entries already, and it cannot remove the installed ones of kits it does not hold
-/// (`pipeline.md`: "What a `Full` export cannot do is remove files").
+/// tasks' entries already, and it cannot remove the installed ones of kits it does not hold:
+/// compiled into a CPK above one holding the team's older content, a kit it no longer has
+/// still loads from below.
 pub(crate) fn loose_kit_configs(
     installed: &BTreeMap<String, Vec<u8>>,
     uni_color: &UniColorBin,
@@ -171,10 +171,9 @@ fn patchable_slots<'a>(
 }
 
 /// The slots of the kits `team`'s record in `uni_color` holds, ascending, that its `Midcup`
-/// export has no kit task for: the slots whose configs it edits (`pipeline.md` "Bins
-/// accumulation"). A kit number no slot has, a second goalkeeper kit, is skipped. None when the
-/// export has nothing to give (its FPC status Unknown and no collar), the record not being read
-/// then.
+/// export has no kit task for: the slots whose configs it edits. A kit number no slot has, a
+/// second goalkeeper kit, is skipped. None when the export has nothing to give (its FPC status
+/// Unknown and no collar), the record not being read then.
 fn absent_slots(uni_color: &UniColorBin, team: &TeamKits) -> anyhow::Result<Vec<KitSlot>> {
     match team.edits {
         TeamKitEdits {

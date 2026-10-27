@@ -1,10 +1,9 @@
-//! The pre-Fox Common output's models and `.mtl` files (`team_compiler/pipeline.md` "3.
-//! Per-model-folder parallel steps", step 4): every `.model` and `.mtl` of a directory of the
-//! export's `Common/` folder (`Common/` itself or a subfolder, packed at its own path:
-//! `pipeline.md` "Common") written once into the team's Common output (a `.model` the
-//! conversion pre-check finds posed off the version's skeleton moved onto it), and every FMDL
-//! there converted once into a `.model` and its material set (step 1, "Format conversion"),
-//! where the game loads the ones a player's `face.xml` names through a `.common` link. The Common
+//! The pre-Fox Common output's models and `.mtl` files. Every `.model` and `.mtl` of a
+//! directory of the export's `Common/` folder (`Common/` itself or a subfolder, packed at its
+//! own path) is written once into the team's Common output, a `.model` the conversion
+//! pre-check finds posed off the version's skeleton moved onto it. Every FMDL there is
+//! converted once into a `.model` and its material set. The game loads from there the ones a
+//! player's `face.xml` names through a `.common` link. The Common
 //! textures beside them, the template environment map a converted metal material names
 //! included, are the Common textures task's.
 

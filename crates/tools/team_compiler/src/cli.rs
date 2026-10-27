@@ -22,7 +22,8 @@ use crate::reader::is_archive;
 use crate::settings::{SavefilePath, TeamCompilerSettings, from_table};
 use crate::{check, compile, upgrade};
 
-// The exit codes are the command line's contract with scripts (`settings.md` "CLI").
+// The exit codes are the command line's contract with scripts
+// (`spec/team_compiler/settings.md` "CLI").
 /// Exit code of a run that finished with no Error finding (warnings and notes allowed).
 const CLEAN: u8 = 0;
 /// Exit code of a run that finished, but some export had an Error finding.
@@ -110,8 +111,7 @@ pub(crate) fn command() -> Command {
 }
 
 /// Runs a parsed `team-compiler` command: the preflight, then the command. `running` is the
-/// running-PES probe `compile`'s savefile step asks (`pipeline.md` "6. Post-processing"): the
-/// real process list, or a test's.
+/// running-PES probe `compile`'s savefile step asks: the real process list, or a test's.
 pub(crate) fn run(
     matches: &clap::ArgMatches,
     ctx: &ToolContext,
@@ -136,10 +136,9 @@ pub(crate) fn run(
             let settings = read_settings(&ctx.tool_settings(TOOL_ID), &common)?;
             let (layout, refs) = compile_settings(&settings, &mode)?;
             let exports_root = prepare_exports_root(&args.source, &common, ctx.paths())?;
-            // `settings.md` "Path resolution": a relative output folder sits beside the
-            // executable; an absolute one replaces the base. A configured savefile path
-            // resolves the same way (`auto` runs no discovery here: it resolves at the
-            // savefile stage).
+            // A relative output folder sits beside the executable; an absolute one replaces
+            // the base. A configured savefile path resolves the same way (`auto` runs no
+            // discovery here: it resolves at the savefile stage).
             let paths = RunPaths {
                 output_folder: ctx.paths().exe_dir.join(&settings.output_folder_path),
                 savefile_path: match &settings.savefile_path {
@@ -179,8 +178,8 @@ pub(crate) fn run(
     }
 }
 
-/// The PES folder's `download/`, which `upgrade-dpfl` works in (`settings.md` "CLI"): refused,
-/// naming the path and the setting, when it or the PES folder is not a folder.
+/// The PES folder's `download/`, which `upgrade-dpfl` works in. Refused, naming the path and
+/// the setting, when it or the PES folder is not a folder.
 fn download_folder(common: &CommonSettings) -> Result<PathBuf, CliError> {
     let pes_folder = common.pes_folder();
     let download = pes_folder.join(deploy::DOWNLOAD);
@@ -207,7 +206,7 @@ fn verdict(outcome: anyhow::Result<Option<Severity>>) -> Result<u8, CliError> {
         .map_err(|error| CliError::new(ABORTED, error))
 }
 
-/// `settings.md` "CLI": 1 when some export had an Error, 3 when the run hit a Fatal finding,
+/// The run's exit code: 1 when some export had an Error, 3 when the run hit a Fatal finding,
 /// else 0, warnings and notes included.
 fn exit_code(worst: Option<Severity>) -> u8 {
     match worst {
@@ -242,9 +241,9 @@ fn output_mode(
     }
 }
 
-/// Sideload mode for `common`'s PES version and folder (`settings.md` "CLI"): refused for PES
-/// 2015 and 2016, which no sideloading runtime serves, and when the PES folder is not a folder,
-/// since `livecpk/` goes in it.
+/// Sideload mode for `common`'s PES version and folder: refused for PES 2015 and 2016, which
+/// no sideloading runtime serves, and when the PES folder is not a folder, since `livecpk/`
+/// goes in it.
 fn sideload_mode(common: &CommonSettings) -> Result<OutputMode, CliError> {
     match common.pes_version {
         PesVersion::Pes15 | PesVersion::Pes16 => {
@@ -332,10 +331,10 @@ fn check_memory_cap(percent: f32) -> Result<(), CliError> {
 }
 
 /// The CPKs a compile in `mode` writes, from the settings only `compile` reads: one CPK named
-/// `cpk_name`, or in multi-CPK mode the bins CPK and the teams parts (`pipeline.md` "Multi-CPK
-/// mode: teams parts"); beside them, the name of the refs CPK, `refs_cpk_name`, which a run
-/// holding a refs export writes too (`pipeline.md` "5. Writer", step 5). Only a normal compile
-/// writes either, so test and sideload mode ignore `multicpk_mode` and have no refs CPK name.
+/// `cpk_name`, or in multi-CPK mode the bins CPK and the teams parts. Beside them, the name of
+/// the refs CPK, `refs_cpk_name`, which a run holding a refs export writes too. Only a normal
+/// compile writes either, so test and sideload mode ignore `multicpk_mode` and have no refs CPK
+/// name.
 /// Refused: a name that is not a valid CPK name, naming its setting; a teams stem that is the
 /// bins CPK's own; and a refs CPK name that is a CPK of the team side (`shared_with_team_side`).
 /// The teams stem is not checked otherwise: a stem no slot has gives no slot, and the first team
@@ -475,9 +474,9 @@ fn load_teams_list(setting: &Path, data_dir: Option<&Path>) -> Result<TeamsList,
 
 /// `compile` gives the member a teams list to edit: with a data directory and no file at the
 /// `teams_list_path` setting's path, it writes the embedded list there (`check` never writes
-/// it). The write is best-effort (`pipeline.md` "Teams list", detected by attempting it): a
-/// data directory that cannot take it leaves the embedded list to be read with a warning
-/// naming the path, never a failure.
+/// it). The write is best-effort, a failure detected by attempting it: a data directory that
+/// cannot take it leaves the embedded list to be read with a warning naming the path, never a
+/// failure.
 fn create_teams_list(setting: &Path, data_dir: Option<&Path>) {
     let Some(data_dir) = data_dir else {
         return;
@@ -510,11 +509,11 @@ fn exports_root(argument: Option<&Path>, common: &CommonSettings, exe_dir: &Path
     }
 }
 
-/// The exports root, ready for the run's scan (`settings.md` "Path resolution"). The relative
-/// setting's folder is created when missing, so a fresh install has one to put exports in; a
-/// folder named any other way (an absolute setting, the command line's root) is never created,
-/// and a missing one is a configuration error naming the path and what to do. With `--export`
-/// paths the root is not scanned, so it is neither created nor checked.
+/// The exports root, ready for the run's scan. The relative setting's folder is created when
+/// missing, so a fresh install has one to put exports in. A folder named any other way (an
+/// absolute setting, the command line's root) is never created, and a missing one is a
+/// configuration error naming the path and what to do. With `--export` paths the root is not
+/// scanned, so it is neither created nor checked.
 fn prepare_exports_root(
     source: &SourceArgs,
     common: &CommonSettings,

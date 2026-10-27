@@ -27,14 +27,15 @@ pub(crate) struct PatchNames {
     pub(crate) shared: bool,
 }
 
-/// The names rule (`settings_toml.md` "Name-writing rules"): for a kept player folder of a
-/// `write_names` team export compiled for Fox — `mapped` how many players the roster maps it to,
-/// `player_name` its folder's name part — `name = true` resolves to `player_name`, `name` or
-/// `shirt_name` as a string is written as is, each resolved text checked as
-/// `PlayerSettings::apply` checks it (`NameField::check`), a refused one dropped and its key
-/// in `invalid`. An export without the marker resolves nothing and reports nothing, whatever the
-/// file says; a folder with no `settings.toml` (`settings` `None`, or the defaults when the
-/// file was refused or the folder holds only an `ingame_face.toml`) resolves nothing either.
+/// The names rule (`spec/aesthetics_export/settings_toml.md` "Name-writing rules"), for a kept
+/// player folder of a `write_names` team export compiled for Fox. `mapped` is how many players
+/// the roster maps it to, `player_name` its folder's name part. `name = true` resolves to
+/// `player_name`, `name` or `shirt_name` as a string is written as is, each resolved text
+/// checked as `PlayerSettings::apply` checks it (`NameField::check`), a refused one dropped and
+/// its key in `invalid`. An export without the marker resolves nothing and reports nothing,
+/// whatever the file says; a folder with no `settings.toml` (`settings` `None`, or the
+/// defaults when the file was refused or the folder holds only an `ingame_face.toml`) resolves
+/// nothing either.
 pub(crate) fn patch_names(
     settings: Option<&PlayerSettings>,
     player_name: &str,

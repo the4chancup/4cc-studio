@@ -34,7 +34,7 @@ use crate::templates::Templates;
 
 /// The manifest's per-team writes beside the tasks' own: the `TeamColor.bin` colors, the
 /// `UniColor.bin`/`UniformParameter.bin` kits, the player tables' rows and the shared-IDs
-/// records (`pipeline.md` "Bins accumulation").
+/// records.
 #[derive(Clone, Copy)]
 pub(crate) struct BinsEdits<'a> {
     /// Each planned team's colors for its `TeamColor.bin` record.
@@ -121,10 +121,9 @@ pub(crate) struct Written {
     pub(crate) refs: bool,
 }
 
-/// The refs export's tasks being written (`pipeline.md` "5. Writer", step 5): into the refs
-/// CPK, which no entry of the team side goes into, in a normal run; with the team side's
-/// entries in sideload mode. Whether an entry of them went in decides whether the referee
-/// template tree is written after them.
+/// The refs export's tasks being written: into the refs CPK, which no entry of the team side
+/// goes into, in a normal run; with the team side's entries in sideload mode. Whether an entry
+/// of them went in decides whether the referee template tree is written after them.
 pub(crate) struct Referees {
     /// The manifest positions of the refs export's tasks: one export's, so one range.
     tasks: Range<usize>,
@@ -358,7 +357,7 @@ impl CpkOutput {
     /// When an entry of the refs export went in, adds `version`'s engine's referee template
     /// tree of `templates` after it, each file at its game path unless an entry of the refs
     /// export went in at that path (left out with no finding: the member's file lays over the
-    /// template's, `blue_port.md` "The referee body") or an override holds it (`overridden`,
+    /// template's) or an override holds it (`overridden`,
     /// its `duplicate_path` going to `messages`): into the refs CPK, or without one into the
     /// team side's sink, which it then starts. When the referees' marker went in, the tree's
     /// file at the marker's path is left out (pre-Fox: the prop texture), and on PES 18-21
@@ -419,8 +418,8 @@ impl CpkOutput {
                     continue;
                 };
                 match version.engine() {
-                    // The game reads a referee config's values from its entry and only loads
-                    // the loose file (`blue_port.md` "Referee export processing").
+                    // The game needs the loose file but reads a referee config's values from
+                    // its `UniformParameter.bin` entry, as it does for a team's kit configs.
                     Engine::Fox => self
                         .uniform_parameters
                         .push((name.to_owned(), bytes.into_owned())),
@@ -584,7 +583,7 @@ impl CpkOutput {
             &mut messages,
         )?;
         // Every compiled team's shared-IDs record, the planned assignment whatever the
-        // folders' tasks' outcomes, beside the bins (`pipeline.md` "Bins accumulation").
+        // folders' tasks' outcomes, beside the bins.
         for (team_id, record) in shared_ids {
             self.add_bin(&paths::shared_ids(*team_id), &record.write(), &mut messages)?;
         }

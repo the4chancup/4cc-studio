@@ -1,12 +1,12 @@
-//! The deep pass's texture lookup for a pre-Fox `.mtl` (`team_compiler/messages.md`, the
-//! paragraph after "Texture existence is checked **deep**"): each texture path a `.mtl` names
-//! must be supplied, by the stem rule the face task points the paths with
-//! (`processing::prefox_face`; on Fox, which reads only a `.mtl` a selected `.model` pairs
-//! with, the Models task, `processing::model`), so a path this calls supplied is one the task
-//! points and a path it calls missing is one the task leaves as written. A missing texture of
-//! a material a paired model's mesh binds is `mtl_texture_not_found`, a Warning that keeps
-//! what holds the `.mtl`: which samplers a pre-Fox shader reads is not known, and the game
-//! plays faces with such a miss. One only materials no mesh binds name is
+//! The deep pass's texture lookup for a pre-Fox `.mtl`: each texture path a `.mtl` names must
+//! be supplied, by the stem rule the face task points the paths with
+//! (`processing::prefox_face`). On Fox, which reads only a `.mtl` a selected `.model` pairs
+//! with, the Models task points them (`processing::model`). So a path this calls supplied is
+//! one the task points, and a path it calls missing is one the task leaves as written.
+//!
+//! A missing texture of a material a paired model's mesh binds is `mtl_texture_not_found`, a
+//! Warning that keeps what holds the `.mtl`: which samplers a pre-Fox shader reads is not
+//! known, and the game plays faces with such a miss. One only materials no mesh binds name is
 //! `mtl_texture_unused_missing`, an Info, since the game never loads it.
 
 use std::collections::BTreeSet;

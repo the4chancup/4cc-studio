@@ -53,7 +53,7 @@ pub(super) fn collar_findings(
     let kind = match file.kind {
         FileKind::Model(ModelFormat::Fmdl) => Some(ModelKind::Fmdl),
         FileKind::Model(ModelFormat::PesModel) => Some(ModelKind::PreFoxModel),
-        // glTF is read from Phase 7: its name is checked, its content not.
+        // glTF is not read yet: its name is checked, its content not.
         FileKind::Model(ModelFormat::Gltf) => None,
         // The structure pass admits only models here, and keeps another kind only with the
         // strict check off, for `compile` to pass over: it names no collar.
@@ -135,7 +135,7 @@ pub(crate) fn named_id(stem: &str) -> Option<u8> {
 }
 
 /// The last stock collar of `version` that a kit config can name: the stock set is 1 to this,
-/// counted in each install's base data CPK (`team_compiler/messages.md` `collar_id_invalid`).
+/// counted in each install's base data CPK.
 /// The 9xx collars past it are stock too, but no kit config can name one.
 fn last_stock_collar(version: PesVersion) -> u8 {
     match version {

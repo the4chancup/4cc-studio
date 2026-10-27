@@ -129,7 +129,7 @@ fn test_entry_folder(source: &str, kind: &TaskKind) -> String {
 /// The name a test-mode entry of `task` at `path` (its game path) takes below its folder:
 /// for a texture task the texture's path below it with its extension
 /// (`kit1/armor_bsm.ftex`, `jessie/hair.ftex`), two textures of one name in different
-/// subfolders staying two files (`pipeline.md` step 5); every other entry's file name.
+/// subfolders staying two files; every other entry's file name.
 fn test_name(task: &BuildTask, path: &str) -> String {
     let below = match &task.kind {
         TaskKind::Textures { folder, .. } => {

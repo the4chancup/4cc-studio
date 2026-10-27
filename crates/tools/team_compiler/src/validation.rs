@@ -145,9 +145,9 @@ pub(crate) fn validation_pass(
 
 /// `duplicate_aesthetics_export` on each export of a team that two or more of `sources`
 /// resolve to, naming the team's ID and every one of those exports in export order, and none
-/// of them compiled (`pipeline.md` "3. Per-model-folder parallel steps"). Only an export whose
-/// identity resolved to a team counts: one a finding dropped before has no team to conflict
-/// over, and a referee export has `multiple_ref_exports`.
+/// of them compiled. Only an export whose identity resolved to a team counts: one a finding
+/// dropped before has no team to conflict over, and a referee export has
+/// `multiple_ref_exports`.
 fn refuse_duplicate_teams(sources: &mut [CheckedSource]) {
     let mut by_team: BTreeMap<TeamId, Vec<usize>> = BTreeMap::new();
     for (index, checked) in sources.iter().enumerate() {
@@ -501,10 +501,10 @@ fn team_id(inputs: &RunInputs, parsed: &ParsedAestheticsExport) -> Option<TeamId
 }
 
 /// The stems of the textures the `installed` CPKs hold in the Fox Common output of team
-/// `team_id`, which the export's texture `.common` links may name (`pipeline.md` "Resolved
-/// decisions", "A texture a model names must exist"). An export with no team ID has an empty
-/// set, as has a pre-Fox target, where an installed Common texture does not satisfy a link
-/// yet.
+/// `team_id`, which the export's texture `.common` links may name: a midcup export ships a
+/// changed player whose links point at Common textures compiled on an earlier day. An export
+/// with no team ID has an empty set, as has a pre-Fox target, where an installed Common texture
+/// does not satisfy a link yet.
 fn installed_common_textures(
     inputs: &RunInputs,
     installed: &InstalledPaths,
@@ -595,8 +595,8 @@ fn notes(export: &ValidatedAestheticsExport, content: &ContentSource) -> Option<
 /// `boots_id_pool_exhausted` and `gloves_id_pool_exhausted`, each when its kind's folders
 /// taking a shared id need more of the team's block's shared ids than it holds
 /// (`assigned_shared_ids` over `folder_ids`' `shared`; a folder one slot links plainly takes
-/// his exclusive id, which is no entry of the pool), naming the count; the export is dropped
-/// (`team_compiler/README.md` TC-MOD-06). A `Midcup` export's folders are counted with the
+/// his exclusive id, which is no entry of the pool), naming the count. The export is dropped
+/// (TC-MOD-06). A `Midcup` export's folders are counted with the
 /// `record` the installed CPKs hold, a `Full` export's from the export alone. A referee
 /// export has no block: its ids are its slots' (`k99NN`). `hand_weighted` is the deep pass's,
 /// as planning counts the folders with it (`folder_ids`).
@@ -644,10 +644,10 @@ fn pool_messages(
 }
 
 /// `shared_ids_unrecorded`, naming the team, for a `Midcup` export whose shared boots or
-/// gloves folders take a shared id while no installed CPK holds the team's record of them
-/// (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team
-/// already has"; a folder under its one wearer's exclusive id takes none): numbered
-/// alphabetically, they may take ids the main CPK gives other folders.
+/// gloves folders take a shared id while no installed CPK holds the team's record of them. A
+/// `Midcup` export keeps the shared IDs the team already has, and without the record its
+/// folders, numbered alphabetically, may take ids the main CPK gives other folders. A folder
+/// under its one wearer's exclusive id takes no shared id.
 fn unrecorded_message(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -689,9 +689,9 @@ fn unrecorded_message(
 /// `settings.toml` (the deep pass's `settings`) authors a `boots_id`/`gloves_id` for a
 /// category whose ID the compile assigns from the folder's own models or a shared folder it
 /// links (`item_rows::conflicting_id_keys`, the same decision `export_rows` makes over the
-/// manifest planning never builds under `check`): for a team export on a Fox target, where
-/// the compiled players get their table rows (`settings_toml.md`: a `settings.toml`'s
-/// findings are reported by `check` and `compile` alike).
+/// manifest planning never builds under `check`). Only for a team export on a Fox target,
+/// where the compiled players get their table rows. It runs here so that `check` reports a
+/// `settings.toml`'s findings as `compile` does.
 fn settings_id_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -702,17 +702,16 @@ fn settings_id_messages(
     match version.engine() {
         Engine::Fox => {}
         // On pre-Fox the keys reach nothing: no patch is written and the
-        // savefile is left alone until the pre-Fox aesthetics patch lands (the
-        // worklog's open "the pre-Fox aesthetics patch" issue), so a warning
-        // would single out one ignored key of many. The gate lifts with it.
+        // savefile is left alone until the pre-Fox aesthetics patch exists, so
+        // a warning would single out one ignored key of many. The gate lifts
+        // with it.
         Engine::PreFox => return Vec::new(),
     }
     match resolved.identity {
         ExportIdentity::Team { .. } => {}
-        // A referee export's settings reach no table or patch yet (the
-        // worklog's open "a referee export's `settings.toml` reaches no table"
-        // issue), so a warning would single out one ignored key of many. The
-        // gate lifts with it.
+        // A referee export's settings reach no table or patch yet, so a
+        // warning would single out one ignored key of many. The gate lifts
+        // once they do.
         ExportIdentity::Referees => return Vec::new(),
     }
     mapped_players(&resolved.export)
@@ -744,18 +743,21 @@ fn settings_id_messages(
 }
 
 /// The `fpc_on`/`fpc_off` markers' findings on each mapped player folder of `resolved`
-/// holding a `settings.toml`, an `ingame_face.toml` or a marker, for team and referee exports on either engine
-/// (`settings_toml.md`: a `settings.toml`'s findings are reported by `check` and `compile`
-/// alike): the marker's preset (`fpc_on` the hide, `fpc_off` the unhide) is applied to the
-/// `settings` planning receives (a folder with a marker and no `settings.toml` gains an entry,
-/// which is what its `PlayerAppearance.bin` row is built from) and one `fpc_strip_conflict` is
-/// reported per key the file had set to another value; then `fpc::check` runs over the strip
-/// style the settings give (`PlayerSettings::strip_style`), `is_fpc_player` being the `fpc_on`
-/// marker, with the gloves ID the resolution gives (`item_rows::check_gloves_id`): `None` on a
-/// `Midcup` export's markerless player, who keeps his installed row, whose gloves rule does not
-/// run. The lib's `fpc_custom_skin_on_non_fpc` maps to no code: the marker is the check's
+/// holding a `settings.toml`, an `ingame_face.toml` or a marker, for team and referee exports
+/// on either engine. It runs here so that `check` reports them as `compile` does.
+///
+/// The marker's preset (`fpc_on` the hide, `fpc_off` the unhide) is applied to the `settings`
+/// planning receives. A folder with a marker and no `settings.toml` gains an entry, which is
+/// what its `PlayerAppearance.bin` row is built from. One `fpc_strip_conflict` is reported per
+/// key the file had set to another value.
+///
+/// Then `fpc::check` runs over the strip style the settings give
+/// (`PlayerSettings::strip_style`), `is_fpc_player` being the `fpc_on` marker, with the gloves
+/// ID the resolution gives (`item_rows::check_gloves_id`). That ID is `None` on a `Midcup`
+/// export's markerless player, who keeps his installed row, so his gloves rule does not run.
+/// The lib's `fpc_custom_skin_on_non_fpc` maps to no code: the marker is the check's
 /// `is_fpc_player`, and a custom skin with no marker is the partial-hide setup (a custom body
-/// in a stock jersey), which no marker names; on Fox the deep pass has already narrowed it
+/// in a stock jersey), which no marker names. On Fox the deep pass has already narrowed it
 /// to 1.
 fn fpc_settings_messages(
     resolved: &ResolvedAestheticsExport,
@@ -832,9 +834,9 @@ fn fpc_settings_messages(
 
 /// `settings_toml_name_shared` and `settings_name_invalid` on each mapped player folder of a
 /// `write_names` team export of `resolved` (`plan::patch::patch_names`, the same names rule
-/// planning builds the patch with): for a team export on a Fox target, where the compiled
-/// players' names reach the save only through the patch (`settings_toml.md`: a
-/// `settings.toml`'s findings are reported by `check` and `compile` alike).
+/// planning builds the patch with). Only for a team export on a Fox target, where the compiled
+/// players' names reach the save only through the patch. It runs here so that `check` reports
+/// a `settings.toml`'s findings as `compile` does.
 fn settings_name_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -844,12 +846,12 @@ fn settings_name_messages(
     let slots = match (version.engine(), &resolved.export.roster) {
         (Engine::Fox, ValidatedRoster::Team(slots)) => slots,
         // The same gates as `settings_id_messages`: on pre-Fox the keys reach
-        // nothing until the pre-Fox aesthetics patch lands, and a referee
-        // export's settings reach no table yet (the same two open worklog
-        // issues), so a warning would single out one ignored key of many. A
-        // referee export also cannot carry `write_names` (the marker is
-        // `root_file_unexpected` on one), the marker the names rule reads. The
-        // gates lift with the issues.
+        // nothing until the pre-Fox aesthetics patch exists, and a referee
+        // export's settings reach no table yet, so a warning would single out
+        // one ignored key of many. A referee export also cannot carry
+        // `write_names` (the marker is `root_file_unexpected` on one), the
+        // marker the names rule reads. The gates lift once the keys reach the
+        // game.
         (Engine::Fox, ValidatedRoster::Referees(_)) | (Engine::PreFox, _) => {
             return Vec::new();
         }
@@ -898,8 +900,8 @@ fn settings_name_messages(
 
 /// `shared_folder_no_model` on each shared boots or gloves folder a mapped player links
 /// plainly that holds no model of its kind for `version`, boots first, naming the first
-/// player folder linking it plainly, in roster order (`player_folders.md` "Assigns IDs
-/// automatically"): planning gives it no ID and no task, and that player wears the game's own.
+/// player folder linking it plainly, in roster order. Planning gives it no ID and no task, and
+/// that player wears the game's own.
 /// A shared face, or a folder linked beside the player's own model, is a texture source and
 /// gets nothing. `hand_weighted` as for `pool_messages`.
 fn no_model_messages(
@@ -927,21 +929,25 @@ fn no_model_messages(
         .collect()
 }
 
-/// `fmdl_fcl_hair_fallback` for each Fox model the `fcl_hair` merge takes without being named
-/// for it, its name saying nothing about what it is (a model takes its role from its name,
-/// at any depth of the folder), and `skl_no_slot` for each `.skl` paired with a `face_high`,
-/// `hair_high` or `oral` model, which has no slot to land in and is ignored
-/// (`player_folders.md` "Model names", "Subfolders", "SKL pairing"; `team_compiler/README.md`
-/// TC-MOD-13), and `face_file_not_used` for each face file of a folder with no face model,
-/// which is not read (`pipeline.md` "2. Per-export serial steps", item 4; TC-MOD-32), and
-/// `file_not_used` for each file a model folder admits that no package reads, planning giving
-/// it no role (the same paragraph, item 4), or a texture or a texture link of a mapped player
-/// folder planning no package (`plans_a_package`, with `hand_weighted` the models the deep pass
-/// found carrying hand weights), which gets no textures task: over every mapped player folder,
-/// read over every source his packages are built from (`part_source_models`), and every
-/// shared folder, each finding on the folder holding the file. A `.common` model link is
-/// reported like the model it brings in, naming the link: the fallback by the linked name's
-/// suffix, `skl_no_slot` when `Common/` holds the `.skl` of a slotless model's stem. The roles
+/// The findings on model folders' files that no package uses, over every mapped player folder,
+/// read over every source his packages are built from (`part_source_models`), and every shared
+/// folder, each finding on the folder holding the file:
+///
+/// - `fmdl_fcl_hair_fallback` for each Fox model the `fcl_hair` merge takes without being
+///   named for it, its name saying nothing about what it is. A model takes its role from its
+///   name, at any depth of the folder.
+/// - `skl_no_slot` for each `.skl` paired with a `face_high`, `hair_high` or `oral` model,
+///   which has no slot to land in and is ignored (TC-MOD-13).
+/// - `face_file_not_used` for each face file of a folder with no face model, which is not read
+///   (TC-MOD-32).
+/// - `file_not_used` for each file a model folder admits that no package reads, planning
+///   giving it no role, and for a texture or a texture link of a mapped player folder planning
+///   no package (`plans_a_package`), which gets no textures task. `hand_weighted` is the models
+///   the deep pass found carrying hand weights.
+///
+/// A `.common` model link is reported like the model it brings in, naming the link: the
+/// fallback by the linked name's suffix, `skl_no_slot` when `Common/` holds the `.skl` of a
+/// slotless model's stem. The roles
 /// are `roles::player_file`'s, so a finding never disagrees with the routing: under
 /// `ingame_face` a model the hair would take is the boots', and no fallback. A pre-Fox target
 /// types a model by its name, so it reports neither the fallback nor `skl_no_slot`. A Fox
@@ -1025,8 +1031,7 @@ fn model_name_messages(
 /// `file_not_used` on the export for each of the refs `export`'s kit folders, its logo files,
 /// its portraits (a mapped folder's, then `Portraits/`) and its `Collars/` files, each named by
 /// its export path: a referee has no kit slot, team logo or player id, so none of them has a
-/// place to go, the referees' kits being the template tree's (`blue_port.md` "Referee export
-/// processing"), and planning keeps them out.
+/// place to go, the referees' kits being the template tree's, and planning keeps them out.
 fn referee_messages(
     export: &ValidatedAestheticsExport,
     export_id: ExportId,
@@ -1186,10 +1191,9 @@ fn file_role_messages(
 }
 
 /// Whether `file` of the model folder at `path`, which has no role among `models`, is left
-/// unread for a reason that needs no `file_not_used` (`messages.md` `file_not_used`, "Not
-/// reported"): a model another representation of its stem beats (TC-MOD-26); on PES 15-17 a
-/// Fox file the target has no counterpart for, an FMDL with no role, a `.skl` no converted
-/// FMDL pairs or a `.fclo` (`pipeline.md` step 3 "Format conversion"); a file the structure
+/// unread for a reason that needs no `file_not_used`: a model another representation of its
+/// stem beats (TC-MOD-26); on PES 15-17 a Fox file the target has no counterpart for, an FMDL
+/// with no role, a `.skl` no converted FMDL pairs or a `.fclo`; a file the structure
 /// pass names when it is out of place (`file_type_disallowed`): a marker, a shared folder
 /// link, a metadata or no-kind file that is no `.txt` note (one is model content now), or
 /// one outside the places a model folder admits a file with a role (`roles::role_position`).

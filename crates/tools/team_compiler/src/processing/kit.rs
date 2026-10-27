@@ -61,9 +61,9 @@ pub(super) struct KitJob<'a> {
 /// `UniformParameter.bin` entry (name, bytes) too (`None` on PES 15-17, which have no such
 /// bin), and its `UniColor.bin` entry. A kit without a `kit` texture gets the bundled
 /// placeholder as its main texture, converted like any kit texture. Besides the five textures
-/// its config names, a kit emits the map the run's engine reads (`pipeline.md` "4. Per-export
-/// non-model steps", Kits): on PES 15-17 its `kit_mask` as `{main}_mask`, or the bundled mask
-/// template as it is when it has none; on PES 18-21 its `kit_srm` as `{main}_srm`, or nothing.
+/// its config names, a kit emits the map the run's engine reads: on PES 15-17 its `kit_mask`
+/// as `{main}_mask`, or the bundled mask template as it is when it has none; on PES 18-21 its
+/// `kit_srm` as `{main}_srm`, or nothing.
 /// The deep pass has already dropped a kit whose `config.toml` does not parse
 /// (`kit_config_invalid`) or whose textures its checks find wrong, so a config that fails to
 /// parse here is an ordinary failure; a finding conversion reports
@@ -114,8 +114,8 @@ pub(super) fn kit(
     let engine = ctx.version.engine();
     let has = |stem: &str| kit.textures.iter().any(|texture| texture.stem == stem);
     // A `Midcup` kit's config names a `back`, `chest`, `leg` or `name` texture the
-    // installed CPKs hold for the slot, the folder resending it or not (`pipeline.md`
-    // "Bins accumulation"); a `Full` kit's names come from its effective set alone.
+    // installed CPKs hold for the slot, the folder resending it or not; a `Full` kit's names
+    // come from its effective set alone.
     let installed = |suffix: &str| {
         coverage == ExportCoverage::Midcup
             && ctx.installed.holds(&paths::kit_texture(
@@ -238,8 +238,7 @@ pub(super) fn kit(
             }
             EffectiveTeamKitFpc::On | EffectiveTeamKitFpc::Unknown => {}
         }
-        // After the FPC values, so the team's collar wins over the FPC collar (`pipeline.md`
-        // "Collar contract").
+        // After the FPC values, so the team's collar wins over the FPC collar.
         if let Some(collar) = edits.collar {
             config.shirt.collar = collar;
             config.shirt.winter_collar = collar;

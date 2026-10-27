@@ -28,10 +28,10 @@ pub(crate) struct SourceFailure {
     pub(crate) error: String,
 }
 
-/// What a source looked like when it was listed (`team_compiler/pipeline.md` "Resolved
-/// decisions", "Source snapshot"): `compile` compares the files a task read with it after the
-/// read, and a difference aborts the run. A replacement of the same size that keeps the
-/// modified time goes unseen: the check is against a member saving over a file mid-run.
+/// What a source looked like when it was listed: `compile` compares the files a task read with
+/// it after the read, and a difference aborts the run. A replacement of the same size that
+/// keeps the modified time goes unseen: the check is against a member saving over a file
+/// mid-run.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum SourceRevision {
     /// A folder: each listed file's stamp, by its path in the source.

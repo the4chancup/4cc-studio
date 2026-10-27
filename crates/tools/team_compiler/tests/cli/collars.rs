@@ -62,7 +62,7 @@ fn fpc_fields(config: &KitConfig) -> (u8, u8, u8, u8) {
 }
 
 /// The config names of the kits team 714's record in the bundled `UniColor.bin` lists: kit
-/// numbers 0 to 6 and 0x10 (`resources/bins/README.md`'s layout, read on 2026-10-07).
+/// numbers 0 to 6 and 0x10.
 fn bundled_714_kits() -> Vec<String> {
     [
         KitSlot::P1,
@@ -678,7 +678,7 @@ fn a_pes_21_model_collar_is_converted_with_the_templates_uniform_mtl() {
     assert_eq!(compiled_players(&sandbox), [71403]);
 }
 
-// The same-engine pre-check on a `.model` collar (`pipeline.md` "Collars").
+// The same-engine pre-check on a `.model` collar.
 // TC-MOD-50
 #[test]
 fn a_model_collar_posed_off_the_version_s_skeleton_is_moved_onto_it_and_kept_wrapped_otherwise() {

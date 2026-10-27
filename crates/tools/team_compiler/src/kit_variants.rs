@@ -103,14 +103,14 @@ struct Variant<'a> {
 /// combined shared folder's in link order, on a target of `engine`: the `.fmdl` and `.model`
 /// members whose stems differ only in their token's last character (compared case-folded, as
 /// the file system compares names), a `kitF` file joining as the set's fallback, form a set,
-/// whatever their format and wherever they sit among the
-/// sources (`pipeline.md` "Kit-dependent assets": the part merges them, so a set split between
-/// a folder and its `face/`, or between a player and a shared folder he combines, is one set),
-/// and a set of one — a lone variant, or `kitF` alone — is an ordinary model. A member present
-/// in both formats is one member,
-/// the target's format (`.fmdl` on Fox, `.model` on pre-Fox) its selected representation, as
-/// the selection order says: the file of the other format beside it is neither `used` nor
-/// left out, a model the target's beats (`FolderModels::beaten`), for every member. Of two
+/// whatever their format and wherever they sit among the sources. The part merges them, so a
+/// set split between a folder and its `face/`, or between a player and a shared folder he
+/// combines, is one set. A set of one (a lone variant, or `kitF` alone) is an ordinary model.
+///
+/// A member present in both formats is one member, the target's format (`.fmdl` on Fox,
+/// `.model` on pre-Fox) its selected representation, as the selection order says. The file of
+/// the other format beside it is neither `used` nor left out: it is a model the target's beats
+/// (`FolderModels::beaten`), for every member. Of two
 /// files of the used member's token in two directories, the earlier source's is used
 /// (the player's own wins a name he and a combined folder both hold) and the other is neither
 /// used nor left out: another part of it, which the part merges with it. Every file of

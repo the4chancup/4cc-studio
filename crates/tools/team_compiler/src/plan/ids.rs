@@ -1,8 +1,8 @@
-//! The per-team block of boots and gloves IDs (`aesthetics_export/player_folders.md` "At
-//! compile time, the pipeline", step 2): every team owns a fixed block of 40 IDs, the first 23
-//! being its players' exclusive ones and the other 17 its shared folders', so planning computes
-//! every ID and processing never allocates one, and the same export always compiles to the same
-//! IDs.
+//! The per-team block of boots and gloves IDs
+//! (`spec/aesthetics_export/player_folders.md` "Assigns IDs automatically"). Every team owns a
+//! fixed block of 40 IDs, the first 23 being its players' exclusive ones and the other 17 its
+//! shared folders'. So planning computes every ID, processing never allocates one, and the same
+//! export always compiles to the same IDs.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -67,17 +67,18 @@ impl PlannedModelIds {
 
 /// The shared ID each of `folders` (`folder_ids`' `shared` for `kind`, in
 /// `shared_folders_taking_ids`' case-folded alphabetical order) takes, in the same order, for
-/// a team of block `ids`
-/// (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team
-/// already has"): with `record` `None` — a `Full` export, or a `Midcup` the installed CPKs
-/// hold no record of — the `index`-th of the block's shared IDs; with one — a `Midcup`'s —
-/// a folder it names (names compare case-folded) keeps its ID, and every other folder takes
-/// the lowest of the block's shared IDs neither the record's entries nor the earlier new
-/// folders hold.
-/// `Err(demand)` when the block's shared IDs do not reach: the count of them the team's
-/// folders need — the record's in-block entries plus the folders it does not name (a `Full`
-/// export's being its folders), which `pool_messages` reports as `boots_id_pool_exhausted` or
-/// `gloves_id_pool_exhausted`. A recorded ID outside the block takes no free slot: it is not
+/// a team of block `ids`. A `Midcup` export keeps the shared IDs the team already has:
+///
+/// - with `record` `None` (a `Full` export, or a `Midcup` the installed CPKs hold no record
+///   of), the n-th folder takes the n-th of the block's shared IDs;
+/// - with a `Midcup`'s record, a folder it names (names compare case-folded) keeps its ID, and
+///   every other folder takes the lowest of the block's shared IDs neither the record's entries
+///   nor the earlier new folders hold.
+///
+/// `Err(demand)` when the block's shared IDs do not reach. `demand` is the count of them the
+/// team's folders need: the record's in-block entries plus the folders it does not name (a
+/// `Full` export's being its folders). `pool_messages` reports it as `boots_id_pool_exhausted`
+/// or `gloves_id_pool_exhausted`. A recorded ID outside the block takes no free slot: it is not
 /// one of the seventeen.
 pub(crate) fn assigned_shared_ids(
     ids: PlannedModelIds,
@@ -132,13 +133,12 @@ pub(crate) fn assigned_shared_ids(
 /// folder links plainly, by name (case folded, ties by the plain spelling), that hold a model
 /// of their kind (`holds_model_of_its_kind`). Which ID each takes, its one wearer's exclusive
 /// one or a shared one, is `folder_ids`' split. A shared boots or gloves folder holding no
-/// model of its kind takes no ID (`player_folders.md` "Assigns IDs automatically"): it has
-/// nothing to load, and an ID would shift the IDs of the folders sorted after it for an
-/// output that emits nothing
-/// (`shared_folders_with_no_model`). A shared face never takes one (on Fox it merges into the
-/// player's face; pre-Fox it is copied per player), neither does a folder only unmapped
-/// folders link, since they are not compiled, and neither does a refs export's, whose every
-/// link feeds the referee's own slot package (`link_feeds_own_package`). `hand_weighted` is
+/// model of its kind takes no ID (`shared_folders_with_no_model`): it has nothing to load, and
+/// an ID would shift the IDs of the folders sorted after it for an output that emits nothing.
+/// A shared face never takes one (on Fox it merges into the player's face; pre-Fox it is
+/// copied per player). Neither does a folder only unmapped folders link, since they are not
+/// compiled, nor a refs export's, whose every link feeds the referee's own slot package
+/// (`link_feeds_own_package`). `hand_weighted` is
 /// the models the deep pass found carrying hand weights, whose split hands make a player's
 /// gloves link combine.
 pub(crate) fn shared_folders_taking_ids<'a>(
@@ -162,8 +162,7 @@ pub(crate) fn shared_folders_taking_ids<'a>(
     taking
 }
 
-/// The boots or gloves folders of one kind taking an ID, split by where it comes from
-/// (`player_folders.md` "Assigns IDs automatically").
+/// The boots or gloves folders of one kind taking an ID, split by where it comes from.
 pub(crate) struct FolderIds<'a> {
     /// Each folder exactly one roster slot links plainly and the record does not name,
     /// with that slot: it takes the slot's exclusive ID.
@@ -173,11 +172,11 @@ pub(crate) struct FolderIds<'a> {
     pub(crate) shared: Vec<&'a SharedModelFolder>,
 }
 
-/// `shared_folders_taking_ids`' folders of `kind` in `export` compiled for `engine`, split
-/// (`player_folders.md` "Assigns IDs automatically"): a folder exactly one roster slot links
-/// plainly and `record` (a `Midcup`'s installed record, names compared case-folded as
-/// `assigned_shared_ids` compares them; `None` for a `Full` export) does not name takes that
-/// slot's exclusive ID, every other a shared one. The wearers are counted in slots, not
+/// `shared_folders_taking_ids`' folders of `kind` in `export` compiled for `engine`, split by
+/// where their ID comes from. A folder exactly one roster slot links plainly and `record` (a
+/// `Midcup`'s installed record, names compared case-folded as `assigned_shared_ids` compares
+/// them; `None` for a `Full` export) does not name takes that slot's exclusive ID, every
+/// other a shared one. The wearers are counted in slots, not
 /// player folders: one folder `players.txt` maps to two slots makes two.
 ///
 /// The exclusive ID is free for it: a link is plain exactly when it does not combine, and a

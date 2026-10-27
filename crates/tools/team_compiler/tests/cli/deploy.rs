@@ -1,6 +1,7 @@
-//! `compile`'s deployment into the PES folder's `download/` (`team_compiler/pipeline.md` "6.
-//! Post-processing"): the checks made before any export is read, the copy and rename over the
-//! old CPK, and the degraded run that leaves the CPK in the output folder instead.
+//! `compile`'s deployment into the PES folder's `download/`
+//! (`spec/team_compiler/pipeline.md` "Deploy CPKs"): the checks made before any export is
+//! read, the copy and rename over the old CPK, and the degraded run that leaves the CPK in the
+//! output folder instead.
 
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -115,8 +115,7 @@ const TABLE: &[(&str, Row)] = &[
     ("common/render/symbol/player/79205.dds", Row::Exact),
 ];
 
-/// The `NotProduced` reason of a referee slot's face rows (`blue_port.md`
-/// "Referee export processing").
+/// The `NotProduced` reason of a referee slot's face rows.
 const NO_REFEREE_FACE: &str = "the compiler writes no face for a referee whose folder holds no face model, so the game's own referee head stays, Red packing face_diff.bin alone";
 
 /// One row per reference entry of the referee tracer's `red/` tree. Red and
@@ -458,9 +457,9 @@ fn compare_leaf(failures: &mut Vec<String>, name: &str, ours: Option<&[u8]>, ref
 
 /// A relocated directory is an intentional layout difference (per-player
 /// common): the directory of each texture `relocated` names is normalized
-/// away on both sides before the decoded comparison, per `testing.md`'s
-/// tier 2. The other textures' directories are kept literal so the team-ID
-/// substitution in them is still checked.
+/// away on both sides before the decoded comparison. The other textures'
+/// directories are kept literal so the team-ID substitution in them is still
+/// checked.
 fn decoded_model(bytes: &[u8], relocated: &[&str]) -> fmdl::Model {
     let file = fmdl::FmdlFile::read(bytes).unwrap();
     let mut model = fmdl::Model::from_file(&file).unwrap();
@@ -475,8 +474,8 @@ fn decoded_model(bytes: &[u8], relocated: &[&str]) -> fmdl::Model {
 }
 
 /// Every `relocated` texture reference of the FMDL `bytes` resolves to a file
-/// of `compiled` (`testing.md` "Texture locations": rewritten references
-/// resolve to the relocated files). The reference's directory has the FMDL
+/// of `compiled`: rewritten references resolve to the relocated files. The
+/// reference's directory has the FMDL
 /// form `/Assets/pes16/<folder>/`; the emitted texture sits at the CPK path
 /// `Asset/<folder>/#windx11/<stem>.ftex`.
 fn check_resolved(
@@ -627,8 +626,8 @@ fn assert_matches_reference(sandbox: &Sandbox, exports_root: &Path) {
     );
     assert_eq!(run.exit_code(), 0);
     // Notes only, but for the three player tables: with no PES install there is no table to
-    // build on, so the tracer's boots, gloves and appearance rows are left out (`pipeline.md`
-    // "Bins accumulation"), as Red, which wrote no table, never had them.
+    // build on, so the tracer's boots, gloves and appearance rows are left out, as Red, which
+    // wrote no table, never had them.
     let mut warnings = Vec::new();
     for envelope in &run.events {
         if let PipelineEvent::Message(message) = &envelope.event
@@ -659,10 +658,8 @@ fn assert_matches_reference(sandbox: &Sandbox, exports_root: &Path) {
     let ours = archive(&output.join("4cc_99_test.cpk"));
     let reference = tree(&fixture.join("red"));
 
-    // The team's shared-IDs record, at a path no game reads (`player_folders.md` "A
-    // `Midcup` export keeps the shared IDs the team already has"): a Midcup over no
-    // installed CPK with no shared folder taking an ID writes none, and the tracer links
-    // none.
+    // The team's shared-IDs record, at a path no game reads: a Midcup over no installed CPK
+    // with no shared folder taking an ID writes none, and the tracer links none.
     assert!(!ours.contains_key("4cc_studio/shared_ids/792.toml"));
     // The compiler's own records, at paths no game reads.
     let ours: BTreeMap<_, _> = ours

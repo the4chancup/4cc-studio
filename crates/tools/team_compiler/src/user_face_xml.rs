@@ -1,8 +1,8 @@
 //! A member's own `face.xml` in a pre-Fox face folder, the authority on what the face loads in
-//! place of the one the compiler generates (`team_compiler/messages.md` "User-supplied
-//! `face.xml`"): read (`parse`), each `path` and `material` resolved to the file it names
-//! (`reference`, `resolve`), and checked (`check`) against the "XML/MTL content checks"
-//! table, errors for what is known not to work and warnings for what the compiler cannot vouch
+//! place of the one the compiler generates
+//! (`spec/team_compiler/messages.md` "User-supplied face.xml"). It is read (`parse`), each
+//! `path` and `material` resolved to the file it names (`reference`, `resolve`), and checked
+//! (`check`): errors for what is known not to work, warnings for what the compiler cannot vouch
 //! for. What it does not know is kept as the member wrote it (unknown elements and attributes),
 //! for the face task to write back. The deep pass checks with it.
 
@@ -415,8 +415,8 @@ const KNOWN_ATTRIBUTES: [&str; 5] = ["level", "type", "path", "material", "ratio
 const PES16_PREFIXES: [&str; 3] = ["face_high_", "hair_high_", "oral_"];
 
 /// The findings of the member's `face.xml` `xml`, named `name` below its folder, among the
-/// files `files` it may name, for the target `version` (`messages.md` "XML/MTL content
-/// checks"), in document order, each `<model>` counted from 1 as `entry`:
+/// files `files` it may name, for the target `version`, in document order, each `<model>`
+/// counted from 1 as `entry`:
 ///
 /// - Errors, dropping the folder: a `<model>` without `type` (`xml_model_type_missing`) or
 ///   without `path` (`xml_model_path_missing`, and no other finding on its path); a Common

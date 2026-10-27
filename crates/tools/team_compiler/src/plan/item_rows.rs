@@ -1,9 +1,9 @@
-//! The compiled players' rows of the three Fox player tables (`team_compiler/pipeline.md`
-//! "Bins accumulation"), decided at planning: `PlayerAppearance.bin` from each folder's
-//! `settings.toml` and `ingame_face.toml` (the template's for a file it has not), `BootsList.bin` and `GloveList.bin`
-//! by the resolution of `aesthetics_export/settings_toml.md`: the folder's own models or a
-//! link file take the ID a `Models` task emits them under once it commits, an authored
-//! stock ID is written as is, and else the marker or the coverage decides the default.
+//! The compiled players' rows of the three Fox player tables, decided at planning.
+//! `PlayerAppearance.bin` comes from each folder's `settings.toml` and `ingame_face.toml` (the
+//! template's for a file it has not). `BootsList.bin` and `GloveList.bin` are resolved per
+//! category: the folder's own models or a link file take the ID a `Models` task emits them
+//! under once it commits, an authored stock ID is written as is, and else the marker or the
+//! coverage decides the default.
 
 use std::collections::BTreeSet;
 
@@ -255,7 +255,7 @@ fn default_id(
 
 /// The gloves ID `player` resolves to for `fpc::check`'s gloves rule, decided from the
 /// export alone the way `conflicting_id_keys` restates `export_rows`' resolution for
-/// `check` (`settings_toml.md`, the numbered list): a compiler-assigned ID's stand-in (the
+/// `check`: a compiler-assigned ID's stand-in (the
 /// rule reads only `== 0`, and an assigned ID is a real model's, never 0), else the authored
 /// stock ID, else `default_id`'s marker or coverage answer. `None` is a `Midcup` export's
 /// markerless player, who keeps his installed row; `check` reads no installed table, so his

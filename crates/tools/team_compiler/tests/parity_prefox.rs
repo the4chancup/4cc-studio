@@ -25,7 +25,7 @@ const FACE_CPK: &str = "common/character0/model/character/face/real/73120.cpk";
 const FACE_DIR: &str = "common/character0/model/character/face/real/73120/";
 /// The player's textures: the reference keeps them in his face CPK, beside the `.mtl` files
 /// naming them `./<name>`; the compiler relocates every texture of a player folder to his
-/// common subfolder (`pipeline.md` step 6), at this `.mtl` path, packed under
+/// common subfolder, at this `.mtl` path, packed under
 /// `common/character1/`.
 const RELOCATED: &str = "model/character/uniform/common/731/20 - Fumos/";
 
@@ -107,7 +107,7 @@ enum Nested {
     /// the header itself is not compared, its decoding is.
     Texture,
     /// Tier 2: relocated, and encoded from an uncompressed source to the codec named (raster
-    /// sources are block-compressed on PES 15-17, `pipeline.md` "Texture conversion"): the same
+    /// sources are block-compressed on PES 15-17): the same
     /// dimensions, and the same pixels in every mip once both are decoded, the reference's
     /// still uncompressed. Exact, not within an encoder's
     /// error: the one such texture, `k2012_sr.dds`, is a single flat color (opaque black),
@@ -474,20 +474,19 @@ fn compare_kit_config(failures: &mut Vec<String>, ours: &[u8], reference: &[u8])
     }
 }
 
-/// The kit number of the first goalkeeper kit, `g1`, in a `UniColor.bin` entry
-/// (`resources/bins/README.md`: player kits count from 0, goalkeeper kits from 0x10).
+/// The kit number of the first goalkeeper kit, `g1`, in a `UniColor.bin` entry: player kits
+/// count from 0, goalkeeper kits from 0x10.
 const GK1_KIT_NUMBER: u8 = 0x10;
 
 /// Team 731's 85-byte record in a `UniColor.bin`: the `u32` team ID, the kit count, then ten
-/// 8-byte entries of kit number, icon and two colors (`resources/bins/README.md`).
+/// 8-byte entries of kit number, icon and two colors.
 const UNI_RECORD: std::ops::Range<usize> = (731 - 100) * 85..(731 - 100) * 85 + 85;
 
 /// Our `UniColor.bin` against the reference's per `Row::UniColor`: the tracer's one kit, `g1`,
 /// gives the same entry on both. The rest of our file is the bundled base's, team 731's past
 /// cup's record included, where the reference was built on Red's fallback base, whose record
 /// for the team was empty, so its record holds the one entry. Ours is therefore the base with
-/// the reference's `g1` entry set in the team's record (`pipeline.md` "Bins accumulation": the
-/// base's other kits are kept).
+/// the reference's `g1` entry set in the team's record, the base's other kits kept.
 fn compare_uni_color(failures: &mut Vec<String>, ours: &[u8], reference: &[u8]) {
     let base = fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../resources/bins/UniColor.bin"),
@@ -523,8 +522,7 @@ fn compare_uni_color(failures: &mut Vec<String>, ours: &[u8], reference: &[u8]) 
 
 /// The one warning Red gave too: Fumos's `face.mtl` names a texture the folder does not
 /// hold on a material its face binds, and the face played a cup as compiled, which is why
-/// `mtl_texture_not_found` is a Warning on pre-Fox (`messages.md`, the paragraph after
-/// "Texture existence is checked **deep**").
+/// `mtl_texture_not_found` is a Warning on pre-Fox.
 fn fumos_texture() -> (String, Vec<(String, String)>) {
     (
         "mtl_texture_not_found".to_owned(),
@@ -626,10 +624,9 @@ fn assert_matches_reference(
             Row::NotProduced(_) => unreachable!("handled above"),
         }
     }
-    // The team's shared-IDs record, at a path no game reads (`player_folders.md` "A
-    // `Midcup` export keeps the shared IDs the team already has"): a Midcup over no
-    // installed CPK with no shared folder taking an ID writes none, on pre-Fox too, and
-    // the tracer links none.
+    // The team's shared-IDs record, at a path no game reads: a Midcup over no installed CPK
+    // with no shared folder taking an ID writes none, on pre-Fox too, and the tracer links
+    // none.
     assert!(!ours.contains_key("4cc_studio/shared_ids/731.toml"));
     for path in ours.keys() {
         if !path.starts_with("4cc_studio/") && !accounted.contains(path) {

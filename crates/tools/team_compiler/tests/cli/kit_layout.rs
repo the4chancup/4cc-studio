@@ -1,10 +1,10 @@
-//! `compile` over kits carrying a layout marker (`team_compiler/pipeline.md` "4. Per-export
-//! non-model steps", Kits, "Layout conversion"): a kit drawn for the pre-Fox layout compiled
-//! for PES 21 has its sock islands re-laid out, checked against where the games' own uniform
-//! models put each sock stripe (`tests/fixtures/kit_layout/`), and its srm with it; a marker
-//! naming the target's engine, or on a placeholder kit, changes nothing. A number atlas in the
-//! other engine's arrangement is re-arranged by its shape alone, for PES 21 and for PES 17 (the
-//! glyph atlas sentences of the same section).
+//! `compile` over kits carrying a layout marker
+//! (`spec/team_compiler/pipeline.md` "Layout conversion"). A kit drawn for the pre-Fox layout
+//! compiled for PES 21 has its sock islands re-laid out, checked against where the games' own
+//! uniform models put each sock stripe (`tests/fixtures/kit_layout/`), and its srm with it. A
+//! marker naming the target's engine, or on a placeholder kit, changes nothing. A number atlas
+//! in the other engine's arrangement is re-arranged by its shape alone, for PES 21 and for
+//! PES 17.
 
 use std::fs;
 use std::ops::Range;
@@ -467,8 +467,7 @@ fn a_column_number_atlas_compiled_for_pes_21_becomes_a_row_and_a_row_stays_as_gi
     assert_eq!(p2_back, decode(&row, SourceFormat::Dds).unwrap().mips[0]);
 }
 
-/// Where each digit's slot starts along a 2048-long PES 18-21 row (`pipeline.md` "4.
-/// Per-export non-model steps", Kits, the glyph atlases).
+/// Where each digit's slot starts along a 2048-long PES 18-21 row of a number atlas.
 const SLOT_STARTS_2048: [u32; 10] = [0, 190, 340, 540, 740, 940, 1140, 1340, 1540, 1740];
 
 /// The top level of the pre-Fox kit texture `name` the sandbox's last `compile` wrote, a DDS

@@ -1,9 +1,8 @@
-//! `compile` over a refs export on Fox (`team_compiler/blue_port.md` "Referee export
-//! processing"): each referee folder prepared once and emitted under every slot `players.txt`
-//! maps it to, as `face/real/referee0NN`, `k99NN` and `g99NN`, its textures once in team 999's
-//! common subfolder of its name, and a link of his made a part of his slots' own packages; in a
-//! normal compile all of it goes into the refs CPK, `refs_cpk_name`, beside the team side
-//! (`spec/team_compiler/pipeline.md` "5. Writer", step 5).
+//! `compile` over a refs export on Fox: each referee folder prepared once and emitted under
+//! every slot `players.txt` maps it to, as `face/real/referee0NN`, `k99NN` and `g99NN`, its
+//! textures once in team 999's common subfolder of its name, and a link of his made a part of
+//! his slots' own packages. In a normal compile all of it goes into the refs CPK,
+//! `refs_cpk_name`, beside the team side.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -538,8 +537,8 @@ fn on_pes_17_a_referee_s_face_xml_names_the_template_s_refkit_files_the_export_l
 }
 
 /// The referee template's body as a referee's `face.xml` lists it when his folder holds
-/// `fpc_off`, in the plan's table order (`blue_port.md` "The referee body"): each model's name
-/// below `refkit/`, without `oral_` and `_*.model`, with its type.
+/// `fpc_off`, in the order a cup referee's own xml listed them in game: each model's name below
+/// `refkit/`, without `oral_` and `_*.model`, with its type.
 const REFKIT_BODY: [(&str, &str); 10] = [
     ("arm", "parts"),
     ("thigh", "parts"),

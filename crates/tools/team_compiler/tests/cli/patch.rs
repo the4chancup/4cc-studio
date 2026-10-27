@@ -202,8 +202,8 @@ fn a_pre_fox_compile_writes_no_patch() {
 fn a_plain_export_s_patch_holds_every_motion_and_no_name() {
     let sandbox = Sandbox::new("patch_plain");
     let export = "exports/co Full Plain";
-    // A name longer than PES 21's field: unused without the marker, so not checked either
-    // (`settings_toml.md`: no finding reports the names of an export without it).
+    // A name longer than PES 21's field: unused without the marker, so not checked either. No
+    // finding reports the names of an export without it.
     let toml = format!(
         "name = \"{}\"\nshirt_name = \"SOME\"\n[appearance.motion]\nhunching_dribbling = 2\n",
         "a".repeat(70)

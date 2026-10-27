@@ -56,9 +56,9 @@ use crate::user_face_xml::{
 /// none of it gets the dummy as its `face_neck`.
 const FACE_NECK: &str = "face_neck";
 
-/// The referee template's body (`blue_port.md` "The referee body"): each model's name below
-/// the template tree's `common/999/refkit/`, without `_win32.model`, and the `face.xml` type
-/// it is listed under, in the order a cup referee's own xml listed them in game.
+/// The referee template's body: each model's name below the template tree's
+/// `common/999/refkit/`, without `_win32.model`, and the `face.xml` type it is listed under, in
+/// the order a cup referee's own xml listed them in game.
 const REFKIT_BODY: [(&str, &str); 10] = [
     ("oral_arm", "parts"),
     ("oral_thigh", "parts"),
@@ -119,8 +119,8 @@ enum FaceSource<'a> {
     /// A Common FMDL a `.common` link names, converted once by the export's Common models task
     /// (`prefox_common`): the face packs nothing of it and names its material set, `<stem>.mtl`
     /// in the team's Common output. The player's own `.mtl` files do not layer over it, as they
-    /// do over a Common `.model`'s ("Common-linked models bring their own materials" in
-    /// `model_format.md`): the FMDL carries its materials, and the set is the conversion's.
+    /// do over a Common `.model`'s: the FMDL carries its materials, and the set is the
+    /// conversion's.
     CommonConversion,
 }
 
@@ -132,7 +132,7 @@ pub(super) fn converted_material_name(stem: &str) -> String {
 
 /// The directory the file at `path` sits in below its source folder at `source_path`,
 /// `/`-terminated as spelled (`jessie/body/`), empty for a file directly in it: where the face
-/// packs the file, as the player folder holds it (`player_folders.md` "Subfolders").
+/// packs the file, as the player folder holds it.
 pub(super) fn directory_below(path: &ScopePath, source_path: &ScopePath) -> String {
     texture_lookup::split(&relative(path, source_path))
         .0
@@ -327,8 +327,8 @@ fn set_completions(
             continue;
         };
         // `kit_places` reads the packed name; a stem whose token is not spelled `kit1` to
-        // `kit9` or `kitF` exactly (`pants_KIT1`, `pants_kitf`) is no member (`pipeline.md`
-        // "Kit-dependent assets"), so it has no reference to complete.
+        // `kit9` or `kitF` exactly (`pants_KIT1`, `pants_kitf`) is no member, so it has no
+        // reference to complete.
         let Some((_, reference)) = kit_token(&model.stem) else {
             continue;
         };
@@ -495,20 +495,22 @@ fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
 /// as that texture's DDS, and one naming a stem a
 /// texture link of the folder stands for at that texture in the team's Common output; and the
 /// `face.xml`, its `<dif>` the folder's face diff (`face_diff.bin`, else `face_diff.xml`
-/// decoded, else the bundled one). A `.common` link to a model is an entry naming the model in
-/// the team's Common output, where the export's Common models task packs it, or converts a
-/// Common FMDL, the entry then naming the converted `<stem>.mtl` there; a `.mtl` the
-/// search finds in `Common/`, directly or through a link, is named there too, and the face
-/// packs neither (`pipeline.md` "3. Per-model-folder parallel steps", step 4). A file of a
-/// subfolder of its source folder is packed and listed at its path below that folder
-/// (`jessie/body/x.model` as `jessie/body/oral_x_win32.model`, listed
-/// `./jessie/body/oral_x_*.model`), its hands and converted material set beside it, and its
-/// entry names its `.mtl` where the search found it (`./jessie/body/x.mtl` beside it, `./x.mtl`
-/// in the root; `player_folders.md` "Subfolders"). A linked shared
-/// face's files are copied in under the player's own: a model or `.mtl` packing under a name
-/// (case-folded) the player's folder already packs is left out, the player's file replacing it
-/// as a copy would (`player_folders.md` "A link plus local models combines"). A hand-split
-/// model (`ModelFolder::hand_split`), moved first, is split at the wrists
+/// decoded, else the bundled one).
+///
+/// A `.common` link to a model is an entry naming the model in the team's Common output,
+/// where the export's Common models task packs it. For a Common FMDL, which that task
+/// converts, the entry names the converted `<stem>.mtl` there. A `.mtl` the search finds in
+/// `Common/`, directly or through a link, is named there too, and the face packs neither.
+///
+/// A file of a subfolder of its source folder is packed and listed at its path below that
+/// folder (`jessie/body/x.model` as `jessie/body/oral_x_win32.model`, listed
+/// `./jessie/body/oral_x_*.model`), its hands and converted material set beside it. Its entry
+/// names its `.mtl` where the search found it (`./jessie/body/x.mtl` beside it, `./x.mtl` in
+/// the root). A linked shared face's files are copied in under the player's own: a model or
+/// `.mtl` packing under a name (case-folded) the player's folder already packs is left out,
+/// the player's file replacing it as a copy would.
+///
+/// A hand-split model (`ModelFolder::hand_split`), moved first, is split at the wrists
 /// (`split_face_model`): its body is packed and listed in its place, and each hand made
 /// follows it as
 /// `oral_<stem>_glove_l_win32.model` or `oral_<stem>_glove_r_win32.model`, an entry typed
@@ -543,7 +545,7 @@ fn model_variant_missing(reference: &str, kit: u8, copied: &str) -> Finding {
 /// shared face he links, has no generated xml: the textures are read as above, and the xml is
 /// written back by `user_xml_face`, which packs only the models and `.mtl` files its
 /// references name, under the names they give, a `kitN` reference's set completed against
-/// `kit_numbers` too (`messages.md` "User-supplied `face.xml`"). No
+/// `kit_numbers` too (`spec/team_compiler/messages.md` "User-supplied face.xml"). No
 /// model of the source holding the xml is typed by its name, split or listed by kit there; the
 /// hand split is not planned for such a face. Beside a shared face's xml, each of the player's
 /// own models the xml does not name (`names_model`) takes the route above, its generated entry
@@ -1171,12 +1173,12 @@ fn listed_model_name(path: &str) -> String {
     vtree::fold_name(&name.replace('*', "win32"))
 }
 
-/// The referee template's body as a referee's `face.xml` lists it (`blue_port.md` "The
-/// referee body"): an entry per model of `REFKIT_BODY` in its order, naming the model in the
-/// referees' Common output's `refkit/` with the `refkit.mtl` beside it, which the limbs take
-/// rather than his own skin's `.mtl`. Left out, so he is never dressed twice: a model whose
-/// packed name, folded, is among `named`, the face's listed models; the boots when
-/// `own_boots`; the two hands when `own_gloves`.
+/// The referee template's body as a referee's `face.xml` lists it: an entry per model of
+/// `REFKIT_BODY` in its order, naming the model in the referees' Common output's `refkit/`
+/// with the `refkit.mtl` beside it, which the limbs take rather than his own skin's `.mtl`.
+/// Left out, so he is never dressed twice: a model whose packed name, folded, is among
+/// `named`, the face's listed models; the boots when `own_boots`; the two hands when
+/// `own_gloves`.
 fn refkit_body_entries(named: &[String], own_boots: bool, own_gloves: bool) -> Vec<XmlEntry> {
     let directory = refkit_directory();
     let material = format!("{directory}refkit.mtl");
@@ -1537,9 +1539,8 @@ fn last_dif(xml: &UserFaceXml) -> Option<&[u8]> {
 }
 
 /// The files of a pre-Fox face with a `face.xml`, `xml` (the member's own or his linked shared
-/// face's), read from `files` (`messages.md` "User-supplied `face.xml`", "How a `path` or
-/// `material` is resolved and written" and "What is emitted from such a folder"): the xml
-/// written back (`user_face_xml`) with its children in their order, each `<model>` as
+/// face's), read from `files` (`spec/team_compiler/messages.md` "User-supplied face.xml"): the
+/// xml written back (`user_face_xml`) with its children in their order, each `<model>` as
 /// `face.written_model` writes it and packing the files it names, any other element as the
 /// member wrote it; then `appended`, the generated entries of the player's own models the
 /// shared xml does not name, which `face` packed already; then, when no written `<model>` is a
@@ -1778,8 +1779,8 @@ pub(super) fn point_reserved_kit_stems(set: &mut MaterialSet, common_directory: 
 /// Gives every `Basic_CNSR` material of `set`, a converted model's material set, that has no
 /// `EnvironmentMap` sampler one naming `env.dds` in `home`, its model folder's texture home (a
 /// player's common folder, or `./` beside a shared boots or gloves output's models), with the
-/// `environment` role's sampler settings (`model_format.md`, the role table): the `R` of the
-/// shader is a reflection of that cubemap, which a material without one does not have.
+/// `environment` role's sampler settings (`spec/model_format.md` "Textures"): the `R` of
+/// the shader is a reflection of that cubemap, which a material without one does not have.
 /// A Fox metal material converts to `Basic_CNSR` naming no environment texture, Fox having no
 /// such sampler. The sampler goes after the material's other samplers (a converted Fox
 /// material's base, normal and specular maps, which the converter writes before an

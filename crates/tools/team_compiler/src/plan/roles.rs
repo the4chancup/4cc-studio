@@ -22,8 +22,7 @@ use crate::kit_variants::model_variant_sets;
 /// The kit texture stems `compile` builds: first the five the kit config names, in the order
 /// of its texture-name fields, then the two maps the games read by name convention alone,
 /// `kit_mask` (PES 15-17) and `kit_srm` (PES 18-21). Planning drops, before the kit's task is
-/// made, the map the target's engine does not read and any `kit_*` stem outside these seven
-/// (`pipeline.md` "4. Per-export non-model steps", Kits: mask and srm are engine-specific).
+/// made, the map the target's engine does not read and any `kit_*` stem outside these seven.
 pub(crate) const KIT_TEXTURE_STEMS: [&str; 7] = [
     "kit",
     "kit_back",
@@ -75,8 +74,8 @@ impl ModelPackage {
         ModelPackage::Gloves,
     ];
 
-    /// The first package of the canonical order `claim` holds for: the winner among a
-    /// destination's claimants (`pipeline.md` step 6).
+    /// The first package of the canonical order `claim` holds for: the winner when several
+    /// packages claim one texture destination.
     pub(crate) fn first_claimed(claim: impl Fn(ModelPackage) -> bool) -> Option<ModelPackage> {
         Self::ALL.into_iter().find(|package| claim(*package))
     }
@@ -138,12 +137,11 @@ pub(crate) fn link_name(kind: SharedKind, name: &str) -> String {
 /// the shared output being loaded as it is. A face link always does, on both engines, a shared
 /// face having no output of its own: on Fox it is merged into the player's face, on pre-Fox
 /// copied into his face CPK. A boots or gloves link does when the player's effective package of
-/// that kind has a part (`has_effective_part`, `hand_weighted` being the models the deep pass
-/// found carrying hand weights; `player_folders.md` "A link plus local models combines"): on
-/// Fox one of his own, a linked face's boots or gloves model, or for his gloves the hands split
-/// off a face model; on pre-Fox only a part `ingame_face` gives him (`player_folders.md`
-/// "`ingame_face` with shared links"), since without the marker his and a linked face's boots
+/// that kind has a part (`has_effective_part`). On Fox that part is one of his own, a linked
+/// face's boots or gloves model, or for his gloves the hands split off a face model. On pre-Fox
+/// it is only a part `ingame_face` gives him: without the marker his and a linked face's boots
 /// and gloves models are parts of his face, and the link keeps its plain meaning.
+/// `hand_weighted` is the models the deep pass found carrying hand weights.
 pub(crate) fn link_combines(
     export: &ValidatedAestheticsExport,
     player: &PlayerFolder,
@@ -162,8 +160,8 @@ pub(crate) fn link_combines(
 /// Whether the shared folder `player`'s `link` names is built, for `engine`, into the
 /// player's own package of its kind instead of compiled on its own under a shared id;
 /// `player` is a player folder of `export`. A referee's every link is: he has no team block to
-/// give the shared folder an id of its own, so it is written as his slot's `k99NN`/`g99NN`
-/// (`blue_port.md` "Referee export processing"). A team player's link is when it combines
+/// give the shared folder an id of its own, so it is written as his slot's `k99NN`/`g99NN`.
+/// A team player's link is when it combines
 /// (`link_combines`, with `hand_weighted`).
 pub(crate) fn link_feeds_own_package(
     export: &ValidatedAestheticsExport,
@@ -238,8 +236,7 @@ pub(crate) enum PlayerFile {
     /// A model, packed into `package` as `<name>.fmdl` with its texture paths rewritten:
     /// `name` is its allowed name, the free prefix stripped (`kit_boots.fmdl` packs as
     /// `boots.fmdl`). A `.model` with no `.fmdl` of its path stem beside it takes the role too:
-    /// the Models task converts it to an FMDL with the `.mtl` its search finds (`pipeline.md`
-    /// step 3 "Format conversion").
+    /// the Models task converts it to an FMDL with the `.mtl` its search finds.
     Model {
         package: ModelPackage,
         name: &'static str,
@@ -247,8 +244,8 @@ pub(crate) enum PlayerFile {
     /// A `.common` link to an FMDL or a `.model` (`legs.fmdl.common` → `Common/legs.fmdl`,
     /// `legs.model.common` → `Common/legs.model`): the Common model is a part of `package` under
     /// `name`, merged with the folder's parts of that name, since Fox cannot load a model from
-    /// Common (`player_folders.md` "Common model links and model merging"); a Common `.model` is
-    /// first converted with the `.mtl` its search finds, as the player's own `.model` is. The
+    /// Common. A Common `.model` is first converted with the `.mtl` its search finds, as the
+    /// player's own `.model` is. The
     /// role is the link's; the Models task reads the Common model, which planning resolves
     /// (`plan::CommonModel`, an FMDL of its stem beating a linked `.model`), never the empty
     /// link.
@@ -258,34 +255,32 @@ pub(crate) enum PlayerFile {
     },
     /// A face file packed into `package` as it is, under `name`: `face_diff.bin` and
     /// `fcl_hair_sim.fclo`. Not a part to merge: the package holds one, the player folder's
-    /// own over a combined face folder's (`player_folders.md` "A link plus local models
-    /// combines").
+    /// own over a combined face folder's.
     Packed {
         package: ModelPackage,
         name: &'static str,
     },
     /// A `face_diff.xml`: the face's `face_diff.bin` given as text, the base64 of the binary
-    /// file (`player_folders.md` "`face_diff.xml`"), decoded and packed into the face package
-    /// as `face_diff.bin`. It goes wherever a `face_diff.bin` would, and stands for one: the
-    /// player folder's own, in either form, over a combined face folder's.
+    /// file, decoded and packed into the face package as `face_diff.bin`. It goes wherever a
+    /// `face_diff.bin` would, and stands for one: the player folder's own, in either form, over
+    /// a combined face folder's.
     FaceDiffXml,
     /// A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a folder with no face
     /// model and no face link, `ingame_face` or not: there is no face for it to shape, so it
-    /// is reported as `face_file_not_used` by the structure pass and never read; a player
-    /// folder's blank face takes the bundled face diff (`pipeline.md` "2. Per-export serial
-    /// steps", item 4). A shared folder's is reported the same way.
+    /// is reported as `face_file_not_used` by the structure pass and never read. A player
+    /// folder's blank face takes the bundled face diff. A shared folder's is reported the same
+    /// way.
     UnusedFaceFile,
     /// A model's skeleton, the `.skl` named after a `fcl_hair` or `boots` part, packed into
     /// `package` under its slot's `name` (`fcl_hair_sim.skl`, `boots.skl`). Every part may
-    /// bring one, and the merge decides whose is packed (`player_folders.md` "Merge
-    /// constraint").
+    /// bring one, and the merge decides whose is packed: parts merged into one output must
+    /// share one skeleton.
     Skeleton {
         package: ModelPackage,
         name: &'static str,
     },
     /// The `.skl` named after a `face_high`, `hair_high` or `oral` model, which have no
-    /// skeleton slot (`player_folders.md` "SKL pairing"): reported as `skl_no_slot` by the
-    /// structure pass, and never read.
+    /// skeleton slot: reported as `skl_no_slot` by the structure pass, and never read.
     SlotlessSkeleton,
     /// A per-kit model other than its set's fallback (`pants_kit2.fmdl` or
     /// `pants_kit2.model` beside `pants_kit1.fmdl`, or any variant beside `pants_kitF`)
@@ -296,7 +291,7 @@ pub(crate) enum PlayerFile {
     /// (`kit_variants::model_variant_sets`).
     LeftOutKitVariant,
     /// A texture, converted once into the folder's texture home at its path below its source
-    /// folder (`player_folders.md` "Subfolders", "Paths are kept"). A model's texture name
+    /// folder (`spec/aesthetics_export/player_folders.md` "Subfolders"). A model's texture name
     /// resolves to it nearest first (`texture_lookup`).
     Texture {
         /// The texture's path below its source folder without its extension, as spelled:
@@ -323,27 +318,26 @@ pub(crate) enum PlayerFile {
     /// boots or gloves folder it is a model of that output, typed for its `glove.xml`. An
     /// `.fmdl` with no `.model` of its stem beside it takes the role too: the task packing it
     /// converts it to a `.model` and its material set, packed as `<stem>.mtl` beside a face's
-    /// or a glove's, merged into `boots.mtl` for the boots (`pipeline.md` step 3 "Format
-    /// conversion").
+    /// or a glove's, merged into `boots.mtl` for the boots.
     PreFoxModel {
         /// The model's `face.xml` type.
         xml_type: String,
     },
     /// Pre-Fox, in a player folder holding `ingame_face`: a `.model`, or an `.fmdl` with no
     /// `.model` of its stem beside it, converted as the face converts one, that is a part of the
-    /// player's own `package`, the one Fox gives it under the marker (`model_role`), since the
-    /// marker means no face and so no `face.xml` to list it. The boots take every model but a
+    /// player's own `package`, the one Fox gives it under the marker (`model_role`). The marker
+    /// means no face, so there is no `face.xml` to list it. The boots take every model but a
     /// glove, a model the face would take included, and are written as one `boots.model`, its
-    /// parts merged; the gloves are written unmerged, each model under its own name and listed
-    /// in the gloves' `glove.xml` (`player_folders.md` "`ingame_face` marker"). The folder's
-    /// `.mtl` files go into each of the two, which packs the ones its parts use
-    /// (`TaskKind::files`). A `.common` link to a `.model` or an FMDL takes this role too (but
-    /// one to a per-kit model, which has none, `pre_fox_link`), as a `.model` of the linked
-    /// stem would in its place: with no `face.xml` to name the Common
-    /// path, the Common model is copied in as the part, planning putting it in the link's place
-    /// with the `.mtl` its search finds, or a Common FMDL with the `.skl` of its stem, its
-    /// bind pose, to convert as his own FMDL parts are (`ModelFolder::roles`;
-    /// `player_folders.md` "`ingame_face` with shared links").
+    /// parts merged. The gloves are written unmerged, each model under its own name and listed
+    /// in the gloves' `glove.xml`. The folder's `.mtl` files go into each of the two, which
+    /// packs the ones its parts use (`TaskKind::files`).
+    ///
+    /// A `.common` link to a `.model` or an FMDL takes this role too, as a `.model` of the
+    /// linked stem would in its place; a link to a per-kit model has no role (`pre_fox_link`).
+    /// With no `face.xml` to name the Common path, the Common model is copied in as the part.
+    /// Planning puts it in the link's place with the `.mtl` its search finds, or puts a Common
+    /// FMDL there with the `.skl` of its stem, its bind pose, to convert as his own FMDL parts
+    /// are (`ModelFolder::roles`).
     PreFoxPart {
         /// The package the model is a part of.
         package: ModelPackage,
@@ -367,9 +361,8 @@ pub(crate) enum PlayerFile {
     /// link's place, at the team's Common output, where the export's Common models task packs
     /// the Common `.model` once, or converts the Common FMDL once into a `.model` and its
     /// material set (`selected_common_model` says which the link loads). The game loads it from
-    /// there (`player_folders.md` "Common model links and model merging"), so nothing is
-    /// packed into the face and nothing reads the empty link. Under `ingame_face` such a link
-    /// is a `PreFoxPart` instead.
+    /// there, so nothing is packed into the face and nothing reads the empty link. Under
+    /// `ingame_face` such a link is a `PreFoxPart` instead.
     PreFoxCommonModel {
         /// The linked model's `face.xml` type.
         xml_type: String,
@@ -380,14 +373,13 @@ pub(crate) enum PlayerFile {
     /// `.mtl` in the team's Common output; under `ingame_face` the Common `.mtl` is also copied
     /// into his boots and gloves, which pack it when a part of theirs uses it
     /// (`ModelFolder::roles`). On Fox a package converting a `.model` whose search finds it
-    /// converts the model with it (`player_folders.md` "Common model links and model
-    /// merging", the material definition files), reading the Common `.mtl`
-    /// (`TaskKind::files`). Nothing reads the empty link.
+    /// converts the model with it, reading the Common `.mtl` (`TaskKind::files`). Nothing reads
+    /// the empty link.
     CommonMaterial,
     /// Pre-Fox: a member's own `face.xml`, directly in a player folder or a shared face folder
-    /// (`role_position`), the authority on what the face loads in place of the one
-    /// the compiler generates (`messages.md` "User-supplied `face.xml`"), a shared face's that
-    /// of each face linking it: the deep pass reads and checks it (`user_face_xml`). Its folder
+    /// (`role_position`). It is the authority on what the face loads, in place of the one the
+    /// compiler generates; a shared face's is that of each face linking it. The deep pass reads
+    /// and checks it (`user_face_xml`). Its folder
     /// has a face whatever models it holds (`FolderModels::of_player_files`).
     FaceXml,
     /// Pre-Fox: the `.skl` paired with an `.fmdl` converted (`PreFoxModel`, or `PreFoxPart`
@@ -396,11 +388,10 @@ pub(crate) enum PlayerFile {
     ConversionSkeleton,
     /// A `.glb` or `.gltf` model with no model of the target's own format of its path stem
     /// beside it: the selected representation of its stem, which beats a model of the other
-    /// engine's format beside it (`pipeline.md` step 3 "Format conversion"). The compiler does
-    /// not read glTF until Phase 7, so planning drops the player folder holding one, or the
-    /// shared folder holding one with every player folder linking it
-    /// (`model_gltf_unsupported`), rather than compile the other format in its place: the
-    /// same export never compiles differently once glTF is read.
+    /// engine's format beside it. The compiler does not read glTF yet, so planning drops the
+    /// player folder holding one, or the shared folder holding one with every player folder
+    /// linking it (`model_gltf_unsupported`), rather than compile the other format in its
+    /// place: the same export never compiles differently once glTF is read.
     UnsupportedGltf,
 }
 
@@ -438,9 +429,8 @@ impl PlayerFile {
 }
 
 /// The name the skeleton of a part of `package` under `name` packs as: `fcl_hair_sim.skl` for
-/// the hair, `boots.skl` for the boots, the two destinations with a skeleton slot
-/// (`player_folders.md` "SKL pairing"); `None` for `face_high`, `hair_high`, `oral` and the
-/// gloves.
+/// the hair, `boots.skl` for the boots, the two destinations with a skeleton slot. `None` for
+/// `face_high`, `hair_high`, `oral` and the gloves.
 pub(crate) fn skeleton_slot(package: ModelPackage, name: &str) -> Option<&'static str> {
     match (package, name) {
         (ModelPackage::Face, "fcl_hair") => Some("fcl_hair_sim.skl"),
@@ -506,10 +496,10 @@ pub(crate) fn below_common(path: &ScopePath) -> &str {
     path.as_str().split_once('/').map_or("", |(_, below)| below)
 }
 
-/// Whether a target of `engine` reads the `Common/` file at `path` at all: on PES 15-17 every
-/// directory of `Common/` is a Common folder of its own, packed at its own path (`pipeline.md`
-/// "Common"), so any file; on PES 18-21 a file directly in `Common/`, and below a subfolder
-/// only one of `linked` (`linked_common_files`), since Fox reaches Common through links alone.
+/// Whether a target of `engine` reads the `Common/` file at `path` at all. On PES 15-17 every
+/// directory of `Common/` is a Common folder of its own, packed at its own path, so any file
+/// is read. On PES 18-21 a file directly in `Common/` is, and below a subfolder only one of
+/// `linked` (`linked_common_files`), since Fox reaches Common through links alone.
 pub(crate) fn is_read_common_file(
     path: &ScopePath,
     engine: Engine,
@@ -522,21 +512,22 @@ pub(crate) fn is_read_common_file(
 }
 
 /// The `Common/` files below a subfolder that a standing `.common` link of a kept player or
-/// shared folder of `export` reaches, by their export paths: the file a link taking a role
-/// names (`common_link_target`, a link mirroring `Common/`'s tree: `model_format.md` "Link
-/// files"; `player_file` gives none to a link to anything but a model, a `.mtl` or a
-/// texture, on Fox) — every member of the set when a texture link's `kitN` stem or
-/// directory names one (`common_link_files`), each member's directory then counting as
-/// linked — and for a link naming a model the files that travel with it in its directory:
-/// the models of its stem in any format
-/// (the target selects one, `selected_common_model`), the `.skl` of its stem, every `.mtl`
-/// (the ones its `.mtl` search may land on, `mtl_search::mtl_for`) and every texture directly
-/// in it and in each directory above it up to `Common/`, where its names resolve nearest first
-/// (`Common/`'s own direct textures are packed anyway), which a link naming a `.mtl` brings
-/// as well: the shared model keeps the textures beside it, as `Common/`'s own direct textures
-/// are packed whether a model names them or not
-/// (`pipeline.md` step 4 "Common"). What PES 18-21 reads of a
-/// subfolder (`is_read_common_file`); computed once per export, from the validated export.
+/// shared folder of `export` reaches, by their export paths. This is what PES 18-21 reads of a
+/// subfolder (`is_read_common_file`), computed once per export from the validated export.
+///
+/// A link mirrors `Common/`'s tree (`spec/model_format.md` "Link files"). It reaches the file
+/// it names when it takes a role (`common_link_target`); on Fox, `player_file` gives a role
+/// only to a link to a model, a `.mtl` or a texture. When a texture link's `kitN` stem or
+/// directory names a set, it reaches every member of the set (`common_link_files`), and each
+/// member's directory then counts as linked.
+///
+/// A link naming a model also reaches the files that travel with it in its directory: the
+/// models of its stem in any format (the target selects one, `selected_common_model`), the
+/// `.skl` of its stem, and every `.mtl`, since its `.mtl` search may land on any of them
+/// (`mtl_search::mtl_for`). It also reaches every texture directly in its directory and in each
+/// directory above it up to `Common/`, where its names resolve nearest first, and a link naming
+/// a `.mtl` brings those as well. The shared model keeps the textures beside it, as `Common/`'s
+/// own direct textures are packed whether a model names them or not.
 pub(crate) fn linked_common_files(export: &ValidatedAestheticsExport) -> BTreeSet<ScopePath> {
     let mut linked = BTreeSet::new();
     for player in &export.players {
@@ -675,8 +666,7 @@ pub(crate) fn common_texture_below(common: &[FileDescriptor], below: &str) -> St
 
 /// The `.skl` beside the Common model at `model` below `Common/`, in its directory, paired with
 /// it by stem (`legs.skl` for `legs.fmdl`, `jessie/legs.skl` for `jessie/legs.fmdl`), when
-/// there is one: the skeleton that travels with a `.common` link (`player_folders.md` "SKL
-/// pairing").
+/// there is one: the skeleton that travels with a `.common` link.
 pub(crate) fn common_skeleton<'a>(
     common: &'a [FileDescriptor],
     model: &str,
@@ -687,11 +677,10 @@ pub(crate) fn common_skeleton<'a>(
 /// The Common model a `.common` link to the model at `linked` below `Common/`
 /// (`common_link_target`) loads on a target of `engine`, among `common` (the export's `Common/`
 /// files): the file at that path, found as validation found it, unless a model of its stem
-/// beside it in the target's own format beats it (per-stem selection, target-native first:
-/// `pipeline.md` step 3 "Format conversion"), a `.model` beating an FMDL on pre-Fox and an
-/// FMDL a `.model` on Fox. Such a link loads the target's own model, found by the linked path
-/// stem, and the beaten one is ignored as a player folder's beaten model is. `None` when
-/// `common` holds no file at the path.
+/// beside it in the target's own format beats it: selection is per stem, target-native first,
+/// so a `.model` beats an FMDL on pre-Fox and an FMDL a `.model` on Fox. Such a link loads the
+/// target's own model, found by the linked path stem, and the beaten one is ignored as a
+/// player folder's beaten model is. `None` when `common` holds no file at the path.
 pub(crate) fn selected_common_model<'a>(
     common: &'a [FileDescriptor],
     linked: &str,
@@ -740,8 +729,8 @@ pub(crate) fn directory_stem(file: &FileDescriptor) -> (Option<String>, String) 
 }
 
 /// Whether `file` sits below the folder at `folder`, at any depth: where a player folder's files
-/// take their roles, a subfolder of any name being a player folder of its own merged into the
-/// root player's (`player_folders.md` "Subfolders").
+/// take their roles, since a subfolder of any name is a player folder of its own merged into
+/// the root player's (`spec/aesthetics_export/player_folders.md` "Subfolders").
 fn below(folder: &ScopePath, file: &FileDescriptor) -> bool {
     file.path
         .as_str()
@@ -755,9 +744,9 @@ fn directly_in(folder: &ScopePath, file: &FileDescriptor) -> bool {
 }
 
 /// Whether `file` of the model folder at `folder` sits where it may
-/// take a role: anywhere below it (`below`), a shared folder's tree following a player folder's
-/// (`player_folders.md` "Subfolders"), a `.common` link included, which stands for the
-/// `Common/` file at its own path below the folder (`common_link_target`). The per-player
+/// take a role: anywhere below it (`below`), a shared folder's tree following a player
+/// folder's. A `.common` link is included, standing for the `Common/` file at its own path
+/// below the folder (`common_link_target`). The per-player
 /// singletons (`face.xml`, `face_diff.bin`, `face_diff.xml`, `fcl_hair_sim.fclo`,
 /// `is_player_singleton`) take a role directly in the folder alone: a folder has one of each,
 /// and a subfolder's, kept by a lenient check, would be a second. A file the allowlist does
@@ -796,7 +785,7 @@ pub(crate) fn role_files<'a>(
 }
 
 /// The package and allowed name a model named `<free part>_<suffix>` goes to by its suffix
-/// alone (`player_folders.md` "Model names").
+/// alone (`spec/aesthetics_export/player_folders.md` "Model names").
 fn suffix_role(suffix: Option<ModelSuffix>) -> (ModelPackage, &'static str) {
     match suffix {
         Some(ModelSuffix::FaceHigh) => (ModelPackage::Face, "face_high"),
@@ -819,7 +808,7 @@ fn suffix_role(suffix: Option<ModelSuffix>) -> (ModelPackage, &'static str) {
 fn model_role(stem: &str, ingame_face: bool) -> (ModelPackage, &'static str) {
     let role = suffix_role(model_suffix(stem));
     // The marker means no face package: the hair's parts would be lost, and the boots take
-    // the full body skeleton as the hair does (`player_folders.md` "`ingame_face` marker").
+    // the full body skeleton as the hair does.
     // The explicit face names have no such home; validation drops a marked folder holding one.
     if ingame_face && role == (ModelPackage::Face, "fcl_hair") {
         return (ModelPackage::Boots, "boots");
@@ -855,10 +844,10 @@ pub(crate) struct FolderModels {
     /// own `face.xml`, or links a shared face that gives one (`with_linked_face`). Never set
     /// for a shared boots or gloves folder, which gives no face.
     face: bool,
-    /// The path stems of its `fcl_hair` parts, a model with no recognized suffix included
-    /// (`player_folders.md` "Model names": face content the hair merge takes), each of whose
-    /// skeletons packs as `fcl_hair_sim.skl` (several parts merge into one `fcl_hair.fmdl`,
-    /// and the merge decides whose skeleton that is).
+    /// The path stems of its `fcl_hair` parts, a model with no recognized suffix included,
+    /// since that is face content the hair merge takes. Each one's skeleton packs as
+    /// `fcl_hair_sim.skl`: several parts merge into one `fcl_hair.fmdl`, and the merge decides
+    /// whose skeleton that is.
     hair_stems: Vec<String>,
     /// The path stems of its boots models, each of whose skeletons packs as `boots.skl`, by
     /// the same rule.
@@ -876,12 +865,12 @@ pub(crate) struct FolderModels {
     left_out_variants: Vec<ScopePath>,
     /// The path stems of its models in the target engine's own format, `.fmdl` files on Fox
     /// and `.model` files on pre-Fox, each of which beats a glTF or a model of the other format
-    /// of its path stem (`pipeline.md` step 3 "Format conversion": target-native first), that
-    /// model then having no role and no finding (TC-MOD-26).
+    /// of its path stem, since selection is target-native first. The beaten model then has no
+    /// role and no finding (TC-MOD-26).
     native_model_stems: Vec<String>,
     /// The path stems of its `.glb` and `.gltf` models, each of which beats a model of the
-    /// other engine's format of its path stem and is beaten by one of the target's
-    /// (`pipeline.md` step 3 "Format conversion": target-native first, then glTF).
+    /// other engine's format of its path stem and is beaten by one of the target's: selection
+    /// is target-native first, then glTF.
     gltf_stems: Vec<String>,
     /// Pre-Fox: the path stems of the `.fmdl` files converted, by the face or a shared boots or
     /// gloves output (`PlayerFile::PreFoxModel`) or, under `ingame_face`, by his own boots or
@@ -997,8 +986,7 @@ impl FolderModels {
                             Some(PlayerFile::PreFoxCommonModel { .. })
                         );
                     // A folder holding its own `face.xml` has a face whatever models it
-                    // holds: the xml may name only Common models (`messages.md`
-                    // "User-supplied `face.xml`").
+                    // holds: the xml may name only Common models.
                     models.face |= model_link
                         || file.kind == FileKind::Model(ModelFormat::PesModel)
                         || converted
@@ -1068,9 +1056,9 @@ impl FolderModels {
         matches!(self.shared, Some(SharedKind::Boots | SharedKind::Gloves))
     }
 
-    /// Whether `file` is a model another representation of its path stem beats (`pipeline.md`
-    /// step 3 "Format conversion": target-native first, then glTF, then the other engine's
-    /// format): a glTF with a model of the target's format beside it, or a model in the other
+    /// Whether `file` is a model another representation of its path stem beats, selection being
+    /// target-native first, then glTF, then the other engine's format. That is a glTF with a
+    /// model of the target's format beside it, or a model in the other
     /// engine's format, a `.model` on Fox or an `.fmdl` on pre-Fox, with a model of the
     /// target's format or a glTF beside it. The beaten model has no role and no finding
     /// (TC-MOD-26): nothing reads it.
@@ -1092,8 +1080,8 @@ impl FolderModels {
     }
 
     /// The models of a player folder linking a shared face that gives a face (its own models
-    /// give one, `FolderModels::face`): the shared face is the player's face (a merge of one,
-    /// `player_folders.md` "A link plus local models combines"), so the folder's
+    /// give one, `FolderModels::face`). The shared face is then the player's whole face, so
+    /// the folder's
     /// `face_diff.bin` and `fcl_hair_sim.fclo` have a package to go in with no face model of
     /// the folder's own.
     pub(crate) fn with_linked_face(mut self) -> FolderModels {
@@ -1634,19 +1622,21 @@ pub(crate) fn is_hand_split(
 }
 
 /// Whether the effective package `package` of `player`, a player folder of `export`, has a
-/// part on a target of `engine` (`player_folders.md` "A link plus local models combines"):
-/// what gives him his own package of that kind, which a link of its kind then combines with
-/// (`link_combines`). The parts are those of his own files (`is_part_of`), under his
-/// `ingame_face` marker when he holds one, a `.common` link's Common model included; those of
-/// each shared face he links, its files under his roles, which on Fox makes a boots- or
-/// glove-named model there a part of his boots or gloves as his own would be, and on pre-Fox
-/// gives neither any part (a face's models are face content there); and on Fox, for his
-/// gloves, the hands split off a face part of his or of a linked face (`is_hand_split`),
-/// which join his gloves as authored ones would (`model_conversion/hand_split.md` "Pipeline
-/// integration"). On pre-Fox a split stays inside the face, which gives no gloves package; nor
-/// does a Fox player's own `face.xml` stop a split, Fox having no `face.xml` role. His and his
-/// faces' roles are read over both, as his face is built (`part_source_models`): a per-kit
-/// variant a lower one of its set leaves out is no part.
+/// part on a target of `engine`. A part is what gives him his own package of that kind, which
+/// a link of its kind then combines with (`link_combines`). The parts are:
+///
+/// - those of his own files (`is_part_of`), under his `ingame_face` marker when he holds one,
+///   a `.common` link's Common model included;
+/// - those of each shared face he links, its files under his roles. On Fox that makes a boots-
+///   or glove-named model there a part of his boots or gloves, as his own would be. On pre-Fox
+///   it gives neither any part, since a face's models are face content there;
+/// - on Fox, for his gloves, the hands split off a face part of his or of a linked face
+///   (`is_hand_split`), which join his gloves as authored ones would. On pre-Fox a split stays
+///   inside the face, which gives no gloves package. A Fox player's own `face.xml` does not
+///   stop a split, since Fox has no `face.xml` role.
+///
+/// His and his faces' roles are read over both, as his face is built (`part_source_models`):
+/// a per-kit variant a lower one of its set leaves out is no part.
 pub(crate) fn has_effective_part(
     export: &ValidatedAestheticsExport,
     player: &PlayerFolder,
@@ -1709,8 +1699,7 @@ pub(crate) fn file_stem(name: &str) -> &str {
     name.rsplit_once('.').map_or(name, |(stem, _)| stem)
 }
 
-/// What `compile` does with a team export's `Collars/` file for a target of one engine
-/// (`pipeline.md` "Collars").
+/// What `compile` does with a team export's `Collars/` file for a target of one engine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum CollarFile {
     /// A model the target's collar task writes: in the format the engine reads (an FMDL on Fox,
@@ -1719,7 +1708,7 @@ pub(crate) enum CollarFile {
     /// material names, a `.model` on Fox to an FMDL with the templates' `uniform.mtl` as its
     /// `.mtl`). It claims the stock collar its name gives and is written in its place.
     Compiled,
-    /// A glTF, which the compiler does not read until Phase 7: planning drops it with
+    /// A glTF, which the compiler does not read yet: planning drops it with
     /// `model_gltf_unsupported`, the file alone, and the export compiles without it.
     Unsupported,
     /// Any other kind, which the structure pass keeps only with the strict file-type check

@@ -1,7 +1,7 @@
-//! Red parity over one library export, the measurement of worklog step 6.12: the CPKs the
-//! Team compiler wrote for an upgraded export, against the CPKs Red wrote for the old one,
-//! one report line per entry of Red's output (and per entry of ours that no Red entry
-//! accounts for), each classified under the tiers and the intentional differences of
+//! Red parity over one library export: the CPKs the Team compiler wrote for an upgraded
+//! export, against the CPKs Red wrote for the old one, one report line per entry of Red's
+//! output (and per entry of ours that no Red entry accounts for), each classified under the
+//! tiers and the intentional differences of
 //! `docs/spec/team_compiler/testing.md` "Testing: parity against Red (adapted from Blue)":
 //! textures matched by content across the relocated locations, Red's kit path magic
 //! (`u0XXXp1`) read as the compiler's `kit1`, boots and gloves packages matched by content
@@ -877,7 +877,7 @@ fn compare_ftex(red: &[u8], ours: &[u8]) -> (&'static str, String) {
 /// headers is the farthest, its block count meaningless (two payloads of one size but other
 /// dimensions or codecs). The candidates share a file name, so the first one compared is
 /// often another player's copy: without this the line would name it rather than the
-/// wearer's own (6.12c, a texture Red changed in its last two blocks).
+/// wearer's own, as it did for a texture Red changed in its last two blocks.
 fn is_closer(detail: &str, best: Option<&String>) -> bool {
     let distance = |detail: &str| -> Option<usize> {
         if detail.ends_with("pixels equal") {
@@ -1156,8 +1156,8 @@ fn compare_face_xml(red: &[u8], ours: &[u8]) -> (&'static str, String) {
     ("xml_differs", parts.join("; "))
 }
 
-/// Fixed-size team records (`resources/bins/README.md`): the records that differ, named by
-/// the team ID each starts with (`id_bytes` wide).
+/// Fixed-size team records: the records that differ, named by the team ID each starts with
+/// (`id_bytes` wide).
 fn compare_records(
     red: &[u8],
     ours: &[u8],

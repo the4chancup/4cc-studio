@@ -1,13 +1,11 @@
-//! Texture conversion for the target's engine, FTEX on Fox, DDS on pre-Fox
-//! (`spec/team_compiler/pipeline.md` "3. Per-model-folder parallel steps", step 5): every accepted
-//! image format through
-//! `dds_convert`, which picks the codec the target version reads; a model folder's textures as
-//! one unit (step 6) and the export's Common textures as another ("Resolved decisions",
-//! "Common textures are one task of their export"); a portrait as the DDS every engine reads
-//! (`player_folders.md` "Portraits"). A texture's signature and size, a portrait's included,
-//! are checked by the deep pass before planning; what conversion itself finds
-//! (`texture_codec_unsupported`, `messages.md` "Textures") the task fails with, and what a
-//! failure drops is the task's unit: a folder.
+//! Texture conversion for the target's engine, FTEX on Fox, DDS on pre-Fox. Every accepted
+//! image format goes through `dds_convert`, which picks the codec the target version reads. A
+//! model folder's textures are converted as one unit, and the export's Common textures as
+//! another. A portrait becomes the DDS every engine reads.
+//!
+//! A texture's signature and size, a portrait's included, are checked by the deep pass before
+//! planning. What conversion itself finds (`texture_codec_unsupported`) the task fails with,
+//! and what a failure drops is the task's unit: a folder.
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -37,8 +35,8 @@ use crate::plan::{ENVIRONMENT_MAP_STEM, ModelFolder};
 /// Why a texture could not be converted.
 #[derive(Debug)]
 pub(super) enum TextureError {
-    /// One of the texture findings (`messages.md` "Textures"), on the file named: it is the
-    /// task's failure, carrying its code.
+    /// One of the texture findings, on the file named: it is the task's failure, carrying its
+    /// code.
     Finding(Code, String),
     /// Any other failure, which is the ordinary `folder_pack_failed`.
     Other(anyhow::Error),
@@ -95,8 +93,7 @@ struct TextureCopy {
 /// the package its source feeds for the conflict rule's canonical order, the folder's export
 /// path for `shared_texture_overridden`, and the path it stands at as spelled. It stands at
 /// the path as its folder's copy would, and its `Common/` file serves it, so it always
-/// differs from a file there, while two links at one path name the one `Common/` file
-/// (`pipeline.md` step 6).
+/// differs from a file there, while two links at one path name the one `Common/` file.
 struct LinkCopy {
     package: ModelPackage,
     folder: String,
@@ -108,15 +105,16 @@ struct LinkCopy {
 /// folder (`PlayerFile::Texture`), compared case-folded: one entry per path, however many of the
 /// folder's models use it and however many ids its packages are emitted under, so a
 /// subfolder's `jessie/skin.dds` and the root's `skin.dds` are two entries
-/// (`player_folders.md` "Subfolders"). A combined shared folder's files stand at their paths
-/// below it, so its `jessie/skin.dds` and the root's are two entries too. A path several
-/// sources hold is one entry
-/// when their bytes agree. Local files win over imported ones: a path the player's own folder
-/// holds, as a texture or as a texture link standing there (`PlayerFile::CommonTexture`), is
-/// his whatever the packages: his copy is the entry every model of his names, a link's path
-/// gets no entry, and each combined folder's copy of the path is left out,
-/// `shared_texture_overridden` noted in `findings` when its bytes differ from his, a link
-/// always counting as differing (`pipeline.md` step 6). Two combined folders of different
+/// (`spec/aesthetics_export/player_folders.md` "Subfolders"). A combined shared folder's files
+/// stand at their paths below it, so its `jessie/skin.dds` and the root's are two entries too.
+/// A path several sources hold is one entry when their bytes agree.
+///
+/// Local files win over imported ones: a path the player's own folder holds, as a texture or
+/// as a texture link standing there (`PlayerFile::CommonTexture`), is his whatever the
+/// packages. His copy is the entry every model of his names, a link's path gets no entry, and
+/// each combined folder's copy of the path is left out. `shared_texture_overridden` is noted
+/// in `findings` when its bytes differ from his, a link always counting as differing. Two
+/// combined folders of different
 /// packages holding one path with different bytes is `shared_texture_conflict`, which fails
 /// the task and leaves the player folder out; two sources of one package cannot disagree, the
 /// player's own copy winning first and a player combining one folder of each kind. A folder
@@ -213,10 +211,10 @@ pub(super) fn folder_textures(
 
 /// Completes the kit variant sets among `textures`, each a path below its folder without its
 /// extension as spelled (a stem, for a texture directly in it) with its converted bytes,
-/// against `kits`, the export's kit numbers, for a target of `engine` (`pipeline.md` "4.
-/// Per-export non-model steps", Kit-dependent assets): the members of one reference,
-/// compared case-folded — its `kit1` to `kit9` variants and its `kitF` fallback, which is
-/// never emitted under its own name — are a set. The set's fallback, its `kitF` member else
+/// against `kits`, the export's kit numbers, for a target of `engine`
+/// (`spec/model_format.md` "Kit-dependent assets"). The members of one reference, compared
+/// case-folded, are a set: its `kit1` to `kit9` variants and its `kitF` fallback, which is
+/// never emitted under its own name. The set's fallback, its `kitF` member else
 /// its lowest variant, serves every kit number the set lacks: on PES 15-17 it is emitted
 /// under each missing number's spelling, and `kit_variant_missing` is noted in `findings`
 /// for each when the fallback is the lowest variant; on PES 18-21 it is written once under
@@ -496,11 +494,11 @@ pub(super) fn common_texture(
 /// converter: an FTEX on every Fox target, a DDS on pre-Fox, in the codec the version reads,
 /// with the mip chain a raster source lacks generated, in the role the file's stem gives it.
 /// On pre-Fox a WESYS-wrapped DDS whose blocks the conversion keeps as they are is returned as
-/// it is, still wrapped, which the game reads as it reads a plain DDS (`settings.md`, "DDS
-/// compression cost"). A plain cube-map DDS is never decoded: it goes out as it is on pre-Fox
-/// and as the FTEX cube map `ftex::dds_to_ftex` writes on Fox. Its signature and
-/// size are the deep pass's checks, done before planning; a texture that reaches this point
-/// either passed them or is kept by `pass_through`, so it is converted as it is.
+/// it is, still wrapped, which the game reads as it reads a plain DDS. A plain cube-map DDS is
+/// never decoded: it goes out as it is on pre-Fox and as the FTEX cube map
+/// `ftex::dds_to_ftex` writes on Fox. Its signature and size are the deep pass's checks, done
+/// before planning; a texture that reaches this point either passed them or is kept by
+/// `pass_through`, so it is converted as it is.
 pub(super) fn convert(
     ctx: &CompileContext,
     format: SourceFormat,
@@ -589,9 +587,8 @@ pub(super) fn decode_charge(
     Ok(budget.charge(usize::try_from(charge).unwrap_or(usize::MAX)))
 }
 
-/// The portrait file `name`, in `format`, holding `bytes`, as the DDS every engine reads
-/// (`player_folders.md` "Portraits"): a DDS source under the legacy 128-byte header as it is,
-/// unwrapped when it is WESYS-wrapped;
+/// The portrait file `name`, in `format`, holding `bytes`, as the DDS every engine reads: a
+/// DDS source under the legacy 128-byte header as it is, unwrapped when it is WESYS-wrapped;
 /// one under a DX10 extension header with the header `ftex::dds::header_bytes` writes for its
 /// format and its pixel data unchanged, noted in `findings` as `portrait_header_rewritten`, or,
 /// for an uncompressed layout that has no `PixelFormat` or whose rows are padded, encoded like
@@ -675,9 +672,9 @@ pub(super) fn portrait(
                 }
             }
         }
-        // The plan gives every portrait that is not a DDS the full chain; an FTEX's authored
-        // levels, which the encoder would otherwise keep, are the one thing it would add over
-        // a raster source, and the plan does not ask for them. Its blocks go too: the encoder
+        // Every portrait that is not a DDS gets the full chain. An FTEX's authored levels, which
+        // the encoder would otherwise keep, are the one thing it would add over a raster source,
+        // and nothing asks for them. Its blocks go too: the encoder
         // emits a source's blocks as they are when they are already BC3, whatever their level
         // count, so a BC3 FTEX would keep its own chain.
         SourceFormat::Ftex => {
@@ -697,8 +694,7 @@ pub(super) fn portrait(
 
 /// The role of a texture by its `stem`: a normal map when the stem ends in `_nrm` in any
 /// case, the suffix of the game's own normal maps (`skin_nrm`, `oral_nrm`), read without a
-/// kit token, which sits after the role suffix (`pants_nrm_kit1`, `model_format.md`
-/// "Kit-dependent assets"); color otherwise.
+/// kit token, which sits after the role suffix (`pants_nrm_kit1`). Color otherwise.
 pub(super) fn texture_role(stem: &str) -> TextureRole {
     let stem = without_kit_token(stem);
     let bytes = stem.as_bytes();

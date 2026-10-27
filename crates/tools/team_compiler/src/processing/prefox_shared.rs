@@ -1,19 +1,22 @@
-//! A pre-Fox boots or gloves output (`team_compiler/pipeline.md` "3. Per-model-folder parallel
-//! steps", step 7): loose files in the shape of the game's own boots and glove folders, written
-//! under an id. A `Boots/` or `Gloves/` folder a player links plainly is written once under its
-//! shared id; an `ingame_face` player's own boots and gloves, his parts of each (the Common
-//! models his `.common` links copy in included, with the `.mtl` each uses) and the models of a
-//! folder of their kind his link combines, under his exclusive id (`player_folders.md`
-//! "`ingame_face` marker", "`ingame_face` with shared links"). Boots are one model as
-//! `boots.model` and the `.mtl` it uses as `boots.mtl`, the names the game loads, several
-//! models merged into one (`pes_model::ops::merge`); gloves are each model at its path
-//! below the folder and the `.mtl` files they use at the output's root, each named by its
-//! path below the folder with each `/` written `_`, lowercased, listed in a generated `glove.xml`,
-//! unmerged. An `.fmdl` among the models is converted as the face converts one (`pipeline.md`
-//! step 3 "Format conversion"), its `.model` and material set taking the place of a member's
-//! `.model` and the `.mtl` it uses; a `.model` the conversion pre-check finds posed off the
-//! version's skeleton is moved onto it as the face moves one, the `.mtl` it uses packed as
-//! written. A shared folder's textures sit at their paths beside them
+//! A pre-Fox boots or gloves output: loose files in the shape of the game's own boots and
+//! glove folders, written under an id. A `Boots/` or `Gloves/` folder a player links plainly is
+//! written once under its shared id. An `ingame_face` player's own boots and gloves are written
+//! under his exclusive id: his parts of each (the Common models his `.common` links copy in
+//! included, with the `.mtl` each uses) and the models of a folder of their kind his link
+//! combines.
+//!
+//! Boots are one model as `boots.model` and the `.mtl` it uses as `boots.mtl`, the names the
+//! game loads, several models merged into one (`pes_model::ops::merge`). Gloves are unmerged:
+//! each model at its path below the folder and the `.mtl` files they use at the output's root,
+//! each named by its path below the folder with each `/` written `_`, lowercased, and listed in
+//! a generated `glove.xml`.
+//!
+//! An `.fmdl` among the models is converted as the face converts one, its `.model` and
+//! material set taking the place of a member's `.model` and the `.mtl` it uses. A `.model` the
+//! conversion pre-check finds posed off the version's skeleton is moved onto it as the face
+//! moves one, the `.mtl` it uses packed as written.
+//!
+//! A shared folder's textures sit at their paths beside them
 //! (`TextureHome::SharedOutput`), each `.mtl` path naming its texture from the output's root,
 //! where the `.mtl` packs (`./<stem>.dds`, `./<sub>/<stem>.dds`); a player's are
 //! in his common folder (`TextureHome::PlayerCommon`), named as his face's `.mtl` files name
@@ -510,9 +513,9 @@ fn material_of<'a>(folder: &'a ModelFolder, model: &SourceModel<'a>) -> &'a File
 
 /// `items`, gloves files of a player or a shared folder, less each of a folder the player
 /// combines that packs under a path one of his own packs under: his file replaces it, as a
-/// copy of his over the linked folder's would (`player_folders.md` "`ingame_face` with shared
-/// links"). `packed` gives an item's packed path and whether the player's own folder holds it;
-/// a shared folder's items are all its own, so none is left out.
+/// copy of his over the linked folder's would. `packed` gives an item's packed path and
+/// whether the player's own folder holds it; a shared folder's items are all its own, so none
+/// is left out.
 fn without_replaced<T>(items: Vec<T>, packed: impl Fn(&T) -> (String, bool)) -> Vec<T> {
     let own_names: BTreeSet<String> = items
         .iter()

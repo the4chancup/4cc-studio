@@ -75,15 +75,13 @@ pub(super) struct ModelRead {
     /// A model whose vertices carry a positive weight on a hand-skeleton bone (`skh_*_l`,
     /// `skh_*_r`), an FMDL or a pre-Fox `.model`, each read by its own format's check: on Fox
     /// planning gives a player folder holding it as a face part a gloves task, and the face and
-    /// gloves tasks split it (`pipeline.md` "2. Per-export serial steps", step 6); on pre-Fox
-    /// the face task splits it into two more `face.xml` entries. Always `false` for a material
-    /// set.
+    /// gloves tasks split it; on pre-Fox the face task splits it into two more `face.xml`
+    /// entries. Always `false` for a material set.
     pub(super) hand_weighted: bool,
     /// An FMDL with a material the converter reads as the `metal` family
-    /// (`model_convert::materials::from_fox_shader`, the family table's `metal` row in
-    /// `model_format.md`): converted for PES 15-17 it is a `Basic_CNSR` material, which needs
-    /// an environment map (`ContentPass::metal_models`). Always `false` for a pre-Fox model or
-    /// a material set.
+    /// (`model_convert::materials::from_fox_shader`): converted for PES 15-17 it is a
+    /// `Basic_CNSR` material, which needs an environment map (`ContentPass::metal_models`).
+    /// Always `false` for a pre-Fox model or a material set.
     pub(super) metal: bool,
     /// An FMDL every mesh of which is hidden (`invisible`), so that its PES 15-17 conversion
     /// leaves nothing of it: the `.model` export's own rule

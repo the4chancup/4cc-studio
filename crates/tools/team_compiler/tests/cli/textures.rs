@@ -1,9 +1,8 @@
-//! `compile` over textures in every accepted image format (`team_compiler/pipeline.md` "3.
-//! Per-model-folder parallel steps", step 5): a player folder's, a shared folder's, Common's
-//! and a kit's, each converted for the target version's codec with its mip chain, observed
-//! through the emitted FTEX's header and blocks; and the texture findings the deep pass
-//! reports from their headers, at `check` and at `compile` (`team_compiler/messages.md`
-//! "Textures").
+//! `compile` over textures in every accepted image format
+//! (`spec/team_compiler/pipeline.md` "Texture conversion"): a player folder's, a shared
+//! folder's, Common's and a kit's, each converted for the target version's codec with its mip
+//! chain, observed through the emitted FTEX's header and blocks. Also the texture findings the
+//! deep pass reports from their headers, at `check` and at `compile`.
 
 use std::fs;
 use std::path::Path;
@@ -31,7 +30,8 @@ use crate::{CLEAN_PLAYER, clean_model, command_args, findings_of};
 /// The player's texture home, the per-player common subfolder.
 const PLAYER_TEXTURES: &str = "Asset/model/character/common/714/05 - A/sourceimages/#windx11";
 
-/// The bytes of `tests/fixtures/textures/<name>` (that folder's `README.md`).
+/// The bytes of `tests/fixtures/textures/<name>`, described in
+/// `tests/fixtures/textures/README.md`.
 pub(crate) fn texture_fixture(name: &str) -> Vec<u8> {
     fs::read(
         Path::new(env!("CARGO_MANIFEST_DIR"))

@@ -1,7 +1,6 @@
-//! `compile` of kits for PES 2017 (`team_compiler/pipeline.md` "4. Per-export non-model
-//! steps", Kits): each kit's textures as DDS under the pre-Fox kit texture folder, its mask
-//! (its own, or the bundled template when it has none) and never its srm, a kit drawn for the
-//! Fox layout re-laid with its mask, the kit configs as loose files with no
+//! `compile` of kits for PES 2017: each kit's textures as DDS under the pre-Fox kit texture
+//! folder, its mask (its own, or the bundled template when it has none) and never its srm, a
+//! kit drawn for the Fox layout re-laid with its mask, the kit configs as loose files with no
 //! `UniformParameter.bin`, and the two color bins written as on every version.
 
 use std::fs;
@@ -239,8 +238,8 @@ fn a_pes_17_kit_marked_fox_has_its_mask_re_laid_with_it() {
 #[test]
 fn a_pes_17_placeholder_kit_marked_fox_has_only_its_own_mask_re_laid() {
     // No `kit.dds`, so the placeholder stands in; a row number atlas, which its shape alone
-    // re-arranges; and the kit's own mask, the one texture the marker re-lays
-    // (`pipeline.md` "Layout conversion": the kit's own or inherited textures only).
+    // re-arranges; and the kit's own mask, the one texture the marker re-lays: it re-lays the
+    // kit's own or inherited textures only.
     let row = bc1_dds(2048, 256, |x, _| {
         if (x / 64) % 2 == 0 {
             [255, 0, 0, 255]

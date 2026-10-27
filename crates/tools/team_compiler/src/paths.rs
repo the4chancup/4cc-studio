@@ -17,15 +17,14 @@ use crate::plan::roles::ModelPackage;
 use crate::texture_lookup;
 
 /// The team id the referees' content carries in game paths and FMDL texture paths
-/// (`common/999/Ref A/`, `pipeline.md` "3. Per-model-folder parallel steps", step 6). It is
-/// not a `TeamId`: no teams-list row has it, and nothing is written to a team record under it.
+/// (`common/999/Ref A/`). It is not a `TeamId`: no teams-list row has it, and nothing is
+/// written to a team record under it.
 pub(crate) const REFEREE_TEAM_ID: u16 = 999;
 
-/// The stock collar the referees' marker takes (`blue_port.md` "Referee export processing"):
-/// on Fox the marker model is written as this collar and the referee kit configs name it. A
-/// stock collar of every target version that no kit config on the maintainer's machine uses,
-/// so no team's players wear the marker by accident; a team kit naming it is
-/// `kit_collar_reserved`, on both engines.
+/// The stock collar the referees' marker takes: on Fox the marker model is written as this
+/// collar and the referee kit configs name it. A stock collar of every target version that no
+/// kit config on the maintainer's machine uses, so no team's players wear the marker by
+/// accident; a team kit naming it is `kit_collar_reserved`, on both engines.
 pub(crate) const REFEREE_MARKER_COLLAR: u8 = 77;
 
 /// The game path of the pre-Fox referee template tree's prop texture, the one the game draws
@@ -95,7 +94,7 @@ pub(crate) fn pre_fox_package_folder(package: ModelPackage, key: PackageKey) -> 
 }
 
 /// Where a model folder's textures go, which its models' texture paths name and its textures
-/// task writes to (`pipeline.md` "3. Per-model-folder parallel steps", step 6).
+/// task writes to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum TextureHome {
     /// A player folder's: the team's per-player common subfolder, keyed by the source
@@ -245,12 +244,12 @@ impl TextureHome {
     }
 }
 
-/// The directory a model's texture paths name for a texture of the team's Common output (the
-/// Common row of "Game paths reference"), on a target of `engine`, for team `team_id`: an FMDL
-/// texture-path table's on Fox, a `.mtl` sampler's on pre-Fox, where it is also the directory
-/// a `face.xml` names a Common model or `.mtl` by. Where a texture that resolves into the
-/// export's `Common/` folder stays, packed once for every player pointing at it (`pipeline.md`
-/// "3. Per-model-folder parallel steps", step 6).
+/// The directory a model's texture paths name for a texture of the team's Common output, on a
+/// target of `engine`, for team `team_id`
+/// (`spec/team_compiler/pipeline.md` "Game paths reference"). It is an FMDL texture-path
+/// table's on Fox and a `.mtl` sampler's on pre-Fox, where it is also the directory a
+/// `face.xml` names a Common model or `.mtl` by. A texture that resolves into the export's
+/// `Common/` folder stays there, packed once for every player pointing at it.
 pub(crate) fn common_texture_directory(engine: Engine, team_id: u16) -> String {
     match engine {
         Engine::Fox => format!("/Assets/pes16/model/character/common/{team_id}/sourceimages/"),
@@ -275,7 +274,7 @@ pub(crate) fn common_home(engine: Engine, team_id: u16) -> TextureDirectory {
 /// The CPK path of the texture at `below` below `Common/` without its extension (`hair`,
 /// `jessie/hair`) of the team's Common output, converted for a target of `engine` (an FTEX on
 /// Fox, a DDS on pre-Fox), for team `team_id`: on Fox its directory goes before
-/// `sourceimages/`, as a texture of a `Common/` subfolder packs (`pipeline.md` "Common").
+/// `sourceimages/`, as a texture of a `Common/` subfolder packs.
 pub(crate) fn common_texture(engine: Engine, team_id: u16, below: &str) -> String {
     let (subdirectory, name) = texture_lookup::split(below);
     match engine {
@@ -306,8 +305,7 @@ pub(crate) fn common_texture_below(team_id: u16, path: &str) -> Option<String> {
 }
 
 /// The CPK path of the file `name` in team `team_id`'s pre-Fox Common output: where a `Common/`
-/// model goes under its packed name and a `Common/` `.mtl` under its own (`pipeline.md` "3.
-/// Per-model-folder parallel steps", step 4).
+/// model goes under its packed name and a `Common/` `.mtl` under its own.
 pub(crate) fn pre_fox_common_file(team_id: u16, name: &str) -> String {
     format!(
         "common/character1/{}{name}",
@@ -318,7 +316,7 @@ pub(crate) fn pre_fox_common_file(team_id: u16, name: &str) -> String {
 /// The place the output of the `Common/` directory `folder` takes under the team's Common
 /// output, prefixed to each of its file names: each segment of `folder` after `Common` followed
 /// by `/` (`""` for `Common` itself, `"refkit/"` for `Common/refkit`), since on PES 15-17 a
-/// subfolder is packed at its own path (`pipeline.md` "Common").
+/// subfolder is packed at its own path.
 pub(crate) fn common_subpath(folder: &ScopePath) -> String {
     folder
         .segments()
@@ -340,8 +338,8 @@ pub(crate) fn collar(engine: Engine, id: u8) -> String {
 }
 
 /// The CPK path of the entry that is the referees' marker for a target of `engine`: the marker
-/// collar's model on Fox, the template prop's texture (`REFEREE_PROP_TEXTURE`) on pre-Fox
-/// (`blue_port.md` "Referee export processing"). Only the marker task writes it.
+/// collar's model on Fox, the template prop's texture (`REFEREE_PROP_TEXTURE`) on pre-Fox.
+/// Only the marker task writes it.
 pub(crate) fn referee_marker(engine: Engine) -> String {
     match engine {
         Engine::Fox => collar(Engine::Fox, REFEREE_MARKER_COLLAR),
@@ -363,9 +361,8 @@ pub(crate) fn kit_texture(engine: Engine, name: &str) -> String {
     }
 }
 
-/// The folder of one team's shared-IDs record in the CPK
-/// (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team
-/// already has"), a path no game reads.
+/// The folder of one team's shared-IDs record in the CPK, a path no game reads. A later
+/// `Midcup` export of the team reads the record to keep the shared IDs the team already has.
 pub(crate) const SHARED_IDS: &str = "4cc_studio/shared_ids/";
 
 /// The CPK path of team `team_id`'s shared-IDs record (`<team id>.toml` under `SHARED_IDS`).

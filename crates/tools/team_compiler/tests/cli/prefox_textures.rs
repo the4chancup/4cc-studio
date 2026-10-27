@@ -1,6 +1,5 @@
-//! `check` and `compile` for PES 2017 looking up the textures a `.mtl` names
-//! (`team_compiler/messages.md`, the paragraph after "Texture existence is checked **deep**"):
-//! a texture of a material a mesh uses must be in the player's folder, or, named in the team's
+//! `check` and `compile` for PES 2017 looking up the textures a `.mtl` names: a texture of a
+//! material a mesh uses must be in the player's folder, or, named in the team's
 //! Common folder, in `Common/` or in an installed CPK listed before the one compiled.
 
 use pes_model::format::mtl::{MaterialEntry, MaterialSet};

@@ -55,7 +55,7 @@ pub(crate) enum SourceKind {
     SevenZ,
 }
 
-/// What the reader decided for one source before validation (pipeline.md steps 1 and 2).
+/// What the reader decided for one source before validation.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Route {
     /// The source could not be listed: `export_extract_failed`.
@@ -115,8 +115,8 @@ pub(crate) struct Discovery {
     /// numbered in that order.
     pub(crate) sources: Vec<ExportSource>,
     /// The `.upgrading` folders the scan skipped: the Export upgrader's staging folder an
-    /// interrupted upgrade left is no export (`plans/team_compiler/pipeline.md` "1.
-    /// Reader"), reported `export_upgrade_unfinished` by the run, in the same order.
+    /// interrupted upgrade left is no export. The run reports them as
+    /// `export_upgrade_unfinished`, in the same order.
     pub(crate) skipped: Vec<PathBuf>,
 }
 
@@ -197,8 +197,8 @@ fn named_paths(exports: &[PathBuf]) -> anyhow::Result<Vec<(PathBuf, SourceKind)>
 
 /// The folder or archive name at the end of `path`. A path ending in `.` or `..`, which
 /// `Path::file_name` cannot name, takes the canonical path's last component: `--export ..`
-/// names the folder it resolves to (`settings.md` "Path resolution": a relative command-line
-/// path resolves against the current directory). Only when the path cannot be canonicalized
+/// names the folder it resolves to, since a relative command-line path resolves against the
+/// current directory. Only when the path cannot be canonicalized
 /// (it vanished since the preflight; the read reports that) does the path as given stand in.
 fn file_name(path: &Path) -> String {
     path.file_name().map_or_else(

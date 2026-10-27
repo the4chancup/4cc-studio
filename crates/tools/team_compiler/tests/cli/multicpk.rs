@@ -1,8 +1,8 @@
-//! Multi-CPK mode (`spec/team_compiler/pipeline.md` "5. Writer", step 6 "Multi-CPK mode: teams
-//! parts"): whole teams filled first-fit into the official list's `teams` slots under
+//! Multi-CPK mode (`spec/team_compiler/pipeline.md` "Multi-CPK mode: teams parts"): whole
+//! teams filled first-fit into the official list's `teams` slots under
 //! `cpk_part_max_size`, the placeholder in every slot left over, the overrides and the bins in
-//! the bins CPK; every CPK installed into `download/` or none (`pipeline.md` "6.
-//! Post-processing", "Deploy CPKs"); and the single CPK's warning past the same cap.
+//! the bins CPK; every CPK installed into `download/` or none; and the single CPK's warning
+//! past the same cap.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;

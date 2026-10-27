@@ -1,9 +1,9 @@
 //! The deep pass's checks of a folder's small data files, each read whole and parsed: a face
-//! folder's face diff (`player_folders.md` "`face_diff.xml`"), a kit's `config.toml`, a
-//! player's `settings.toml` and `ingame_face.toml`, and a kit's or the root `colors.txt` (`player_folders.md` "Root
-//! files", "Colors") (`team_compiler/messages.md`: `face_diff_invalid`, `xml_dif_conflict`,
-//! `kit_config_invalid`, `kit_config_version_clamped`, `kit_config_option_ignored`,
-//! `settings_toml_invalid`, `ingame_face_toml_invalid`, `color_entry_invalid`). None of their findings is
+//! folder's face diff, a kit's `config.toml`, a player's `settings.toml` and
+//! `ingame_face.toml`, and a kit's or the root `colors.txt`. Their findings are
+//! `face_diff_invalid`, `xml_dif_conflict`, `kit_config_invalid`,
+//! `kit_config_version_clamped`, `kit_config_option_ignored`, `settings_toml_invalid`,
+//! `ingame_face_toml_invalid` and `color_entry_invalid`. None of them is
 //! pass-through-eligible: a file that cannot be read leaves no value to keep, and a clamped
 //! config value, an ignored config option and a refused `colors.txt` line are Warnings, which
 //! drop nothing.

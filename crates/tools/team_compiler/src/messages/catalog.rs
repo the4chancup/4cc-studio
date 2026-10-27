@@ -6,9 +6,8 @@
 
 use super::CatalogSeverity;
 
-/// Every code this tool emits in Phase 3, with its catalog severity and its `when`/`effect`
-/// text for a member: the structure pass's (`aesthetics_export::ISSUE_CODES`) and the tool's
-/// own.
+/// Every code this tool emits, with its catalog severity and its `when`/`effect` text for a
+/// member: the structure pass's (`aesthetics_export::ISSUE_CODES`) and the tool's own.
 pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     // The tool's own export-level codes.
     (
@@ -1003,8 +1002,9 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     ),
     // The format crates' check codes (`fmdl::check::CODES`, `pes_model::check::CODES`), which
     // the deep pass reports under their own names, at the crate's severity: the far vertex
-    // excepted, reported as `vertex_too_far_from_origin`. In the order of the plan's "Model
-    // checks", then its `.mtl` rows and `model_material_undefined`.
+    // excepted, reported as `vertex_too_far_from_origin`. In the order of the message
+    // catalog's model checks (`spec/team_compiler/messages.md` "Catalog"), then its `.mtl` rows
+    // and `model_material_undefined`.
     (
         "fmdl_mesh_over_bone_limit",
         CatalogSeverity::Error,

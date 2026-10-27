@@ -6,7 +6,7 @@
 //! CPK holds is not written.
 //!
 //! The tables' codec is `pes_savefile::player_tables`; what is the tool's
-//! stays here: applying a plan's `ItemRow`s and the `player_table_missing`
+//! stays here: applying the `ItemRow`s planning decided and the `player_table_missing`
 //! finding.
 
 use std::collections::BTreeSet;

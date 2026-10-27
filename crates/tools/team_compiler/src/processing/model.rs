@@ -1,9 +1,8 @@
-//! One package of a model folder's Fox models (`team_compiler/pipeline.md` "3.
-//! Per-model-folder parallel steps", steps 1, 2, 3 and 7): its `.model` sources converted to
-//! FMDL, its models renamed to their allowed
-//! names, each part's texture paths pointed at where its textures go and the textures its
-//! meshes use looked for, the parts resolving to one name merged into one model, with
-//! the files that go beside them: the package's files, which `materialize` packs or places.
+//! One package of a model folder's Fox models. Its `.model` sources are converted to FMDL, its
+//! models renamed to their allowed names, and each part's texture paths pointed at where its
+//! textures go, the textures its meshes use being looked for. The parts resolving to one name
+//! are merged into one model. The result, with the files that go beside the models, is the
+//! package's files, which `materialize` packs or places.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::iter;
@@ -60,8 +59,7 @@ struct Part {
     textures: PartTextures,
 }
 
-/// Where a part's own textures go, which its texture paths are rewritten to name
-/// (`pipeline.md` "3. Per-model-folder parallel steps", step 6).
+/// Where a part's own textures go, which its texture paths are rewritten to name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PartTextures {
     /// The folder's texture home: the part is the folder's own or a combined folder's, and
@@ -210,7 +208,7 @@ pub(super) fn package(
                 // A Common `.model` converts here, in each linking player's task, as his own
                 // `.model` does: Fox has no Common model output for it to convert once into,
                 // so two players linking it convert it twice, as a Common FMDL is baked into
-                // each of their packages (`pipeline.md` step 3 "Format conversion").
+                // each of their packages.
                 PlayerFile::CommonModel {
                     package: owner,
                     name,
@@ -347,8 +345,8 @@ pub(super) fn package(
     // resolving nearest first from the part's own folder (`texture_lookup`), a texture link
     // counting as the Common texture it stands for in the folder holding it. A texture resolved
     // in Common, a Common part's own or one a folder's link stands for, stays in the team's
-    // Common output, where the export's Common textures task puts it once for every player
-    // (`pipeline.md` step 6: a texture resolved in Common is never relocated). A folder part
+    // Common output, where the export's Common textures task puts it once for every player: a
+    // texture resolved in Common is never relocated. A folder part
     // looks in the folder's places first, and a path of its into the team's pre-Fox Common
     // folder reaches `Common/`'s (`point_texture`); one converted with a `Common/` `.mtl` looks
     // in `Common/`'s alone (`PartTextures::Common`), and a Common part converted with the
@@ -476,7 +474,7 @@ pub(super) fn package(
                 }
             })?;
             // A converted `.model`'s texture paths are its `.mtl`'s, whose stems nothing
-            // supplies are `mtl_texture_not_found` (W, the folder kept: `messages.md`).
+            // supplies are `mtl_texture_not_found`, a warning that keeps the folder.
             let converted = classify(part.path.name()) == FileKind::Model(ModelFormat::PesModel);
             for path in used_texture_paths(&model)? {
                 let context = || {
@@ -531,10 +529,9 @@ pub(super) fn package(
         contents.insert(format!("{name}.fmdl"), bytes);
     }
     // The game loads the boots and the hair with a skeleton beside them, under the slot's
-    // name (`player_folders.md` "SKL pairing"): the parts' own when they bring one, else the
-    // standard full-body one. A face also needs its `face_diff.bin`, and a hair its
-    // `fcl_hair_sim.fclo`: a source's own when one holds it, else the run's template
-    // ("What the injected files are").
+    // name: the parts' own when they bring one, else the standard full-body one. A face also
+    // needs its `face_diff.bin`, and a hair its `fcl_hair_sim.fclo`: a source's own when one
+    // holds it, else the run's template.
     match package {
         ModelPackage::Boots => {
             contents.insert(
@@ -571,9 +568,8 @@ pub(super) fn package(
 
 /// The skeleton the parts of one output model share, taken out of them: the one `.skl` every
 /// part brings (byte-identical files under several names are one skeleton), or `None` when no
-/// part brings one. Parts merged into one model must reference one skeleton
-/// (`player_folders.md` "Merge constraint"), so any other mix, a part with a skeleton beside
-/// one without included, is `skl_merge_conflict`.
+/// part brings one. Parts merged into one model must reference one skeleton, so any other mix,
+/// a part with a skeleton beside one without included, is `skl_merge_conflict`.
 fn merged_skeleton(parts: &mut [Part]) -> Result<Option<Vec<u8>>, TaskFailure> {
     let mut skeletons = parts.iter_mut().map(|part| part.skeleton.take());
     let Some(first) = skeletons.next() else {
@@ -600,12 +596,11 @@ fn skeleton_conflict() -> TaskFailure {
 /// (`conversion::fmdl_for_fox`). The skeleton the conversion writes takes the path a member's
 /// `.skl` of the part's stem would: beside one, they are two skeletons of the part, one when
 /// they are equal, and an FMDL moved off the pose its `.skl` describes drops that `.skl` for
-/// the conversion's (`pipeline.md` step 3 "Format conversion"). A part of `owner` under a name
-/// with no skeleton slot keeps none, with no finding: the member authored no file
-/// (`messages.md` `skl_no_slot`). What the conversion reports goes to `findings` only when the
-/// task builds `owner`, its `package`: the gloves task converts a hand-split face part again,
-/// for its hands, and that is the face's to tell. A conversion that fails, or whose FMDL the
-/// game cannot load, fails the task.
+/// the conversion's. A part of `owner` under a name with no skeleton slot keeps none, with no
+/// `skl_no_slot` finding: the member authored no file. What the conversion reports goes to
+/// `findings` only when the task builds `owner`, its `package`: the gloves task converts a
+/// hand-split face part again, for its hands, and that is the face's to tell. A conversion
+/// that fails, or whose FMDL the game cannot load, fails the task.
 fn convert_part(
     part: &mut Part,
     model: &str,
@@ -657,13 +652,13 @@ fn convert_part(
 /// The parts `part`, a model of the folder's that its task's findings name `model`
 /// (`deep::named_on_folder`), gives `package`: the part itself, or, when it is a hand-split
 /// face part (`hand_split`), what the hand auto-split leaves the package
-/// (`model_conversion/hand_split.md`). The face keeps the body, under the part's name and
-/// path, so it pairs the part's skeleton, and is told so by `model_hand_split` naming the
-/// model and the gloves made; a body left with no face (a model that was all hand) is
-/// no part at all. The gloves get a `glove_l` and a `glove_r` part, for each hand the model
-/// has, with the part's path and textures and no skeleton, merged with any authored glove of
-/// that name like any other part. A model the split cannot read or write fails the task with
-/// `model_conversion_failed`.
+/// (`spec/model_conversion/hand_split.md` "Pipeline integration"). The face keeps the body,
+/// under the part's name and path, so it pairs the part's skeleton, and is told so by
+/// `model_hand_split` naming the model and the gloves made; a body left with no face (a model
+/// that was all hand) is no part at all. The gloves get a `glove_l` and a `glove_r` part, for
+/// each hand the model has, with the part's path and textures and no skeleton, merged with any
+/// authored glove of that name like any other part. A model the split cannot read or write
+/// fails the task with `model_conversion_failed`.
 fn parts_of(
     part: Part,
     model: &str,
@@ -736,8 +731,8 @@ struct SplitFmdl {
 /// `model_convert`'s IR and back.
 fn split_fmdl(bytes: &[u8]) -> anyhow::Result<SplitFmdl> {
     let model = Model::from_file(&FmdlFile::read(bytes)?)?;
-    // Imported without the paired `.skl`: the round trip then keeps the FMDL's own bone table,
-    // which is what the split keeps (measured, `hand_split.md` "Pipeline integration"). The
+    // Imported without the paired `.skl`: measured, the round trip then keeps the FMDL's own
+    // bone table, which is what the split keeps. The
     // import's and the export's findings, `model_convert`'s loss codes, are left unreported
     // on purpose: cross-format conversion, a later step, maps those codes for every converted
     // model, and on the measured model the round trip reported only the dropped bone-matrix
@@ -872,8 +867,8 @@ fn is_kit_texture_directory(directory: &str) -> bool {
     vtree::fold_name(directory).starts_with(&vtree::fold_name(paths::KIT_TEXTURE_DIRECTORY))
 }
 
-/// Whether a texture one of a part's meshes uses is supplied (`pipeline.md` "Resolved
-/// decisions", "A texture a model names must exist").
+/// Whether a texture one of a part's meshes uses is supplied: a player whose texture nobody
+/// supplies does not look as its author meant.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TextureSupply {
     /// Supplied, or not looked for: a `dummy_` stem, which the game substitutes, or a path
@@ -1570,8 +1565,7 @@ mod tests {
             supply("./textures/", "dummy_kit.dds", &[], &[], Some(false)),
             TextureSupply::Supplied
         );
-        // A bare `./` names a texture by name, and pointing found none: nothing supplies it
-        // (`pipeline.md` "A texture a model names must exist").
+        // A bare `./` names a texture by name, and pointing found none: nothing supplies it.
         assert_eq!(
             supply("./", "skin.dds", &[], &[], Some(false)),
             TextureSupply::Missing

@@ -1,5 +1,5 @@
-//! Stages 3 and 4, one task's work (`team_compiler/pipeline.md` "3. Per-model-folder parallel
-//! steps", "4. Per-export non-model steps"): its source files, already read, converted and
+//! One task's work, whatever its kind (`plan::TaskKind`: a model folder's package or
+//! textures, a kit, a portrait, the logo, ...): its source files, already read, converted and
 //! placed by `materialize` as the entries the task commits, whole or not at all.
 
 mod conversion;
@@ -58,7 +58,7 @@ pub(crate) struct CompileContext {
     pub(crate) templates: Templates,
     /// The entry paths of the installed CPKs loaded before the run's, where a model task
     /// looks for a texture its model names in the team's Common output that the export does
-    /// not supply (`pipeline.md` "Resolved decisions", "A texture a model names must exist").
+    /// not supply.
     pub(crate) installed: InstalledPaths,
     /// Where every task's entries go: the run's output mode, consumed by `materialize` alone.
     pub(crate) target: EntryTarget,
@@ -66,8 +66,8 @@ pub(crate) struct CompileContext {
     /// from: a running task charges what it allocates to it (`MemoryBudget::charge`).
     pub(crate) budget: Arc<MemoryBudget>,
     /// Whether every `.dds` entry a task emits is WESYS-zlibbed (`wrap_dds`): the
-    /// `dds_compression` setting resolved for the run's version (`settings.md`,
-    /// `TeamCompilerSettings::compresses_dds`), never on Fox.
+    /// `dds_compression` setting resolved for the run's version
+    /// (`TeamCompilerSettings::compresses_dds`), never on Fox.
     pub(crate) compress_dds: bool,
 }
 
@@ -439,11 +439,11 @@ pub(crate) fn dropped_unit(kind: &TaskKind) -> Disposition {
 }
 
 /// Replaces each `.dds` entry of `entries` (the extension in any case) by its bytes
-/// WESYS-zlibbed, which PES 15-17 read as they read a plain DDS (`settings.md`,
-/// `dds_compression`). An entry already wrapped (a source `texture::convert` passes through as
-/// it is) is left as it is. Called on the worker that made the entries, so the deflate runs in
-/// parallel and the writer stays a pass-through for bytes; a face CPK holds no DDS, its
-/// textures being entries of the folder's textures task.
+/// WESYS-zlibbed, which PES 15-17 read as they read a plain DDS. An entry already wrapped (a
+/// source `texture::convert` passes through as it is) is left as it is. Called on the worker
+/// that made the entries, so the deflate runs in parallel and the writer stays a pass-through
+/// for bytes; a face CPK holds no DDS, its textures being entries of the folder's textures
+/// task.
 fn wrap_dds(entries: &mut [Entry]) {
     for (path, bytes) in entries {
         let is_dds = Path::new(path.as_str())
@@ -4717,8 +4717,8 @@ mod tests {
 
     #[test]
     fn a_model_that_cannot_be_read_fails_its_task() {
-        // `face_diff.bin`'s bytes under a face model's name: a file with its Phase 3 role
-        // whose content cannot be read as an FMDL.
+        // `face_diff.bin`'s bytes under a face model's name: a file whose name gives it a
+        // model's role but whose content cannot be read as an FMDL.
         let mut folder = player(&["face_diff.bin"]);
         let model = ScopePath::new(&format!("{PLAYER}/face_high.fmdl")).unwrap();
         folder.files.push(FileDescriptor {

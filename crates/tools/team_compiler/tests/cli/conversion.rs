@@ -1,4 +1,4 @@
-//! Cross-format conversion (`team_compiler/pipeline.md` step 3 "Format conversion"): on PES
+//! Cross-format conversion (`spec/team_compiler/pipeline.md` "Format conversion"): on PES
 //! 2015 to 2017 a player folder's `.fmdl` with no `.model` of its stem beside it is converted to
 //! a `.model` and its material set, which the face packs and lists in its `face.xml` as it
 //! does a member's own; its paired `.skl` is the conversion's bind pose, packed nowhere. On PES

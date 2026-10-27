@@ -299,9 +299,9 @@ pub(crate) enum Code {
     /// differing or his a link: his is the one every model of his names, and the shared
     /// folder's copy is left out.
     SharedTextureOverridden,
-    /// A texture with a side under 4 pixels, smaller than one block; the texture is discarded
-    /// with what depends on it (`messages.md` "Textures": the model folder, the kit, the
-    /// portrait; in `Common/`, the file alone).
+    /// A texture with a side under 4 pixels, smaller than one block. The texture is discarded
+    /// with what depends on it: the model folder, the kit, the portrait; in `Common/`, the file
+    /// alone.
     TextureTooSmall,
     /// A portrait with a side that is not a power of two (any target), or a mipmapped
     /// texture on PES 2018 to 2021 with neither side one; discarded the same way.
@@ -1159,7 +1159,7 @@ mod tests {
             assert!(CATALOG.iter().all(|(known, ..)| *known != code), "{code}");
         }
         // The rows beyond the structure pass's are exactly the tool's own codes, in `Code::ALL`
-        // order, and the format crates', in the plan table's order, which no list in code
+        // order, and the format crates', in the message catalog's order, which no list in code
         // holds: those are compared as a set.
         let mut format: Vec<&str> = format_codes().into_iter().map(|(code, _)| code).collect();
         let own: Vec<&str> = Code::ALL

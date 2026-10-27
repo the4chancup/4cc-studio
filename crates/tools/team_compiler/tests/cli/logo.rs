@@ -1,6 +1,6 @@
-//! `compile` over exports holding a root logo (`team_compiler/pipeline.md` "4. Per-export
-//! non-model steps", Logo): the game's three square PNGs, made from the export's `logo*`
-//! image by its mode and, for the smallest, from its `logo_small*` image when there is one.
+//! `compile` over exports holding a root logo: the game's three square PNGs, made from the
+//! export's `logo*` image by its mode and, for the smallest, from its `logo_small*` image when
+//! there is one.
 
 use std::collections::BTreeMap;
 

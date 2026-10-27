@@ -82,10 +82,10 @@ pub(crate) struct BuildManifest {
     /// referees) and the text of its root `notes.txt`, in export order, for `teamnotes.txt`.
     /// An export without a note is not listed.
     pub(crate) notes: Vec<(String, String)>,
-    /// Each planned team export's shared-IDs record as planned (`player_folders.md` "A
-    /// `Midcup` export keeps the shared IDs the team already has"), by team ID, in export
-    /// order: written into the CPK whatever its folders' tasks' outcomes; a `Midcup` over
-    /// no installed record whose folders took no ID has none.
+    /// Each planned team export's shared-IDs record, by team ID, in export order. It is written
+    /// into the CPK whatever its folders' tasks' outcomes. A `Midcup` export keeps the shared
+    /// IDs the team already has, so a `Midcup` over no installed record whose folders took no
+    /// ID has none.
     pub(crate) shared_ids: Vec<(u16, SharedIds)>,
 }
 
@@ -139,8 +139,8 @@ pub(crate) struct BuildTask {
     pub(crate) team_id: u16,
     /// What the task compiles.
     pub(crate) kind: TaskKind,
-    /// The source bytes the task reads, what its memory permit is charged (`libs/pipeline.md`
-    /// "Memory budget").
+    /// The source bytes the task reads, which is what its memory permit is charged
+    /// (`spec/libs/pipeline.md` "Memory budget").
     pub(crate) charge: usize,
     /// The player folder's group the task belongs to, when its folder has textures; `None`
     /// for every other task, which the writer commits on its own.
@@ -178,8 +178,8 @@ pub(crate) struct ModelFolder {
     /// Its own files.
     pub(crate) files: Vec<FileDescriptor>,
     /// The player folder holds `ingame_face`: it gets no face package, and a model of its own
-    /// that would be a part of the face's `fcl_hair` is a part of its boots
-    /// (`player_folders.md` "`ingame_face` marker"). Never set for a shared folder.
+    /// that would be a part of the face's `fcl_hair` is a part of its boots. Never set for a
+    /// shared folder.
     pub(crate) ingame_face: bool,
     /// The target's engine, which decides the role each of the folder's files takes
     /// (`roles::player_file`): each engine builds its own model format.
@@ -193,39 +193,41 @@ pub(crate) struct ModelFolder {
     /// having no role there). Empty for a folder holding none.
     pub(crate) common_models: Vec<CommonModel>,
     /// The stems, as spelled, of the textures directly in the export's `Common/` folder, which
-    /// the export's Common textures task emits into the team's Common output: a Common part's
-    /// texture paths of these stems name that output, not the folder's texture home
-    /// (`pipeline.md` "3. Per-model-folder parallel steps", step 6), and a texture any part
-    /// names in that output is supplied when its stem is among them ("Resolved decisions", "A
-    /// texture a model names must exist").
+    /// the export's Common textures task emits into the team's Common output. A Common part's
+    /// texture paths of these stems name that output, not the folder's texture home. A texture
+    /// any part names in that output counts as supplied when its stem is among them.
     pub(crate) common_texture_stems: BTreeSet<String>,
-    /// The `.model`, FMDL, `.mtl` and texture files of every directory of the export's
-    /// `Common/` folder, on a pre-Fox target for a player folder, a subfolder's being what a
-    /// member's `face.xml` names with `<subfolder>/<name>` and a link at the same path below
-    /// the player folder stands for (`common_link_target`); on Fox its `.mtl` files directly in
-    /// it and those below a subfolder a player's link reaches (`linked_common_files`), which a
-    /// `.mtl.common` link of the folder stands for in its `.model`'s search
-    /// (`mtl_search::mtl_for`), and its textures below a subfolder a link reaches, the one a
-    /// texture link stands for and the ones a linked model or `.mtl` brings, each spelled as
-    /// `Common/` does
-    /// (`roles::common_texture_below`), Fox's Common parts being resolved at planning
-    /// (`common_models`); a shared folder's holds the same on Fox, its links resolving as a
-    /// player folder's, and nothing on pre-Fox, its links staying unread there. The face task
-    /// tells a model link's Common `.model` from a Common FMDL the Common models task converts
-    /// (`roles::selected_common_model`), its `.mtl` search looks in Common for a `.model.common`
-    /// link and resolves a `.mtl.common` link there (`mtl_search::mtl_for`), and a texture link
-    /// names its Common texture by the stem that file spells (`pipeline.md` "3. Per-model-folder
-    /// parallel steps", steps 4 and 6);
-    /// an `ingame_face` player's boots and gloves resolve a `.mtl.common` link there too
-    /// (`ModelFolder::roles`) and point a copied Common `.mtl` at the textures among them.
+    /// The files of the export's `Common/` folder this folder's tasks may read.
+    ///
+    /// On a pre-Fox target, for a player folder: the `.model`, FMDL, `.mtl` and texture files
+    /// of every directory of `Common/`. A subfolder's files are what a member's `face.xml` names
+    /// with `<subfolder>/<name>`, and what a link at the same path below the player folder
+    /// stands for (`common_link_target`).
+    ///
+    /// On Fox: the `.mtl` files directly in `Common/` and those below a subfolder a player's
+    /// link reaches (`linked_common_files`). A `.mtl.common` link of the folder stands for one
+    /// of them in its `.model`'s search (`mtl_search::mtl_for`). Also the textures below a
+    /// subfolder a link reaches: the one a texture link stands for and the ones a linked model
+    /// or `.mtl` brings, each spelled as `Common/` spells it (`roles::common_texture_below`).
+    /// Fox's Common parts are resolved at planning (`common_models`).
+    ///
+    /// A shared folder holds the same on Fox, its links resolving as a player folder's, and
+    /// nothing on pre-Fox, where its links stay unread.
+    ///
+    /// The face task tells a model link's Common `.model` from a Common FMDL the Common models
+    /// task converts (`roles::selected_common_model`). Its `.mtl` search looks in Common for a
+    /// `.model.common` link and resolves a `.mtl.common` link there (`mtl_search::mtl_for`). A
+    /// texture link names its Common texture by the stem that file spells. An `ingame_face`
+    /// player's boots and gloves resolve a `.mtl.common` link there too (`ModelFolder::roles`),
+    /// and point a copied Common `.mtl` at the textures among them.
     pub(crate) common_files: Vec<FileDescriptor>,
     /// The export paths of the player folder's **hand-split parts**: its face models whose
     /// vertices the deep pass found carrying hand weights (`hand_split_parts`). On Fox the face
     /// task packs each one's body, and the folder's gloves task, planned even with no
-    /// glove-named file, reads each one and makes its hands `glove_l`/`glove_r` parts
-    /// (`pipeline.md` "3. Per-model-folder parallel steps", step 3). On pre-Fox the face task
-    /// alone splits each one, packing its hands as two more `face.xml` entries, and no gloves
-    /// task is planned for them. Empty for a shared folder, whose models are never split.
+    /// glove-named file, reads each one and makes its hands `glove_l`/`glove_r` parts. On
+    /// pre-Fox the face task alone splits each one, packing its hands as two more `face.xml`
+    /// entries, and no gloves task is planned for them. Empty for a shared folder, whose models
+    /// are never split.
     pub(crate) hand_split: BTreeSet<ScopePath>,
     /// One of the folder's packages converts an FMDL holding a metal material for PES 15-17
     /// (`converts_metal`): a player's face, an `ingame_face` player's boots or gloves, or a
@@ -233,25 +235,27 @@ pub(crate) struct ModelFolder {
     /// `env.dds` in its texture home as that home spells it (a player's common folder; a shared
     /// output's own folder, which its `.mtl` files name as `./`), and is planned for it even
     /// when the folder holds no texture, unless one of its sources holds an `env` texture or a
-    /// texture link of that stem (`env.dds.common`; `takes_template_environment_map`); the
+    /// texture link of that stem (`env.dds.common`; `takes_template_environment_map`). The
     /// converting package points each converted `Basic_CNSR` material with no environment
-    /// sampler at it (`model_format.md`, the `environment` role), at a link's in the team's
-    /// Common output. Never set on PES 18-21.
+    /// sampler at it, and a link's material at the one in the team's Common output: a
+    /// `Basic_CNSR` material always has its environment map, since a metal without a reflection
+    /// is not metal. Never set on PES 18-21.
     pub(crate) environment_map: bool,
-    /// The face's xml takes the referee template's body entries after the folder's own
-    /// (`blue_port.md` "The referee body"): a referee folder holding `fpc_off`, on PES 15-17,
-    /// with a face to put them in. Never set for a team player (the body is the referee
-    /// template's) nor on PES 18-21 (the Fox refkit is not made yet).
+    /// The face's xml takes the referee template's body entries after the folder's own. Set
+    /// for a referee folder holding `fpc_off`, on PES 15-17, with a face to put them in: a
+    /// referee is full FPC, so a head-only referee shows no body unless his face lists one.
+    /// Never set for a team player (the body is the referee template's) nor on PES 18-21 (the
+    /// Fox refkit is not made yet).
     pub(crate) refkit_body: bool,
     /// Where its textures go, which its models' texture paths are rewritten to name.
     pub(crate) textures: TextureHome,
 }
 
-/// A model folder's `.common` link to an FMDL or a `.model` (on pre-Fox an `ingame_face`
-/// player's), resolved against the export's `Common/` folder as validation resolved it
-/// (`player_folders.md` "Common model links and model merging"): the Common model is a part of
-/// the package the link's role names, and its skeleton travels with it ("SKL pairing"), or
-/// the `.mtl` a Common `.model` uses.
+/// A model folder's `.common` link to an FMDL or a `.model` (on pre-Fox, only an `ingame_face`
+/// player's), resolved against the export's `Common/` folder as validation resolved it. The
+/// Common model is a part of the package the link's role names. Its skeleton travels with it,
+/// and so does the `.mtl` a Common `.model` uses (`spec/aesthetics_export/player_folders.md`
+/// "Common model links and model merging").
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CommonModel {
     /// The link file's export path (`Players/05 - A/legs.fmdl.common`), which the folder's
@@ -269,19 +273,17 @@ pub(crate) struct CommonModel {
     pub(crate) skeleton: Option<FileDescriptor>,
     /// For a Common `.model`, the `.mtl` the link's search finds (`mtl_search::mtl_for`): a
     /// `Common/` one, or the player's own override of it. On Fox the Models task converts the
-    /// model with it (`pipeline.md` step 3 "Format conversion"); on pre-Fox it is read and
-    /// written with the Common model, a part of his boots or gloves under `ingame_face`
-    /// (`player_folders.md` "`ingame_face` with shared links"). `None` for a Common FMDL, whose
+    /// model with it. On pre-Fox it is read and written with the Common model, which is a part
+    /// of his boots or gloves under `ingame_face`. `None` for a Common FMDL, whose
     /// materials travel inside it on Fox and whose conversion writes its material set on
     /// pre-Fox.
     pub(crate) material: Option<FileDescriptor>,
 }
 
-/// A shared folder a player folder combines (`player_folders.md` "A link plus local models
-/// combines"), with the package it feeds: a `Faces/` folder the face, a `Boots/` folder the
-/// boots, a `Gloves/` folder the gloves. Its models are parts of that package like the player's
-/// own, and its textures join the player's textures task, counting for that package when a
-/// stem conflicts (`pipeline.md` "3. Per-model-folder parallel steps", step 6).
+/// A shared folder a player folder combines with its own models, with the package it feeds: a
+/// `Faces/` folder the face, a `Boots/` folder the boots, a `Gloves/` folder the gloves. Its
+/// models are parts of that package like the player's own. Its textures join the player's
+/// textures task, counting for that package when a stem conflicts.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct CombinedFolder {
     /// The package the folder's models and textures feed.
@@ -304,10 +306,9 @@ impl ModelFolder {
     /// then each combined folder's. A role resolves against the file's own source
     /// (`Boots/Crocs`'s `boots.skl` pairs with `Boots/Crocs`'s `boots.fmdl`, not the
     /// player's). The face's `face_diff.bin` and `fcl_hair_sim.fclo` come once: a combined
-    /// face folder's copy is left out when the player folder holds one, and never read
-    /// (`player_folders.md` "A link plus local models combines"). A `face_diff.xml` counts as
-    /// the `face_diff.bin` here; one source never holds both, the deep pass having dropped
-    /// such a folder (`xml_dif_conflict`). A `.common` model link
+    /// face folder's copy is left out when the player folder holds one, and never read. A
+    /// `face_diff.xml` counts as the `face_diff.bin` here. One source never holds both: the
+    /// deep pass dropped such a folder (`xml_dif_conflict`). A `.common` model link
     /// stands for the Common files it resolved to (`common_models`): the Common model under
     /// the link's role, in the link's place, and its Common skeleton under the role's slot,
     /// paired with it by their shared `Common/<stem>`; the empty link itself is never read. A
@@ -450,10 +451,10 @@ impl ModelFolder {
     /// The `face.xml` the face reads, with the export path of the source holding it: the
     /// member's own, the first of the folder's own files with the role `PlayerFile::FaceXml`
     /// (pre-Fox, a face file, so never under `ingame_face`), else the one of the shared face
-    /// folder the player combines; `None` when neither holds one (`messages.md`
-    /// "User-supplied `face.xml`"). The deep pass checked every one, and dropped a player
-    /// folder holding its own beside a face link (`xml_shared_face_conflict`); the face task
-    /// writes this one back in place of a generated `face.xml`.
+    /// folder the player combines; `None` when neither holds one. The deep pass checked every
+    /// one, and dropped a player folder holding its own beside a face link
+    /// (`xml_shared_face_conflict`). The face task writes this one back in place of a generated
+    /// `face.xml` (`spec/team_compiler/messages.md` "User-supplied face.xml").
     pub(crate) fn face_xml(&self) -> Option<(&ScopePath, &FileDescriptor)> {
         self.roles().into_iter().find_map(|(_, source, files)| {
             files
@@ -482,9 +483,8 @@ impl ModelFolder {
 
     /// Whether `file`, a skeleton (`PlayerFile::Skeleton`), is the `.skl` of one of the
     /// folder's hand-split parts (`hand_split`), paired with it as the Models task pairs a
-    /// skeleton: by the path up to the extension, folded. The gloves task reads it, the bind
-    /// pose of the part it converts again for its hands (`pipeline.md` step 3 "Format
-    /// conversion").
+    /// skeleton: by the path up to the extension, folded. The gloves task reads it as the bind
+    /// pose of the part whose hands it converts again.
     pub(crate) fn hand_split_skeleton(&self, file: &FileDescriptor) -> bool {
         let stem = vtree::fold_name(file_stem(file.path.as_str()));
         self.hand_split
@@ -587,14 +587,13 @@ pub(crate) enum TaskKind {
         /// The export's kit numbers, against which its texture variant sets are completed.
         kits: Vec<u8>,
     },
-    /// The textures of a texture directory of the export's `Common/` folder (`Common/`
-    /// itself, or a subfolder, packed at its own path; `pipeline.md` "Common" — the
-    /// directory above the first kit-token folder below `Common/`, a set's `kit1`…`kit9`
-    /// folders completing in the task holding them all), converted once
-    /// into the team's Common output, whether or not a `.common` link uses them (`pipeline.md`
-    /// "Resolved decisions", "Common textures are one task of their export"). One task per
-    /// such directory, in no group: its textures serve every linking player, so it commits on
-    /// its own, and when it fails the linking players still commit.
+    /// The textures of a texture directory of the export's `Common/` folder, converted once
+    /// into the team's Common output, whether or not a `.common` link uses them. A texture
+    /// directory is `Common/` itself or a subfolder, packed at its own path. It is the
+    /// directory above the first kit-token folder below `Common/`, so a set's `kit1`…`kit9`
+    /// folders complete in the task holding them all. One task per such directory, in no
+    /// group: its textures serve every linking player, so it commits on its own, and when it
+    /// fails the linking players still commit.
     CommonTextures {
         /// The directory's export path, the scope the task's findings name and, below
         /// `Common/`, the path its output takes under the team's Common output.
@@ -608,17 +607,15 @@ pub(crate) enum TaskKind {
         /// material for PES 15-17 (`ExportToPlan::metal_models`) and no texture directly in
         /// `Common/` has the stem `env`: `Common/`'s own task emits the template environment map
         /// as `env.dds` in the team's Common output, and is planned for it even when `Common/`
-        /// holds no texture (or no file); the conversion points each converted `Basic_CNSR`
-        /// material with no environment sampler, whichever directory its FMDL sits in, at it
-        /// (`model_format.md`, the `environment` role). Never set on PES 18-21, nor on a
-        /// subfolder's task.
+        /// holds no texture (or no file). The conversion points each converted `Basic_CNSR`
+        /// material with no environment sampler at it, whichever directory its FMDL sits in.
+        /// Never set on PES 18-21, nor on a subfolder's task.
         environment_map: bool,
     },
     /// Pre-Fox: the `.model` and `.mtl` files of a directory of the export's `Common/` folder
-    /// (`Common/` itself or a subfolder, packed at its own path; `pipeline.md` "Common"),
-    /// written once into the team's Common output, whether or not a `.common` link or a
-    /// member's `face.xml` names them (`pipeline.md` "3. Per-model-folder parallel steps", step
-    /// 4): the game loads a linked Common model or `.mtl` from there. An FMDL there no `.model`
+    /// (`Common/` itself or a subfolder, packed at its own path), written once into the team's
+    /// Common output, whether or not a `.common` link or a member's `face.xml` names them. The
+    /// game loads a linked Common model or `.mtl` from there. An FMDL there no `.model`
     /// of its stem beats is converted once into a `.model` and its material set, the `.skl` of
     /// its stem its bind pose. One task per directory holding such a file, in no group, as
     /// `CommonTextures`.
@@ -637,9 +634,8 @@ pub(crate) enum TaskKind {
         textures: Vec<String>,
     },
     /// One player's portrait, emitted as a DDS under the target version's file name: a DDS
-    /// source as it is, any other accepted format encoded to BC3 (`player_folders.md`
-    /// "Portraits"). One task per player id: a folder two roster slots map gives two tasks
-    /// over its one `portrait.*`.
+    /// source as it is, any other accepted format encoded to BC3. One task per player id: a
+    /// folder two roster slots map gives two tasks over its one `portrait.*`.
     Portrait {
         /// The player id the portrait is for.
         player_id: u32,
@@ -660,25 +656,25 @@ pub(crate) enum TaskKind {
         coverage: ExportCoverage,
     },
     /// The team's logo: the game's three PNGs made from the export's root `logo*` file, the
-    /// smallest from its `logo_small*` file when there is one (`pipeline.md` "4. Per-export
-    /// non-model steps", Logo). One task per export that has a logo, all three or none.
+    /// smallest from its `logo_small*` file when there is one. One task per export that has a
+    /// logo, all three or none.
     Logo {
         /// The main file and the small one, each with its fit tag.
         logo: LogoFiles,
     },
-    /// The referees' marker (`blue_port.md` "Referee export processing"): the refs export's
-    /// `ref_marker.dds` converted into the referees' Common output, and the bundled marker
-    /// model written as their reserved collar, its texture pointed at it. Both or neither: a
+    /// The referees' marker: the refs export's `ref_marker.dds` converted into the referees'
+    /// Common output, and the bundled marker model written as their reserved collar, its
+    /// texture pointed at it. Both or neither: a
     /// collar naming a texture the CPK lacks would draw untextured under every referee. One
     /// task per refs export holding the file.
     RefereeMarker {
         /// The export's root `ref_marker.dds`.
         marker: FileDescriptor,
     },
-    /// The team's collar (`pipeline.md` "Collars"): its `Collars/collar_<ID>` model in the
-    /// format the target reads (`.fmdl` on Fox, `.model` on pre-Fox) written unchanged in place
-    /// of stock collar `id`, keeping the materials its author gave it. One task per team export
-    /// holding a collar it claimed (`collars::export_collar`).
+    /// The team's collar: its `Collars/collar_<ID>` model in the format the target reads
+    /// (`.fmdl` on Fox, `.model` on pre-Fox) written unchanged in place of stock collar `id`,
+    /// keeping the materials its author gave it. One task per team export holding a collar it
+    /// claimed (`collars::export_collar`).
     Collar {
         /// The collar file.
         file: FileDescriptor,
@@ -687,10 +683,10 @@ pub(crate) enum TaskKind {
     },
 }
 
-/// What a team export sets in every kit config of its team, its own kits' and, for a `Midcup`
-/// export, those of the kits it does not resend (`pipeline.md` "Collars", `fpc_toggle.md`
-/// "Team kit-FPC status and kit configs"): the FPC values first, then its collar, which so
-/// wins over the FPC collar.
+/// What a team export sets in every kit config of its team: its own kits' and, for a `Midcup`
+/// export, those of the kits it does not resend. The FPC values go first, then its collar, so
+/// the custom collar wins over the FPC collar
+/// (`spec/aesthetics_export/fpc_toggle.md` "Team kit-FPC status and kit configs").
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct TeamKitEdits {
     /// The team's kit-FPC status.
@@ -793,7 +789,7 @@ impl TaskKind {
                 // The sources of the `.model` files this package reads, whose `.mtl` files it
                 // reads too on Fox (below). There only a package converting a `.model` reads a
                 // `.mtl`: the FMDLs carry their materials, and a `.mtl` beside a `.model` an
-                // FMDL beats is read by nothing (`pipeline.md` step 3 "Format conversion").
+                // FMDL beats is read by nothing.
                 let model_sources: BTreeSet<&ScopePath> = folder
                     .roles()
                     .into_iter()
@@ -931,7 +927,7 @@ fn hand_split_parts(
     engine: Engine,
 ) -> BTreeSet<ScopePath> {
     // The member's xml says what the face loads: a split would add glove entries he did not
-    // write (`messages.md` "User-supplied `face.xml`", the paragraph "What is emitted").
+    // write.
     if folder.face_xml().is_some() {
         return BTreeSet::new();
     }
@@ -1338,9 +1334,8 @@ pub(crate) fn plan_run(
                 });
             }
             // A referee's `fpc_off` says he needs his body, which a refs export takes from the
-            // referee template's `refkit` (`blue_port.md` "The referee body"); a team player's
-            // body is the kit's. Fox has no refkit yet, so there the marker sets the preset
-            // alone.
+            // referee template's `refkit`. A team player's body is the kit's. Fox has no refkit
+            // yet, so there the marker sets the preset alone.
             let refkit_body = team.is_none()
                 && folder.fpc == Some(FpcDirective::Off)
                 && match version.engine() {
@@ -1378,8 +1373,7 @@ pub(crate) fn plan_run(
             // `ingame_face` asks for; every other team player gets one, blank when it holds no
             // face model (the last part of FPC: the body brings its own head, or none). A
             // referee has no FPC body to bring a head, so a referee folder with no face model
-            // gets no face folder and the game's referee head stays (`blue_port.md` "Referee
-            // export processing").
+            // gets no face folder and the game's referee head stays.
             let blank_face = !model_folder.ingame_face && team.is_some();
             folder_tasks(
                 export_id,
@@ -1639,8 +1633,7 @@ pub(crate) fn plan_run(
             configless,
         });
         // A Midcup over no record whose folders took no ID writes none: an empty one would
-        // read to the next Midcup above it as "no shared folders" (`player_folders.md` "A
-        // `Midcup` export keeps the shared IDs the team already has").
+        // read to the next Midcup above it as "no shared folders".
         if export.coverage != ExportCoverage::Midcup
             || midcup_record.is_some()
             || !output_record.is_empty()
@@ -1758,9 +1751,8 @@ fn folder_tasks(
 /// (`emits_kit_texture`), in the set's order: the other engine's map (its `kit_srm` on PES
 /// 15-17, its `kit_mask` on PES 18-21; neither is converted into the other) and a `kit_*` stem
 /// outside the seven the compiler builds (`KIT_TEXTURE_STEMS`, so `kit_spec`), each reported
-/// as `kit_texture_not_used` on its kit folder, naming the file (`pipeline.md` "4. Per-export
-/// non-model steps", Kits).
-/// It goes before the kit's task is made, which therefore never reads them.
+/// as `kit_texture_not_used` on its kit folder, naming the file. It goes before the kit's task
+/// is made, which therefore never reads them.
 fn drop_unused_kit_textures(
     engine: Engine,
     export_id: ExportId,
@@ -1788,12 +1780,13 @@ fn drop_unused_kit_textures(
 
 /// Drops every mapped player folder of `export` holding a glTF model selected for its stem on
 /// `version` (`PlayerFile::UnsupportedGltf`), and every shared folder holding one with each
-/// mapped player folder linking it (`pipeline.md` step 3 "Format conversion": a selected glTF
-/// drops its folder until Phase 7 rather than falling through to the other engine's format,
-/// and a player without the face, boots or gloves he linked would compile to something he did
-/// not ask for). A mapped player folder whose `.common` model link names a Common model a
-/// Common glTF of its stem beats (`selected_common_gltfs`) is dropped too: the link would load
-/// the glTF, and the model it names is not loaded in the glTF's place. `model_gltf_unsupported`
+/// mapped player folder linking it. The compiler does not read glTF yet, and a selected glTF
+/// drops its folder rather than falling through to the other engine's format, so the same
+/// export never compiles differently once glTF is read. A player without the face, boots or
+/// gloves he linked would compile to something he did not ask for. A mapped player folder
+/// whose `.common` model link names a Common model a Common glTF of its stem beats
+/// (`selected_common_gltfs`) is dropped too: the link would load the glTF, and the model it
+/// names is not loaded in the glTF's place. `model_gltf_unsupported`
 /// is reported on the player folder once per such file: his own, named below his folder, or,
 /// when he holds none, those of the shared folders he links and the Common glTFs his links
 /// select, named by their export paths; each in the export's folder order. The player folder's
@@ -1931,11 +1924,10 @@ fn drop_gltf_folders(
 
 /// The glTFs among `common`, the export's `Common/` files, that a target of `engine` reads
 /// (`is_read_common_file`, `linked` the subfolder files a link reaches) and selects for their
-/// stem: those with no model of the
-/// target's own format of their stem beside them in their directory (`pipeline.md` step 3
-/// "Format conversion": target-native first, then glTF, then the other engine's format, the one
-/// rule for every model folder, each Common directory included). The compiler does not read
-/// glTF until Phase 7, so planning drops each (`drop_common_gltfs`).
+/// stem: those with no model of the target's own format of their stem beside them in their
+/// directory. Selection is target-native first, then glTF, then the other engine's format, the
+/// one rule for every model folder, each Common directory included. The compiler does not read
+/// glTF yet, so planning drops each (`drop_common_gltfs`).
 fn selected_common_gltfs<'a>(
     common: &'a [FileDescriptor],
     engine: Engine,
@@ -1988,15 +1980,14 @@ fn linked_common_gltf(
 
 /// Removes from `common`, the export's `Common/` files, each glTF a target of `engine` selects
 /// for its stem in its directory (`selected_common_gltfs`), reporting
-/// `model_gltf_unsupported` on the file, named by its export path (`pipeline.md` "Common
-/// textures are one task of their export"): the file alone is dropped, as a collar's is, and
-/// the rest of the export compiles without it. A model of the other engine's format of its stem
-/// in its directory is beaten by it and removed too, with no finding of its own, as a
-/// player folder's beaten model has none: removed rather than left in place, so that neither
-/// the pre-Fox Common models task nor a link resolves to it in the glTF's place (a mapped player
-/// folder linking it was dropped first, `drop_gltf_folders`). Its `.skl` stays, read by
-/// nothing: only a converted FMDL pairs one. A glTF a target-native model of its stem beats is
-/// left in place, read by nothing, with no finding.
+/// `model_gltf_unsupported` on the file, named by its export path. The file alone is dropped,
+/// as a collar's is, and the rest of the export compiles without it. A model of the other
+/// engine's format of its stem in its directory is beaten by it and removed too, with no
+/// finding of its own, as a player folder's beaten model has none. It is removed rather than
+/// left in place, so that neither the pre-Fox Common models task nor a link resolves to it in
+/// the glTF's place (a mapped player folder linking it was dropped first, `drop_gltf_folders`).
+/// Its `.skl` stays, read by nothing: only a converted FMDL pairs one. A glTF a target-native
+/// model of its stem beats is left in place, read by nothing, with no finding.
 fn drop_common_gltfs(
     engine: Engine,
     export_id: ExportId,
@@ -2036,14 +2027,16 @@ fn drop_common_gltfs(
 /// `ingame_face` and a shared boots or gloves folder, since the shared boots writer merges every
 /// model into one `boots.model`, the gloves writer lists every glove in `glove.xml` and a
 /// marked player's parts are all worn. A pre-Fox face, a player's or a shared one, packs the
-/// whole set and lists it once as `pants_kitN` for the game to respell (`pipeline.md`
-/// "Kit-dependent assets"). Where no xml names it, the fallback — the `kitF` file, else the
-/// lowest variant — is what both engines agree on. A mapped player's sets span his own files and those of the shared folders whose
-/// link feeds his own package (`link_feeds_own_package`, `hand_weighted` being the models the
-/// deep pass found carrying hand weights), as his packages are built
-/// (`ModelFolder::roles`), and are reported on him when they hold a file of his own, a set
-/// split between him and such a folder included; a shared folder reports the sets of its own
-/// files, once however many players combine it.
+/// whole set and lists it once as `pants_kitN` for the game to respell
+/// (`spec/model_format.md` "Kit-dependent assets"). Where no xml names it, the fallback (the
+/// `kitF` file, else the lowest variant) is what both engines agree on.
+///
+/// A mapped player's sets span his own files and those of the shared folders whose link feeds
+/// his own package (`link_feeds_own_package`), as his packages are built
+/// (`ModelFolder::roles`). `hand_weighted` is the models the deep pass found carrying hand
+/// weights. A set is reported on the player when it holds a file of his own, a set split
+/// between him and such a folder included. A shared folder reports the sets of its own files,
+/// once however many players combine it.
 fn kit_variant_model_messages(
     export_id: ExportId,
     export: &ValidatedAestheticsExport,
@@ -2183,7 +2176,7 @@ fn player_folders<Slot: Copy>(
 /// The files of `Common/` grouped by the directory holding them (`Common/` itself, or a
 /// subfolder at any depth), in path order, `Common/` itself first, each directory's files in
 /// `common`'s order; a directory holding no file has no entry. On PES 15-17 each is a Common
-/// folder of its own, planned and packed at its own path (`pipeline.md` "Common").
+/// folder of its own, planned and packed at its own path.
 fn common_directories(common: &[FileDescriptor]) -> Vec<(ScopePath, Vec<FileDescriptor>)> {
     // Keyed case-folded, as the game's file system folds paths.
     let mut directories: BTreeMap<String, (ScopePath, Vec<FileDescriptor>)> = BTreeMap::new();
@@ -2203,9 +2196,8 @@ fn common_directories(common: &[FileDescriptor]) -> Vec<(ScopePath, Vec<FileDesc
 
 /// The `Common/` directory whose textures task covers the `Common/` file at `path`: its own
 /// directory, unless a directory segment below `Common/` is a kit-token folder
-/// (`kit_folder`), when it is the directory above the first of them — `kit1` and `kit2`
-/// folders of one set completing in the one task holding both (`model_format.md`
-/// "Kit-dependent assets").
+/// (`kit_folder`). Then it is the directory above the first of them, so the `kit1` and `kit2`
+/// folders of one set complete in the one task holding both.
 fn texture_directory(path: &ScopePath) -> ScopePath {
     let mut directory = path
         .parent()
@@ -5327,7 +5319,8 @@ mod tests {
         plan_run(vec![planned], PesVersion::Pes17, fpc::HideIds::CONVENTION)
     }
 
-    /// The `environment_map` flag of the plan's Common textures task, `None` when it has none.
+    /// The `environment_map` flag of the Common textures task in `report`, `None` when it has
+    /// none.
     fn common_environment_map(report: &PlanReport) -> Option<bool> {
         report
             .manifest
@@ -6076,7 +6069,7 @@ mod tests {
         );
     }
 
-    /// The plan for `version` of slot 05 holding `boots.fmdl` with no texture, slot 06
+    /// The `PlanReport` for `version` of slot 05 holding `boots.fmdl` with no texture, slot 06
     /// `boots.fmdl` beside `boots.model` and its `.mtl`, which the `.model` beats on PES
     /// 15-17, slot 07 `boots.fmdl` beside its own `face.xml`, and slot 08 linking `Faces/Round`,
     /// which holds `boots.fmdl` beside its `face.xml`; every FMDL is among the deep pass's metal

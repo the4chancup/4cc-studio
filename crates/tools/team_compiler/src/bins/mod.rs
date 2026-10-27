@@ -1,11 +1,11 @@
-//! The game's color bins as the compiler edits them (`team_compiler/pipeline.md` "Bins
-//! accumulation"). Each holds one fixed-size record per team, in team ID order starting at team
-//! 100, so team `id`'s record starts at `(id - 100) * record size`, and each record opens with a
-//! four-byte header naming its team. A `TeamColor.bin` record is 16 bytes: the `u16` team ID,
-//! the `u16` color count (4 in every record), then four colors of three bytes each (R, G, B). A
-//! `UniColor.bin` record is 85 bytes: the `u32` team ID, the `u8` kit count, then ten 8-byte
-//! kit entries (kit number, menu icon number, two colors). The integers are little-endian
-//! (`resources/bins/README.md`).
+//! The game's color bins as the compiler edits them
+//! (`spec/team_compiler/pipeline.md` "Bins accumulation"). Each holds one fixed-size record per
+//! team, in team ID order starting at team 100, so team `id`'s record starts at
+//! `(id - 100) * record size`, and each record opens with a four-byte header naming its team.
+//! A `TeamColor.bin` record is 16 bytes: the `u16` team ID, the `u16` color count (4 in every
+//! record), then four colors of three bytes each (R, G, B). A `UniColor.bin` record is 85
+//! bytes: the `u32` team ID, the `u8` kit count, then ten 8-byte kit entries (kit number, menu
+//! icon number, two colors). The integers are little-endian.
 
 pub(crate) mod installed;
 pub(crate) mod kit_configs;

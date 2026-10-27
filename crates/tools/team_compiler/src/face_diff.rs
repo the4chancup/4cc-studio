@@ -1,8 +1,8 @@
 //! A face's `face_diff.bin`, the face parameter file the game reads beside a face's models:
 //! decoded from the text a `face_diff.xml` gives it in, and checked to be a face diff the game
-//! can read (`player_folders.md` "`face_diff.xml`"). The deep pass checks a folder's face diff
-//! in either form; packing decodes a `face_diff.xml` into the bytes it packs. A member's own
-//! `face.xml` gives it as a `<dif>` element, decoded the same way (`from_dif`).
+//! can read. The deep pass checks a folder's face diff in either form; packing decodes a
+//! `face_diff.xml` into the bytes it packs. A member's own `face.xml` gives it as a `<dif>`
+//! element, decoded the same way (`from_dif`).
 
 use std::fmt;
 
@@ -54,7 +54,7 @@ pub(crate) fn check(bytes: &[u8]) -> Result<(), FaceDiffError> {
     // In `u64`, where even the largest counts cannot overflow.
     let expected = 0xF0 + 0x10 * count_at(bytes, 0x48) + 0x20 * count_at(bytes, 0x4C);
     // At least, not exactly: face diffs longer than their header gives are common in cups'
-    // CPKs (`player_folders.md` "`face_diff.xml`"), so only a shorter one is refused. A length
+    // CPKs, so only a shorter one is refused. A length
     // too large for this platform's `usize` is one no file here reaches either.
     let long_enough = usize::try_from(expected).is_ok_and(|expected| bytes.len() >= expected);
     if !long_enough {

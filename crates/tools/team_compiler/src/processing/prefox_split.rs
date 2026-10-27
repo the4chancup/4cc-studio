@@ -1,6 +1,7 @@
-//! The hand auto-split of a pre-Fox face model (`model_conversion/hand_split.md` "Pipeline
-//! integration"): a `.model` whose vertices weigh on hand-skeleton bones is split at the wrists
-//! through `model_convert`'s IR, and each part written back as a `.model`. The face packs the
+//! The hand auto-split of a pre-Fox face model
+//! (`spec/model_conversion/hand_split.md` "Pipeline integration"): a `.model` whose vertices
+//! weigh on hand-skeleton bones is split at the wrists through `model_convert`'s IR, and each
+//! part written back as a `.model`. The face packs the
 //! body in the model's place and the hands as two more models of its own; all three name the
 //! source model's `.mtl`, since each part keeps a subset of its materials under their names.
 

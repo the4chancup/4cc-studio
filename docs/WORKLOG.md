@@ -3855,10 +3855,22 @@ briefs, review loops, gates and mutation runs as for any step.
     `4.14e3` taken for an exponent and `mutants-diff <sha>` tags: `comment_refs.py` widened
     (versions such as `0.37's` and `0.y.z` still pass), and the 12 it then found in this
     slice's files fixed by the lead
-  - [ ] cm2 `team_compiler` (335)
-  - [ ] cm3 `studio_core`, `export_upgrader`, `ruleset_editor`
+  - [x] cm2 `team_compiler` (335; brief `.tmp/cm/brief_cm2.md`, Opus). Done 2026-10-27
+    (`.tmp/cm/cm2_report.md`): 335 hits in 64 files, comment lines only; pipeline-stage
+    pointers replaced by what the stage does, plan-only "Resolved decisions" pointers by
+    their reasons (each added reason checked against the spec by the lead), pointers kept
+    only into `spec/`; `team_compiler`'s tests (1537), clippy and fmt green. The sidekick's
+    contradictions: resource READMEs exempted like fixture READMEs, rejected (the
+    `include_bytes!` path names the folder); a pointer split across two lines escapes
+    `doc_pointers.py`, accepted (cm6)
+  - [ ] cm3 `studio_core`, `export_upgrader`, `ruleset_editor` (brief `.tmp/cm/brief_cm3.md`)
   - [ ] cm4 `save_editor` and `team_widgets`, once the Tactics surface's review loop ends
   - [ ] cm5 `comment-refs` in `just gates` and CI
+  - [ ] cm6 `scripts/doc_pointers.py` reads a pointer whose quoted title a comment wraps onto
+    its next line (today its title pattern stops at the line end, so such a pointer is
+    neither resolved nor reported, and a broken one passes "0 broken") → verify: a test case
+    of a wrapped comment pointer, resolved and, perturbed, reported broken (lead's: the
+    check is correctness-critical)
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming

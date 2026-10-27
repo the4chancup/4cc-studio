@@ -1,6 +1,6 @@
-//! The Team compiler's section of the settings file (`team_compiler/settings.md`, "Team compiler
-//! settings"). A key enters with the phase whose code reads it, so the file never carries a
-//! setting nothing honors yet.
+//! The Team compiler's section of the settings file
+//! (`spec/team_compiler/settings.md` "Team compiler settings"). A key enters with the code that
+//! reads it, so the file never carries a setting nothing honors yet.
 
 use std::fmt;
 use std::path::PathBuf;
@@ -64,7 +64,7 @@ impl Default for TeamCompilerSettings {
     }
 }
 
-/// `dds_compression` (`settings.md`): whether every DDS a PES 15-17 run emits is
+/// `dds_compression`: whether every DDS a PES 15-17 run emits is
 /// WESYS-zlibbed. `Auto` follows `multicpk_mode`: the cup DLC is what the size matters for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum DdsCompression {
@@ -129,8 +129,7 @@ impl Serialize for DdsCompression {
     }
 }
 
-/// `savefile_path` (`settings.md`): the local savefile the compile's aesthetics patch is
-/// applied to.
+/// `savefile_path`: the local savefile the compile's aesthetics patch is applied to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum SavefilePath {
     /// `pes_savefile`'s discovery under Documents\KONAMI for the target version.
@@ -185,8 +184,7 @@ pub(crate) fn default_table() -> toml::Table {
 impl TeamCompilerSettings {
     /// The CPK below which the installed CPKs are walked for the working bins and looked in for
     /// textures: the run's first CPK in the list's order, which is the bins CPK in multi-CPK
-    /// mode (`pipeline.md` "Multi-CPK mode: teams parts", "The run's first CPK is its
-    /// boundary"), else `cpk_name`.
+    /// mode, else `cpk_name`.
     pub(crate) fn boundary_cpk_name(&self) -> &str {
         if self.multicpk_mode {
             &self.bins_cpk_name
@@ -197,7 +195,7 @@ impl TeamCompilerSettings {
 
     /// Whether a run for `version` WESYS-zlibs every DDS it emits: on PES 15-17 as
     /// `dds_compression` resolves against `multicpk_mode`, in every output mode; never on Fox,
-    /// whose textures are FTEX (`settings.md`, `dds_compression`).
+    /// whose textures are FTEX.
     pub(crate) fn compresses_dds(&self, version: PesVersion) -> bool {
         match version.engine() {
             Engine::PreFox => self.dds_compression.resolved(self.multicpk_mode),

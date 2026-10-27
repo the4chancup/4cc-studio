@@ -1,14 +1,15 @@
-//! Where a texture name resolves, nearest first (`aesthetics_export/player_folders.md`
-//! "Subfolders"): a texture a model or a `.mtl` of a model folder names with no path resolves
-//! in the file's own folder first, then in each parent up to the model folder, among the
-//! folder's own textures and links and those of the shared folders it combines at each
-//! place — a combined folder's files stand at their paths below the model folder, a combined
-//! `jessie/skin.dds` beside the model's own `jessie/` files, the folder's own winning a path
-//! both hold; a lookup by name never goes down into a subfolder. One named with a path below
-//! the file's folder (`./textures/skin`, `path_below`) resolves at that path alone (`at`).
-//! The face task and the Models task
-//! point texture paths with it, and the deep pass looks a `.mtl`'s paths up with it, so a path
-//! the deep pass calls supplied is one the tasks point.
+//! Where a texture name resolves, nearest first
+//! (`spec/aesthetics_export/player_folders.md` "Subfolders"). A texture a model or a `.mtl` of
+//! a model folder names with no path resolves in the file's own folder first, then in each
+//! parent up to the model folder. At each place it looks among the folder's own textures and
+//! links and those of the shared folders it combines. A combined folder's files stand at their
+//! paths below the model folder, so a combined `jessie/skin.dds` sits beside the model's own
+//! `jessie/` files, and the folder's own file wins a path both hold. A lookup by name never
+//! goes down into a subfolder. One named with a path below the file's folder
+//! (`./textures/skin`, `path_below`) resolves at that path alone (`at`).
+//!
+//! The face task and the Models task point texture paths with it, and the deep pass looks a
+//! `.mtl`'s paths up with it, so a path the deep pass calls supplied is one the tasks point.
 
 use std::collections::BTreeMap;
 
@@ -221,11 +222,11 @@ impl TextureFolders {
     }
 }
 
-/// The subdirectory a texture reference names below its file's folder (`model_format.md`
-/// "Stem-based texture references"): for a directory starting with `./` and carrying more,
-/// what follows the `./` (`./textures/` → `textures/`, `./a/b/` → `a/b/`). `None` for `./`,
-/// an empty directory, or any other (a game path: `/Assets/...`, `model/character/...`),
-/// whose references are looked up by name.
+/// The subdirectory a texture reference names below its file's folder
+/// (`spec/model_format.md` "Stem-based texture references"): for a directory starting with
+/// `./` and carrying more, what follows the `./` (`./textures/` → `textures/`, `./a/b/` →
+/// `a/b/`). `None` for `./`, an empty directory, or any other (a game path: `/Assets/...`,
+/// `model/character/...`), whose references are looked up by name.
 pub(crate) fn path_below(directory: &str) -> Option<&str> {
     directory
         .strip_prefix("./")

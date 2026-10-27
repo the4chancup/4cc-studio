@@ -2700,3 +2700,5 @@ worklog passed 7,000 lines.
   streamer-practice questions (Chaoshorn's score, a button after its song ends, chants in title.log) in QUESTIONS.
 - **2026-10-27** — 0.0.1q5: a maximized reopen skips the position resend where the creation landed right; the trace shows no
   restore blip on the FHD, and the 4K keeps it (a mixed-scale desk).
+- **2026-10-27** — 0.0.1cm2: `team_compiler`'s 335 comments stand on their own (comment lines only; tests, clippy, fmt green);
+  cm6 queued: `doc_pointers.py` misses a pointer wrapped across two comment lines.

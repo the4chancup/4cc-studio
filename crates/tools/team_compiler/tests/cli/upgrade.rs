@@ -1,6 +1,5 @@
-//! `upgrade-dpfl` (`spec/team_compiler/pipeline.md` "6. Post-processing", "DpFileList upgrade";
-//! `settings.md` "CLI"): what it lists without `--yes`, and what it renames, writes and
-//! replaces in the game's `download/` with it.
+//! `upgrade-dpfl` (`spec/team_compiler/pipeline.md` "DpFileList upgrade"): what it lists
+//! without `--yes`, and what it renames, writes and replaces in the game's `download/` with it.
 
 use std::collections::BTreeMap;
 use std::fs;

@@ -1,8 +1,8 @@
-//! The `upgrade-dpfl` command (`spec/team_compiler/pipeline.md` "6. Post-processing", "DpFileList
-//! upgrade"; `settings.md` "CLI"): the installed `DpFileList.bin` replaced by the cup's
-//! official one, after an old DLC's CPKs are renamed to the official names of their stem, so
-//! they keep loading, and the placeholder CPK is written for every official entry with no file,
-//! since the game loads none of `download/` when a listed CPK is missing. Without `--yes` it
+//! The `upgrade-dpfl` command (`spec/team_compiler/pipeline.md` "DpFileList upgrade"): the
+//! installed `DpFileList.bin` replaced by the cup's official one, after an old DLC's CPKs are
+//! renamed to the official names of their stem, so they keep loading. The placeholder CPK is
+//! written for every official entry with no file, since the game loads none of `download/`
+//! when a listed CPK is missing. Without `--yes` it
 //! lists what it would do and writes nothing. It never deletes or overwrites a CPK.
 
 use std::collections::BTreeSet;
@@ -45,8 +45,7 @@ struct Plan {
 }
 
 /// The upgrade of the `installed` list's `download/` folder, whose file names are `present`,
-/// to the `official` list (`pipeline.md` "DpFileList upgrade", the sub-bullet "An old DLC's
-/// CPKs are renamed by stem").
+/// to the `official` list. An old DLC's CPKs are renamed by stem, so they keep loading.
 fn plan(installed: &[String], official: &[String], present: &BTreeSet<String>) -> Plan {
     // The names in `download/` as each rename's turn comes.
     let mut present = present.clone();
@@ -156,12 +155,13 @@ pub(crate) fn number_and_stem(name: &str) -> Option<(&str, &str)> {
 }
 
 /// The `upgrade-dpfl` command in `download`, the PES folder's `download/` (checked to be a
-/// folder): the plan's findings in the order `apply` (`--yes`) acts, each emitted once its
-/// action succeeded (renames, placeholders, the list, then the dropped entries), and without
-/// `apply` `dpfilelist_upgrade_planned` last, nothing written; `dpfilelist_up_to_date` alone
-/// when there is nothing to do. Returns the worst severity reported. A file that cannot be read
-/// or written is the error, naming it, and what was done before stays done: the list is
-/// replaced last, so the old one stays in place and a second run finishes the work.
+/// folder). It reports the upgrade's findings (`plan`) in the order `apply` (`--yes`) acts,
+/// each emitted once its action succeeded (renames, placeholders, the list, then the dropped
+/// entries). Without `apply` it reports `dpfilelist_upgrade_planned` last and writes nothing;
+/// `dpfilelist_up_to_date` alone when there is nothing to do. Returns the worst severity
+/// reported. A file that cannot be read or written is the error, naming it, and what was done
+/// before stays done: the list is replaced last, so the old one stays in place and a second
+/// run finishes the work.
 pub(crate) fn run(
     download: &Path,
     apply: bool,

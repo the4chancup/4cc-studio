@@ -103,7 +103,8 @@ pub(crate) struct TeamsParts {
     held: Vec<(String, Vec<u8>)>,
     /// Every CPK path placed in any part. Each part's writer refuses a path it already holds,
     /// but the game merges every CPK into one file system, so a path in two parts is the same
-    /// invariant broken (`pipeline.md` "5. Writer", step 3 "Duplicate invariant check").
+    /// invariant broken: every collision winner is decided by the manifest or inside its task,
+    /// so a path arriving twice is a bug.
     placed: BTreeSet<String>,
 }
 

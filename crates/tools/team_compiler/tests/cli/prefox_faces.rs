@@ -2427,8 +2427,7 @@ fn a_model_material_its_mtl_does_not_define_drops_the_folder_at_check_and_compil
 #[test]
 fn a_subfolder_s_texture_sits_at_its_path_and_a_mtl_names_the_nearest_one() {
     // The root's `skin.dds` and `jessie/skin.png` are two textures, each at its own path in
-    // the texture home (`player_folders.md` "Subfolders"); `jessie/body/x.mtl` names the
-    // nearer one, `face_high.mtl` the root's.
+    // the texture home; `jessie/body/x.mtl` names the nearer one, `face_high.mtl` the root's.
     let sandbox = Sandbox::new("prefox_subfolder_textures");
     let export = "co Midcup Card";
     write_slot_05_face(&sandbox, export);

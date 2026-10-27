@@ -7,30 +7,34 @@
 //! It checks what `compile` reads and nothing else: a file planning leaves unread has no
 //! finding, which would drop what `compile` builds without it. This module reads every native
 //! model (`.fmdl`, `.model`) and every `.mtl` of the player folders, the shared folders and
-//! `Common/` that a task of the target reads, whatever the target version (a model of either
-//! format is a source for either target): not a model another of its stem beats (a `Common/`
-//! one is dropped with its winner), a model with no role, a per-kit variant left out (the
-//! roles read as planning reads them), a model or `.mtl` a pre-Fox source's own `face.xml`
-//! does not name, for PES 2018 to 2021 a file below a `Common/` subfolder no model folder's
-//! link reaches, nor for PES 2018 to 2021 a `.mtl` no
-//! `.model` is converted with, a model folder's or a `Common/` one; nor a refs export's kits,
-//! logo, portraits and collars; and it reports
-//! what the format crates' checks find
+//! `Common/` that a task of the target reads, whatever the target version, since a model of
+//! either format is a source for either target. The roles are read as planning reads them, so
+//! it skips:
+//!
+//! - a model another of its stem beats (a `Common/` one is dropped with its winner);
+//! - a model with no role, and a per-kit variant left out;
+//! - a model or `.mtl` a pre-Fox source's own `face.xml` does not name;
+//! - for PES 2018 to 2021, a file below a `Common/` subfolder no model folder's link reaches,
+//!   and a `.mtl` no `.model` is converted with, a model folder's or a `Common/` one;
+//! - a refs export's kits, logo, portraits and collars.
+//!
+//! It reports what the format crates' checks find
 //! (`spec/team_compiler/messages.md` "Model checks"): one finding per file and code, at the
-//! severity the format crate gives it. An Error drops what holds the file and may pass through;
-//! a Warning or an Info only informs. The far vertex, which both formats check, is reported as
-//! `vertex_too_far_from_origin` and never passes through. A file that does not parse is
-//! `model_broken` or `mtl_broken`. A `.model`, or a `.common` link to one, for which no `.mtl`
-//! is found (`mtl_search`) has every material undefined, `model_material_undefined`, for PES
-//! 2015 to 2017, and so has a model folder's `.model` no `.fmdl` of its stem beats for PES 2018
-//! to 2021: the folder is dropped, `pass_through` or not. One whose `.mtl` lacks a
-//! material it binds is `model_material_undefined` too, naming those materials, and may pass
-//! through. Which `.mtl` each model pairs with, and that finding, live in `pairings`. glTF
-//! models are not read (Phase 7).
+//! severity the format crate gives it. An Error drops what holds the file and may pass
+//! through; a Warning or an Info only informs. The far vertex, which both formats check, is
+//! reported as `vertex_too_far_from_origin` and never passes through. A file that does not
+//! parse is `model_broken` or `mtl_broken`.
+//!
+//! A `.model`, or a `.common` link to one, for which no `.mtl` is found (`mtl_search`) has
+//! every material undefined, `model_material_undefined`, for PES 2015 to 2017. So has a model
+//! folder's `.model` no `.fmdl` of its stem beats for PES 2018 to 2021. The folder is dropped,
+//! `pass_through` or not. One whose `.mtl` lacks a material it binds is
+//! `model_material_undefined` too, naming those materials, and may pass through. Which `.mtl`
+//! each model pairs with, and that finding, live in `pairings`. glTF models are not read yet.
 //!
 //! It also checks every texture of those folders, of `Common/`, of the kits (but one the target
-//! does not emit) and every portrait from its header alone (`team_compiler/messages.md`
-//! "Textures"): a file renamed from another format, a side under one block, and the size rules
+//! does not emit) and every portrait from its header alone: a file renamed from another
+//! format, a side under one block, and the size rules
 //! of a kit's main texture, of a mipmapped Fox texture and of a portrait. A slot whose two
 //! portraits, its player folder's and its `Portraits/` file, differ in bytes is
 //! `portrait_conflict`, which skips the export. A logo source is the one texture decoded in
@@ -42,12 +46,11 @@
 //! file.
 //!
 //! For PES 2015 to 2017 it also reads a face folder's own `face.xml` (`user_face_xml`), a
-//! player's or a shared face folder's, and reports its content checks (`team_compiler/messages.md`
-//! "XML/MTL content checks"); the xml then decides which `.mtl` a model's
-//! `model_material_undefined` compares with: the one its entry names, for the models it lists
-//! (a `Common/` model an entry names included), instead of the one the search finds. A player
-//! folder holding its own `face.xml` and linking a shared face folder is
-//! `xml_shared_face_conflict`: a face takes one xml.
+//! player's or a shared face folder's, and reports its content checks. The xml then decides
+//! which `.mtl` a model's `model_material_undefined` compares with: the one its entry names,
+//! for the models it lists (a `Common/` model an entry names included), instead of the one the
+//! search finds. A player folder holding its own `face.xml` and linking a shared face folder
+//! is `xml_shared_face_conflict`: a face takes one xml.
 //!
 //! Last, it reads the small data files whole (`documents`): the face diff of each player
 //! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), but on PES 2015
@@ -117,10 +120,9 @@ pub(crate) struct ContentPass {
     /// The content findings, in file order.
     pub(crate) findings: Vec<ContentFinding>,
     /// The export paths of the models it parsed (`.fmdl`, `.model`; a player folder's, a shared
-    /// folder's or a `Common/` one) whose vertices carry a positive weight on a hand-skeleton bone, whatever
-    /// their role and the target: planning decides which of them the hand auto-split takes
-    /// (`pipeline.md` "2. Per-export serial steps", step 6). A file that does not parse is
-    /// not among them.
+    /// folder's or a `Common/` one) whose vertices carry a positive weight on a hand-skeleton
+    /// bone, whatever their role and the target. Planning decides which of them the hand
+    /// auto-split takes. A file that does not parse is not among them.
     pub(crate) hand_weighted: BTreeSet<ScopePath>,
     /// The export paths of the FMDLs it parsed that hold a material of the `metal` family
     /// (`model::ModelRead::metal`), whatever the target, as `hand_weighted` is recorded:
@@ -470,7 +472,7 @@ pub(crate) fn content_findings(
                 // The parser bounds a value to the key's widest range; the compile
                 // target's own is narrower. Each value past it resets to the key's
                 // default here, one finding apiece, so `check` and `compile` report
-                // alike and planning sees the row's values (`settings_toml.md`).
+                // alike and planning sees the row's values.
                 for reset in settings.narrow_to(version) {
                     findings.push(ContentFinding {
                         code: Code::SettingsValueOutOfRange.as_str(),
@@ -690,7 +692,7 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
                 .expect("a texture is classified by an extension `dds_convert` accepts");
             Some(Checked::Texture(format, size_rule))
         }
-        // glTF is read from Phase 7; nothing else is checked.
+        // glTF is not read yet; nothing else is checked.
         FileKind::Model(ModelFormat::Gltf)
         | FileKind::Skl
         | FileKind::Fclo
@@ -707,7 +709,7 @@ fn checked_as(file: &FileDescriptor, size_rule: SizeRule) -> Option<Checked> {
 
 /// Whether `findings`, a `Common/` file's, drop it from the validation report: one drops the
 /// file and `pass_through` cannot keep it, being off or the finding not eligible
-/// (`object_model.md` "Validation semantics").
+/// (`spec/aesthetics_export/object_model.md` "Validation semantics").
 fn drops_file(findings: &[ContentFinding], pass_through: bool) -> bool {
     findings.iter().any(|finding| {
         finding.disposition == Disposition::DropFile
@@ -877,10 +879,10 @@ impl<'a> FaceUse<'a> {
 /// `xml_shared_face_conflict` on the player folder at `folder`, holding `files`, when on
 /// pre-Fox it holds its own `face.xml` (`is_user_face_xml`) and its face links a shared face
 /// folder (`face`), whether or not that folder holds one: the face's xml is the shared
-/// folder's, or the one generated, and two xmls leave no rule for which one speaks
-/// (`messages.md` "User-supplied `face.xml`"). It names his xml below his folder and the shared
-/// folder by its export path, and drops his folder, never passing through: no choice of xml
-/// builds the face the member meant. Fox ignores every `face.xml` (`xml_ignored_fox`).
+/// folder's, or the one generated, and two xmls leave no rule for which one speaks. It names
+/// his xml below his folder and the shared folder by its export path, and drops his folder,
+/// never passing through: no choice of xml builds the face the member meant. Fox ignores
+/// every `face.xml` (`xml_ignored_fox`).
 fn shared_face_conflict(
     folder: &ScopePath,
     files: &[FileDescriptor],
@@ -1018,16 +1020,14 @@ fn folder_findings(
     // The face of a folder holding its own `face.xml` packs only what its entries name.
     let xml_controls = !xmls.is_empty() && !xml_drops_folder;
     let pairings = pairings(folder, files, models, engine, listed, common);
-    // A file with no role (a model the target's own format beats, `FolderModels::beaten`; a
-    // file the allowlist does not admit, which the structure pass names) and a per-kit model
-    // variant left out are read
-    // by nothing, and on
-    // Fox a `.mtl` is read only by the conversion of a `.model` paired with it, so one no
-    // such model pairs with (beside only FMDLs, or a `.model` an FMDL beats) is read by
-    // nothing either; on pre-Fox, where the folder's own `face.xml` controls the face, nor is
-    // a model or a `.mtl` it does not name (`xml_unnamed`). None is checked: its findings
-    // would drop a folder `compile` builds without it (`pipeline.md` step 3 "Format
-    // conversion").
+    // Nothing reads a file with no role (a model the target's own format beats,
+    // `FolderModels::beaten`; a file the allowlist does not admit, which the structure pass
+    // names) or a per-kit model variant left out. On Fox a `.mtl` is read only by the
+    // conversion of a `.model` paired with it, so nothing reads one no such model pairs with
+    // (beside only FMDLs, or a `.model` an FMDL beats). On pre-Fox, where the folder's own
+    // `face.xml` controls the face, nothing reads a model or a `.mtl` it does not name
+    // (`xml_unnamed`). None of these is checked: its findings would drop a folder `compile`
+    // builds without it.
     let unread = |file: &FileDescriptor| {
         matches!(
             player_file(folder, file, models),
@@ -1077,13 +1077,12 @@ fn folder_findings(
         }))
         .collect();
     let held = match engine {
-        // A folder an xml Error drops gets no texture finding (`messages.md`, the paragraph
-        // starting "On pre-Fox the check runs in the deep pass"): the member fixes the xml
-        // first, and its entries may name other `.mtl` files.
+        // A folder an xml Error drops gets no texture finding: the member fixes the xml first,
+        // and its entries may name other `.mtl` files.
         Engine::PreFox if xml_drops_folder => None,
         // The `.mtl` checked is the member's source, the same whatever the target, so on Fox
         // the one a selected `.model` pairs with, the only one the pass reads there, is looked
-        // up as on pre-Fox (`messages.md`, the `mtl_texture_not_found` row).
+        // up as on pre-Fox.
         Engine::Fox | Engine::PreFox => Some(held_textures(folder, files, models, &shared, engine)),
     };
     // A Common part's texture paths resolve in `Common/` (`processing::model`), as a
@@ -1788,7 +1787,8 @@ mod tests {
         content_findings(export, &content, version, None, false)
     }
 
-    /// The bytes of `tests/fixtures/textures/<name>` (that folder's `README.md`).
+    /// The bytes of `tests/fixtures/textures/<name>`, described in
+    /// `tests/fixtures/textures/README.md`.
     pub(super) fn texture(name: &str) -> Vec<u8> {
         fixture(&format!("textures/{name}"))
     }

@@ -1,12 +1,13 @@
-//! A selected model of the other engine's format converted for the target
-//! (`team_compiler/pipeline.md` step 3 "Format conversion") through `model_convert::convert`,
-//! which also moves it onto the target version's skeleton: on PES 15-17 an `.fmdl`, with its
-//! paired `.skl` as the bind pose, written as a `.model` and its material set; on PES 18-21 a
-//! `.model`, with the `.mtl` its search finds (a collar's, the templates' `uniform.mtl`),
-//! written as an FMDL and, when the conversion makes one, a skeleton. A model of the target's
-//! own format that the conversion pre-check (`needs_conversion`) finds posed off the version's
-//! skeleton is converted the same way: an FMDL on PES 18-21, a `.model` on PES 15-17. Every
-//! converted model is checked in its target form before it is written (`messages.md`
+//! A selected model of the other engine's format converted for the target through
+//! `model_convert::convert`, which also moves it onto the target version's skeleton. On PES
+//! 15-17 an `.fmdl`, with its paired `.skl` as the bind pose, is written as a `.model` and its
+//! material set. On PES 18-21 a `.model`, with the `.mtl` its search finds (a collar's, the
+//! templates' `uniform.mtl`), is written as an FMDL and, when the conversion makes one, a
+//! skeleton. A model of the target's own format that the conversion pre-check
+//! (`needs_conversion`) finds posed off the version's skeleton is converted the same way: an
+//! FMDL on PES 18-21, a `.model` on PES 15-17.
+//!
+//! Every converted model is checked in its target form before it is written (a far vertex is
 //! `vertex_too_far_from_origin`): what the source passed, the conversion may still have moved
 //! or split past a limit.
 
@@ -26,7 +27,7 @@ pub(super) enum ConvertedMaterials {
     /// an FMDL, the materials the converter builds with their textures. A player's face, boots
     /// or gloves model.
     Converted,
-    /// A collar's, which the game dresses with the kit (`pipeline.md` "Collars"): in a
+    /// A collar's, which the game dresses with the kit: in a
     /// `.model` converted from an FMDL, the stock collars' names, which the game's shared
     /// `uniform.mtl` defines (`stock_collar_materials`; a `.model` collar moved onto the
     /// version's skeleton keeps its author's, `model_for_pre_fox`); in an FMDL, the stock
@@ -116,7 +117,7 @@ pub(super) fn fmdl_for_pre_fox(
 /// The material set the conversion writes is dropped: the member's `.mtl` is packed and
 /// pointed as for any model of theirs (a collar writes none), and moving the bones changes no
 /// material. The `.model` keeps its own material names whatever `materials` says: a collar
-/// already in the target's format keeps its author's (`pipeline.md` "Collars"), so
+/// already in the target's format keeps its author's, so
 /// `materials` decides only which losses are reported (`ConvertedMaterials::reports`).
 /// Charged, reported and failed as `fmdl_for_pre_fox` is.
 pub(super) fn model_for_pre_fox(
@@ -185,7 +186,7 @@ fn pre_fox_written(
 }
 
 /// Renames the materials of `model`, an FMDL collar converted for the pre-Fox `version`, to
-/// the stock collars' (`pipeline.md` "Collars"), which the game's shared `uniform.mtl`
+/// the stock collars', which the game's shared `uniform.mtl`
 /// defines, so the collar is dressed as the stock ones are. On PES 17 its first material, the
 /// FMDL's first, becomes `uni_collar` and every other `uni_shirts`, the list collapsed to
 /// those names with each mesh pointed at its own, since a `.model` lists a material once. On
@@ -325,7 +326,7 @@ fn fox_written(
 }
 
 /// The parameters both of the game's own collar materials carry on Fox, in file order, as
-/// PES 21's `collar_107.fmdl` has them (`pipeline.md` "Collars").
+/// PES 21's `collar_107.fmdl` has them.
 const STOCK_COLLAR_PARAMETERS: [(&str, [f32; 4]); 8] = [
     ("MatParamIndex_0", [40.0, 0.0, 0.0, 0.0]),
     ("BlendNormalXParam", [0.0, 0.0, 0.0, 0.0]),
@@ -337,13 +338,12 @@ const STOCK_COLLAR_PARAMETERS: [(&str, [f32; 4]); 8] = [
     ("PatternIndexParam", [1.0, 0.0, 0.0, 0.0]),
 ];
 
-/// Gives each material of `model`, a `.model` collar converted for Fox (`pipeline.md`
-/// "Collars"), the game's own collar material of its name, as PES 21's `collar_107.fmdl`
-/// has it: `uni_collar` shader `pes_3ddf_collar`, `uni_shirts` `pes_3ddf_shirt_nb`, each
-/// binding the one sampler `Pattern_Tex_LIN` to the game's `uni_pattern.dds` and carrying
-/// `STOCK_COLLAR_PARAMETERS`; every mesh drawn as that file's are, two-sided (alpha flags 32)
-/// and with shadow flags 0. A material of any other name is an error naming it: a collar uses
-/// those two names alone.
+/// Gives each material of `model`, a `.model` collar converted for Fox, the game's own collar
+/// material of its name, as PES 21's `collar_107.fmdl` has it: `uni_collar` shader
+/// `pes_3ddf_collar`, `uni_shirts` `pes_3ddf_shirt_nb`, each binding the one sampler
+/// `Pattern_Tex_LIN` to the game's `uni_pattern.dds` and carrying `STOCK_COLLAR_PARAMETERS`;
+/// every mesh drawn as that file's are, two-sided (alpha flags 32) and with shadow flags 0. A
+/// material of any other name is an error naming it: a collar uses those two names alone.
 fn stock_collar_fox_materials(model: &mut fmdl::Model) -> anyhow::Result<()> {
     // The converter takes a mesh's draw flags from its `.mtl` material, and `uniform.mtl`'s
     // `uni_collar` is one-sided (`twosided` 0), so its meshes would come out at alpha flags 0
@@ -391,15 +391,15 @@ fn failed(name: &str, error: anyhow::Error) -> TaskFailure {
 }
 
 /// The task failure the converted model `name` (as its findings name it) is, `fired` being the
-/// rules its format crate's check fired on it in its target form (`messages.md` "Model
-/// checks"); `Ok` when none of them is an Error. A far vertex is
+/// rules its format crate's check fired on it in its target form; `Ok` when none of them is an
+/// Error. A far vertex is
 /// `vertex_too_far_from_origin`, naming the model and how many vertices are far, summed over
 /// the model as the deep pass sums a source's (`deep::summed`); any other Error is
 /// `model_conversion_failed` with the rule's code as the error: the source passed that check,
 /// so the conversion made the model the game cannot load. A Warning or an Info is not
 /// reported. Either failure leaves the model's package out, `pass_through` or not, as every
-/// task failure does (`messages.md` `model_conversion_failed`): a failed task commits nothing,
-/// and the folder's other packages and its textures stand.
+/// task failure does: a failed task commits nothing, and the folder's other packages and its
+/// textures stand.
 fn target_form_failure(name: &str, fired: Vec<Fired>) -> Result<(), TaskFailure> {
     let errors: Vec<Fired> = summed(fired)
         .into_iter()
@@ -425,9 +425,9 @@ fn target_form_failure(name: &str, fired: Vec<Fired>) -> Result<(), TaskFailure>
 }
 
 /// The finding the conversion's `loss` of the model `name` (as its findings name it) is
-/// reported as, on the folder, at its catalog row's severity (`messages.md`, the conversion rows): its context
-/// is the model, then the index of the mesh, material or bone the loss is about, then the
-/// loss's detail under the row's key when the row names one. A fold's detail,
+/// reported as, on the folder, at its catalog row's severity. Its context is the model, then
+/// the index of the mesh, material or bone the loss is about, then the loss's detail under the
+/// row's key when the row names one. A fold's detail,
 /// `<bone> -> <target>`, names the bone itself and is given in the index's place.
 /// `native_field_dropped` of the Fox mesh flag a `.mtl` cannot express, `no_shadow_cast`, is
 /// `mesh_flags_dropped`, a Warning: the mesh casts a shadow where the source did not. `None`

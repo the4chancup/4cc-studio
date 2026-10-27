@@ -228,8 +228,7 @@ pub(crate) struct Download {
     pub(crate) loaded: bool,
 }
 
-/// The checks a run that deploys makes before any export is read (`pipeline.md` "6.
-/// Post-processing", "Destination writability preflight"), in order: the PES folder
+/// The checks a run that deploys makes before any export is read, in order: the PES folder
 /// `pes_folder` is a folder (`pes_folder_not_found`), it holds `version`'s exe
 /// (`pes_version_mismatch`, a Warning: the checks go on), its `download/DpFileList.bin` exists
 /// and lists every CPK of the run, `cpks` (those it lacks that the `official` list names are
@@ -433,9 +432,9 @@ fn probe_download(download: &Path, name: &str) -> Result<(), (PathBuf, io::Error
 }
 
 /// Why installing the run's CPKs into `download/` failed, named by the step that failed and
-/// not by the OS error (`pipeline.md` "Deploy CPKs"): Windows reports a file held open without
-/// delete sharing as access denied, the error of a folder that needs elevation, while only
-/// the renames need the old CPKs free.
+/// not by the OS error: Windows reports a file held open without delete sharing as access
+/// denied, the error of a folder that needs elevation, while only the renames need the old
+/// CPKs free.
 #[derive(Debug)]
 pub(crate) enum DeployFailure {
     /// A copy to `{name}.cpk.partial` failed: the folder denies writes
@@ -500,8 +499,8 @@ pub(crate) fn deploy(
 }
 
 /// Renames the copied `partials` of the CPKs `cpks` (file `names`) into place in `download`,
-/// all of them or none (`pipeline.md` "Deploy CPKs"): each old CPK there is moved aside to
-/// `<name>.cpk.old`, then each `.partial` renamed to its name. The old CPKs stay aside in the
+/// all of them or none: each old CPK there is moved aside to `<name>.cpk.old`, then each
+/// `.partial` renamed to its name. The old CPKs stay aside in the
 /// returned `Installed` until the run commits or rolls back. A rename that fails undoes the
 /// ones made (`undo`) and is the `Rename` failure naming its CPK.
 fn install_all(

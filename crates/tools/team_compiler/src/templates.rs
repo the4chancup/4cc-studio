@@ -67,7 +67,7 @@ impl Format {
 }
 
 /// The `TeamColor.bin` a compile sets its teams' colors in when it has no installed one to
-/// start from: the same for every version (`resources/bins/README.md`).
+/// start from: the same for every version.
 const TEAM_COLOR: Resource = Resource {
     name: "TeamColor.bin",
     embedded: include_bytes!(concat!(
@@ -78,7 +78,7 @@ const TEAM_COLOR: Resource = Resource {
 };
 
 /// The `UniColor.bin` a compile sets its kits' menu colors in when it has no installed one to
-/// start from: the same for every version (`resources/bins/README.md`).
+/// start from: the same for every version.
 const UNI_COLOR: Resource = Resource {
     name: "UniColor.bin",
     embedded: include_bytes!(concat!(
@@ -108,8 +108,7 @@ const UNIFORM_PARAMETER_19: Resource = Resource {
     format: Format::UniformParameter,
 };
 
-/// The `kit` texture of a placeholder kit: the magenta/black checkerboard, as a DDS
-/// (`resources/kits/README.md`).
+/// The `kit` texture of a placeholder kit: the magenta/black checkerboard, as a DDS.
 const PLACEHOLDER_KIT: Resource = Resource {
     name: "placeholder_kit.dds",
     embedded: include_bytes!(concat!(
@@ -120,7 +119,7 @@ const PLACEHOLDER_KIT: Resource = Resource {
 };
 
 /// The `kit_mask` texture of a kit compiled for PES 2015 to 2017 whose effective textures hold
-/// none: a flat mask, as a DDS (`resources/kits/README.md`).
+/// none: a flat mask, as a DDS.
 const KIT_MASK: Resource = Resource {
     name: "kit_mask.dds",
     embedded: include_bytes!(concat!(
@@ -131,9 +130,8 @@ const KIT_MASK: Resource = Resource {
 };
 
 /// The skeleton packed under a slot's name (`boots.skl`, `fcl_hair_sim.skl`) beside a boots or
-/// hair model that brings no skeleton of its own: PES 2021's full-body `body.skl`, since
-/// exports put full-body models in both slots (`resources/skeletons/README.md`), not the
-/// game's four-bone boots skeleton.
+/// hair model that brings no skeleton of its own: PES 2021's full-body `body.skl`, not the
+/// game's four-bone boots skeleton, since exports put full-body models in both slots.
 const BODY_SKELETON: Resource = Resource {
     name: "body.skl",
     embedded: include_bytes!(concat!(
@@ -144,7 +142,7 @@ const BODY_SKELETON: Resource = Resource {
 };
 
 /// The `face_diff.bin` packed into a Fox face package whose sources hold none: the face
-/// parameter file the game expects beside every face's models (`resources/templates/README.md`).
+/// parameter file the game expects beside every face's models.
 const FACE_DIFF: Resource = Resource {
     name: "face_diff.bin",
     embedded: include_bytes!(concat!(
@@ -155,7 +153,7 @@ const FACE_DIFF: Resource = Resource {
 };
 
 /// The `fcl_hair_sim.fclo` packed beside a `fcl_hair.fmdl` whose sources hold none: a cloth
-/// simulation with nothing in it (`resources/templates/README.md`).
+/// simulation with nothing in it.
 const FCL_HAIR_SIM_FCLO: Resource = Resource {
     name: "fcl_hair_sim.fclo",
     embedded: include_bytes!(concat!(
@@ -166,8 +164,7 @@ const FCL_HAIR_SIM_FCLO: Resource = Resource {
 };
 
 /// The model a pre-Fox face CPK packs as `oral_dummy_win32.model` when its `face.xml` lists no
-/// `face_neck` model, the blank face's included: a model with nothing to draw
-/// (`resources/templates/README.md`).
+/// `face_neck` model, the blank face's included: a model with nothing to draw.
 const DUMMY_MODEL: Resource = Resource {
     name: "dummy.model",
     embedded: include_bytes!(concat!(
@@ -177,8 +174,7 @@ const DUMMY_MODEL: Resource = Resource {
     format: Format::Unparsed,
 };
 
-/// The `.mtl` packed beside `DUMMY_MODEL` as `dummy.mtl`: an empty material set
-/// (`resources/templates/README.md`).
+/// The `.mtl` packed beside `DUMMY_MODEL` as `dummy.mtl`: an empty material set.
 const DUMMY_MTL: Resource = Resource {
     name: "dummy.mtl",
     embedded: include_bytes!(concat!(
@@ -188,8 +184,7 @@ const DUMMY_MTL: Resource = Resource {
     format: Format::Unparsed,
 };
 
-/// PES 17's stock `uniform.mtl`, the material set a `.model` collar is read with
-/// (`resources/templates/README.md`).
+/// PES 17's stock `uniform.mtl`, the material set a `.model` collar is read with.
 const UNIFORM_MTL: Resource = Resource {
     name: "uniform.mtl",
     embedded: include_bytes!(concat!(
@@ -201,8 +196,7 @@ const UNIFORM_MTL: Resource = Resource {
 
 /// The template environment map: a cubemap a PES 15-17 compile emits as `env.dds` into a
 /// player's texture home for a metal material converted from a Fox model that names no
-/// environment texture of its own, so its `Basic_CNSR` shader has a reflection to draw
-/// (`resources/templates/README.md`).
+/// environment texture of its own, so its `Basic_CNSR` shader has a reflection to draw.
 const ENVIRONMENT_MAP: Resource = Resource {
     name: "env.dds",
     embedded: include_bytes!(concat!(
@@ -213,7 +207,7 @@ const ENVIRONMENT_MAP: Resource = Resource {
 };
 
 /// The cup's official `DpFileList.bin`, which a compile that deploys compares the installed
-/// list with: one list for every PES version (`resources/templates/README.md`).
+/// list with: one list for every PES version.
 const DPFILELIST: Resource = Resource {
     name: "DpFileList.bin",
     embedded: include_bytes!(concat!(
@@ -224,8 +218,7 @@ const DPFILELIST: Resource = Resource {
 };
 
 /// The empty CPK `upgrade-dpfl` writes for an official list entry with no file in `download/`:
-/// the game loads none of the folder's CPKs when a listed one is missing
-/// (`resources/templates/README.md`).
+/// the game loads none of the folder's CPKs when a listed one is missing.
 const PLACEHOLDER_CPK: Resource = Resource {
     name: "placeholder.cpk",
     embedded: include_bytes!(concat!(
@@ -235,11 +228,10 @@ const PLACEHOLDER_CPK: Resource = Resource {
     format: Format::Unparsed,
 };
 
-/// The Fox referee marker (`resources/templates/README.md`): the flat square under every
-/// referee, written into the refs CPK as the referees' collar when the refs export holds
-/// `ref_marker.dds`. Its base texture names `common/000/sourceimages/cup_logo.dds` until the
-/// compile points it at the converted marker. Not a `Resource`: no `templates/` file replaces
-/// it.
+/// The Fox referee marker: the flat square under every referee, written into the refs CPK as
+/// the referees' collar when the refs export holds `ref_marker.dds`. Its base texture names
+/// `common/000/sourceimages/cup_logo.dds` until the compile points it at the converted marker.
+/// Not a `Resource`: no `templates/` file replaces it.
 const REFEREE_MARKER: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../resources/templates/referee_marker.fmdl"
@@ -293,8 +285,8 @@ macro_rules! referee_tree {
 
 /// The Fox referee template tree, in path order: the referee kits' textures and kit configs
 /// and `RefereeAppearance.bin`, which the game needs beside the referees' own files in the
-/// refs CPK (`resources/templates/README.md`). Identical files stay separate entries: each is
-/// a file of the tree, at its own game path.
+/// refs CPK. Identical files stay separate entries: each is a file of the tree, at its own
+/// game path.
 static REFEREES_FOX: [(&str, &[u8]); 31] = referee_tree![
     "referees_fox";
     "Asset/model/character/uniform/texture/#windx11/referee_1.ftex",
@@ -333,8 +325,8 @@ static REFEREES_FOX: [(&str, &[u8]); 31] = referee_tree![
 /// The pre-Fox referee template tree, in path order: `RefereeAppearance.bin`, the referees'
 /// boots, kit models and their materials and textures, the 20 kit configs, and the referee
 /// prop model with its `.mtl` and texture, which the game needs beside the referees' own files
-/// in a PES 2015 to 2017 refs CPK (`resources/templates/README.md`). Identical files stay
-/// separate entries, as in `REFEREES_FOX`.
+/// in a PES 2015 to 2017 refs CPK. Identical files stay separate entries, as in
+/// `REFEREES_FOX`.
 static REFEREES_PREFOX: [(&str, &[u8]); 51] = referee_tree![
     "referees_prefox";
     "common/character0/model/character/appearance/RefereeAppearance.bin",
@@ -402,10 +394,9 @@ fn referee_tree_of(engine: Engine) -> (&'static str, &'static [(&'static str, &'
 /// The files of `engine`'s referee template tree in the referees' pre-Fox Common output
 /// (`common/999/`, the `refkit` body), each by its path relative to it, case-folded, in path
 /// order: what a refs export's `face.xml` Common reference may name besides the export's own
-/// `Common/` files (`messages.md` "User-supplied `face.xml`"). Empty on Fox, whose tree holds
-/// none. A free function, not a `Templates` method: a `templates/` override replaces a tree
-/// file's bytes and never adds a path, and the deep pass, which needs the list, runs in `check`
-/// too, where no templates are read.
+/// `Common/` files. Empty on Fox, whose tree holds none. A free function, not a `Templates`
+/// method: a `templates/` override replaces a tree file's bytes and never adds a path, and the
+/// deep pass, which needs the list, runs in `check` too, where no templates are read.
 pub(crate) fn referee_common_paths(engine: Engine) -> Vec<String> {
     let common = paths::pre_fox_common_file(paths::REFEREE_TEAM_ID, "");
     let (_, tree) = referee_tree_of(engine);
@@ -427,10 +418,10 @@ pub(crate) struct Unreadable {
 }
 
 /// The resources a compile builds with: each embedded one, or the data directory's
-/// `templates/` file of the same name that replaces it (`pipeline.md` "Resolved decisions",
-/// "Templates and fallback bins"), and the two referee template trees, Fox's and pre-Fox's,
-/// each file embedded or replaced by the file at its game path below `templates/referees_fox/`
-/// or `templates/referees_prefox/`.
+/// `templates/` file of the same name that replaces it, so a cup's maintainers can swap a
+/// fallback bin or a template between releases. Also the two referee template trees, Fox's and
+/// pre-Fox's, each file embedded or replaced by the file at its game path below
+/// `templates/referees_fox/` or `templates/referees_prefox/`.
 pub(crate) struct Templates {
     /// The replacements read from `templates/`, by resource file name.
     overrides: BTreeMap<&'static str, Vec<u8>>,
@@ -550,8 +541,7 @@ impl Templates {
     }
 
     /// The `kit_mask` texture of a kit compiled for PES 2015 to 2017 whose effective textures
-    /// hold none (`pipeline.md` "4. Per-export non-model steps", Kits: a pre-Fox target lacking
-    /// a mask gets the template): a DDS, emitted as it is.
+    /// hold none: a DDS, emitted as it is.
     pub(crate) fn kit_mask(&self) -> &[u8] {
         self.bytes(&KIT_MASK)
     }
@@ -581,7 +571,7 @@ impl Templates {
     /// PES 17's stock `uniform.mtl`: the material set a `.model` collar is read with on both
     /// engines, its `.mtl` when it converts for PES 18-21 and its set for the same-engine
     /// pre-check on PES 15-17, since a collar carries no materials of its own and no export
-    /// holds the game's shared set (`pipeline.md` "Collars").
+    /// holds the game's shared set.
     pub(crate) fn uniform_mtl(&self) -> &[u8] {
         self.bytes(&UNIFORM_MTL)
     }
@@ -644,8 +634,7 @@ impl Templates {
 /// A command's resources (`Templates::read`), read before anything else, their findings
 /// reported first through `events`. A `templates/` file that cannot be read is
 /// `template_override_unreadable`, Fatal, and `None`: the command stops before it reads or
-/// writes anything else, whatever the resource, because the file was put there on purpose
-/// (`pipeline.md` "Resolved decisions", "Templates and fallback bins").
+/// writes anything else, whatever the resource, because the file was put there on purpose.
 pub(crate) fn read_reported(ctx: &ToolContext, events: &mut RunEvents) -> Option<Templates> {
     match Templates::read(ctx.paths().data_dir.as_deref()) {
         Ok((templates, messages)) => {
@@ -761,7 +750,7 @@ mod tests {
         assert!(mask.starts_with(b"DDS "));
         assert_eq!(&mask[84..88], b"DXT1");
         // The first two level-0 blocks: color0 (255, 190, 0), color1 (98, 101, 0), every
-        // index 3 (`resources/kits/README.md`).
+        // index 3.
         let block = [0xe0, 0xfd, 0x20, 0x63, 0xff, 0xff, 0xff, 0xff];
         assert_eq!(mask[128..144], [block, block].concat());
     }

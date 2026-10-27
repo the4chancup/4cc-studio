@@ -1,7 +1,7 @@
-//! The Team compiler's window, render-only (`spec/team_compiler/README.md` "Crate layout"): it reads
-//! the tool's state and reports the user's intent (Compile clicked); it never calls into the
-//! pipeline itself. In Phase 3: the effective settings read-only, the Compile button and the
-//! log panel; the grid and the toolbar arrive later in the GUI phase.
+//! The Team compiler's window, render-only (`spec/team_compiler/README.md` "Crate layout"): it
+//! reads the tool's state and reports the user's intent (Compile clicked); it never calls into
+//! the pipeline itself. It shows the effective settings read-only, the Compile button and the
+//! log panel; the export grid and the toolbar are not built yet.
 
 use std::time::Duration;
 
@@ -17,8 +17,8 @@ pub(crate) fn show(
     log: &RunLog,
     panel: &mut LogPanel,
 ) -> bool {
-    // The dock claims the bottom first (core plan, "Shell layout"); the settings
-    // and the button take what is left until the grid and the toolbar arrive. A
+    // The dock claims the bottom first (`spec/core/gui.md` "Shell layout"); the
+    // settings and the button take what is left. A
     // clicked message code is a shell request, not a pipeline call: the view
     // stays render-only.
     if let Some(code) = panel.show(ui, log.lines()) {

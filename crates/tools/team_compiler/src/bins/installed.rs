@@ -1,17 +1,16 @@
-//! The working bins taken from the installed CPKs (`team_compiler/pipeline.md` "Bins
-//! accumulation"): the bins the game would load from the CPKs `download/DpFileList.bin` lists
-//! before the run's own, so a compiled CPK, which the game loads above them, keeps the cup's
-//! colors and kits for every team the run does not compile. Each bin comes from the nearest of
-//! those CPKs that holds it, and from its bundled base when none does or the walk cannot be
-//! made (no PES folder, no list, a list not naming the run's CPK); a Fox player table, which
-//! has no bundled base, is then absent. In multi-CPK mode the run's own CPK is the bins CPK,
-//! whose installed copy the three player tables' walk starts at: it holds the seed rows of
-//! the players no export compiles, which the run's output replaces. The walk passes over the
-//! installed refs CPK when the run writes one, since the run replaces it (`pipeline.md` "5.
-//! Writer", step 5). The same walk keeps every entry path of the CPKs below the boundary, for
-//! the texture lookup (`pipeline.md` "Resolved decisions", "A texture a model names must
-//! exist"), which `check` makes too, reading no bin.
-//! On PES 15-17 it also gathers the loose kit configs (`WorkingBins::loose_kit_configs`).
+//! The working bins taken from the installed CPKs
+//! (`spec/team_compiler/pipeline.md` "Bins accumulation"): the bins the game would load from
+//! the CPKs `download/DpFileList.bin` lists before the run's own. The game loads a compiled
+//! CPK above them, so building on them keeps the cup's colors and kits for every team the run
+//! does not compile. Each bin comes from the nearest of those CPKs that holds it, and from its
+//! bundled base when none does or the walk cannot be made (no PES folder, no list, a list not
+//! naming the run's CPK); a Fox player table, which has no bundled base, is then absent. In
+//! multi-CPK mode the run's own CPK is the bins CPK, whose installed copy the three player
+//! tables' walk starts at: it holds the seed rows of the players no export compiles, which the
+//! run's output replaces. The walk passes over the installed refs CPK when the run writes one,
+//! since the run replaces it. The same walk keeps every entry path of the CPKs below the
+//! boundary, for the texture lookup, which `check` makes too, reading no bin. On PES 15-17 it
+//! also gathers the loose kit configs (`WorkingBins::loose_kit_configs`).
 
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fs::{self, File};
@@ -46,7 +45,7 @@ pub(crate) struct Unreadable {
 }
 
 /// The entries of the CPKs the installed `DpFileList.bin` lists before the run's, for the
-/// texture lookup (`pipeline.md` "Resolved decisions", "A texture a model names must exist").
+/// texture lookup: a midcup export's models may name textures an earlier CPK holds.
 #[derive(Debug, PartialEq)]
 pub(crate) enum InstalledPaths {
     /// The lookup cannot be made: no PES folder, no `DpFileList.bin`, or a list that does not
@@ -63,9 +62,8 @@ pub(crate) struct WalkedCpks {
     /// Every entry path of those CPKs, folded (`vtree::fold_name`).
     pub(crate) paths: HashSet<String>,
     /// Each team's shared-IDs record (`4cc_studio/shared_ids/<team_id>.toml`), from the
-    /// topmost CPK holding one, the bins CPK itself first in multi-CPK mode
-    /// (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the
-    /// team already has").
+    /// topmost CPK holding one, the bins CPK itself first in multi-CPK mode. A `Midcup` export
+    /// keeps the shared IDs the team already has.
     pub(crate) shared_ids: BTreeMap<u16, SharedIds>,
 }
 
@@ -94,14 +92,15 @@ impl InstalledPaths {
     /// the textures these CPKs hold in team `team_id`'s Common output for a target of `engine`
     /// (`paths::common_texture`, read back), each under its lookup keys (`kit_lookup_keys`,
     /// which reads the folded spelling's token: a `kit1` copy supplies its set's `kitn`
-    /// reference): on Fox the ones a texture `.common` link at any
-    /// depth may name instead of a file in the export's `Common/` (a player's own textures sit
-    /// in a folder below the team's Common one, under the same head, and a link may name them
-    /// too), on pre-Fox the stems a `.mtl`'s Common path may name, a subfolder's included
-    /// (a player's own texture packs at the same path a `Common/` subfolder's of that name
-    /// would, and a path naming it is found the same way)
-    /// (`pipeline.md` "Resolved decisions", "A texture a model names must exist"); empty when
-    /// the lookup cannot be made.
+    /// reference). Empty when the lookup cannot be made.
+    ///
+    /// On Fox these are the ones a texture `.common` link at any depth may name instead of a
+    /// file in the export's `Common/`. A player's own textures sit in a folder below the team's
+    /// Common one, under the same head, and a link may name them too.
+    ///
+    /// On pre-Fox these are the stems a `.mtl`'s Common path may name, a subfolder's included. A
+    /// player's own texture packs at the same path a `Common/` subfolder's of that name would,
+    /// and a path naming it is found the same way.
     pub(crate) fn common_texture_stems(&self, engine: Engine, team_id: u16) -> BTreeSet<String> {
         let paths = match self {
             InstalledPaths::Unknown => return BTreeSet::new(),
@@ -202,7 +201,7 @@ impl Bin {
     }
 
     /// Whether the bin is one of the three player tables, the bins a multi-CPK run takes
-    /// from the bins CPK itself (`pipeline.md` "Bins accumulation").
+    /// from the bins CPK itself.
     fn is_player_table(self) -> bool {
         match self {
             Bin::TeamColor | Bin::UniColor | Bin::UniformParameter => false,
@@ -258,17 +257,16 @@ enum Place {
 }
 
 /// The bins a run compiling `cpk_stem` for `version` builds on, taken from the installed
-/// CPKs of the PES folder `pes_folder` (`pipeline.md` "Bins accumulation"), passing over the
-/// refs CPK `refs` when the run writes one, a bin none of them holds from its bundled base in
-/// the run's `templates` (a Fox player table, having none, is then absent), the entry paths
-/// of the CPKs walked, and each team's shared-IDs record (`take_shared_ids`), and the
-/// findings: a `bin_source` per bin found or bundled, and
-/// `dpfilelist_missing` when the folder has no list (an Error when the run `deploys`, a
-/// Warning when not). `multicpk` is the run writing the parts layout: `cpk_stem` is then the
-/// bins CPK's stem and the player tables' walk starts at the installed CPK of its name
-/// itself, so the seed rows it holds come through to the output replacing it. A list, a CPK
-/// or a bin that cannot be read is the error: the run stops rather than build on an older
-/// copy.
+/// CPKs of the PES folder `pes_folder`, passing over the refs CPK `refs` when the run writes
+/// one. A bin none of them holds comes from its bundled base in the run's `templates`; a Fox
+/// player table, having none, is then absent. Also returned: the entry paths of the CPKs
+/// walked, each team's shared-IDs record (`take_shared_ids`), and the findings. These are a
+/// `bin_source` per bin found or bundled, and `dpfilelist_missing` when the folder has no list
+/// (an Error when the run `deploys`, a Warning when not). `multicpk` is the run writing the
+/// parts layout: `cpk_stem` is then the bins CPK's stem and the player tables' walk starts at
+/// the installed CPK of its name itself, so the seed rows it holds come through to the output
+/// replacing it. A list, a CPK or a bin that cannot be read is the error: the run stops rather
+/// than build on an older copy.
 pub(crate) fn working_bins(
     pes_folder: &Path,
     cpk_stem: &CpkStem,
