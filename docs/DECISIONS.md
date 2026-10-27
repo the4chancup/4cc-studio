@@ -11871,3 +11871,24 @@ thing that hides. The sample run of the PES 17 team holds no `FieldedNotA` (its 
 all A where preset 1 fields them, which the re-read confirms), so without the re-read the
 draft could not show it.
 Plan: `plans/save_editor.md` "Configurable AATF rules", the "Live AATF" bullet.
+
+## 2026-10-27 — gui — Selawik replaces Ubuntu; the drafts load the app's own font files
+Decision: the body font is Selawik (Microsoft's open metric twin of Segoe UI, SIL Open Font
+License 1.1), bundled in `resources/fonts/` in place of Ubuntu Regular; monospace stays Hack.
+Every glyph the suite draws comes from a bundled file: proportional Selawik, the icon font,
+`egui-icons`, Hack, `NotoEmoji-Regular`, `emoji-icon-font` (egui's `monochrome_emoji_fonts`
+feature); eframe's system fallback is left for what members type. The drafts load the same
+files by `@font-face` in the same order, name no system font or generic family, draw no bold,
+and set egui's line height (1.2 times the size) explicitly; `scripts/draft_fonts.py` fails on any other font a draft really draws in. The
+drafts' approval is withdrawn until the maintainer's close look at them in these fonts.
+Why: the drafts named Ubuntu, installed on no machine they were opened on, so the browsers drew
+Segoe UI and every layout was reviewed and calibrated in its metrics, about 3.5% narrower than
+the Ubuntu the app draws (Steam's PES 2019 path: 425.7 points in egui with Segoe UI, 438.4 with
+Ubuntu). Selawik keeps those widths (426.1) and may be bundled, which Segoe UI may not, so the
+calibrated layouts stand, the maintainer's choice over redrawing them in Ubuntu. The same probe
+found the drafts' symbols drawn from Cambria Math, Segoe UI Symbol and Arial, their ids in
+Consolas, the pitch canvas in Arial Bold, and a line 16 points high where egui's is 15; and the
+app itself drew → ↓ ≡ ▸ ▾ ● ▶ ⚠ ✔ ✕ ✖ ⠇ through the system fallback (none in its bundled
+fonts), a different glyph per machine and a missing one in every test context.
+Plan: `plans/core/gui.md` "Prototypes before implementation" (the Fonts bullet) and "Other UI
+components" (the Dark/light theme row).

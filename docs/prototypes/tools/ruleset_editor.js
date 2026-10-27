@@ -837,7 +837,7 @@ function colour(hex8, set) {
       onchange: structural }),
     text(hex8, set, { mono: true, width: 76, title: "The eight bytes after \\x11c in the name" }));
 }
-function remove(list, i) { return button("✕", () => { list.splice(i, 1); structural(); }, { frame0: true, title: "Remove" }); }
+function remove(list, i) { return button("\uE4F6", () => { list.splice(i, 1); structural(); }, { frame0: true, title: "Remove" }); }
 
 // Drag and drop between rows of one list (egui's dnd_drag_source / dnd_drop_zone).
 function reorderable(el, list, i) {
@@ -855,7 +855,7 @@ function reorderable(el, list, i) {
 }
 function handle(i) {
   return h("span", { class: "handle", draggable: "true", title: "Drag to reorder",
-    ondragstart: e => e.dataTransfer.setData("text/plain", String(i)) }, "⠇");
+    ondragstart: e => e.dataTransfer.setData("text/plain", String(i)) }, "≡");
 }
 
 // ---- Edits, undo, outputs ----
@@ -1458,7 +1458,7 @@ const VIEWS = {
           title: "Points above a stat's target that warn rather than err (0: every point errs)" })),
         h("td", {}, checkbox("", t.total_within_targets, v => t.total_within_targets = v,
           "The stats add up to at most the targets, an error past them")),
-        h("td", {}, R.tiers.length > 1 ? button("✕", () => { R.medal_systems.forEach(s => { delete s.counts[t.id]; }); R.tiers.splice(i, 1); structural(); }, { frame0: true, title: "Remove" }) : "")), R.tiers, i));
+        h("td", {}, R.tiers.length > 1 ? button("\uE4F6", () => { R.medal_systems.forEach(s => { delete s.counts[t.id]; }); R.tiers.splice(i, 1); structural(); }, { frame0: true, title: "Remove" }) : "")), R.tiers, i));
       g.append(h("tr", {}, h("td", {}), h("td", { colspan: 15 }, collapsing(`tier:${i}`, "Stat targets, free cards and conditions", () => h("div", {},
         strong("Per-stat targets"), h("span", { class: "weak" }, " (empty: the rate)"),
         perStatGrid(t),
@@ -1549,7 +1549,7 @@ const VIEWS = {
         R.suggestions = R.suggestions.map(s => s === gid ? v : s);
         gid = v;
       }, { mono: true, width: 120, title: "The group's id; renaming it updates the tiers and suggestions" }),
-        h("span", { style: "flex:1" }), button("✕", () => { delete R.card_groups[gid]; structural(); }, { frame0: true })),
+        h("span", { style: "flex:1" }), button("\uE4F6", () => { delete R.card_groups[gid]; structural(); }, { frame0: true })),
         cardGrid(R.card_groups[gid], v => R.card_groups[gid] = v)));
     });
     d.append(groups);
@@ -1583,7 +1583,7 @@ const VIEWS = {
       tri(t, "man_marking", "Man marking set up"), tri(t, "auto_substitution", "Automatic substitution"),
       tri(t, "auto_offside_trap", "Automatic offside trap"), tri(t, "auto_preset_change", "Automatic preset change"),
       tri(t, "auto_attack_defence_levels", "Automatic attack/defence levels"),
-      row(weak("Banned formation shapes:"), t.forbidden_shapes.map((s, j) => h("span", { class: "chip mono" }, s.join("-"), button("✕", () => { t.forbidden_shapes.splice(j, 1); structural(); }, { frame0: true }))),
+      row(weak("Banned formation shapes:"), t.forbidden_shapes.map((s, j) => h("span", { class: "chip mono" }, s.join("-"), button("\uE4F6", () => { t.forbidden_shapes.splice(j, 1); structural(); }, { frame0: true }))),
         text("", v => t._shape = v, { width: 60, placeholder: "3-4-3", mono: true }),
         button("Add", () => { const s = (t._shape || "").split("-").map(Number); if (s.length === 3 && s.every(n => n >= 0)) { t.forbidden_shapes.push(s); delete t._shape; structural(); } })))));
     d.append(settings);
@@ -1654,7 +1654,7 @@ function cardGrid(selected, set) {
 }
 function cardPicker(list, set) {
   return h("span", { class: "row", style: "margin:0" },
-    list.map((c, j) => h("span", { class: "chip" }, human(c), button("✕", () => { list.splice(j, 1); structural(); }, { frame0: true }))),
+    list.map((c, j) => h("span", { class: "chip" }, human(c), button("\uE4F6", () => { list.splice(j, 1); structural(); }, { frame0: true }))),
     combo([[null, "+ card…"]].concat(CARDS.filter(c => !list.includes(c)).map(c => [c, human(c) + (COM.includes(c) ? " (COM)" : "")])), null, v => { if (v) set(list.concat([v])); }));
 }
 
@@ -1683,7 +1683,7 @@ const has = (c, k) => k === "height" ? c.height_min != null || c.height_max != n
 function condEditor(c, path, opts) {
   const allowed = COND_FIELDS.filter(([k]) => opts.heightsPositions ? ["positions", "height", "any", "not"].includes(k) : !(opts.noTiers && k === "tiers"));
   const box = h("div", { class: "col", style: "flex:1" });
-  const drop = (keys) => button("✕", () => { keys.forEach(k => delete c[k]); structural(); }, { frame0: true, title: "Remove this condition" });
+  const drop = (keys) => button("\uE4F6", () => { keys.forEach(k => delete c[k]); structural(); }, { frame0: true, title: "Remove this condition" });
   const line = (label, widget, keys) => box.append(row(h("span", { style: "width:150px" }, label), widget, drop(keys)));
   const ids = (xs) => xs.map(x => x.id);
   const labelOf = (xs) => id => (xs.find(x => x.id === id) || { label: id }).label;
@@ -1715,7 +1715,7 @@ function condEditor(c, path, opts) {
         c.ranges = next;
       }),
       "from", drag(range[0], v => range[0] = v ?? 0, { max: 99 }), "to", drag(range[1], v => range[1] = v ?? 0, { max: 99 }),
-      button("✕", () => { delete c.ranges[k]; if (!Object.keys(c.ranges).length) delete c.ranges; structural(); }, { frame0: true })));
+      button("\uE4F6", () => { delete c.ranges[k]; if (!Object.keys(c.ranges).length) delete c.ranges; structural(); }, { frame0: true })));
   }
   if (has(c, "strong_foot")) line("Stronger foot", h("span", { class: "row", style: "margin:0" },
     ["right", "left"].map(f => h("label", { class: "cb" }, h("input", { type: "radio", checked: c.strong_foot === f, onchange: () => { c.strong_foot = f; structural(); } }), f))), ["strong_foot"]);
@@ -1773,7 +1773,7 @@ function perTier(get, set) {
 function effectsEditor(e, path, inChoice) {
   const box = h("div", { class: "col", style: "flex:1" });
   const line = (label, widget, del) => box.append(row(h("span", { style: "width:170px" }, label), widget,
-    button("✕", () => { del(); structural(); }, { frame0: true, title: "Remove this effect" })));
+    button("\uE4F6", () => { del(); structural(); }, { frame0: true, title: "Remove this effect" })));
   const statCombo = (map, k) => combo(STATS.filter(s => s === k || !(s in map)).map(s => [s, human(s)]), k, v => {
     const next = {};
     for (const [kk, vv] of Object.entries(map)) next[kk === k ? v : kk] = vv;
@@ -1811,7 +1811,7 @@ function effectsEditor(e, path, inChoice) {
       row(weak(e.choice.length === 1 ? "Option" : `Option ${j + 1}`), h("span", { style: "flex:1" }), remove(e.choice, j)), effectsEditor(o, `${path}.choice${j}`, true))));
     c.append(row(button("+ Add option", () => { e.choice.push({}); structural(); }, { frame0: true })));
     box.append(h("div", { class: "row", style: "align-items:flex-start" }, h("span", { style: "width:170px" }, e.choice.length === 1 ? "May get" : "One of"), c,
-      button("✕", () => { delete e.choice; structural(); }, { frame0: true })));
+      button("\uE4F6", () => { delete e.choice; structural(); }, { frame0: true })));
   }
   if (!box.childNodes.length) box.append(weak(inChoice ? "Nothing yet" : "No effect yet"));
   const offered = EFFECTS.filter(([k]) => !inChoice || CHOICE_EFFECTS.includes(k.replace(/_(all|one)$/, "")))

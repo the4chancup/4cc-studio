@@ -3237,6 +3237,33 @@ briefs, review loops, gates and mutation runs as for any step.
     maintainer's eye (outside the app's own windows, which the lead does not capture): the
     taskbar's button and Alt+Tab (the tight crop: if the whole picture should be there, the
     plan's bullet on `small.png` says what that costs); Explorer's file icon on the exe
+- [ ] 0.0.1w the drafts and the app draw the same fonts (the maintainer, 2026-10-27: the
+  drafts named Ubuntu, installed nowhere, so they were reviewed in Segoe UI; Selawik, its
+  metric twin, replaces Ubuntu; `plans/core/gui.md` "Prototypes before implementation", the
+  Fonts bullet, and "Other UI components", the Dark/light theme row; DECISIONS "Selawik
+  replaces Ubuntu; the drafts load the app's own font files"). **The drafts' approval is
+  withdrawn until the maintainer's close look at them in these fonts.**
+  - [x] w1 the drafts' fonts (lead): the font files in `docs/prototypes/assets/fonts/`
+    (licences in its README and the host's comments), every stylesheet and canvas font on the
+    app's chain (`--font-body`, `--font-mono`, `FONT_BODY`), every face loaded up front (canvas
+    text triggers no load), line height 1.2 with egui's 18-point floor under buttons, combos,
+    number boxes, checkbox rows and list rows (all 18 again, re-measured with
+    `.tmp/0_0_1u/measure_controls.py`; the mono path box 18.4 left for w1b), no bold (the team row, the pitch's labels), ✕ →
+    the icon font's X, the tier grip ⠇ → ≡ (the lineup's handle), the number boxes' spin
+    arrows hidden; `scripts/draft_fonts.py` → verified: Selawik, Hack, Phosphor and egui's
+    two emoji fonts only, on every page (red: the old body font and a canvas `sans-serif`
+    restored by hand, 714 findings); glyphs pixel-identical at line height 1.2 and normal
+    (12.5 and 14 points, 1x and 2x); the team view still fits its window
+  - [ ] w1b the drafts' native controls as egui draws them: the checkbox (13 × 13 in Chromium),
+    the sliders (Chromium's and Firefox's own), the combo's popup (the system's list), each
+    measured in egui first; and the scrollbars, which a headful browser on Windows 10 draws
+    17 wide in the layout where egui's float (the probes run headless and see none)
+  - [ ] w2 the app (SWE-2, after 0.0.1u: same `theme.rs`): Selawik in `resources/fonts/` and
+    first in the proportional family, the chain the plan's row lists, `monochrome_emoji_fonts`
+    on, the code's ✕ and ⠇ as the draft replaces them → verify: a test that every symbol the
+    views draw resolves in a bundled font; every layout test's moved number checked against the
+    drafts; the built window against the drafts
+  - [ ] w3 the maintainer's close look at the drafts (their approval back), then the built window
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

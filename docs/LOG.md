@@ -2614,3 +2614,6 @@ worklog passed 7,000 lines.
   to spare; the short name takes three letters, a team picked in the selector opens its view, team rows read `[click for tactics]` (0.0.1s5e).
 - **2026-10-27** — Live AATF marks a starter fielded where he is not rated A with a cross beside his pitch marker, and that issue's row
   opens his team's Tactics on the formation carrying it; the fielded-formations rule is now one method the check reads too (0.0.1o2b).
+- **2026-10-27** — The drafts drew in Segoe UI, Ubuntu being installed nowhere they were opened; Selawik, its metric twin, becomes
+  the body font, and the drafts now load the app's own font files only (`scripts/draft_fonts.py` checks it); their approval is
+  withdrawn until the maintainer's close look (0.0.1w1).

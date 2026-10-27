@@ -87,20 +87,22 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
   flex: 1; overflow-y: auto; overflow-x: hidden; }
 /* A name too long for the row truncates, its dot and mark kept after it. */
 .plist .pname { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.plist .rows .prow { display: flex; gap: 5px; align-items: center; padding: 1px 4px; white-space: nowrap; }
+.plist .rows .prow { display: flex; gap: 5px; align-items: center; padding: 1px 4px; white-space: nowrap;
+  min-height: 18px; }
 .plist .rows .prow:hover { background: var(--hover); }
 .plist .rows .prow.on { background: var(--sel-bg); }
 .plist .num { color: #6e6e6e; width: 20px; text-align: right; flex: none; }
 .plist .pos { width: 28px; flex: none; color: #b4b4b4; }
 .plist .tshort { color: #6e6e6e; flex: none; }
 .plist .dot { color: var(--warn); margin-left: auto; }
-/* A team row in the player list: bold, the two colours as swatches, a
-   backdrop so it reads apart from a player row. */
-.plist .rows .trow { background: var(--faint); font-weight: bold; color: var(--strong); }
+/* A team row in the player list: the strong colour, the two colours as
+   swatches, a backdrop so it reads apart from a player row (no bold: the app
+   has no bold face). */
+.plist .rows .trow { background: var(--faint); color: var(--strong); }
 .plist .rows .trow .swatch { width: 10px; height: 10px; flex: none; }
 /* The team row's hint after its name, in the weak grey at the normal
    weight; on a narrow row it gives way first, elided before the name is. */
-.plist .rows .trow .thint { color: #6e6e6e; font-weight: normal; min-width: 0; overflow: hidden;
+.plist .rows .trow .thint { color: #6e6e6e; min-width: 0; overflow: hidden;
   text-overflow: ellipsis; flex: 0 1000 auto; }
 .plist .qagrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; }
 /* Every quick action one height, their own: the theme's controls are 18. */
@@ -296,7 +298,7 @@ table.grid.stats-grid td { padding: 2px 6px; }
 .llist { background: var(--extreme); border: 1px solid var(--stroke);
   max-height: 300px; overflow: auto; }
 .lrow { display: flex; gap: 5px; align-items: center; padding: 1px 4px;
-  white-space: nowrap; }
+  white-space: nowrap; min-height: 18px; }
 .lrow:hover { background: var(--hover); }
 .lrow .fpos { width: 30px; flex: none; color: #b4b4b4; }
 #tac-lists .lrow { overflow: hidden; }
@@ -3397,7 +3399,7 @@ function renderList(rows) {
     for (const p of t.players) rows.append(playerRow(t, p));
   }
 }
-// The team row: bold, the team's id and its two colours as swatches, its
+// The team row: the strong colour, the team's id and its two colours as swatches, its
 // dirty dot covering the team's own fields. It never drags and is no drop
 // target; a click selects the team (the view shows it).
 function teamRow(team) {
@@ -4451,7 +4453,7 @@ function drawPitch(t) {
     g.fillStyle = S.assign && S.assign.kind === "join" && joined.includes(roster) ? "#005c80" : "#242b2d";
     g.beginPath(); g.roundRect(bl, bt, MARKER.badgeW, MARKER.badgeH, 2); g.fill();
     g.textBaseline = "middle"; g.textAlign = "left";
-    g.fillStyle = POS_COLOUR(s.position); g.font = "bold 12px sans-serif";
+    g.fillStyle = POS_COLOUR(s.position); g.font = "12px " + FONT_BODY;
     g.fillText(s.position, bl + 3, y + 1);
     // His tier under the active ruleset, a medal's initial in the medal's
     // colour at the badge's right end; a tier that is no medal draws none.
@@ -4469,7 +4471,7 @@ function drawPitch(t) {
       crossRows.some(r => r[0] === "Error") ? "#ff0000" : "#ff8f00"]);
     g.save();
     g.beginPath(); g.rect(bl, y + 3, MARKER.badgeW, 20); g.clip();
-    g.font = "12px sans-serif"; g.textAlign = "left";
+    g.font = "12px " + FONT_BODY; g.textAlign = "left";
     // The name in its colour codes' colours (white where it has none), as the
     // game's screen draws it. A shorter name is centred; a wider one starts at
     // the badge's left and scrolls as the game's (`nameScroll`), drawn twice
@@ -4493,7 +4495,7 @@ function drawPitch(t) {
     if (roster === t.captain) {
       g.fillStyle = "#ffffff";
       g.beginPath(); g.roundRect(bl + 1, bt - 5 - 11, 12, 11, 2); g.fill();
-      g.fillStyle = "#000000"; g.font = "bold 9px sans-serif"; g.textAlign = "center";
+      g.fillStyle = "#000000"; g.font = "9px " + FONT_BODY; g.textAlign = "center";
       g.fillText("C", bl + 7, bt - 10);
     }
     if (S.slotPop && S.slotPop.i === i) corners(g, x, y, "#14fbff");
@@ -4501,7 +4503,7 @@ function drawPitch(t) {
   }
   g.globalAlpha = 1;
   if (target >= 0) corners(g, ...badgeAt(t, target), "#14fbff");
-  g.font = "12.5px Ubuntu, sans-serif"; g.textAlign = "right"; g.textBaseline = "middle";
+  g.font = "12.5px " + FONT_BODY; g.textAlign = "right"; g.textBaseline = "middle";
   for (const [cx, cy, color] of crosses) { g.fillStyle = color; g.fillText("✖", cx, cy); }
   g.textAlign = "left";
 }
@@ -5075,7 +5077,7 @@ const SECOND_SAVES = [
 function panelWindow(id, title, body) {
   const p = h("div", { class: "panel", id, "data-panel": S.panel + "-window" },
     h("div", { class: "title" }, title,
-      button("✕", () => { S.panel = null; render(); }, { frame0: true, title: "Close" })),
+      button("\uE4F6", () => { S.panel = null; render(); }, { frame0: true, title: "Close" })),
     h("div", { class: "pbody" }, body));
   return p;
 }
