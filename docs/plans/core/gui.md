@@ -284,10 +284,14 @@ The settings menu is assembled from injected sections:
   of its kind (a folder, or a file filtered to the type the tool reads), a pick committing at
   once; `studio_core` owns the row, so every section's path rows commit the same way. A path's
   edit is wide enough to show a usual install path whole: Steam's `C:\Program Files
-  (x86)\Steam\steamapps\common\Pro Evolution Soccer 2019`, 71 characters, at the body font
-  (the draft's 440-point box, the menu 660 points wide with the label column and Browse), not
-  the 220 points that cut such a path mid-name, so a member reads which folder is set without
-  scrolling inside the box.
+  (x86)\Steam\steamapps\common\Pro Evolution Soccer 2019`, 71 characters, at the body font,
+  so a member reads which folder is set without scrolling inside the box. In egui that path
+  measures 456 points at the 13-point body font, so the edit is 472 points with its 8-point
+  margins (the draft's 440-point box is drawn in the browser's narrower font), and the menu
+  is 660 points: the common grid's widest row (its label column, the edit and Browse) needs
+  656. A tool section's row sits indented under its header with that tool's own label
+  column, so a section whose labels are long widens the menu while it is open, rather than
+  narrowing its path box below the path.
 - **The PES folder** is one main row for every version, `pes_folder_path`, whose `**` stands
   for the selected version's two digits (the default `…\Pro Evolution Soccer 20**`). Its
   Browse stores a picked folder whose own name holds the selected version's year with that

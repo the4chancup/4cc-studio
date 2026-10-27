@@ -24,8 +24,9 @@ use crate::widgets::{PathCommit, PathKind, path_row, path_row_commit, row_label}
 
 use super::sidebar::{Sidebar, exe_tooltip, version_blocker, version_label};
 
-/// The modal's width, the draft's `.settings-body`.
-const WIDTH: f32 = 560.0;
+/// The modal's width, the draft's `.settings-body`, which the common grid's
+/// widest row (the label column, the path edit and Browse) fits.
+const WIDTH: f32 = 660.0;
 
 /// The menu's state across frames: whether it is open, the tool the next drawn frame
 /// expands, the "A folder per version" toggle's member-set half, and the path rows'

@@ -58,6 +58,11 @@ pub(crate) enum PathCommit {
     Picked,
 }
 
+/// The path edit's width: the one that shows Steam's PES 2019 install path
+/// whole (456 points at the 13-point body font, plus the edit's 8-point
+/// margin on each side); the menu's width test measures it.
+const PATH_EDIT_WIDTH: f32 = 472.0;
+
 /// `path_row`, saying which way the setting changed: the PES folder row stores a
 /// picked folder through its own rule (the selected version's year written `20**`),
 /// a typed one as typed.
@@ -74,7 +79,7 @@ pub(crate) fn path_row_commit(
     let (response, picked) = ui
         .horizontal(|ui| {
             let response = ui
-                .add(egui::TextEdit::singleline(buffer))
+                .add(egui::TextEdit::singleline(buffer).desired_width(PATH_EDIT_WIDTH))
                 .labelled_by(label.id);
             // `rfd`'s pickers are native-only, so the wasm row is the edit
             // alone (`_kind`: `browse` exists only off wasm).

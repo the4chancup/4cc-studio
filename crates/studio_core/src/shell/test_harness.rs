@@ -19,7 +19,7 @@ use crate::help::{HelpSection, HelpTarget};
 use crate::settings::Settings;
 use crate::status::ToolActivity;
 use crate::tool::{AppPaths, CliError, PlannedTool, StudioTool, ToolContext};
-use crate::widgets::{LogLine, LogPanel};
+use crate::widgets::{LogLine, LogPanel, PathKind, path_row};
 
 /// What `activity()` reports while a stub works: `(tool_label, progress, elapsed)`.
 pub(super) type Activity = (&'static str, Option<(usize, usize)>, Duration);
@@ -53,6 +53,10 @@ pub(super) struct Calls {
     /// The table `default_settings()` reports; `stub()` fills a non-empty one, a test
     /// clears it for a tool without settings.
     pub(super) default_settings: Mutex<toml::Table>,
+    /// While `Some`, the stub's settings section draws a path row of a file
+    /// kind, the string being the setting the row shows (a commit writes it
+    /// back).
+    pub(super) file_row: Mutex<Option<String>>,
     /// Whether the stub reports unsaved work: `hold_close` holds the close for it.
     pub(super) unsaved: Mutex<bool>,
     /// The prompt `view` draws: written by every `hold_close` ask (`None` when nothing holds
@@ -111,6 +115,8 @@ pub(super) struct StubTool {
     /// A `LogPanel` the `view` draws over these lines, `stub_log`'s: the clicked
     /// message code goes to `ctx.open_help` (the log-to-help wiring).
     log: Option<(LogPanel, Vec<LogLine>)>,
+    /// The `file_row` path row's edit buffer; `stub_parts` sets it empty.
+    file_buffer: String,
     calls: Arc<Calls>,
 }
 
@@ -180,6 +186,30 @@ impl StudioTool for StubTool {
     }
     fn settings_view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
         ui.label(format!("{} settings body", self.label));
+        // The `file_row` knob draws the Save editor's settings section: its
+        // file path row and its long-labelled checkbox row, in their own grid,
+        // so the section is wider than the menu's 660 points, as the real one is.
+        if let Some(current) = self.calls.file_row.lock().unwrap().as_mut() {
+            egui::Grid::new(("stub-file-row", self.id))
+                .num_columns(2)
+                .show(ui, |ui| {
+                    path_row(
+                        ui,
+                        "AATF rules file",
+                        "aatf_rules",
+                        "The AATF rules file; empty: the official ruleset, built in.",
+                        &mut self.file_buffer,
+                        current,
+                        PathKind::File {
+                            filter: "AATF rules",
+                            extensions: &["4ccrules"],
+                        },
+                    );
+                    ui.label("Aesthetics from exports");
+                    ui.add(egui::Checkbox::without_text(&mut false));
+                    ui.end_row();
+                });
+        }
     }
     fn default_settings(&self) -> toml::Table {
         self.calls.default_settings.lock().unwrap().clone()
@@ -278,6 +308,7 @@ fn stub_parts(
             icon: "i",
             help,
             log,
+            file_buffer: String::new(),
             calls: Arc::clone(&calls),
         }),
         calls,

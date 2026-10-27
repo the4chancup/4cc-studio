@@ -2778,12 +2778,26 @@ briefs, review loops, gates and mutation runs as for any step.
   Files: `studio_core/src/settings/{common,mod}.rs`, `studio_core/src/shell/{mod.rs,
   settings_menu/}`, `studio_core/src/{status.rs,widgets/{mod,settings_row}.rs}`,
   `plans/core/gui.md`, `DECISIONS.md`
-  - [ ] r2 the path edits wide enough for a usual install path (the maintainer's look at the
+  - [x] r2 the path edits wide enough for a usual install path (the maintainer's look at the
     rows, 2026-10-27; `plans/core/gui.md` "Settings menu", the path row bullet; DECISIONS "A
     settings path box shows a usual install path whole"): the menu 660 points, the edits
     holding Steam's PES 2019 path (71 characters) whole at the body font → verify: a test
     measuring that path's galley against the drawn edit's width, every section's path rows
-    included
+    included. Done (`.tmp/0_0_1r2/brief_r2.md`): the path measures 456 points at egui's
+    13-point body font, past the draft's 440, so the edit is 472 points (8-point margins)
+    and the menu 660, which the common grid's widest row needs 656 of (DECISIONS "The
+    settings path edits are 472 points in egui, the menu 660"). The test draws the PES
+    folder, PES 2019 folder, exports folder and a stub tool's file row (the Team compiler's
+    section draws no path row yet; the stub's section is the Save editor's, two rows) and
+    checks each text run against its edit. The Save editor's section widens the menu to 708
+    points while open ("Aesthetics from exports" under the header's indent). Open for the
+    top lead's draft (not changed here): its 440-point box to 472, and its fixed 660-point
+    `.settings-body`, which cannot show that widening. Two older menu tests rest the pointer
+    inside the menu first: on the test's 800-point screen the sidebar's overlay covered the
+    wider menu's left edge (the app lays out at least 1280 points wide). SWE-2 round S1: 2
+    accepted of 5 (`.tmp/0_0_1r2/rulings.md`). Files:
+    `studio_core/src/{widgets/settings_row.rs,shell/{settings_menu/,test_harness.rs}}`,
+    `plans/core/gui.md`, `DECISIONS.md`
 - [ ] 0.0.1s the Save editor's main panel after 4ccEditor's layout, no tabs (the maintainer,
   2026-10-26; prototyped first): General info with the playable positions under it, skills
   in two columns with the COM styles and the four non-ability values stacked under them, one

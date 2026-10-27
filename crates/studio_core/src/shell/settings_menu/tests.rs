@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use egui::accesskit::{self, Role};
 use pes_version::PesVersion;
@@ -31,6 +31,29 @@ fn widget_on_row<'a>(nodes: &'a [accesskit::Node], label: &str, role: Role) -> &
                     .is_some_and(|bounds| bounds.y0 < row.y1 && bounds.y1 > row.y0)
         })
         .unwrap_or_else(|| panic!("no {role:?} on the {label:?} row"))
+}
+
+/// The `Role::TextRun` node on `label`'s row whose value is `text`: a text
+/// edit's run is the whole galley line, unclipped; the row's label carries a
+/// `TextRun` of its own text too, hence the value filter.
+fn text_run_on_row<'a>(
+    nodes: &'a [accesskit::Node],
+    label: &str,
+    text: &str,
+) -> &'a accesskit::Node {
+    let row = text_node(nodes, label)
+        .bounds()
+        .expect("the label has bounds");
+    nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::TextRun
+                && node.value() == Some(text)
+                && node
+                    .bounds()
+                    .is_some_and(|bounds| bounds.y0 < row.y1 && bounds.y1 > row.y0)
+        })
+        .unwrap_or_else(|| panic!("no {text:?} run on the {label:?} row"))
 }
 
 /// A key event.
@@ -93,6 +116,18 @@ fn the_gear_opens_the_menu_on_the_active_tools_section_and_resets_each_opening()
         !has_text(&nodes, "A settings body"),
         "the other sections are collapsed"
     );
+
+    // The gear click leaves the pointer on the rail, the sidebar's overlay
+    // open over the menu's left edge on the test's 800-point screen (the app
+    // lays out at least 1280 points wide, where the two never meet); resting
+    // it inside the menu closes the overlay before the clicks below.
+    frame(
+        &egui_ctx,
+        &mut app,
+        hover(widget_on_row(&nodes, "PES folder", Role::TextInput)),
+        true,
+    );
+    idle(&egui_ctx, &mut app, 2);
 
     // A click on B's header collapses its section, and the collapse holds while the
     // menu stays open: the member's toggle is the state, not the open set.
@@ -735,6 +770,16 @@ fn a_row_labels_tooltip_leads_with_the_settings_key() {
     let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
     click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
     let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+    // The gear click leaves the pointer on the rail, the sidebar's overlay
+    // open over the menu's left edge on the test's 800-point screen (the app
+    // lays out at least 1280 points wide, where the two never meet); resting
+    // it inside the menu closes the overlay before the hover below.
+    frame(
+        &egui_ctx,
+        &mut app,
+        hover(widget_on_row(&nodes, "PES folder", Role::TextInput)),
+        true,
+    );
     idle(&egui_ctx, &mut app, 8);
     frame(
         &egui_ctx,
@@ -1027,5 +1072,113 @@ fn emptying_the_last_folder_of_a_version_leaves_the_rows_shown() {
     assert!(
         !entry(&nodes, "A folder per version").is_disabled(),
         "the toggle is free to switch off"
+    );
+}
+
+// A path edit shows Steam's PES 2019 install path whole (gui.md "Settings
+// menu", the path row bullet): the drawn text run is the path's galley at the
+// body font, starting inside the edit's left margin and ending inside its
+// right one, and the common grid's widest row then fits the menu's width.
+#[test]
+fn every_path_edit_shows_steams_pes_2019_folder_whole() {
+    const STEAM_2019: &str =
+        r"C:\Program Files (x86)\Steam\steamapps\common\Pro Evolution Soccer 2019";
+    let dir = TestDir::new("studio_core_settings_path_width");
+    let (a, calls_a) = stub("a", "A", None);
+    *calls_a.file_row.lock().unwrap() = Some(STEAM_2019.to_owned());
+    let mut settings = test_settings(dir.path());
+    settings.common.pes_version = PesVersion::Pes21;
+    // PES 2021 has its own row pointing into the test's folder: `pes_folder()`
+    // (which the version row's exe check reads) then resolves there, so the
+    // test never touches the developer's install.
+    settings
+        .common
+        .pes_folders
+        .insert(PesVersion::Pes21, dir.path().display().to_string());
+    settings
+        .common
+        .pes_folders
+        .insert(PesVersion::Pes19, STEAM_2019.to_owned());
+    settings.common.pes_folder_path = STEAM_2019.to_owned();
+    settings.common.exports_folder_path = PathBuf::from(STEAM_2019);
+    let Shell { mut app, .. } = shell_with(
+        settings,
+        vec![a],
+        &[],
+        Some(dir.path().to_path_buf()),
+        vec![calls_a],
+    );
+    let egui_ctx = test_context();
+
+    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+    click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
+    let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+    // The fonts exist once the first frame has run.
+    let font = egui::TextStyle::Body.resolve(&egui_ctx.global_style());
+    let galley = egui_ctx
+        .fonts_mut(|fonts| fonts.layout_no_wrap(STEAM_2019.to_owned(), font, egui::Color32::WHITE))
+        .size()
+        .x;
+    for label in [
+        "PES folder",
+        "PES 2019 folder",
+        "Exports folder",
+        "AATF rules file",
+    ] {
+        let edit = widget_on_row(&nodes, label, Role::TextInput)
+            .bounds()
+            .expect("the edit has bounds");
+        let run = text_run_on_row(&nodes, label, STEAM_2019)
+            .bounds()
+            .expect("the text run has bounds");
+        let width = run.x1 - run.x0;
+        assert!(
+            (width - f64::from(galley)).abs() < 0.01,
+            "{label}: the run is the path's galley at the body font \
+             ({width} vs {galley})"
+        );
+        let margin = run.x0 - edit.x0;
+        assert!(
+            margin > 0.0,
+            "{label}: the text is not scrolled left \
+             (margin {margin}; edit {edit:?}, run {run:?})"
+        );
+        assert!(
+            run.x1 <= edit.x1 - margin,
+            "{label}: the path ends inside the edit's right margin \
+             (margin {margin}; edit {edit:?}, run {run:?})"
+        );
+    }
+    for label in ["PES folder", "PES 2019 folder", "Exports folder"] {
+        let browse = widget_on_row(&nodes, label, Role::Button);
+        assert_eq!(browse.label(), Some("Browse"), "{label}'s button");
+        let right = browse.bounds().expect("Browse has bounds").x1;
+        let left = text_node(&nodes, label)
+            .bounds()
+            .expect("the label has bounds")
+            .x0;
+        assert!(
+            right - left <= f64::from(super::WIDTH),
+            "{label}: the common row fits the menu's width \
+             (Browse's right {right} minus the label's left {left} = {})",
+            right - left
+        );
+    }
+    // The premise of the "AATF rules file" check above: like the Save editor's
+    // real section, the tool section's row reaches past the menu's width, so
+    // its edit is measured where the section, not the common grid, sets the
+    // menu's width.
+    let menu_left = text_node(&nodes, "PES folder")
+        .bounds()
+        .expect("the label has bounds")
+        .x0;
+    let section_right = widget_on_row(&nodes, "AATF rules file", Role::Button)
+        .bounds()
+        .expect("Browse has bounds")
+        .x1;
+    assert!(
+        section_right - menu_left > f64::from(super::WIDTH),
+        "the tool section's row is wider than the menu's width \
+         ({section_right} - {menu_left})"
     );
 }

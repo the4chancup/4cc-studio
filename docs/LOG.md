@@ -2586,3 +2586,5 @@ worklog passed 7,000 lines.
   decision and the s6 + s7 draft committed.
 - **2026-10-27** — The preview gets an icon, the maintainer's picture of Archer (0.0.1v): window icon from a PNG, the exe's
   file icon compiled in by a `winresource` build script on Windows. The crop is the maintainer's pick.
+- **2026-10-27** — The settings path edits widened to 472 points, the menu to 660: egui's body font draws Steam's PES 2019
+  path 456 points wide, past the draft's 440; a test measures it in every path row (0.0.1r2).

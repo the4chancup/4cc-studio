@@ -11766,3 +11766,14 @@ a `.res` would mean reimplementing its format. The window icon alone would leave
 bundle's exe with the generic one. A needed dependency (the maintainer's standing approval of
 2026-10-19), named in the turn report.
 Plan: `plans/core/development_plan.md` "The preview's icon".
+
+## 2026-10-27 — core — The settings path edits are 472 points in egui, the menu 660
+Decision: the path edits are 472 points wide, not the draft's 440: Steam's PES 2019 path
+measures 456 points at egui's 13-point body font, plus the edit's 8-point margins. The menu
+stays 660 points, which the common grid's widest row needs 656 of. A tool section whose
+labels make its path row wider (the Save editor's "Aesthetics from exports", 708 points
+under its header's indent) widens the menu while it is open.
+Why: the draft's 440 points are the browser's font, narrower than egui's, so a 440-point edit
+cut the path; widening the menu for a long tool row keeps that row's path whole, where
+capping the menu at 660 would shrink its edit below the path.
+Plan: `plans/core/gui.md` "Settings menu", the path row bullet.
