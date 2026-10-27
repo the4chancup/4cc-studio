@@ -29,7 +29,7 @@ use crate::upgrade::aborted;
 pub(crate) fn claim_staging(output: &Path) -> Result<(PathBuf, bool), CliError> {
     if output.exists() {
         return Err(aborted(anyhow!(
-            "{}: the output folder already exists",
+            "the output folder {} already exists",
             output.display()
         )));
     }
@@ -44,7 +44,7 @@ pub(crate) fn claim_staging(output: &Path) -> Result<(PathBuf, bool), CliError> 
         // rather than refused, and the caller reports it.
         retry_while_locked(|| fs::remove_dir_all(&staging)).map_err(|error| {
             aborted(anyhow!(
-                "{}: cannot remove the leftover staging folder: {error}",
+                "cannot remove {}, the incomplete output an earlier run left behind: {error}",
                 staging.display()
             ))
         })?;
@@ -56,14 +56,14 @@ pub(crate) fn claim_staging(output: &Path) -> Result<(PathBuf, bool), CliError> 
     {
         fs::create_dir_all(parent).map_err(|error| {
             aborted(anyhow!(
-                "{}: cannot create the directory: {error}",
+                "cannot create the folder {}: {error}",
                 parent.display()
             ))
         })?;
     }
     fs::create_dir(&staging).map_err(|error| {
         aborted(anyhow!(
-            "{}: cannot create the staging folder: {error}",
+            "cannot create the folder {} that the output is written in: {error}",
             staging.display()
         ))
     })?;
@@ -83,7 +83,7 @@ pub(crate) fn write_output_file(
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             aborted(anyhow!(
-                "{}: cannot create the directory: {error}; the output {} is incomplete",
+                "cannot create the folder {}: {error}. The output {} is incomplete",
                 parent.display(),
                 staging.display()
             ))
@@ -91,7 +91,7 @@ pub(crate) fn write_output_file(
     }
     fs::write(&path, bytes).map_err(|error| {
         aborted(anyhow!(
-            "{}: cannot write the file: {error}; the output {} is incomplete",
+            "cannot write the file {}: {error}. The output {} is incomplete",
             path.display(),
             staging.display()
         ))
@@ -108,7 +108,7 @@ pub(crate) fn finish_staging(staging: &Path, output: &Path, clean: bool) -> Resu
     if clean {
         retry_while_locked(|| fs::rename(staging, output)).map_err(|error| {
             aborted(anyhow!(
-                "{}: cannot rename it to the output {}: {error}",
+                "cannot rename {} to the output {}: {error}",
                 staging.display(),
                 output.display()
             ))
@@ -116,7 +116,7 @@ pub(crate) fn finish_staging(staging: &Path, output: &Path, clean: bool) -> Resu
     } else {
         retry_while_locked(|| fs::remove_dir_all(staging)).map_err(|error| {
             aborted(anyhow!(
-                "{}: cannot remove the staging folder: {error}",
+                "cannot remove the incomplete output {}: {error}",
                 staging.display()
             ))
         })
@@ -159,7 +159,7 @@ mod tests {
         // The incomplete output is left as it is.
         assert!(output.join("Players").is_file());
         let text = error.to_string();
-        assert!(text.contains("cannot create the directory"), "{text}");
+        assert!(text.contains("cannot create the folder"), "{text}");
         assert!(text.contains("03 - A"), "{text}");
         assert!(text.contains("incomplete"), "{text}");
     }

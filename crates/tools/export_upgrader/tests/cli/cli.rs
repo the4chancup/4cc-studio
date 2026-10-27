@@ -334,15 +334,15 @@ fn the_refusals_before_anything_is_written() {
     let before = sandbox.listing("");
 
     upgrade(&sandbox, "gone", &["--savefile", &save])
-        .assert_refused(2, &["gone", "no such folder or file"]);
+        .assert_refused(2, &["gone", "does not exist"]);
     upgrade(&sandbox, "notes.txt", &["--savefile", &save])
-        .assert_refused(2, &["notes.txt", "not a folder, .zip or .7z"]);
+        .assert_refused(2, &["notes.txt", "not a folder, a .zip or a .7z file"]);
     upgrade(&sandbox, "co Spring", &["--savefile", &not_save])
         .assert_refused(2, &["not-a-save.bin"]);
     upgrade(&sandbox, "newteam Spring", &["--savefile", &save18]).assert_refused(2, &["/newteam/"]);
     let root_arg = root.display().to_string();
     let run = sandbox.run(&["upgrade", &root_arg, "--savefile", &save]);
-    run.assert_refused(2, &["a filesystem root is not an export"]);
+    run.assert_refused(2, &["a filesystem root, not an export"]);
 
     assert_eq!(sandbox.listing(""), before, "nothing is written");
 }

@@ -322,13 +322,10 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
     // "CLI": the input must exist and be a folder.
     let path = &args.folder;
     if !path.exists() {
-        return Err(invalid(anyhow!(
-            "{}: no such folder or file",
-            path.display()
-        )));
+        return Err(invalid(anyhow!("{} does not exist", path.display())));
     }
     if !path.is_dir() {
-        return Err(invalid(anyhow!("{}: not a folder", path.display())));
+        return Err(invalid(anyhow!("{} is not a folder", path.display())));
     }
     let path = resolve_input(path)?;
     let name = source::source_name(&path);
@@ -356,7 +353,7 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
     });
     let Some(output_name) = output.file_name() else {
         return Err(invalid(anyhow!(
-            "{}: the output path has no folder name",
+            "the output path {} has no folder name",
             output.display()
         )));
     };

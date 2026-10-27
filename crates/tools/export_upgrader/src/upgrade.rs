@@ -54,7 +54,7 @@ const RUN_ID: RunId = RunId(1);
 pub(crate) fn resolve_input(path: &Path) -> Result<PathBuf, CliError> {
     let resolved = std::path::absolute(path).map_err(|error| {
         invalid(anyhow!(
-            "{}: cannot resolve the path: {error}",
+            "cannot resolve the path {}: {error}",
             path.display()
         ))
     })?;
@@ -63,7 +63,7 @@ pub(crate) fn resolve_input(path: &Path) -> Result<PathBuf, CliError> {
     } else {
         fs::canonicalize(&resolved).map_err(|error| {
             invalid(anyhow!(
-                "{}: cannot resolve the path: {error}",
+                "cannot resolve the path {}: {error}",
                 path.display()
             ))
         })?
@@ -72,7 +72,7 @@ pub(crate) fn resolve_input(path: &Path) -> Result<PathBuf, CliError> {
     // `source_name`'s `expect` holds).
     if resolved.file_name().is_none() {
         return Err(invalid(anyhow!(
-            "{}: a filesystem root is not an export",
+            "{} is a filesystem root, not an export",
             path.display()
         )));
     }
@@ -235,14 +235,11 @@ fn check_invocation(args: &UpgradeArgs, ctx: &ToolContext) -> Result<Invocation,
     // "CLI": the export must exist and be a folder or a `.zip`/`.7z`.
     let path = &args.export;
     if !path.exists() {
-        return Err(invalid(anyhow!(
-            "{}: no such folder or file",
-            path.display()
-        )));
+        return Err(invalid(anyhow!("{} does not exist", path.display())));
     }
     if !path.is_dir() && !source::is_archive(path) {
         return Err(invalid(anyhow!(
-            "{}: not a folder, .zip or .7z",
+            "{} is not a folder, a .zip or a .7z file",
             path.display()
         )));
     }
@@ -263,12 +260,13 @@ fn check_invocation(args: &UpgradeArgs, ctx: &ToolContext) -> Result<Invocation,
         };
         if let Some(flag) = flag {
             return Err(invalid(anyhow!(
-                "{flag}: a referee export takes none of --savefile, --loose or --coverage"
+                "{flag} does not apply to a referee export, which takes none of --savefile, \
+                 --loose or --coverage"
             )));
         }
     } else if args.savefile.is_some() == args.loose {
         return Err(invalid(anyhow!(
-            "a team export takes --savefile or --loose, exactly one"
+            "a team export takes exactly one of --savefile or --loose"
         )));
     }
 
@@ -276,7 +274,7 @@ fn check_invocation(args: &UpgradeArgs, ctx: &ToolContext) -> Result<Invocation,
     let save = match &args.savefile {
         Some(savefile) => Some(EditFile::load(savefile).map_err(|error| {
             invalid(anyhow!(
-                "{}: cannot read the savefile: {error}",
+                "cannot read the savefile {}: {error}",
                 savefile.display()
             ))
         })?),
@@ -363,7 +361,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         && save.team(u32::from(id.get())).is_none()
     {
         return Err(invalid(anyhow!(
-            "--savefile {}: it does not hold the resolved team {name} ({id})",
+            "--savefile {} does not hold the export's team {name} ({id})",
             args.savefile
                 .as_ref()
                 .expect("the save came from --savefile")
@@ -711,7 +709,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     for folder in plan.folders.values() {
         fs::create_dir_all(staging.join(&folder.path)).map_err(|error| {
             aborted(anyhow!(
-                "{}: cannot create the directory: {error}; the output {} is incomplete",
+                "cannot create the folder {}: {error}. The output {} is incomplete",
                 staging.join(&folder.path).display(),
                 staging.display()
             ))
@@ -898,14 +896,14 @@ fn load_teams_list(data_dir: Option<&Path>) -> Result<TeamsList, CliError> {
         }
         Err(error) => {
             return Err(aborted(anyhow!(
-                "{}: cannot read the teams list: {error}",
+                "cannot read the teams list {}: {error}",
                 path.display()
             )));
         }
     };
     TeamsList::parse(&text).map_err(|error| {
         aborted(anyhow!(
-            "{}: not a valid teams list: {error}",
+            "{} is not a valid teams list: {error}",
             path.display()
         ))
     })

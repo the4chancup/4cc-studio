@@ -2571,3 +2571,5 @@ worklog passed 7,000 lines.
   flow (54 texts): the path now said where a person would say it, not put first and pointed back to.
 - **2026-10-27** — 8.29c5a: the Export upgrader's catalog reread for flow (45 texts, the structure pass's conditions
   kept the Team compiler's); `common_reference_kept` now says either of its two conditions reports it.
+- **2026-10-27** — 8.29c5b: the Export upgrader's `--help`, refusals, error texts and help chapter reread for flow
+  (31 strings, 12 passages); its input refusals worded as the Team compiler's.

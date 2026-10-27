@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 to c3, c4a to c4d and c5a done; 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 to c3, c4a to c4d and c5 done (c4e, the help's fact audit, open); 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2250,8 +2250,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           (side/text worktree). Files: 19 `team_compiler/src/` modules, six `tests/cli/`
           files. The Save editor's `view/portraits.rs` keeps its own "not a CPK the reader
           accepts", for whoever holds that crate
-        - [ ] c4e a fact audit of `help/01_command_line.md` against the catalog and the spec:
-          c4b's review rounds S1 to S6 found over fifty facts the chapter's first half stated
+        - [ ] c4e a fact audit of `help/01_command_line.md` (and the upgrader's) against the
+          catalog and the spec: c4b's review rounds S1 to S6 found over fifty facts the chapter's first half stated
           narrower, staler or for one engine only, and their last ones need the code read
           (side-lead U's rulings, `.tmp/8_29/rulings.md` "Round S6c4b", routed: pre-Fox
           `Common` subfolders, a shared folder's subfolder rules, the PES 2021 skeleton default's
@@ -2259,8 +2259,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           half (c4c) likely holds as many. c4c's sidekick found two: an installed
           `DpFileList.bin` that cannot be read stops the compile (`installed_bin_unreadable`),
           which the bins paragraph does not say, and `savefile_missing` excludes a configured
-          path naming a folder (`savefile_invalid`), which the patch section does not say
-      - [ ] c5 the Export upgrader, in two slices:
+          path naming a folder (`savefile_invalid`), which the patch section does not say.
+          The Export upgrader's chapter gets the same audit (c5b's review S1, rulings "Round
+          S1c5b", routed: a finding on the output names the output's path, or none; the
+          referee fold's other clash cases; an unnamed `common/` model left out only when the
+          folder folds; exit code 3's other aborts)
+      - [x] c5 the Export upgrader, in two slices:
         - [x] c5a its catalog (`messages.rs`): its own rows' two texts and the structure-pass
           rows' effects, whose `when`s stay the Team compiler's word for word: 45 texts
           rewritten, "entry" and "member" now the file or folder a member sees, "item folder"
@@ -2279,8 +2283,21 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           Files:
           `export_upgrader/src/messages.rs`. The drafts host's mock catalog
           (`docs/prototypes/index.html` 1418-1446) copies the old texts, for the top lead
-        - [ ] c5b its `cli.rs` (`--help`), its refusals and error texts (the input refusals
-          worded as the Team compiler's `--export` ones) and `help/01_command_line.md`
+        - [x] c5b its `cli.rs` (`--help`), its refusals and error texts and
+          `help/01_command_line.md`: 31 strings and 12 help passages rewritten, the input
+          refusals now worded as the Team compiler's `--export` ones (`{} does not exist`,
+          `{} is not a folder, a .zip or a .7z file`), the save's "records" the save itself,
+          the exit codes one sentence each (the lead retouched six: `--coverage midcup`'s
+          line reverted, its rewrite naming what is installed where the old one named what
+          the export holds; "the resolved team"; the `.upgrading` folder named the incomplete
+          output twice; the help's referee roster now `refs.txt` or `Refs list.txt`, as
+          c5a's catalog rows, which the sidekick found). SWE-2 round S1: 13 concerns, 1
+          accepted, 5 nits, 4 facts of kept sentences routed to c4e, 3 rejected, the loop's
+          end. Tables `.tmp/8_29/c5b_table.md`, `c5b_help_table.md` and their `c5b_s1_*`
+          twins (side/text worktree). Files: `export_upgrader/src/{cli,upgrade,
+          staging,model_folders,naming}.rs`, `help/01_command_line.md`, two `tests/cli/`
+          files. The drafts `docs/prototypes/tools/export_upgrader.js` (417-424, 578, 682) and
+          `docs/prototypes/index.html` (1055-1064) quote the old texts, for the top lead
       - [ ] c6 the injected comments: they live in `pes_savefile` (`settings_toml/`, the
         `settings.toml` and `ingame_face.toml` headers and key comments) and `kit_config`
         (`toml_form.rs`, `config.toml`), outside side-lead U's locks: for whoever holds those
