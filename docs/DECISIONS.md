@@ -11830,3 +11830,15 @@ uses (without the block, Task Manager shows the file name). A text spelling, not
 `studio_core` a build dependency would compile eframe twice for one string.
 Plan: `plans/core/development_plan.md` "The preview's icon" (`icon.ico`'s bullet) and "The
 preview's codename: Unlimited Tool Works" (the text spellings).
+
+## 2026-10-27 — save_editor — The team view's header on one row, its title in strong body text
+Decision: the team view's title is the team's name in the body text's strong weight; one row
+holds the name (a 140-point box), the short name, `Col. 1` and `Col. 2` with their hexes, the
+manager and stadium ids and the Kit slots… button; whole units wrap to a second row only where
+a side panel narrows the view below the row.
+Why: the maintainer's request on the draft (2026-10-26, "the Tactics below need the height"),
+drafted then but never carried into the plan or a worklog step, so the build kept a heading
+title and the ids on a row of their own; at the 1280 x 800 window the Tactics grid then ended
+about 5 points past the pane (the built window, 2026-10-27), the lists' and Automatic settings'
+bottom strokes and the bench's twelfth row cut. The draft's row fits with room to spare.
+Plan: `plans/save_editor.md` "Editing UI", the team view bullet.

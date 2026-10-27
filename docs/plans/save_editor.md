@@ -358,14 +358,19 @@ all side by side.
     celebrations 122; PES 20+: 5, 10, 10, 20, 7, 162), which give a PES 15 player arm
     movements and celebrations that game does not have (its tops are 5 and 112) and never
     reach PES 18's and 19's last celebrations (127, 140); the measured tops do neither.
-- **The team view**: the team's name, short name and colours 1-2 (RGB, each colour's picker
-  and its hex) on one row, the short name's box taking three characters (the game shows a
-  three-letter abbreviation; every version stores it in 4 bytes, so a longer one typed would
-  not reach the game as typed); then manager ID and stadium ID (19+) and a **Kit slots…** button
-  opening the kit slot assignments in a dialog (rarely edited, so not a panel that pushes the
-  tactics down; a version that stores none says so in it); then the Tactics editor (below),
-  whose bench list shows the players only (12 for a 4cc team), not the 21 bench-order entries
-  with 9 `(empty)`.
+- **The team view**: the team's name as its title, in the body text's strong weight rather
+  than a heading's size; then one row holding the team's name (a 140-point box), short name
+  and colours 1-2 (RGB, each colour's picker and its hex, labelled `Col. 1` and `Col. 2`), the
+  short name's box taking three characters (the game shows a three-letter abbreviation; every
+  version stores it in 4 bytes, so a longer one typed would not reach the game as typed),
+  manager ID and stadium ID (19+) and a **Kit slots…** button opening the kit slot
+  assignments in a dialog (rarely edited, so not a panel that pushes the tactics down; a
+  version that stores none says so in it). The ids share the fields' row, not one of their
+  own, because the Tactics editor below needs the height: with a heading-size title and the
+  ids on a second row its last row ended about 5 points past the 1280 x 800 window's pane.
+  Where a side panel leaves the view narrower than the row, whole units wrap to a second row
+  rather than a pair splitting. Then the Tactics editor (below), whose bench list shows the
+  players only (12 for a 4cc team), not the 21 bench-order entries with 9 `(empty)`.
 - Version-gated widgets render disabled with a tooltip ("PES 19+") rather than
   disappearing, so the UI stays spatially stable across versions.
 - **Undo/redo** across all edits — the single biggest safety upgrade over

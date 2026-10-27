@@ -3035,9 +3035,14 @@ briefs, review loops, gates and mutation runs as for any step.
     status_bar,help_window}.rs,shell/sidebar/tests.rs}`, `save_editor/src/{lib.rs,view/mod.rs,
     view/tests/shell.rs}`, `save_editor/help/02_window.md` (the path's new place),
     `ruleset_editor/src/view/{mod.rs,tests/problems.rs}`. SWE-2 round S1: 1 of 6 accepted,
-    the loop ends; rulings `.tmp/0_0_1s4t/rulings.md`. Open: the
-    built-window look (the title bar showing an open save's path; the sidebar's, the help
-    tree's and the rail's edges with no resize cursor)
+    the loop ends; rulings `.tmp/0_0_1s4t/rulings.md`. Astra A1 (with v2): 0 of s4t's.
+    Built window checked 2026-10-27 (release at `bf8190fb`, portable, `.tmp/0_0_1s4t_v2/`):
+    the title reads `Save editor - Unlimited Tool Works` with no save and `Save editor
+    [<path>] - Unlimited Tool Works` with one; the toolbar draws no path; the arrow cursor all
+    along the sidebar's edge (client x 55-57), the player list's (302-306) and the help tree's
+    (225-232), the probe reading the I-beam over text fields to show it tells cursors apart.
+    The Ruleset rail is not in the preview build (the Save editor alone is registered): its
+    headless test stands for it
   - [ ] s5 the Tactics editor's grid (the maintainer, 2026-10-26; drafted and approved,
     `.tmp/0_0_1s/tactics_layout_request.md`; plan "Tactics editor", DECISIONS "The Tactics
     editor is one grid"): the three-row grid, Formation settings in pairs of equal rows, the
@@ -3089,15 +3094,21 @@ briefs, review loops, gates and mutation runs as for any step.
       changes table too; `.tacauto`'s two columns (each cell claims its column:
       `allocate_ui_with_layout` advances by the used width), its frame at the lists' bottom
       (the lists drawn first), the rows centred under the heading; the Substitution combo on
-      every version (PES 15 and 16 store it too). Column 1 ends at the lists' bottom, 3.5
-      points inside the pane at 1280 x 800: the team view no longer scrolls. Files:
+      every version (PES 15 and 16 store it too). Column 1 ends at the lists' bottom; the built
+      window at 1280 x 800 still cuts the grid's last row by about 5 points (the report's "3.5
+      inside" counted one panel margin of the two), which s5e's header row recovers. Files:
       `pes_savefile/src/model/instruction.rs`, `team_widgets/src/{pitch/mod.rs,tactics/{mod,
       assignments,instructions}.rs,test_support.rs}` and their tests, `save_editor/src/view/
       tactics.rs`, the view tests, `help/08_tactics.md`
     - [ ] s5d the pitch: the popover's anchor, outside press and `player <n>`; s6's swap mark;
       the badges' medal initials
     - [ ] s5e the list and team view: s6's three-character short name, s7's picked team
-      selecting its row and `[click for tactics]`
+      selecting its row and `[click for tactics]`; the team view's header as the draft has it
+      (DECISIONS "The team view's header on one row, its title in strong body text": the title
+      in strong body text, the ids and Kit slots… on the fields' row, `Col. 1`/`Col. 2`, the
+      name box 140) → verify: at the 1280 x 800 default pane the team view's last row ends
+      inside the pane's content (its two panel margins counted), so nothing scrolls; the built
+      window shows the lists' and Automatic settings' bottom strokes
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";
@@ -3175,10 +3186,13 @@ briefs, review loops, gates and mutation runs as for any step.
     `crates/studio_core/src/shell/window_size/{mod,tests}.rs` (split from `window_size.rs`,
     past a thousand lines), `plans/core/{development_plan,README}.md`. Review: SWE-2 S1, 2
     accepted of 7 (the eframe fact above, the split), loop ended (`.tmp/0_0_1v2/rulings.md`).
-    Open: the built-window check (top lead): the title bar's icon is the tight crop; the
+    Astra A1 (with s4t): 1 accepted, a wrong fact (Wayland ignores a window's own icon; the
+    plan's `window.png` bullet now says so). Built window checked 2026-10-27 (release at
+    `bf8190fb`): the title bar shows the tight crop; the exe's file description and product
+    name read Unlimited Tool Works (Task Manager's name), version 0.0.1. Open, the
+    maintainer's eye (outside the app's own windows, which the lead does not capture): the
     taskbar's button and Alt+Tab (the tight crop: if the whole picture should be there, the
-    plan's bullet on `small.png` says what that costs); Explorer's file icon on the release
-    exe; Task Manager's name for the running program
+    plan's bullet on `small.png` says what that costs); Explorer's file icon on the exe
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
