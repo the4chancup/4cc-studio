@@ -496,8 +496,8 @@ pub(crate) fn show(
                         // then the Appearance section, closed by default —
                         // the whole centred between the player list's right
                         // edge and the window's (`columns_width` is the last
-                        // frame's measured width; a first frame has none
-                        // and draws left-aligned once). The pad is the
+                        // pass's measured width; `abilities::show` discards
+                        // a pass that measures others). The pad is the
                         // even share less the panel border already between
                         // the list's edge and the pane's content.
                         let width = abilities::columns_width(ui);

@@ -261,7 +261,9 @@ fn a_long_name_truncates_instead_of_wrapping_the_row() {
     let mut view = SaveView::new();
     view.open(&path);
     view.team = TeamChoice::Team(701);
-    let mut window = Headless::new();
+    // 600 high: at the default pane's 776, 701's roster fits and the list
+    // does not scroll.
+    let mut window = Headless::sized(DEFAULT_PANE.x, 600.0);
     let row_height = window
         .ctx
         .style_of(window.ctx.theme())
@@ -366,15 +368,16 @@ fn scrolling_to_the_end_of_all_selects_the_last_player() {
         })
         .expect("the list's scroll bar");
     let track = centre(bar);
+    let bottom = window.screen.y - 5.0;
     window.frame(
         pointer_at(egui::pos2(track.x, track.y - 200.0), true),
         |ui| show(ui, &mut view, &|| Vec::new(), None),
     );
     window.frame(
-        vec![egui::Event::PointerMoved(egui::pos2(track.x, 595.0))],
+        vec![egui::Event::PointerMoved(egui::pos2(track.x, bottom))],
         |ui| show(ui, &mut view, &|| Vec::new(), None),
     );
-    window.frame(pointer_at(egui::pos2(track.x, 595.0), false), |ui| {
+    window.frame(pointer_at(egui::pos2(track.x, bottom), false), |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));

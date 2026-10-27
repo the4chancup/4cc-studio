@@ -20,8 +20,8 @@ use pes_version::PesVersion;
 use super::*;
 
 /// A headless window: one egui context with AccessKit on and animations off,
-/// run a frame at a time over an 800 by 600 screen (wider when a test asks,
-/// the player view's rightmost controls sit past 800).
+/// run a frame at a time over the pane the shell leaves a tool at the
+/// default window (`DEFAULT_PANE`), or another size when a test asks.
 struct Headless {
     ctx: egui::Context,
     /// The screen size each frame reports.
@@ -30,10 +30,10 @@ struct Headless {
 
 impl Headless {
     fn new() -> Headless {
-        Headless::sized(800.0, 600.0)
+        Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y)
     }
 
-    /// A window `width` by `height` instead of the default 800 by 600.
+    /// A window `width` by `height` instead of the default `DEFAULT_PANE`.
     fn sized(width: f32, height: f32) -> Headless {
         let ctx = egui::Context::default();
         ctx.enable_accesskit();

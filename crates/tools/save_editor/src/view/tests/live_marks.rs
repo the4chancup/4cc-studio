@@ -950,11 +950,6 @@ fn each_fields_cross_stands_beside_its_control() {
 #[test]
 fn the_name_cross_holds_back_the_counts_tooltip() {
     let (mut view, mut window) = open_734("live_marks_name_tip");
-    // The centring pad reads the columns' widths the previous frame
-    // measured, and a first frame's differ: settle it before the hovers.
-    for _ in 0..3 {
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    }
     view.live_aatf = true;
     let revision = view.session.as_ref().expect("the save opened").revision();
     let name_color = violation(
@@ -1294,11 +1289,6 @@ fn a_long_name_truncates_before_the_rows_mark() {
 fn no_cross_overlaps_text_and_no_field_moves() {
     use aatf::ViolationKind as K;
     let (mut view, mut window) = open_734("live_marks_no_overlap");
-    // The centring pad reads the columns' widths the previous frame
-    // measured, and a first frame's differ: settle it before the marks.
-    for _ in 0..3 {
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    }
     view.live_aatf = true;
     let error = |kind| violation(Some(0), aatf::Severity::Error, kind);
     let violations = vec![

@@ -61,14 +61,14 @@ const COLUMN_GAP: f32 = 36.0;
 const PANEL_GAP: f32 = 14.0;
 
 /// The egui memory id `show` writes each column's measured width to each
-/// frame (the view's centring pad and the columns' own widths use the
-/// previous frame's, a column's content never knowing it on the first).
+/// pass (the view's centring pad and the columns' own widths use the
+/// previous pass's; a pass that measures different ones is discarded).
 const COLUMN_WIDTHS_ID: &str = "save_editor player column widths";
 
 /// The columns' total measured width: `view::show`'s centring pad reads
-/// the previous frame's (the first frame falls back to the pane's,
-/// drawing left-aligned once — the room the fixed columns leave splits
-/// evenly from the second frame on).
+/// the previous pass's (with none, the pane's: that pass draws left-aligned
+/// and is discarded, so the room the fixed columns leave splits evenly on
+/// the screen).
 pub(crate) fn columns_width(ui: &egui::Ui) -> f32 {
     ui.ctx()
         .data(|data| data.get_temp::<[f32; 3]>(egui::Id::unique(COLUMN_WIDTHS_ID)))
@@ -129,13 +129,13 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         // A row with tops aligned: `horizontal` centers on the cross axis,
         // the columns want their tops level.
         let spacing = ui.spacing().item_spacing;
-        // Each column's allocated width is its last frame's measured one
-        // (the constants on a first frame), the widths the centring pad
+        // Each column's allocated width is its last pass's measured one
+        // (the constants when none is stored), the widths the centring pad
         // reads too.
-        let saved: [f32; 3] = ui
+        let measured: Option<[f32; 3]> = ui
             .ctx()
-            .data(|data| data.get_temp(egui::Id::unique(COLUMN_WIDTHS_ID)))
-            .unwrap_or([info_strip::GENERAL_WIDTH, cards::TWO_COLUMN_WIDTH, 170.0]);
+            .data(|data| data.get_temp(egui::Id::unique(COLUMN_WIDTHS_ID)));
+        let saved = measured.unwrap_or([info_strip::GENERAL_WIDTH, cards::TWO_COLUMN_WIDTH, 170.0]);
         ui.scope_builder(
             egui::UiBuilder::new().layout(egui::Layout::left_to_right(egui::Align::Min)),
             |ui| {
@@ -224,6 +224,15 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 ui.ctx().data_mut(|data| {
                     data.insert_temp(egui::Id::unique(COLUMN_WIDTHS_ID), widths);
                 });
+                // This pass was centred and sized on other widths (none
+                // yet, or a new grid's narrow sizing pass): lay it out again
+                // on these, so a player's first frame is drawn where every
+                // later one is. The constants cannot stand in: column 3's
+                // measured width is not its 170.
+                if measured != Some(widths) {
+                    ui.ctx()
+                        .request_discard("the player view's column widths changed");
+                }
             },
         );
     });

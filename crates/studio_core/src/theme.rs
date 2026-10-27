@@ -40,9 +40,10 @@ pub(crate) fn apply(ctx: &egui::Context, theme: Theme) {
     });
 }
 
-/// Installs the suite's look on `ctx`: the fonts (`install_fonts`) and the
-/// drafts' style. `run_gui` calls it at window creation and every view test's
-/// harness calls it too, so a size a test measures is the size a member sees.
+/// Installs the suite's look on `ctx`: the fonts (`install_fonts`), the
+/// drafts' style and the passes a frame may lay out in. `run_gui` calls it
+/// at window creation and every view test's harness calls it too, so a
+/// size a test measures is the size a member sees.
 /// The spacing and both themes' widget states are egui 0.36's, the look the
 /// drafts the GUI is built from were reviewed in: 0.37 moved them (the button
 /// padding to 8 by 2, the controls to 20 high, the dark buttons to grey 50
@@ -52,6 +53,13 @@ pub(crate) fn apply(ctx: &egui::Context, theme: Theme) {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn install(ctx: &egui::Context) {
     install_fonts(ctx);
+    // Three passes a frame at most, not egui's two: a new `Grid` discards the
+    // first for its own sizing, so a view that lays out from the widths a
+    // pass measured (the Save editor's centred player columns) needs a third
+    // to discard the second, which was laid out on the sizing pass's widths.
+    ctx.options_mut(|options| {
+        options.max_passes = std::num::NonZeroUsize::new(3).expect("3 is not zero");
+    });
     for theme in [egui::Theme::Dark, egui::Theme::Light] {
         ctx.style_mut_of(theme, |style| {
             style.spacing.button_padding = egui::vec2(4.0, 1.0);

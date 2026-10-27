@@ -12187,3 +12187,16 @@ for a maximized place was rejected: on a mixed-scale desk the creation's positio
 with the primary monitor's scale, and only the resend corrects it. The cost, the window seen
 restoring and maximizing once on the first frame, is for the built-window check to measure.
 Plan: `plans/core/gui.md` "Window size classes" (the remembered place's paragraph); ST-WIN-04.
+## 2026-10-27 — studio_core — A frame may run three passes, not egui's two
+Decision: `theme::install` sets egui's `max_passes` to 3; the Save editor's player view
+discards a pass whose measured column widths differ from the ones it laid out with.
+Why: a player's first frame was drawn 26 points right of every later one (0.0.1m2b): the
+centring pad reads the widths the previous pass measured, and egui's `Grid` discards the
+first pass of a new grid to size it narrow, so the second pass centred on the sizing pass's
+widths; egui ignores a further discard once `max_passes` passes ran. Not a pad from the
+constants: column 3 measures 153.97 points against its constant's 170. Not a fixed width for
+column 3: it changes the approved layout. Not the option set from the Save editor's view: a
+tool changing a context-wide option. A third pass runs only when the second asked for a
+discard: a player's first frame, or a zoom change meeting a new grid.
+Plan: `spec/core/gui.md` "Shell layout", "Scaling with the width"; `plans/save_editor.md`
+"Editing UI", the "The player view" bullet.

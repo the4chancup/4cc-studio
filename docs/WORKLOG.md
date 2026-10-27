@@ -2885,10 +2885,20 @@ briefs, review loops, gates and mutation runs as for any step.
     `view/appearance/mod.rs`, `view/tests.rs`, 15 files of `view/tests/`. The paragraphs "The
     window's size" and "Scaling with the width" and ST-WIN-01/02 moved to `spec/core/gui.md`
     (its first "Acceptance" block; `spec/core/README.md`'s stale keyboard zoom corrected)
-  - [ ] m2b the implementation's findings (`.tmp/0_0_1m/m2_rulings.md`, brief `brief_m2b.md`):
+  - [x] m2b the implementation's findings (`.tmp/0_0_1m/m2_rulings.md`, brief `brief_m2b.md`):
     a player view's first frame drawn 26 points right of every later one at the design pane
     (the centring pad's widths from egui's first-show pass); `the_two_column_fit_is_the_drafts_330`
-    asserting what always holds; `Headless::new()`'s 800-point window, a pane no member sees
+    asserting what always holds; `Headless::new()`'s 800-point window, a pane no member sees.
+    Done 2026-10-27 (Opus, `.tmp/0_0_1m/m2b_report.md`): the jump came on every player
+    selection (a new `Grid` sizes itself on a discarded first pass); the view discards a pass
+    whose measured widths differ, and `theme::install` allows three passes (the sidekick's
+    contradiction: egui ignores the discard at two; spec, DECISIONS "A frame may run three
+    passes"); the span test pins `TWO_COLUMN_WIDTH`; `Headless::new()` draws `DEFAULT_PANE`,
+    two list tests given their short window or an aim from the window's height; m2's settle
+    frames removed. Files: `studio_core/src/theme.rs`, `team_widgets/src/cards.rs`,
+    `save_editor/src/view/{abilities,mod,tests}.rs`, `view/tests/{abilities,list,live_marks}.rs`.
+    Open: three older "The view moves after its first frame" comments in
+    `view/tests/abilities.rs` (before its `scroll_into_view` loops) whose premise is gone
 - [x] 0.0.1n the drafts' Layout edit and scaling (the same review; `plans/core/gui.md`
   "Layout edit", the "Size:" bullet): a moved panel pinned where dropped, a columned panel
   narrowed into fewer columns, the simulated window scaled under the design width

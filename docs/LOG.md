@@ -2679,3 +2679,5 @@ worklog passed 7,000 lines.
   three tests now assert their own premises. The post-Astra SWE-2 loop over A1 ended; Astra A2 next.
 - **2026-10-27** — 0.0.1q4: a window closed maximized reopens maximized, restoring to its normal place (`window_main`'s sixth
   number; five-number records still load); its first frame maximizes again after the position resend, which winit restores.
+- **2026-10-27** — 0.0.1m2b: a player's first frame is drawn where every later one is (a frame may run three passes, so the
+  pass laid out on a new grid's sizing widths is discarded); the view tests' default window is the design pane.

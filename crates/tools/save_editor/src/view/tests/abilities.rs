@@ -1391,6 +1391,48 @@ fn the_foot_and_hand_sides_fill_the_held_side_and_store_the_pick() {
     );
 }
 
+// The frame that first shows a player is centred where every later frame
+// centres him: its ability stats grid is new, so egui lays the frame's first
+// pass out narrow and discards it, and the pass that reaches the screen
+// must not centre on the widths that discarded pass measured.
+#[test]
+fn a_players_first_frame_draws_where_every_later_one_does() {
+    let path = fixture(PesVersion::Pes17, "player_first_frame");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(734);
+    view.selected = Some(Selection::Player(734, 0));
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    for _ in 0..3 {
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    }
+
+    // Each pass of the frame selecting the next player: the columns' width
+    // the centring pad reads, the width the pass measures, and whether egui
+    // discards it.
+    view.selected = Some(Selection::Player(734, 1));
+    let mut passes = Vec::new();
+    let (_, first, _) = window.frame(Vec::new(), |ui| {
+        let read = crate::view::abilities::columns_width(ui);
+        show(ui, &mut view, &|| Vec::new(), None);
+        let measured = crate::view::abilities::columns_width(ui);
+        passes.push((read, measured, ui.ctx().will_discard()));
+    });
+    let (&(read, measured, _), discarded) = passes.split_last().expect("a frame runs a pass");
+    assert!(
+        discarded.iter().all(|&(_, _, discard)| discard),
+        "only the last pass reaches the screen, of {passes:?}"
+    );
+    assert_eq!(read, measured, "the kept pass, of {passes:?}");
+
+    let (_, later, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        label_bounds(&first, "General info").x0,
+        label_bounds(&later, "General info").x0,
+        "General info's x on the first frame and the next, of {passes:?}"
+    );
+}
+
 // SE-GUI-37's player-view clause (plans/save_editor.md "Editing UI", the
 // player view bullet): General info, Skills and Ability stats side by side
 // left to right on the pane the shell leaves at the 1280 x 800 window

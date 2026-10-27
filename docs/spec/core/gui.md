@@ -40,7 +40,10 @@ row keeps the arrangement it has at 1280 and nothing clips or rewraps. egui appl
 only when the next pass begins, so the pass that finds the zoom changed is discarded and run
 again at the new zoom (`Context::request_discard`): otherwise the frame after a jump (a snap
 from 1920 points to 960) lays out once at 960 points, and the views draw a layout no other
-frame shows. No view therefore keeps a layout for a pane narrower than its design: we keep no
+frame shows. A frame may run three passes, not egui's default two (`theme::install`, which
+the window and every view test call): a new `Grid` discards its first pass to size itself,
+so a view that lays out from widths a pass measured (the Save editor's centred player
+columns) needs a third to discard the second. No view therefore keeps a layout for a pane narrower than its design: we keep no
 fallback no member reaches, because a fallback kept "just in case" was the state the tests ran
 in instead of the design's (0.0.1m2). At or above the design width, and at any height, the
 zoom is 1 and the views reflow: wider rows spread, a shorter window scrolls or stacks as each

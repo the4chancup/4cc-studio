@@ -474,35 +474,31 @@ mod tests {
         );
     }
 
-    // The draft's `.skcols`: two 158-point columns 14 apart fill the
-    // literal 330 the host allocates them.
+    // The draft's `.skcols`: two 158-point columns 14 apart span the
+    // literal 330, the width the host sizes their column from.
     #[test]
-    fn the_two_column_fit_is_the_drafts_330() {
-        /// The distinct x0s `card_columns` draws inside a `width`-wide ui.
-        fn columns_at(width: f32) -> usize {
-            let mut window = Headless::new();
-            let mut skills = fixture_skills(PesVersion::Pes21, 78102);
-            let (nodes, _) = window.frame(vec![], |ui| {
-                ui.allocate_ui(egui::vec2(width, ui.available_height()), |ui| {
-                    card_columns(
-                        ui,
-                        PesVersion::Pes21,
-                        &mut skills.skills,
-                        &labels::SKILLS,
-                        PlayerField::Skill,
-                    );
-                });
+    fn the_two_columns_span_the_drafts_330() {
+        assert_eq!(TWO_COLUMN_WIDTH, 330.0, "the draft's literal");
+        let mut window = Headless::new();
+        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
+        let mut span = None;
+        window.frame(vec![], |ui| {
+            let drawn = ui.scope(|ui| {
+                card_columns(
+                    ui,
+                    PesVersion::Pes21,
+                    &mut skills.skills,
+                    &labels::SKILLS,
+                    PlayerField::Skill,
+                );
             });
-            let mut xs: Vec<f64> = nodes
-                .iter()
-                .filter(|node| node.role() == Role::CheckBox)
-                .filter_map(|node| node.bounds().map(|b| b.x0))
-                .collect();
-            xs.sort_by(f64::total_cmp);
-            xs.dedup();
-            xs.len()
-        }
-        assert_eq!(columns_at(330.0), 2, "the draft's 330 holds two columns");
+            span = Some(drawn.response.rect.width());
+        });
+        assert_eq!(
+            span,
+            Some(TWO_COLUMN_WIDTH),
+            "the drawn columns' span, first column's left to second's right"
+        );
     }
 
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: a checkbox
