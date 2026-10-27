@@ -11903,3 +11903,18 @@ tooltip never showed and a click on one hit the bar (three `live_marks` tests fa
 again with the line removed). A browser's scrollbar takes layout width the same way; the
 drafts, measured headless, show none, which w1b's scrollbar item settles.
 Plan: `plans/save_editor.md` "Editing UI", the Player list bullet.
+
+## 2026-10-27 — gui — The symbols Selawik lacks are SVGs in the suite's icon font
+Decision: every symbol the views draw that Selawik lacks (→ ↓ ≡ ▸ ▾ ● ▶ ⚠ ✔ ✕ ✖ ⠇ − ≠ ≤ and
+the like) is drawn as an SVG and built into the suite's icon font at its own Unicode codepoint,
+by the icons' fontTools build; the font chains are proportional Selawik, the icon font,
+`egui-icons`, monospace Hack, Selawik, the icon font, `egui-icons`. This replaces the same
+day's chain through egui's `NotoEmoji-Regular`, `emoji-icon-font` and Hack, and its swaps of
+✕ for the icon X and ⠇ for ≡, which the drafts undo.
+Why: the maintainer's suggestion. One hand draws every symbol at the text's size and weight,
+where three fallback fonts gave mismatched shapes (NotoEmoji's scaled 0.81, emoji-icon-font's
+0.90, Hack's monospace arrows); a string keeps its character, so no call site changes; it is
+the single-colour icon font the plan already builds from SVGs ("GUI framework choice: egui"),
+with no new dependency, where SVGs drawn at run time need `egui_extras`' `svg` feature, which
+the plan leaves until after 1.0.0.
+Plan: `plans/core/gui.md` "Other UI components" (the Dark/light theme row).

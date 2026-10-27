@@ -3264,11 +3264,18 @@ briefs, review loops, gates and mutation runs as for any step.
     the sliders (Chromium's and Firefox's own), the combo's popup (the system's list), each
     measured in egui first; and the scrollbars, which a headful browser on Windows 10 draws
     17 wide in the layout where egui's float (the probes run headless and see none); the player list's reserved 10-point band (0.0.1u) drawn in the draft
-  - [ ] w2 the app (SWE-2, after 0.0.1u: same `theme.rs`): Selawik in `resources/fonts/` and
-    first in the proportional family, the chain the plan's row lists, `monochrome_emoji_fonts`
-    on, the code's ✕ and ⠇ as the draft replaces them → verify: a test that every symbol the
-    views draw resolves in a bundled font; every layout test's moved number checked against the
-    drafts; the built window against the drafts
+  - [ ] w1c the symbols as SVGs (lead; the maintainer, 2026-10-27; DECISIONS "The symbols
+    Selawik lacks are SVGs in the suite's icon font"): the census of every symbol the views and
+    drafts draw that Selawik lacks; one SVG each at the text's size and weight; the icons'
+    fontTools build (`scripts/`) puts them into the icon font at their own codepoints beside
+    the Phosphor glyphs; the drafts load it and drop egui's emoji fonts and Hack from the body
+    chain, and undo w1's ✕ → X and ⠇ → ≡ swaps → verify: the build rebuilds the committed
+    TTF byte for byte; `scripts/draft_fonts.py` 0 findings with only Selawik, the icon font,
+    egui-icons and Hack (monospace)
+  - [ ] w2 the app (SWE-2, after w1c and the S1 rework): Selawik (the stopped first run's start,
+    `.tmp/0_0_1w/selawik_start.patch`), the plan row's chains, the icon font rebuilt → verify:
+    a test that every symbol the views draw has a glyph after `install` (`has_glyph`); every
+    layout test's moved number checked against the drafts; the built window against them
   - [ ] w3 the maintainer's close look at the drafts (their approval back), then the built window
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
