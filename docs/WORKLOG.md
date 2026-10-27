@@ -3100,8 +3100,20 @@ briefs, review loops, gates and mutation runs as for any step.
       `pes_savefile/src/model/instruction.rs`, `team_widgets/src/{pitch/mod.rs,tactics/{mod,
       assignments,instructions}.rs,test_support.rs}` and their tests, `save_editor/src/view/
       tactics.rs`, the view tests, `help/08_tactics.md`
-    - [ ] s5d the pitch: the popover's anchor, outside press and `player <n>`; s6's swap mark;
-      the badges' medal initials
+    - [x] s5d the pitch: the popover's anchor, outside press and `player <n>`; s6's swap mark;
+      the badges' medal initials. Done 2026-10-27 (SWE-2, one session): the popover's top-right
+      on the marker's bottom-left as it stood at the click (`OpenSlot::at`), its header
+      `player <n>` (`(empty roster slot)` for an empty one); a primary press closes it unless
+      it lands on a Foreground layer (the popover or a popup it opened), the focused field
+      then surrendered so a typed edit's undo entry still seals; `swap_target` is the drop's
+      and the mark's one pick (the topmost other marker, the dragged one's own spot never
+      it), the mark `#14fbff` brackets over everything and the dragged marker at 35%;
+      `Medal` (`from_tier_id`) on `RosterRow`, its letter at the badge's right end, the
+      Save editor's cache keyed by revision, team and rules file. Lead: the popover's name
+      lookup shares `raw_name` with the markers', the medal test pins the fixture team's
+      letters as literals. Files: `team_widgets/src/{pitch/{mod,popover}.rs,tactics/{mod,
+      assignments}.rs,test_support.rs}` and their tests, `save_editor/src/view/{mod,tactics,
+      prompt,terms}.rs`, the view tests, `help/08_tactics.md`
     - [ ] s5e the list and team view: s6's three-character short name, s7's picked team
       selecting its row and `[click for tactics]`; the team view's header as the draft has it
       (DECISIONS "The team view's header on one row, its title in strong body text": the title

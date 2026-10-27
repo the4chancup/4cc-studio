@@ -131,6 +131,12 @@ pub(crate) struct SaveView {
     /// does not load (the quick actions' red line says so; no badge is
     /// drawn then).
     cards: Option<(BadgeKey, OwnBadge)>,
+    /// The pitch badges' medal letters per roster slot as last computed
+    /// and the `MedalKey` they were computed for: `player_tier` runs
+    /// again only when the key differs, not on every frame. A rules
+    /// file that does not load is kept as a row of `None`s under the
+    /// key, so no letter is drawn.
+    medals: Option<(MedalKey, Vec<Option<team_widgets::tactics::Medal>>)>,
     /// The Tactics pitch's portraits, read from the selected game's
     /// `download/` CPKs off the UI thread (`select_portraits` points it at
     /// the PES folder each frame).
@@ -220,6 +226,21 @@ pub(crate) struct BadgeKey {
     rules_file: Option<PathBuf>,
 }
 
+/// What the pitch badges' medal letters were computed for: the Cards
+/// left badge's `BadgeKey` minus the selection — a change of the open
+/// save (`Session::revision`), of the team or of the rules file
+/// recomputes them, and any other frame draws the kept ones.
+#[derive(PartialEq)]
+pub(crate) struct MedalKey {
+    /// `Session::revision` when computed.
+    revision: u64,
+    /// The team the medals are for.
+    team: u32,
+    /// The rules file the medals' ruleset came from (`None`: the official
+    /// ruleset).
+    rules_file: Option<PathBuf>,
+}
+
 /// The badge `cards` holds for a `BadgeKey`, owned: what the rules read the
 /// selected player as.
 pub(crate) enum OwnBadge {
@@ -295,6 +316,7 @@ impl SaveView {
             aatf_copy_dialog: aatf_panel::default_copy_dialog(),
             export_dialog: comparator::default_export_dialog(),
             cards: None,
+            medals: None,
             portraits: portraits::Portraits::new(),
             generation: 0,
             aesthetics_from_exports: false,

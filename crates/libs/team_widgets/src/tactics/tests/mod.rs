@@ -1991,3 +1991,15 @@ fn a_version_without_substitution_keeps_the_disabled_cell() {
         "the gate tooltip names the first version storing the field"
     );
 }
+
+// `Medal::from_tier_id` (the plan's "A starter's badge names his medal
+// tier"): the three tier ids every ruleset shares, and nothing else.
+#[test]
+fn from_tier_id_maps_the_three_medal_ids() {
+    assert_eq!(Medal::from_tier_id("gold"), Some(Medal::Gold));
+    assert_eq!(Medal::from_tier_id("silver"), Some(Medal::Silver));
+    assert_eq!(Medal::from_tier_id("bronze"), Some(Medal::Bronze));
+    for id in ["regular", "goalkeeper", "Gold", "", "goldx"] {
+        assert_eq!(Medal::from_tier_id(id), None, "{id:?} is no medal");
+    }
+}

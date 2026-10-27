@@ -163,21 +163,17 @@ fn a_marker_released_on_his_own_marker_moves() {
     let centres = centres_of(canvas, &formation.players);
     let order = draw_order(&centres);
     // An outfield slot whose x + 4 stays on the grid and whose drop
-    // point covers no marker drawn after it (those would claim the
-    // release first).
+    // point covers no marker but his own (another's would claim the
+    // release for a swap).
     let (index, onto) = (0..11)
         .filter(|&index| formation.players[index].position != 0)
         .filter_map(|index| {
             let slot = formation.players[index];
             let onto = badge_centre(canvas.min, slot) + egui::vec2(4.0 * SPOT_XS, 0.0);
-            let after = order
-                .iter()
-                .position(|&i| i == index)
-                .expect("every marker is in the order");
             (slot.x <= 100
-                && order[after + 1..]
-                    .iter()
-                    .all(|&other| !marker_rect(centres[other], canvas).contains(onto)))
+                && order.iter().all(|&other| {
+                    other == index || !marker_rect(centres[other], canvas).contains(onto)
+                }))
             .then_some((index, onto))
         })
         .next()
@@ -391,6 +387,76 @@ fn a_starter_row_dropped_on_a_marker_exchanges_the_two() {
     assert!(changed, "the drop changed the record");
     assert_eq!(tactics.starting_eleven[2], inn);
     assert_eq!(tactics.starting_eleven[5], out);
+}
+
+// The drop reads the swap mark's pick: a starter's marker moved onto the
+// dragged one's own spot is the release's target — the dragged one's own
+// spot is never it (the draft's `hitMarker` `skip`), so a release on the
+// overlap swaps the two starters instead of moving the dragged one.
+#[test]
+fn a_release_on_a_marker_under_the_dragged_ones_spot_swaps() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    // `other`'s marker is moved onto `index`'s own spot; `index` paints
+    // after him (ties keep the slot order), so the press hits `index`.
+    let (index, other) = (4, 2);
+    let players = &mut tactics.presets[0].formations[0].players;
+    assert!(
+        players[index].position != 0 && players[other].position != 0,
+        "premise: two outfield slots"
+    );
+    players[other] = players[index];
+    let before = tactics.clone();
+    let dragged = before.starting_eleven[index];
+    let dropped = before.starting_eleven[other];
+    assert_ne!(dragged, dropped, "premise: two different slots");
+
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let players = tactics.presets[0].formations[0].players;
+    let centres = centres_of(canvas, &players);
+    let order = draw_order(&centres);
+    assert!(
+        draw_position(canvas, &players, index) > draw_position(canvas, &players, other),
+        "premise: `index` paints after `other` at their shared spot"
+    );
+    // The release 10 points right of their shared centre: past the click
+    // distance (a drop, not a click) and still inside both boxes.
+    let onto = centres[index] + egui::vec2(10.0, 0.0);
+    let covering: Vec<usize> = order
+        .iter()
+        .rev()
+        .copied()
+        .filter(|&m| m != index && marker_rect(centres[m], canvas).contains(onto))
+        .collect();
+    assert_eq!(
+        covering.first(),
+        Some(&other),
+        "premise: `other` is the topmost other marker under the release"
+    );
+    let from = marker_point(&nodes, &players, index);
+
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(changed, "the drop changed the record");
+    assert_eq!(
+        tactics.starting_eleven[index], dropped,
+        "the other starter takes his slot"
+    );
+    assert_eq!(
+        tactics.starting_eleven[other], dragged,
+        "and the dragged starter takes his"
+    );
+    assert_eq!(tactics.presets, before.presets, "the formation slots stay");
 }
 
 // `swap_in`'s instruction gate: the outgoing starter's slot in a target

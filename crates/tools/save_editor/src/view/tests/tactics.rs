@@ -1450,3 +1450,130 @@ fn scroll_names_is_a_remembered_view_setting() {
         "the restart reads it back"
     );
 }
+
+/// The medal letter painted at `badge`'s right end (right-aligned 3
+/// points in, level with the position text): the one-character text
+/// shape whose galley's right edge lands there, `None` when none was
+/// painted.
+fn medal_letter(
+    shapes: &[egui::epaint::ClippedShape],
+    badge: egui::Rect,
+) -> Option<&egui::epaint::TextShape> {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape)
+                if shape.galley.job.text.len() == 1
+                    && (shape.pos.x + shape.galley.size().x - (badge.right() - 3.0)).abs()
+                        <= 0.5
+                    && (shape.pos.y + shape.galley.size().y / 2.0 - badge.center().y).abs()
+                        <= 0.5 =>
+            {
+                Some(shape)
+            }
+            _ => None,
+        })
+        .next()
+}
+
+// plans/save_editor.md "Tactics editor" ("A starter's badge names his
+// medal tier"): each starter's badge shows his tier's initial at the
+// badge's right end — a gold `G`, a silver `S` or a bronze `B` in the
+// tier's colour — and nothing for any other tier, no tier or a failed
+// check; the tiers are read through `player_tier` under the active
+// ruleset, not typed.
+#[test]
+fn the_badges_name_the_starters_medal_tiers() {
+    use team_widgets::tactics::Medal::{Gold, Silver};
+    let path = fixture(PesVersion::Pes17, "tactics_medals");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1600.0, 1400.0);
+    view.selected = Some(Selection::Team(734));
+    // Each starter's medal under the official ruleset, as the AATF check
+    // reads this fixture's team: two silvers and two golds, the other
+    // seven no medal tier.
+    let tactics = team_entry(&view, 734).tactics;
+    let medals = [
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        Some(Silver),
+        None,
+        Some(Gold),
+        Some(Silver),
+        Some(Gold),
+    ];
+
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let players = tactics.presets[0].formations[0].players;
+    for (index, medal) in medals.iter().enumerate() {
+        let badge = egui::Rect::from_center_size(
+            clamped_centre(canvas, players[index]),
+            egui::vec2(50.0, 14.0),
+        );
+        match medal {
+            Some(medal) => {
+                let (letter, colour) = match medal {
+                    team_widgets::tactics::Medal::Gold => {
+                        ("G", egui::Color32::from_rgb(0xcc, 0x99, 0x00))
+                    }
+                    team_widgets::tactics::Medal::Silver => {
+                        ("S", egui::Color32::from_rgb(0xc0, 0xc0, 0xc0))
+                    }
+                    team_widgets::tactics::Medal::Bronze => {
+                        ("B", egui::Color32::from_rgb(0xcd, 0x7f, 0x32))
+                    }
+                };
+                let shape = medal_letter(&shapes, badge).unwrap_or_else(|| {
+                    panic!("starter {index}: no letter at his badge's right end")
+                });
+                assert_eq!(
+                    shape.galley.job.text, letter,
+                    "starter {index}'s tier letter"
+                );
+                assert_eq!(
+                    galley_color(shape),
+                    colour,
+                    "starter {index}'s letter in the tier's colour"
+                );
+            }
+            None => assert!(
+                medal_letter(&shapes, badge).is_none(),
+                "starter {index} carries no letter"
+            ),
+        }
+    }
+}
+
+// The same bullet's other half: while the rules file does not load, no
+// badge draws a letter (the quick actions' red line reports it).
+#[test]
+fn a_rules_file_that_does_not_load_draws_no_medal_letter() {
+    let path = fixture(PesVersion::Pes17, "tactics_medals_broken_rules");
+    let broken = path.with_file_name("broken.4ccrules");
+    std::fs::write(&broken, "definitely not a rules file").unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1600.0, 1400.0);
+    view.selected = Some(Selection::Team(734));
+
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(broken.as_path()))
+    });
+    let canvas = canvas_of(&nodes);
+    let players = team_entry(&view, 734).tactics.presets[0].formations[0].players;
+    for (index, slot) in players.iter().enumerate() {
+        let badge =
+            egui::Rect::from_center_size(clamped_centre(canvas, *slot), egui::vec2(50.0, 14.0));
+        assert!(
+            medal_letter(&shapes, badge).is_none(),
+            "starter {index} shows no letter under a file that does not load"
+        );
+    }
+}

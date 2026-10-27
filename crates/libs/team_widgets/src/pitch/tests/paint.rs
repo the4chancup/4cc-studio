@@ -5,19 +5,12 @@
 use pes_version::PesVersion;
 
 use super::*;
+use crate::tactics::Medal;
 use crate::test_support::{Headless, fixture_rows, fixture_tactics, painted_color, roster_rows};
 
 /// An outfield slot at (`x`, `y`), for the pure mapping tests.
 fn outfield(x: u8, y: u8) -> FormationSlot {
     FormationSlot { position: 1, x, y }
-}
-
-/// `a` within `eps` of `b`, both coordinates.
-fn near(a: egui::Pos2, b: egui::Pos2, eps: f32) {
-    assert!(
-        (a.x - b.x).abs() <= eps && (a.y - b.y).abs() <= eps,
-        "{a:?} vs {b:?}"
-    );
 }
 
 // The screen's own slot-to-spot mapping (the plan's pitch bullet): x 0
@@ -716,8 +709,8 @@ fn a_dragged_marker_paints_last_at_the_pointer() {
     let order = draw_order(&centres);
     // `index` is an outfield marker painted after the first outfield in
     // the order (the first is what a dragged lookup without its
-    // `dragged` half would find), with another outfield marker after
-    // him: `onto` is that marker's badge centre.
+    // `dragged` half would find); `onto` is a grass point — over a
+    // marker the drag would dim him for the swap instead.
     let first_outfield = order
         .iter()
         .copied()
@@ -726,23 +719,13 @@ fn a_dragged_marker_paints_last_at_the_pointer() {
     let index = order
         .iter()
         .copied()
-        .find(|&i| {
-            players[i].position != 0
-                && i != first_outfield
-                && order[draw_position(canvas, &players, i) + 1..]
-                    .iter()
-                    .any(|&j| players[j].position != 0)
-        })
-        .expect("an outfield slot with another painted after him");
-    let onto = centres[order[draw_position(canvas, &players, index) + 1..]
-        .iter()
-        .copied()
-        .find(|&j| players[j].position != 0)
-        .expect("an outfield marker paints after him")];
+        .find(|&i| players[i].position != 0 && i != first_outfield)
+        .expect("a second outfield slot");
+    let onto = grass_point(canvas, &players);
     let from = marker_point(&nodes, &players, index);
     assert!(
         off(onto, centres[index]),
-        "premise: the target is off his own centre"
+        "premise: the drop point is off his own centre"
     );
 
     window.pitch(
@@ -1259,5 +1242,197 @@ fn a_long_name_is_cut_at_the_lists_width() {
     assert!(
         bounds.x1 <= 200.0,
         "the name ends inside the list's width ({bounds:?})"
+    );
+}
+
+// The swap mark (the plan's "A pitch player dropped on another": while
+// a dragged starter is held over another, that one carries the
+// selected player's corner brackets drawn over everything and the
+// dragged marker goes to 35% opacity, so a drag meant only to move can
+// be steered off): over another marker the brackets show and his badge
+// fades; over the grass, neither.
+#[test]
+fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let players = tactics.presets[0].formations[0].players;
+    let (dragged, target) = (3, 6);
+
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    let from = marker_point(&nodes, &players, dragged);
+    // `over` is on the target's marker and off the dragged one's own
+    // spot; `target` is the topmost other marker there.
+    let over = marker_point(&nodes, &players, target);
+    assert!(
+        !marker_rect(centres[dragged], canvas).contains(over),
+        "premise: the hold is off the dragged marker's own spot"
+    );
+    assert!(
+        marker_rect(centres[target], canvas).contains(over),
+        "premise: the hold is on the target's marker"
+    );
+
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(from, true),
+    );
+    let (_, shapes) = window.frame(vec![egui::Event::PointerMoved(over)], |ui| {
+        pitch(
+            ui,
+            "pitch",
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+    });
+    // The target's marker carries the selected corners: eight 9 px
+    // arms, each ending on a corner of its portrait box.
+    let badge = egui::Rect::from_center_size(centres[target], egui::vec2(50.0, 14.0));
+    let portrait = egui::Rect::from_min_size(
+        egui::pos2(badge.left(), badge.top() - 50.0),
+        egui::vec2(50.0, 50.0),
+    );
+    let arms: Vec<[egui::Pos2; 2]> = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::LineSegment { points, stroke } if stroke.color == SELECTED_CORNERS => {
+                Some(*points)
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(arms.len(), 8, "the swap mark's eight corner arms");
+    let box_corners = [
+        portrait.left_top(),
+        portrait.right_top(),
+        portrait.left_bottom(),
+        portrait.right_bottom(),
+    ];
+    for points in &arms {
+        assert!(
+            (points[0].distance(points[1]) - 9.0).abs() <= 0.01,
+            "a 9 px arm"
+        );
+        assert!(
+            box_corners.iter().any(|corner| points.contains(corner)),
+            "{points:?} ends on the target's portrait box"
+        );
+    }
+    // And the dragged marker's badge paints at 35% over him.
+    let dragged_badge =
+        egui::Rect::from_center_size(clamp_centre(over, canvas), egui::vec2(50.0, 14.0));
+    let fill = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape) if shape.rect == dragged_badge => Some(shape.fill),
+            _ => None,
+        })
+        .next()
+        .expect("the dragged marker's badge");
+    assert_eq!(
+        fill,
+        BADGE_FILL.gamma_multiply(0.35),
+        "the dragged badge at 35% opacity"
+    );
+
+    // Held over the grass instead: no brackets, full opacity.
+    let grass = grass_point(canvas, &players);
+    let (_, shapes) = window.frame(vec![egui::Event::PointerMoved(grass)], |ui| {
+        pitch(
+            ui,
+            "pitch",
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+    });
+    assert!(
+        !shapes.iter().any(|clipped| matches!(
+            &clipped.shape,
+            egui::Shape::LineSegment { stroke, .. } if stroke.color == SELECTED_CORNERS
+        )),
+        "no brackets over the grass"
+    );
+    let dragged_badge =
+        egui::Rect::from_center_size(clamp_centre(grass, canvas), egui::vec2(50.0, 14.0));
+    let fill = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape) if shape.rect == dragged_badge => Some(shape.fill),
+            _ => None,
+        })
+        .next()
+        .expect("the dragged marker's badge");
+    assert_eq!(fill, BADGE_FILL, "full opacity over the grass");
+}
+
+// The plan's "A starter's badge names his medal tier": the row's medal
+// letter at the badge's right end, right-aligned 3 points in, level
+// with the position text and in its font, in the medal's colour; a
+// slot with no medal draws none.
+#[test]
+fn a_medal_letter_paints_at_the_badges_right_end() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    let medal_slot = usize::from(tactics.starting_eleven[4]);
+    roster[medal_slot].medal = Some(Medal::Gold);
+    let players = tactics.presets[0].formations[0].players;
+
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let canvas = canvas_rect(&nodes);
+    let badge =
+        egui::Rect::from_center_size(centres_of(canvas, &players)[4], egui::vec2(50.0, 14.0));
+    let letter = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape)
+                if shape.galley.job.text == "G"
+                    && (shape.pos.x + shape.galley.size().x - (badge.right() - 3.0)).abs()
+                        <= 0.5
+                    && (shape.pos.y + shape.galley.size().y / 2.0 - badge.center().y).abs()
+                        <= 0.5 =>
+            {
+                Some(shape)
+            }
+            _ => None,
+        })
+        .next()
+        .expect("the medal's G at the badge's right end");
+    assert_eq!(
+        painted_color(letter),
+        egui::Color32::from_rgb(0xcc, 0x99, 0x00),
+        "the gold letter's colour"
+    );
+    assert_eq!(
+        letter.galley.job.sections[0].format.font_id,
+        egui::FontId::proportional(12.0),
+        "the position text's font"
+    );
+    // The other ten starters hold no medal: no other letters.
+    assert_eq!(
+        shapes
+            .iter()
+            .filter(|clipped| matches!(
+                &clipped.shape,
+                egui::Shape::Text(shape)
+                    if matches!(shape.galley.job.text.as_str(), "G" | "S" | "B")
+                        && canvas.contains(shape.visual_bounding_rect().center())
+            ))
+            .count(),
+        1,
+        "one letter, on the medal's slot alone"
     );
 }

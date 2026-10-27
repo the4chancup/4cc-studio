@@ -6,13 +6,17 @@
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::tactics::TeamTactics;
 
-use super::{GRID_X, GRID_Y, badge_centre, marker_rect, position_label};
+use super::{GRID_X, GRID_Y, position_label};
 use crate::names::append_name;
-use crate::tactics::{RosterRow, TacticsView, raw_name_at};
+use crate::tactics::{RosterRow, TacticsView, raw_name};
 
-/// The slot popover (the draft's `slotPopover`): beside the marker, the
-/// starter's name and roster number, the Position combo of the twelve
-/// outfield positions, Make GK and the X
+/// The slot popover (the draft's `slotPopover`): its top-right corner on
+/// the marker's bottom-left corner as the marker stood at the click
+/// (`OpenSlot::at` — it stays while the slot's X and Y move him, so the
+/// fields' arrows stay under the pointer), and a primary press anywhere
+/// outside it closes it, as Close does. The starter's name and `player
+/// <n>` head it (`(empty roster slot)` an empty roster slot), the
+/// Position combo of the twelve outfield positions, Make GK and the X
 /// (0 to 104) and Y (0 to 48) fields and Close. The keeper's slot shows a
 /// disabled "GK", the two fields disabled under "The goalkeeper's spot is
 /// fixed" and Make GK disabled. Make GK exchanges the slot's
@@ -24,11 +28,45 @@ pub(super) fn slot_popover(
     tactics: &mut TeamTactics,
     view: &mut TacticsView,
     roster: &[RosterRow<'_>],
-    canvas: egui::Rect,
 ) {
     let Some(open) = view.popover else {
         return;
     };
+    // A press anywhere but inside the popover closes it (the draft's
+    // document `pointerdown` listener): a press inside it — or inside a
+    // popup it opened, like the Position combo's list — lands on a
+    // Foreground layer, everything else is outside.
+    let pressed_at = ui.input(|input| {
+        input
+            .pointer
+            .button_pressed(egui::PointerButton::Primary)
+            .then(|| input.pointer.press_origin())
+            .flatten()
+    });
+    if pressed_at.is_some_and(|pos| {
+        ui.ctx()
+            .layer_id_at(pos)
+            .is_none_or(|layer| layer.order < egui::Order::Foreground)
+    }) {
+        view.popover = None;
+        // The popover's widgets are gone this frame — a keyboard gesture
+        // inside it (a DragValue's typed edit) cannot end on its own, so
+        // the outside press ends it here as the focused widget would have
+        // under `SurrenderFocusOn::Presses` had it still been drawn. A
+        // press on the focused widget itself is not elsewhere: it keeps
+        // the keyboard.
+        if let Some(focused) = ui.ctx().memory(|memory| memory.focused())
+            && !pressed_at.is_some_and(|pos| {
+                ui.ctx()
+                    .read_response(focused)
+                    .is_some_and(|response| response.interact_rect.contains(pos))
+            })
+        {
+            ui.ctx()
+                .memory_mut(|memory| memory.surrender_focus(focused));
+        }
+        return;
+    }
     let index = open.slot;
     let TeamTactics {
         presets,
@@ -38,20 +76,23 @@ pub(super) fn slot_popover(
     let formation = &mut presets[open.preset.min(2)].formations[open.formation.min(2)];
     let slot = formation.players[index];
     let keeper = slot.position == 0;
-    let rect = marker_rect(badge_centre(canvas.min, slot), canvas);
     egui::Popup::new(
         ui.scope_id().with("slot popover"),
         ui.ctx().clone(),
-        egui::PopupAnchor::ParentRect(rect),
+        egui::PopupAnchor::Position(open.at),
         ui.layer_id(),
     )
-    .align(egui::RectAlign::RIGHT_START)
-    .gap(6.0)
+    // The popover's top-right corner on the point (the draft's
+    // `.tpopover` `translateX(-100%)`).
+    .align(egui::RectAlign::outside(egui::Align2::LEFT_BOTTOM))
     .show(|ui| {
         ui.horizontal(|ui| {
             // The name's colour codes, plain runs kept strong.
             let mut name = egui::text::LayoutJob::default();
-            append_name(&mut name, raw_name_at(roster, starting_eleven[index]));
+            append_name(
+                &mut name,
+                raw_name(roster, starting_eleven[index]).unwrap_or("(empty roster slot)"),
+            );
             for section in &mut name.sections {
                 if section.format.color == egui::Color32::PLACEHOLDER {
                     section.format.color = ui.visuals().strong_text_color();
@@ -59,7 +100,7 @@ pub(super) fn slot_popover(
             }
             ui.label(name);
             ui.weak(format!(
-                "roster {}",
+                "player {}",
                 usize::from(starting_eleven[index]) + 1
             ));
         });

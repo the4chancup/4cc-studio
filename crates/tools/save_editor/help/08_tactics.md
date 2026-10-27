@@ -13,15 +13,25 @@ formation screen: each starter stands at his spot, drawn as his portrait
 over a badge with his position and his name below it (a name too long for
 the badge scrolls now and then, as in the game; the **Scroll names**
 checkbox at the right of the formation bar holds them still when off, and
-the setting is remembered). The portraits come from
+the setting is remembered). A gold **G**, a silver **S** or a bronze **B**
+at the badge's right end names his medal tier under the active ruleset,
+where he has one. The portraits come from
 the game picked at the top of the sidebar, out of the `download` folder
 inside the **PES folder** setting. When that folder is missing, or a file
 it lists is missing, the starters show without portraits. Dragging a pitch
 player to a new place moves him there, snapped to the positions the save
-can hold. A bench player dropped on a pitch player swaps them, and a pitch
-player dropped on a bench row does the same. Clicking a pitch player opens
-his details: a position pick, the exact X and Y fields and **Make GK**,
+can hold, and dropping him on another starter trades their places: while
+you hold him over the other, that one's marker is marked with corner
+brackets and the dragged one turns half transparent, so a drag meant only
+to move him can still be steered aside onto the grass. A bench player
+dropped on a pitch player swaps them, and a pitch player dropped on a
+bench row does the same. Clicking a pitch player opens
+his details beside his marker: a position pick, the exact X and Y fields
+and **Make GK**,
 which puts him in goal and brings the goalkeeper out onto his spot. The
+details stay where they opened while X and Y move the player, so the
+fields' arrows stay under the pointer, and a click anywhere outside
+closes them. The
 goalkeeper cannot be dragged and his position and spot stay fixed.
 The **Kick-off**, **In-possession** and **Out-of-possession** buttons on the
 formation bar pick which of the preset's three formations it shows (the game

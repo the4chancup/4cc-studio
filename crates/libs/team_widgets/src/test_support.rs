@@ -183,6 +183,7 @@ pub(crate) fn roster_rows(rows: &[(String, String, Option<u8>)]) -> Vec<RosterRo
             raw_name: raw_name.as_str(),
             registered_position: *position,
             portrait: None,
+            medal: None,
         })
         .collect()
 }

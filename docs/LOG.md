@@ -2608,3 +2608,5 @@ worklog passed 7,000 lines.
   fixed-width side panels (sidebar, help tree, Ruleset rail) stopped showing a resize cursor on their edge (0.0.1s4t).
 - **2026-10-27** — The preview's icon reached the code: Archer is the window's icon (the tight crop on Windows, the whole picture
   elsewhere) and, through a `winresource` build script, the exe's file icon, its version details naming Unlimited Tool Works (0.0.1v2).
+- **2026-10-27** — The Tactics pitch as drafted: the player popover stays where it opened and a press outside closes it, a drag
+  over another starter marks the swap before the drop, and each starter's badge carries his medal letter (0.0.1s5d).

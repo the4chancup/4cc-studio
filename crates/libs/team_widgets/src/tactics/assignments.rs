@@ -95,7 +95,7 @@ impl Assign {
 /// `pitch` keeps the popover only while `scope` (the widget's `egui::Id`,
 /// which the host's pushed id keys to the team and the open), `preset`
 /// and `formation` are still what they were at open.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct OpenSlot {
     /// The pitch widget's `ui.scope_id()` at open.
     pub(crate) scope: egui::Id,
@@ -105,6 +105,10 @@ pub(crate) struct OpenSlot {
     pub(crate) formation: usize,
     /// The formation slot, 0 to 10.
     pub(crate) slot: usize,
+    /// The marker's bottom-left corner as it stood at the click: the
+    /// popover's top-right stays on it while the slot's X and Y move the
+    /// marker, so the fields' arrows stay under the pointer.
+    pub(crate) at: egui::Pos2,
 }
 
 /// One chip of the "Player assignments" group (the draft's `SET_PIECES`):

@@ -309,6 +309,14 @@ impl Headless {
     }
 }
 
+/// `a` within `eps` of `b`, both coordinates.
+fn near(a: egui::Pos2, b: egui::Pos2, eps: f32) {
+    assert!(
+        (a.x - b.x).abs() <= eps && (a.y - b.y).abs() <= eps,
+        "{a:?} vs {b:?}"
+    );
+}
+
 /// The pitch canvas' rect (the "pitch" node's).
 pub(crate) fn canvas_rect(nodes: &[accesskit::Node]) -> egui::Rect {
     let node = nodes

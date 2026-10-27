@@ -27,7 +27,7 @@ pub(crate) use assignments::{Assign, OpenSlot};
 /// What the tactics editor shows that the record does not hold: the
 /// preset and the formation on screen, the armed assignment mode, the
 /// open slot popover and the pitch's name scrolling.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TacticsView {
     /// The preset the controls edit, 0 to 2, shown 1 to 3.
     pub preset: usize,
@@ -80,6 +80,56 @@ pub struct RosterRow<'a> {
     /// The player's portrait, already uploaded by the host; `None` when none
     /// was found (or the host reads none): the marker then draws without one.
     pub portrait: Option<egui::TextureId>,
+    /// The player's medal tier under the host's active ruleset (the
+    /// pitch markers draw its letter at the badge's right end); `None`
+    /// for a slot with no medal or a host that reads none.
+    pub medal: Option<Medal>,
+}
+
+/// A starter's medal tier (the plan's "A starter's badge names his medal
+/// tier"): the letter his pitch badge carries at its right end — a gold
+/// `G` (`#cc9900`, the game's gold name colour), a silver `S`
+/// (`#c0c0c0`) or a bronze `B` (`#cd7f32`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Medal {
+    /// The `gold` tier.
+    Gold,
+    /// The `silver` tier.
+    Silver,
+    /// The `bronze` tier.
+    Bronze,
+}
+
+impl Medal {
+    /// The medal a ruleset's tier `id` reads as — `gold`, `silver` or
+    /// `bronze`, the ids every ruleset shares; `None` for any other.
+    pub fn from_tier_id(id: &str) -> Option<Medal> {
+        match id {
+            "gold" => Some(Medal::Gold),
+            "silver" => Some(Medal::Silver),
+            "bronze" => Some(Medal::Bronze),
+            _ => None,
+        }
+    }
+
+    /// The badge's letter.
+    pub(crate) fn letter(self) -> &'static str {
+        match self {
+            Medal::Gold => "G",
+            Medal::Silver => "S",
+            Medal::Bronze => "B",
+        }
+    }
+
+    /// The letter's colour: gold in the game's gold name colour, silver
+    /// and bronze their metals'.
+    pub(crate) fn colour(self) -> egui::Color32 {
+        match self {
+            Medal::Gold => egui::Color32::from_rgb(0xcc, 0x99, 0x00),
+            Medal::Silver => egui::Color32::from_rgb(0xc0, 0xc0, 0xc0),
+            Medal::Bronze => egui::Color32::from_rgb(0xcd, 0x7f, 0x32),
+        }
+    }
 }
 
 /// One of the five sliders' rows (the draft's `SLIDERS` and
@@ -736,13 +786,19 @@ pub(crate) fn name_at<'a>(roster: &[RosterRow<'a>], slot: u8) -> &'a str {
 }
 
 /// `name_at` on the raw name (the colour codes kept): the lineup rows
-/// and the slot popover draw it for the coloured text runs.
+/// and the markers draw it for the coloured text runs.
 pub(crate) fn raw_name_at<'a>(roster: &[RosterRow<'a>], slot: u8) -> &'a str {
+    raw_name(roster, slot).unwrap_or("(empty)")
+}
+
+/// The raw name of roster `slot`, `None` for an empty slot (or one past
+/// the roster): each caller words the empty case its own way (the slot
+/// popover's header says "(empty roster slot)").
+pub(crate) fn raw_name<'a>(roster: &[RosterRow<'a>], slot: u8) -> Option<&'a str> {
     roster
         .get(usize::from(slot))
         .map(|row| row.raw_name)
         .filter(|name| !name.is_empty())
-        .unwrap_or("(empty)")
 }
 
 /// A tactics field's row as the Tactics tab words it, for the Save

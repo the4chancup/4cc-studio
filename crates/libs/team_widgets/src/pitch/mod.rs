@@ -257,21 +257,27 @@ pub fn pitch(
         }
         match dropped {
             Some((Some(onto), LineupDrag::Bench(from))) => swap_in(version, tactics, onto, from),
-            Some((Some(onto), LineupDrag::Starter(from) | LineupDrag::Marker(from)))
-                if onto != from =>
-            {
+            Some((Some(onto), LineupDrag::Starter(from))) if onto != from => {
                 tactics.starting_eleven.swap(from, onto);
             }
-            // A marker released on the grass (or on his own marker) moves
-            // to the snapped drop point.
+            // A dragged marker's release reads `swap_target` — the same
+            // pick the swap mark shows: over another starter the two
+            // exchange (the dragged one's own spot is never the target);
+            // over the grass or his own spot he moves to the snapped
+            // drop point.
             Some((_, LineupDrag::Marker(from))) => {
                 if let Some(pos) = ui.ctx().pointer_interact_pos() {
-                    let (x, y) = snap(pos, canvas.min);
-                    let slot = &mut tactics.presets[view.preset.min(2)].formations
-                        [view.formation.min(2)]
-                    .players[from];
-                    slot.x = x;
-                    slot.y = y;
+                    match swap_target(&centres, canvas, pos, from) {
+                        Some(onto) => tactics.starting_eleven.swap(from, onto),
+                        None => {
+                            let (x, y) = snap(pos, canvas.min);
+                            let slot = &mut tactics.presets[view.preset.min(2)].formations
+                                [view.formation.min(2)]
+                            .players[from];
+                            slot.x = x;
+                            slot.y = y;
+                        }
+                    }
                 }
             }
             // A row released on the grass or on his own marker does
@@ -288,6 +294,16 @@ pub fn pitch(
                     .as_ref()
                     .expect("every marker interacted")
                     .dragged()
+        });
+        // The starter a release now would swap with — the same pick the
+        // drop makes, so the mark and the release always agree. The
+        // dragged marker sits on him, so it goes half transparent over
+        // him and his corners are painted over both (the draft's
+        // `drawPitch` target mark).
+        let swap = dragged.and_then(|index| {
+            ui.ctx()
+                .pointer_interact_pos()
+                .and_then(|pos| swap_target(&centres, canvas, pos, index))
         });
         let mut still_for: Option<f32> = None;
         let mut record = |until: Option<f32>| {
@@ -317,6 +333,11 @@ pub fn pitch(
                 .ctx()
                 .pointer_interact_pos()
                 .map_or(centres[index], |pos| clamp_centre(pos, canvas));
+            // He goes half transparent while he sits on a swap target.
+            let mut painter = painter.clone();
+            if swap.is_some() {
+                painter.multiply_opacity(0.35);
+            }
             record(paint_marker(
                 &painter,
                 canvas,
@@ -331,12 +352,21 @@ pub fn pitch(
                 seconds,
             ));
         }
+        // The swap mark over everything, as the screen's selection marks
+        // a target.
+        if let Some(target) = swap {
+            paint_corners(
+                &painter,
+                portrait_rect(badge_rect(centres[target])),
+                SELECTED_CORNERS,
+            );
+        }
         // The next name move asks the repaint (none when every name fits).
         if let Some(still_for) = still_for {
             ui.ctx()
                 .request_repaint_after(std::time::Duration::from_secs_f32(still_for));
         }
-        slot_popover(ui, tactics, view, roster, canvas);
+        slot_popover(ui, tactics, view, roster);
         *tactics != before
     })
     .inner
@@ -404,6 +434,50 @@ fn draw_order(centres: &[egui::Pos2; 11]) -> [usize; 11] {
     let mut order: [usize; 11] = std::array::from_fn(|index| index);
     order.sort_by(|a, b| centres[*a].y.total_cmp(&centres[*b].y).then(a.cmp(b)));
     order
+}
+
+/// The starter a release at `pos` would swap with (the draft's
+/// `hitMarker` and its `skip`): the marker drawn on top among the
+/// others — `skip` is the dragged one's own spot, never a target. The
+/// swap mark and the drop both read it, so they always agree.
+fn swap_target(
+    centres: &[egui::Pos2; 11],
+    canvas: egui::Rect,
+    pos: egui::Pos2,
+    skip: usize,
+) -> Option<usize> {
+    draw_order(centres)
+        .into_iter()
+        .rev()
+        .find(|&index| index != skip && marker_rect(centres[index], canvas).contains(pos))
+}
+
+/// The badge's rect around its centre (50 x 14).
+fn badge_rect(centre: egui::Pos2) -> egui::Rect {
+    egui::Rect::from_center_size(centre, egui::vec2(BADGE_W, BADGE_H))
+}
+
+/// The portrait box standing on `badge`.
+fn portrait_rect(badge: egui::Rect) -> egui::Rect {
+    egui::Rect::from_min_size(
+        egui::pos2(badge.left(), badge.top() - PORTRAIT_H),
+        egui::vec2(BADGE_W, PORTRAIT_H),
+    )
+}
+
+/// The screen's corner brackets around `rect` (the draft's `corners`):
+/// a 9 px arm inward from each corner.
+fn paint_corners(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32) {
+    let stroke = egui::Stroke::new(2.0, color);
+    let arm = 9.0;
+    let corner = |pos: egui::Pos2, dx: f32, dy: f32| {
+        painter.line_segment([pos + egui::vec2(0.0, dy * arm), pos], stroke);
+        painter.line_segment([pos, pos + egui::vec2(dx * arm, 0.0)], stroke);
+    };
+    corner(rect.left_top(), 1.0, 1.0);
+    corner(rect.right_top(), -1.0, 1.0);
+    corner(rect.left_bottom(), 1.0, -1.0);
+    corner(rect.right_bottom(), -1.0, -1.0);
 }
 
 /// A name no wider than the badge fits: it is centred and never moves
@@ -584,6 +658,7 @@ fn marker(
                     preset: view.preset,
                     formation: view.formation,
                     slot: spot.index,
+                    at: marker_rect(spot.centre, canvas).left_bottom(),
                 });
             }
         }
@@ -609,11 +684,8 @@ fn paint_marker(
     seconds: f32,
 ) -> Option<f32> {
     let roster_slot = tactics.starting_eleven[spot.index];
-    let badge = egui::Rect::from_center_size(spot.centre, egui::vec2(BADGE_W, BADGE_H));
-    let portrait = egui::Rect::from_min_size(
-        egui::pos2(badge.left(), badge.top() - PORTRAIT_H),
-        egui::vec2(BADGE_W, PORTRAIT_H),
-    );
+    let badge = badge_rect(spot.centre);
+    let portrait = portrait_rect(badge);
     if let Some(texture) = roster
         .get(usize::from(roster_slot))
         .and_then(|row| row.portrait)
@@ -640,6 +712,21 @@ fn paint_marker(
         egui::FontId::proportional(12.0),
         position_colour(spot.slot.position),
     );
+    // His medal tier's initial at the badge's right end, level with the
+    // position text and in its font (the plan's "A starter's badge names
+    // his medal tier"); a slot with no medal draws none.
+    if let Some(medal) = roster
+        .get(usize::from(roster_slot))
+        .and_then(|row| row.medal)
+    {
+        painter.text(
+            egui::pos2(badge.right() - 3.0, badge.center().y),
+            egui::Align2::RIGHT_CENTER,
+            medal.letter(),
+            egui::FontId::proportional(12.0),
+            medal.colour(),
+        );
+    }
     // The name in its colour codes' colours (white where it has none),
     // centred under the badge or cut at its right when wider.
     let mut job = egui::text::LayoutJob::default();
@@ -702,16 +789,7 @@ fn paint_marker(
         None
     };
     if let Some(color) = corners {
-        let stroke = egui::Stroke::new(2.0, color);
-        let arm = 9.0;
-        let corner = |pos: egui::Pos2, dx: f32, dy: f32| {
-            painter.line_segment([pos + egui::vec2(0.0, dy * arm), pos], stroke);
-            painter.line_segment([pos, pos + egui::vec2(dx * arm, 0.0)], stroke);
-        };
-        corner(portrait.left_top(), 1.0, 1.0);
-        corner(portrait.right_top(), -1.0, 1.0);
-        corner(portrait.left_bottom(), 1.0, -1.0);
-        corner(portrait.right_bottom(), -1.0, -1.0);
+        paint_corners(painter, portrait, color);
     }
     (wide && view.scroll_names).then(|| name_still_for(size.x, seconds))
 }

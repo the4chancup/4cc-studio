@@ -13,12 +13,14 @@
 //! scales the whole UI (the core plan, "Scaling with the width"), so
 //! there is no narrow fallback.
 
+use aatf::TeamView;
+use pes_savefile::EditFile;
 use pes_savefile::model::names::display_name;
 use team_widgets::pitch::{self, FORMATIONS};
-use team_widgets::tactics::{self, RosterRow};
+use team_widgets::tactics::{self, Medal, RosterRow};
 
 use crate::session::Session;
-use crate::view::{SaveView, edit_team, selected_team};
+use crate::view::{MedalKey, SaveView, edit_team, selected_team};
 
 /// The settings column's width (the draft's `.tacgrid` first track).
 const SETTINGS_WIDTH: f32 = 414.0;
@@ -39,6 +41,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         generation,
         focused,
         portraits,
+        rules,
+        medals,
         ..
     } = view;
     let Some(session) = session.as_mut() else {
@@ -76,15 +80,41 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         })
         .collect();
     let textures = portraits.textures(ui.ctx(), version, &player_ids);
+    // The badges' medal letters: `player_tier` per roster slot under the
+    // active ruleset, once per `MedalKey` (the open save's revision, the
+    // team, the rules file) as the Cards left badge is — not every
+    // frame. A file that does not load keeps a row of `None`s.
+    if let Some(active) = rules.as_ref() {
+        let key = MedalKey {
+            revision: session.revision(),
+            team: team_id,
+            rules_file: active.file.clone(),
+        };
+        if medals.as_ref().is_none_or(|(held, _)| *held != key) {
+            let marks = match &active.rules {
+                Ok(rules) => slot_medals(rules, session.file(), team_id, team.roster.len()),
+                Err(_) => vec![None; team.roster.len()],
+            };
+            *medals = Some((key, marks));
+        }
+    }
     let roster: Vec<RosterRow> = rows
         .iter()
         .zip(textures)
-        .map(|((name, raw_name, position), portrait)| RosterRow {
-            name: name.as_str(),
-            raw_name: raw_name.as_str(),
-            registered_position: *position,
-            portrait,
-        })
+        .enumerate()
+        .map(
+            |(index, ((name, raw_name, position), portrait))| RosterRow {
+                name: name.as_str(),
+                raw_name: raw_name.as_str(),
+                registered_position: *position,
+                portrait,
+                medal: medals
+                    .as_ref()
+                    .and_then(|(_, medals)| medals.get(index))
+                    .copied()
+                    .flatten(),
+            },
+        )
         .collect();
     // Every widget id under the editor is the team's within this open
     // (the view's own salt on top of the team scope's): a combo's popup,
@@ -282,4 +312,30 @@ fn copy_swap_formation_menu(
             }
         }
     });
+}
+
+/// Each of `team_id`'s `slots` roster slots' badge medal under `rules`
+/// (the pitch markers' right-end initials, the plan's "A starter's
+/// badge names his medal tier"): the tier `player_tier` reads the
+/// slot's player as, mapped through `Medal::from_tier_id`; `None` for an
+/// empty slot, no tier, a check that failed or a tier that is no medal
+/// — and for every slot when the team cannot be viewed.
+fn slot_medals(
+    rules: &aatf::Rules,
+    file: &EditFile,
+    team_id: u32,
+    slots: usize,
+) -> Vec<Option<Medal>> {
+    let Ok(team) = TeamView::new(file, team_id) else {
+        return vec![None; slots];
+    };
+    (0..slots)
+        .map(|slot| {
+            u8::try_from(slot)
+                .ok()
+                .and_then(|slot| team.player(slot))
+                .and_then(|player| rules.player_tier(&team, player).ok().flatten())
+                .and_then(|tier| Medal::from_tier_id(&tier.id))
+        })
+        .collect()
 }

@@ -1095,6 +1095,7 @@ mod tests {
                 raw_name: raw_name.as_str(),
                 registered_position: *position,
                 portrait: None,
+                medal: None,
             })
             .collect()
     }
