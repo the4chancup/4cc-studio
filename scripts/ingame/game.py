@@ -16,7 +16,11 @@ Each command is one process call, so whoever drives a check reads a screenshot b
                                                          `pad-serve`'s pad (`PAD_BUTTONS`,
                                                          `PAD_STICKS`, `PAD_TRIGGERS` names;
                                                          "INPUT:N" taps it N times; "wait:N";
-                                                         "hold:INPUT:N" holds it N seconds)
+                                                         "hold:INPUT:N" holds it N seconds;
+                                                         "press:INPUT" pushes it and leaves it
+                                                         pushed until "release:INPUT", for a
+                                                         chord such as A held while the d-pad
+                                                         moves a player)
   python scripts/ingame/game.py pad-stop                 unplug the pad and end `pad-serve`
   python scripts/ingame/game.py chars GAME TEXT          type TEXT into the game's open text
                                                          field (a file name), focus left alone;
@@ -246,7 +250,10 @@ def check_pad_inputs(inputs: list[str]) -> None:
     for item in inputs:
         if item.startswith("wait:"):
             continue
-        name, count = (item.split(":")[1], "") if item.startswith("hold:") else item.partition(":")[::2]
+        if item.startswith(("hold:", "press:", "release:")):
+            name, count = item.split(":")[1], ""
+        else:
+            name, count = item.partition(":")[::2]
         known = name in PAD_BUTTONS or name in PAD_STICKS or name in PAD_TRIGGERS
         if not known:
             raise SystemExit(f"unknown pad input {name!r}")
@@ -303,6 +310,11 @@ def play_pad_inputs(pad, inputs: list[str]) -> None:
     for item in inputs:
         if item.startswith("wait:"):
             time.sleep(float(item[5:]))
+            continue
+        if item.startswith(("press:", "release:")):
+            action, name = item.split(":")
+            pad_set(pad, name, action == "press")
+            time.sleep(PAD_GAP_SECONDS)
             continue
         if item.startswith("hold:"):
             _, name, seconds = item.split(":")

@@ -3309,19 +3309,37 @@ briefs, review loops, gates and mutation runs as for any step.
   formation pictures' cells carry it too, when 8.33 comes). Drafted by side-lead D
   (`side/drafts2` `0f653350`; the rule, its evidence and open points in
   `../4cc-studio-temp/wt-drafts2/.tmp/8_32/rule.md`)
-  - [ ] x1 the draft revised (side-lead D's step 5): rebased onto main (Selawik, the symbols
-    font), the name drawn in the bundled Selawik weight whose stroke matches the game's label
-    (Bold or Semibold of the same release, measured against the 8.9g capture), no other bold
-  - [ ] x2 the captures that settle the rule (lead, in game, the save backed up and restored by
-    hash): `rule.md`'s C1 (/f/ 718's three formations: where LMF/RMF and LWF/RWF count, a DMF
-    beside a CMF), C2 (/gd/ 722 presets 1 and 3, /o/ 739: a DMF's own line), C3 (/3/ 701: the
-    position, not the spot, counts); C4 (the typeface at 4K) only if the thickness cannot be
-    read at 1080p
-  - [ ] x3 the plan text (`plans/save_editor.md` "Tactics editor", look.md's proposal with the
-    captures' answers), its acceptance scenario, the maintainer's look at the draft
+  - [x] x1 the draft revised (side-lead D's step 5): rebased onto main (Selawik, the symbols
+    font), the name drawn in the bundled Selawik weight whose stroke matches the game's label.
+    Done on `side/drafts2` (`4323d103` the label, `5bc37265` Selawik Semibold: vertical strokes
+    2.97 px against the game's 3.01 at 15 px digits, Bold 3.41; its `.tmp/8_32/look.md`)
+  - [x] x2 the captures (lead, PES 2021, 2026-10-27; `.tmp/0_0_1x/captures.md`, the save
+    restored by hash): every label fits one rule, the ten outfield starters counted by the
+    playable-positions grid's row their position belongs to, back to front, an empty row left
+    out (LB CB RB / DMF CMF / LMF AMF RMF / LWF CF SS RWF): /f/'s three formations read
+    3-3-2-2, 3-3-4, 3-4-2-1, /gd/'s presets 4-2-1-3, 4-3-1-2, 4-3-2-1, /o/ 3-3-3-1; on /3/ the
+    AMF given CMF at his own spot turns 3-3-1-3 into 3-4-3 (the position counts, not the spot).
+    The drafted rule's LMF/RMF in the DMF/CMF line was wrong (3-5-2 and 3-6-1 on /f/). C4 not
+    needed (x1 measured the stroke at 720p)
+  - [ ] x3 the plan text (`plans/save_editor.md` "Tactics editor", look.md's proposal with x2's
+    rule; the grid's rows and the name read one table, `save_editor`'s `POS_ROWS` today), its
+    acceptance scenario, D's two draft commits on main with the draft's rule corrected (lead),
+    the maintainer's look at the draft
   - [ ] x4 the code (Opus sidekick, after w2 registers the fonts and the S1 rework lands): the
     rule in `team_widgets` beside the pitch, unit-tested on the captured teams' slots; the
     painter's corner label; the font registered by `theme::install`
+- [ ] 0.0.1y the Tactics pitch's two swaps as the game's (the maintainer, 2026-10-27: drag
+  swapping should behave as the game's, and the select-one-then-the-other way be offered "if
+  easy enough"; DECISIONS 2026-10-27 "A pitch player dropped on another swaps the two slots in
+  the shown formation, as the game's drag"; the save diffs in `.tmp/0_0_1x/captures.md`)
+  - [x] y1 the draft: a marker dropped on another exchanges the two slots' position, X and Y in
+    the shown formation (`swapOnPitch`), the keeper never a target (`dropTarget`); the XI list's
+    drops keep the starting-eleven exchange, the game's other swap
+  - [ ] y2 the code, after the S1 rework lands (with x4, Opus sidekick): `team_widgets`' pitch
+    drop on a marker writes the shown formation's two slots instead of the starting eleven;
+    SE-GUI-12's two new WHENs as tests (the other formations, presets and the starting eleven
+    unchanged; the keeper not a target); the pitch-drop doc comments and
+    `pitch/tests/drops.rs`' cited decision repointed
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

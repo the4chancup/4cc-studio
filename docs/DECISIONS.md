@@ -11972,3 +11972,18 @@ Why: the maintainer's preferences. The narrow picture drops the columns a fluid-
 never uses; the save dialog lets a member name a picture they share.
 Plan: lands with each step's plan text when its revised draft is approved (worklog 8.30,
 0.0.1x, 8.33, 8.34; the proposals in `side/drafts2`'s `.tmp/<step>/look.md`).
+
+## 2026-10-27 — save_editor — A pitch player dropped on another swaps the two slots in the shown formation, as the game's drag
+Decision: on the Tactics pitch, a player dropped on another exchanges the two slots' position, X
+and Y in the shown formation of the shown preset alone, each player staying in his slot; the
+keeper is never a target. The starting-eleven exchange (2026-10-22's drop) stays the XI list's,
+a row dropped on another row or on a pitch marker. Supersedes 2026-10-22's "A pitch player
+dropped on another exchanges the two starters" for the pitch drop.
+Why: the maintainer pointed out that the game swaps two ways, one reaching every preset, and
+asked that the editor's drag behave as the game's and, if easy, offer the other way too. In
+game (PES 2021, 2026-10-27), a save written after a drag on /f/'s Kick-off changed only that
+formation's two slots; one written after selecting one starter and then the other on /o/
+changed only the starting eleven. The editor's drop wrote the second, so a drag meant for one
+formation moved the two players in all nine; the XI list already offers the second.
+Plan: `plans/save_editor.md` "Tactics editor", "What the controls write" (the pitch-drop
+bullet), SE-GUI-12.

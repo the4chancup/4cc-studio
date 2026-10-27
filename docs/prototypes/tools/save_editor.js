@@ -4245,6 +4245,14 @@ function swapStarters(t, i, j) {
   edit("Reorder lineup", () => {
     const s = t.tactics.starting_eleven, tmp = s[i]; s[i] = s[j]; s[j] = tmp; });
 }
+// A pitch marker dropped on another: the two slots exchange their position
+// and spot in the shown formation alone, the players staying in their slots,
+// as the game's drag does (its select-one-then-the-other swap reaches every
+// preset: that one is swapStarters, the XI list's).
+function swapOnPitch(t, i, j) {
+  edit("Swap on pitch", () => {
+    const f = tacFormation(t).players, tmp = f[i]; f[i] = f[j]; f[j] = tmp; });
+}
 function moveBench(t, i, j) {
   if (i === j) return;
   edit("Reorder bench", () => {
@@ -4345,6 +4353,12 @@ function hitMarker(t, px, py, skip = -1) {
   }
   return -1;
 }
+// The starter a dragged marker would swap with: the keeper is never one, his
+// slot's position and spot being fixed.
+function dropTarget(t, px, py, skip) {
+  const i = hitMarker(t, px, py, skip);
+  return i >= 0 && tacFormation(t).players[i].position === "GK" ? -1 : i;
+}
 // The turf, painted once: eleven equal bands, dark at both ends, and a fixed
 // grain (seeded noise, luma deviation about 3.5, as the texture's).
 let turfCache = null;
@@ -4439,7 +4453,7 @@ function drawPitch(t) {
   // selection, so a drag meant only to move him can still be steered off.
   // The dragged marker sits on him, so it goes half transparent over him
   // and his corners are drawn over both.
-  const target = d && d.moved ? hitMarker(t, d.px, d.py, d.i) : -1;
+  const target = d && d.moved ? dropTarget(t, d.px, d.py, d.i) : -1;
   const crosses = [];
   for (const i of order) {
     const s = f[i], roster = tac.starting_eleven[i], p = rosterPlayer(t, roster);
@@ -4602,13 +4616,13 @@ document.addEventListener("pointerup", e => {
   if (lrow && lrow.dataset.xidx !== undefined) {
     swapStarters(t, d.i, Number(lrow.dataset.xidx)); render(); return;
   }
-  // Dropped on another marker: the two starters exchange (as the game's
-  // formation screen does); released off the pitch: he stays.
+  // Dropped on another marker: the two slots swap on the pitch; released off
+  // the pitch: he stays.
   const cv = document.getElementById("pitch");
   const [lx, ly] = pitchPoint(cv, e);
   if (lx < 0 || ly < 0 || lx > cv.width || ly > cv.height) { render(); return; }
-  const onto = hitMarker(t, lx, ly, d.i);
-  if (onto >= 0) { swapStarters(t, d.i, onto); render(); return; }
+  const onto = dropTarget(t, lx, ly, d.i);
+  if (onto >= 0) { swapOnPitch(t, d.i, onto); render(); return; }
   const [x, y] = snapXY(lx, ly);
   edit("Move on pitch", () => {
     const s = tacFormation(t).players[d.i]; s.x = x; s.y = y; });

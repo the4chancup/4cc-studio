@@ -639,9 +639,18 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   members bring a match's man marking into a team (DECISIONS 2026-10-12), so the copy carries
   it. A formation copy or swap moves the eleven slots' position, X and Y within the shown
   preset; the starting eleven is the team's and stays.
-- **A pitch player dropped on another** exchanges the two starters (their formation slots stay),
-  as in the game's own formation screen; one released on the grass moves to the snapped drop
-  point, and one released off the pitch stays where he was. A lineup row released on the grass
+- **A pitch player dropped on another** swaps the two on the pitch: their two slots exchange
+  position, X and Y in the shown formation of the shown preset alone, each player staying in
+  his slot, as the game's drag does in Team Sheet/Edit Position (a save written after one
+  changed only those two slots of that one formation). The keeper is never a target, his
+  slot's position and spot being fixed. The game's other swap, selecting one starter and then
+  the other, exchanges the two players in the starting eleven, so it reaches every formation of
+  every preset; the editor's is an XI row dropped on another row or on a pitch marker. One
+  released on the grass moves to the snapped drop point, his position kept, and one released
+  off the pitch stays where he was. The game also changes the position of a player dragged out
+  of his position's area (an AMF dragged under his becomes a DMF), the areas drawn while he is
+  held; the editor does not, those areas not being mapped, so a member changes the position in
+  the player's box. A lineup row released on the grass
   does nothing, as in the draft: a row moves players between the lists, never on the pitch.
   While a dragged starter is held over another, that one carries the selected player's corner
   brackets (`#14fbff`), drawn over everything, and the dragged marker goes to 35% opacity over
@@ -1210,7 +1219,11 @@ SE-GUI-12  GIVEN the team view's Tactics on preset 1
            WHEN a pitch player is dragged to another spot
            THEN the slot's position is the drop point after snapping, undoable, and the saved
                 file holds it; WHEN a bench player is dragged onto a pitch player THEN the two
-                swap; WHEN a set-piece role is assigned from the palette THEN the taker field
+                swap; WHEN a pitch player is dropped on another on Kick-off THEN the two slots'
+                positions and spots are exchanged in preset 1's Kick-off alone, the starting
+                eleven, the other two formations and presets 2 and 3 unchanged; WHEN an XI row
+                is dropped on another THEN the two players are exchanged in the starting
+                eleven, every formation unchanged; WHEN a set-piece role is assigned from the palette THEN the taker field
                 holds that player; WHEN "players to join attack" is in its assignment mode and
                 two pitch players are clicked THEN those two are the setting's players
 SE-GUI-13  GIVEN the save open and a second save of the same version picked in the comparator

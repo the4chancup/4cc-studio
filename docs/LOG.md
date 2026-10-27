@@ -2621,3 +2621,5 @@ worklog passed 7,000 lines.
   the player list keeps its rows' marks clear of the scroll bar (0.0.1u).
 - **2026-10-27** — The symbols Selawik lacks (→ ≡ ✔ ✖ and 14 more) are drawn as SVGs and built into a symbols font on Selawik's metrics,
   each as wide as the glyph the drafts were reviewed with; the drafts draw it and nothing from a system font (0.0.1w1c).
+- **2026-10-27** — In game, PES names a formation by the playable-positions grid's rows (LMF and RMF count with the AMF), and its two
+  swaps differ: a drag swaps two slots in one formation, select-then-select the players in every preset; the draft's drop follows the drag (0.0.1x x2, 0.0.1y).

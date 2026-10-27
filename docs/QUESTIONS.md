@@ -29,7 +29,14 @@ names where the question came from so the context can be read there.
   (DECISIONS "Formation pictures, the formation's name and the nation names: the maintainer's
   answers"): branch `side/drafts2`, each step's renders and proposed plan text in
   `C:/Data/4cc/Tools_Mine/4cc-studio-temp/wt-drafts2/.tmp/<step>/look.md`. Approve or change
-  each; the plan text lands on approval.
+  each; the plan text lands on approval. 8.32's names still follow the drafted rule, which the
+  in-game captures corrected (worklog 0.0.1x x2: LMF and RMF count with the AMF, not the
+  CMF); its look waits for the lead's correction on main (x3).
+- **The Tactics pitch's drop on another player (0.0.1y)**, as the game's drag now: the two
+  swap places in the shown formation alone, while dragging an XI row onto another swaps the
+  two players in every preset, as the game's select-one-then-the-other does (DECISIONS
+  2026-10-27 "A pitch player dropped on another swaps the two slots in the shown formation, as
+  the game's drag"). The Save editor's Tactics tab in `docs/prototypes/index.html`.
 
 ## Cup practice
 
