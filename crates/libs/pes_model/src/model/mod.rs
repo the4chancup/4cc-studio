@@ -5,8 +5,8 @@
 //! extension header; every other kind is a Konami tag kept as `(kind, text)`.
 //! `to_file` writes it back; `from_file(to_file(m)) == m`.
 //!
-//! One place is not lossless at the format level, and the plan accepts it:
-//! a tag annotation's section-3 record index and `unknown` word are dropped
+//! One place is not lossless at the format level, an accepted loss: a tag
+//! annotation's section-3 record index and `unknown` word are dropped
 //! (the record is the constant `0 0 0 2 2 2 0` and `unknown` is 7, both of
 //! which `to_file` rewrites).
 

@@ -1,6 +1,6 @@
 //! `extra_mutants list <crate dir>`: one mutant per line, tab-separated
 //! (`<path>\t<start>\t<end>\t<kind>\t<line>\t<replacement>\t<description>`), for
-//! `scripts/extra_mutants.py` to apply and test (worklog 5.0b).
+//! `scripts/extra_mutants.py` to apply and test.
 
 mod scan;
 

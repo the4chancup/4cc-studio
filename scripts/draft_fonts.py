@@ -40,7 +40,7 @@ MEMBER_TEXT = set("♂ＡＢＣＩＬＮＯＲＳＴＶ")
 # A CSS `font:`/`font-family:` declaration, or a canvas `.font =` assignment.
 DECLARATION = re.compile(r"font(?:-family)?\s*:\s*([^;}\n]+)|\.font\s*=\s*([^;\n]+)")
 # `--font-label`/`FONT_LABEL`: a bundled bold weight for a label that imitates the game's own
-# (the pitch's formation name, worklog 0.0.1x), the one exception to the drafts' no-bold rule.
+# (the pitch's formation name), the one exception to the drafts' no-bold rule.
 ALLOWED = re.compile(r'var\(--font-(?:body|mono|label)\)|FONT_(?:BODY|LABEL)|"Phosphor"|inherit')
 
 

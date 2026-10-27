@@ -7,9 +7,7 @@
 //! what the player runs a match on: the match state ([`MatchState`]), the
 //! condition evaluator ([`Verdict`]), each button's song selection
 //! ([`TeamLists`]) and the on-disk lookup of an export's songs
-//! (`resolve_export`, native only). The grammar, condition and instruction
-//! tables and every type's shape are in
-//! `docs/plans/music_player.md` "The `.4ccm` format". Callers own file I/O:
+//! (`resolve_export`, native only). Callers own file I/O:
 //! the parser takes bytes and the file's stem (the team name when the file
 //! names none), the serializer returns the text.
 

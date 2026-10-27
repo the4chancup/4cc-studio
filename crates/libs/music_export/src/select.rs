@@ -1,7 +1,7 @@
 //! Song selection for one button press: a team's lists walked top-down — the
 //! slot's own entries, then the `goal` slot's as every player's fallback —
-//! with unloads, the randomise pools, warcries and `advance` skips as the
-//! plan's "Song selection" states. Pure: the caller supplies the random pick.
+//! with unloads, the randomise pools, warcries and `advance` skips. Pure: the
+//! caller supplies the random pick.
 
 use indexmap::IndexMap;
 

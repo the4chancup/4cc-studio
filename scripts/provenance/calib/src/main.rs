@@ -1,4 +1,4 @@
-//! Kit-color extraction calibration: runs the plan's algorithm with parameters taken from the
+//! Kit-color extraction calibration: runs the extraction algorithm with parameters taken from the
 //! command line over every (config, texture) pair in .tmp/kit_pairs.tsv and reports how often
 //! the extracted colors agree with the colors the manager declared.
 use std::fs;

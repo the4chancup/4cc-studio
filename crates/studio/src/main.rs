@@ -1,9 +1,9 @@
 //! The 4cc Studio binary: registers the tools, then launches the GUI or dispatches the CLI.
 //! With no arguments it opens the shell on the registered tools; `--gui` autorun arrives with
 //! the GUI phase. Two hidden arguments are not commands a member types: `--crash-monitor`
-//! runs the crash-dump monitor a window spawns, and `--crash-test` its crash trigger (core
-//! plan, "Diagnostic logging"). On Windows the exe is a GUI-subsystem application on every
-//! build, so a double-click opens no console window beside it (core plan, "Windows subsystem").
+//! runs the crash-dump monitor a window spawns, and `--crash-test` its crash trigger. On
+//! Windows the exe is a GUI-subsystem application on every build, so a double-click opens no
+//! console window beside it.
 // Not on the unit tests' harness, built from this file too: a GUI-subsystem test binary's
 // output never reaches the test runner, so a failing assertion would print nothing. The
 // exe the integration tests run keeps the attribute.
@@ -40,8 +40,8 @@ use crate::gui_log::{
     guard_gui, install_gui_logger, install_panic_hook, show_dialog, unclean_notice,
 };
 
-/// The suite's whole registry as data, in sidebar order (core plan, "Tool plugin
-/// interface"): the shell lists after the registered tools every entry whose id no
+/// The suite's whole registry as data, in sidebar order. The shell lists after the
+/// registered tools every entry whose id no
 /// registered tool has, grayed as the roadmap. A registered tool's entry repeats what its
 /// `icon()` returns.
 const PLANNED: [PlannedTool; 14] = [
@@ -119,9 +119,8 @@ const PLANNED: [PlannedTool; 14] = [
 
 /// The registered tools this build shows on the sidebar only as planned entries, grayed
 /// and not clickable: the 0.0.1 preview's three tools whose views come later
-/// (`team-compiler`, `export-upgrader`, `ruleset-editor`; gui.md "Sidebar"
-/// item 3). Their CLI and help chapter stay; the settings menu draws no section for
-/// them. The list goes when their views land.
+/// (`team-compiler`, `export-upgrader`, `ruleset-editor`). Their CLI and help chapter
+/// stay; the settings menu draws no section for them. The list goes when their views land.
 const CLI_ONLY: [&str; 3] = ["team-compiler", "export-upgrader", "ruleset-editor"];
 
 /// The registered tools, in sidebar order.
@@ -134,7 +133,7 @@ fn tools() -> Vec<Box<dyn StudioTool>> {
     ]
 }
 
-/// The CLI modes' diagnostic sink (core plan, "Diagnostic logging"): `-v` sets the level,
+/// The CLI modes' diagnostic sink: `-v` sets the level,
 /// `RUST_LOG` overrides it. The GUI mode gets its own sink, `studio.log`
 /// (`gui_log::install_gui_logger`), installed once the data location resolves.
 fn install_cli_logger(verbosity: u8) {
@@ -188,7 +187,7 @@ fn load_settings(
 /// exit code and its text, which each mode reports its own way (the CLI prints it, the
 /// window shows it in a dialog): 3 when the executable's folder cannot be found (an
 /// environment failure), 2 when the settings file cannot be loaded (a configuration
-/// error: nothing ran; `core/architecture.md`, the binary's own codes).
+/// error: nothing ran). These are the binary's own codes, not a tool's.
 fn startup(tools: &[Box<dyn StudioTool>]) -> Result<(Settings, AppPaths), (ExitCode, String)> {
     match exe_dir() {
         Ok(exe_dir) => startup_in(tools, exe_dir),
@@ -217,8 +216,8 @@ fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches)
         }
     };
     // The CLI never writes settings, so the read-only data directory is probed rather than
-    // learned from a failed save; the condition prints once, as stderr's first line
-    // (gui.md "Status bar" "CLI equivalence", ST-CLI-01).
+    // learned from a failed save. The condition prints once, as stderr's first line
+    // (ST-CLI-01).
     if let Some(dir) = &paths.data_dir
         && !settings_file_writable(dir)
     {
@@ -350,8 +349,7 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>, crash_test: bool) -> ExitCode {
 }
 
 /// Binds this process to the console of the terminal that started it, so a command's
-/// output prints where it was run (core plan, "Windows subsystem"): a GUI-subsystem exe
-/// owns no console of its own.
+/// output prints where it was run: a GUI-subsystem exe owns no console of its own.
 #[cfg(windows)]
 fn attach_parent_console() {
     use windows::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};

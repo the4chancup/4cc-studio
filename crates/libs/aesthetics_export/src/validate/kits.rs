@@ -162,8 +162,8 @@ pub(crate) fn check(
 /// The empty kit folders a `Full` team export is compiled with where it has
 /// no surviving kit of a kind, given its `surviving` kit slots: `Kits/p1`
 /// when no player kit survived, `Kits/g1` when `g1` did not. Every team
-/// needs one player kit and one goalkeeper kit (`team_compiler/pipeline.md`
-/// "Bins accumulation"). A `Midcup` export adds to the kits installed and a
+/// needs one player kit and one goalkeeper kit. A `Midcup` export adds to the
+/// kits installed and a
 /// referee export has no team kits, so neither gets one.
 fn missing_kinds(
     draft: &AestheticsExportDraft,

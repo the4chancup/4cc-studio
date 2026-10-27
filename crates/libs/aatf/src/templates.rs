@@ -1,6 +1,5 @@
-//! The embedded rulesets the Ruleset editor's start page offers
-//! (`plans/ruleset_editor.md` "The editor"): the latest two of the 4cc,
-//! VGL and VTL, Autumn 26 first, then DBC7.
+//! The embedded rulesets the Ruleset editor's start page offers: the
+//! latest two of the 4cc, VGL and VTL, Autumn 26 first, then DBC7.
 
 use crate::file::file_sections;
 use crate::ruleset::Ruleset;
@@ -27,9 +26,8 @@ const BLOCKS: &[&str] = &[
     include_str!("../rulesets/dbc7.rhai"),
 ];
 
-/// The start page's templates, in its order (`plans/ruleset_editor.md`
-/// "The editor"): Autumn 26, Spring 26, VGL27, VGL26, VTL11, VTL10,
-/// DBC7.
+/// The start page's templates, in its order: Autumn 26, Spring 26, VGL27,
+/// VGL26, VTL11, VTL10, DBC7.
 ///
 /// Panics only if an embedded file does not load, which a test rules out.
 pub fn templates() -> Vec<Template> {

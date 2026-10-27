@@ -3805,8 +3805,14 @@ briefs, review loops, gates and mutation runs as for any step.
   "Code style", the bullet "A comment stands on its own"; DECISIONS "A code comment stands on
   its own"): the 1044 comments `just comment-refs` lists rewritten as plain sentences, in
   slices a review each, then the check joins `just gates`
-  - [ ] cm1 config files, `scripts/`, `crates/dev/`, `studio` and the libs not under review
-    (brief `.tmp/cm/brief_cm1.md`, Opus)
+  - [x] cm1 config files, `scripts/`, `crates/dev/`, `studio` and the libs not under review
+    (brief `.tmp/cm/brief_cm1.md`, Opus). Done 2026-10-27 (`.tmp/cm/cm1_report.md`): 245 hits
+    in 87 files rewritten, comment lines only; a pointer kept only where the section is in the
+    spec; the touched crates' tests, clippy and fmt green. The sidekick found the checker
+    missing step tags without a letter (`step 4.18`, `3.7's`), letter steps (`3.w`), a
+    `4.14e3` taken for an exponent and `mutants-diff <sha>` tags: `comment_refs.py` widened
+    (versions such as `0.37's` and `0.y.z` still pass), and the 12 it then found in this
+    slice's files fixed by the lead
   - [ ] cm2 `team_compiler` (335)
   - [ ] cm3 `studio_core`, `export_upgrader`, `ruleset_editor`
   - [ ] cm4 `save_editor` and `team_widgets`, once the Tactics surface's review loop ends

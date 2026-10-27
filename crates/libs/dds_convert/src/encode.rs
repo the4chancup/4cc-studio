@@ -345,8 +345,8 @@ fn container(
     let dds = dds(format, width, height, blocks);
     match version.engine() {
         Engine::PreFox => Ok(dds),
-        // why: the conversion plan's "FTEX texture type" bullet writes every Fox
-        // output as 0x9, color and normal alike.
+        // why: every Fox output is written as texture type 0x9, color and normal
+        // alike. It is what years of PES 19-21 exports used, so it is known to render.
         Engine::Fox => Ok(ftex::dds_to_ftex(&dds, ftex::ColorSpace::Normal)?),
     }
 }

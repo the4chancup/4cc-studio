@@ -112,10 +112,9 @@ impl Default for Instruction {
 mod tests {
     use super::*;
 
-    // plans/save_editor.md "Tactics editor", "What the controls write":
-    // the target-player pick is enabled only for the instructions that
-    // take one of ours, Counter Target and Defensive; here is the one
-    // place the rule lives.
+    // The Tactics editor enables the target-player pick only for the
+    // instructions that take one of ours, Counter Target and Defensive.
+    // This is the one place the rule lives.
     #[test]
     fn only_counter_target_and_defensive_take_a_player() {
         for instruction in Instruction::ALL {

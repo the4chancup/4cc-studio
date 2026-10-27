@@ -244,8 +244,8 @@ mod tests {
         assert_eq!(config.encode(PesVersion::Pes17), bytes);
     }
 
-    /// The referee fixture decoded by hand from the plan's offset table
-    /// (`spec/kit_config_editor.md` "The format"), every field a literal, so a codec that
+    /// The referee fixture decoded by hand from the offset table in
+    /// `spec/kit_config_editor.md` "The format", every field a literal, so a codec that
     /// permutes two fields of equal width (two colors, two badge coordinates) and still
     /// round-trips bit for bit is caught. Bytes 0x16-0x24 of the fixture:
     /// `00 9C E0 1C 00 07 00 0E 1C 74 D0 41 07 01 00`.
@@ -319,8 +319,8 @@ mod tests {
     }
 
     /// No fixture carries five distinct colors, so a codec swapping two color roles in
-    /// both directions would still round-trip: the template with the five triplets of
-    /// the plan table written at 0x04-0x12 pins each role to its offset.
+    /// both directions would still round-trip. The template with the five triplets of
+    /// the offset table written at 0x04-0x12 pins each role to its offset.
     #[test]
     fn color_roles_sit_at_the_plan_offsets() {
         let mut bytes = [0u8; 120];

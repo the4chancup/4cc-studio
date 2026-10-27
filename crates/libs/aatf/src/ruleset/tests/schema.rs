@@ -234,8 +234,8 @@ fn a_required_key_absent_is_schema() {
     }
 }
 
-/// `Schema`'s `path` is the failing key's path, as the plan spells it
-/// (`tiers[2].free.tricks`): a wrong-typed value's own key, an unknown
+/// `Schema`'s `path` is the failing key's path, spelled
+/// `tiers[2].free.tricks`: a wrong-typed value's own key, an unknown
 /// key itself, and a missing key's parent (the root is `.`).
 #[test]
 fn a_schema_error_carries_its_key_path() {

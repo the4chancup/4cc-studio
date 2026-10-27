@@ -791,8 +791,8 @@ fn a_skill_the_source_version_lacks_is_left_untouched() {
     );
 }
 
-/// A face type over the target's cap resets to 0 with a `Capped` note
-/// (2.17f's rule — never a clamp); a value at the cap is not capped.
+/// A face type over the target's cap resets to 0 with a `Capped` note,
+/// never a clamp; a value at the cap is not capped.
 #[test]
 fn a_face_type_over_the_cap_resets_and_at_the_cap_is_untouched() {
     // Facial hair's PES 19 cap is the field's bits, an unmeasured column:
@@ -923,8 +923,8 @@ fn skin_seven_resets_only_where_the_target_has_no_custom_skin() {
 
 /// A name longer than the target field writes its `crop_player_text`
 /// result — cut at whole spans — with a `TextCropped` note naming the
-/// player's slot and the text as cut (`spec/pes_savefile/
-/// operations.md` "Team TOML").
+/// player's slot and the text as cut (`spec/pes_savefile/operations.md`
+/// "Team TOML").
 #[test]
 fn a_name_longer_than_the_field_crops_to_it_with_a_note() {
     let (file, _) = open(PesVersion::Pes16);
@@ -2017,8 +2017,7 @@ fn player_headers(text: &str) -> Vec<&str> {
         .collect()
 }
 
-/// The roster-order note (`plans/pes_savefile/operations.md` "Roster
-/// order"): team 701 of the PES 21 fixture with slots 0 and 1's player
+/// The roster-order note: team 701 of the PES 21 fixture with slots 0 and 1's player
 /// ids swapped carries the note on those headers alone.
 #[test]
 fn a_broken_roster_order_notes_the_held_ids_on_the_headers() {

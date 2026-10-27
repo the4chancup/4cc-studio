@@ -150,7 +150,7 @@ impl ColorSpace {
 /// need without reading frame data.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FtexInfo {
-    /// Header version (2.03x, 2.04x).
+    /// Header version: about 2.03 or 2.04.
     pub version: f32,
     /// Pixel format.
     pub format: PixelFormat,

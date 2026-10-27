@@ -17,20 +17,19 @@ additional_cargo_test_args = ["--", "--test-threads=7"]
 # which leaves a starved low-priority local run (RUNBOOK "Mutation runs") room before a slow
 # test counts as a hang. The baseline is one crate's suite: `just mutants` takes one crate and
 # `mutants-diff` runs each crate on its own (`scripts/mutants_diff.py`). When one diff run tested
-# every crate, its baseline summed them, and at `mutants-diff 95f20eac` a `music_export` mutant
-# that hung a loop (its tests take 1-2 s) waited 751 s here; three times was tried then, and per-
-# crate baselines replaced it.
+# every crate, its baseline summed them, and a `music_export` mutant that hung a loop (its tests
+# take 1-2 s) waited 751 s here; three times was tried then, and per-crate baselines replaced it.
 timeout_multiplier = 5.0
 
 # Each run copies the source tree to a `%TEMP%` build directory, and by default the copy includes
-# gitignored files: the session scratch `.tmp/` (17 GB of archived runs and probes at 3.8) filled
-# the disk and killed both of 3.7's diff runs. No test reads a gitignored file.
+# gitignored files: the session scratch `.tmp/` (17 GB of archived runs and probes, once) filled
+# the disk and killed two diff runs. No test reads a gitignored file.
 gitignore = true
 
 # python_bindings is a `test = false` cdylib whose one test is the wheel's smoke test (`just
 # bindings`). cargo-mutants cannot run that, and `cargo test`/`cargo check` never compile the
-# lib, so at 2.20j every mutant came back "missed" in 0 s without building (`PyResult::new()`
-# "succeeded" too). Its mutants are measured by hand against `just bindings` at converge.
+# lib, so every mutant came back "missed" in 0 s without building (`PyResult::new()`
+# "succeeded" too). Its mutants are measured by hand against `just bindings` when a phase closes.
 #
 # pes_savefile's `fixtures.rs` is test plumbing (the fixture payloads, the test salt and
 # `fixture_save`), compiled for the crate's tests and for the `test-support` feature, so
@@ -42,7 +41,7 @@ exclude_globs = ["crates/libs/python_bindings/**", "crates/libs/pes_savefile/src
 exclude_re = [
     # Entries naming a `line:column` drift when the file changes above them: a drifted one
     # matches nothing and its mutant reappears in missed.txt. Each phase's close re-checks
-    # every entry against `cargo mutants --list` (3.w did the first audit).
+    # every entry against `cargo mutants --list`.
     #
     # Bit packing: `a | b` and `a ^ b` are the same value when the operands share no set bit.
     # In the files of the first entry every `|` joins masked, shifted fields into disjoint
@@ -60,20 +59,20 @@ exclude_re = [
     "ruleset_editor/src/view/mod\\.rs:\\d+:\\d+: replace ruleset_dialog -> rfd::FileDialog with",
     # `relaunch_elevated`'s Windows arm can only be exercised through the UAC consent prompt,
     # which no test can click: the `-> Ok(())` replacements of the body (`windows.rs`) and of
-    # its wrapper (`lib.rs:51`), and the ERROR_CANCELLED arm. The plan (libs/elevation.md) makes
-    # the relaunch a manual check at the first tool phase that needs it. The wrapper for other
-    # platforms (`lib.rs:65`) compiles on no tested OS. The Unix arm (`lib.rs:59`, `posix.rs`)
-    # stays in: `relaunch_is_unsupported` kills it on Linux, and on Windows, where it does not
-    # compile, it is listed as missed like `available_memory`'s arms below. Not excludable,
-    # accepted: the six SHELLEXECUTEINFOW field deletions, because cargo-mutants (27.1) applies
-    # neither `exclude_re` nor `--re` to "delete field" mutants (measured at 3.w), and the
-    # not-windows-not-unix `is_elevated` arm, which compiles on no tested OS either.
+    # its wrapper (`lib.rs:51`), and the ERROR_CANCELLED arm. The relaunch is checked by hand
+    # instead, when a tool first uses it. The wrapper for other platforms (`lib.rs:65`) compiles
+    # on no tested OS. The Unix arm (`lib.rs:59`, `posix.rs`) stays in: `relaunch_is_unsupported`
+    # kills it on Linux, and on Windows, where it does not compile, it is listed as missed like
+    # `available_memory`'s arms below. Not excludable, accepted: the six SHELLEXECUTEINFOW field
+    # deletions, because cargo-mutants (27.1) applies neither `exclude_re` nor `--re` to "delete
+    # field" mutants (measured), and the not-windows-not-unix `is_elevated` arm, which compiles on
+    # no tested OS either.
     "elevation/src/(windows\\.rs:\\d+|lib\\.rs:(51|65)):\\d+: .*relaunch_elevated",
     # `studio_core::run_gui` and `studio`'s `run_gui_mode` open a native window and return
     # when it closes, which no test can do (the suite runs without a display, and a test that
     # opened one would wait for a person to close it). Everything the window shows is tested
     # headless through `StudioApp`'s `logic`/`ui`; these two are what the manual TC-GUI-01 run
-    # proves (`team_compiler/README.md` "Shell slice").
+    # proves.
     "replace run_gui(_mode)? -> ",
     # `dds_convert`'s wasm stand-in for the GPU encoder (`lib.rs`, `mod gpu` under
     # `cfg(target_arch = "wasm32")`): an uninhabited enum whose methods no value can reach,
@@ -82,20 +81,19 @@ exclude_re = [
     "dds_convert/src/lib\\.rs:\\d+:\\d+: replace gpu::GpuEncoder::",
     # `dds_convert`'s GPU upload: every `|` in `gpu_encode_scoped` joins distinct wgpu usage
     # flags (`COPY_DST | TEXTURE_BINDING`, `COPY_SRC | STORAGE`, `COPY_DST | MAP_READ`), which
-    # share no bit, so `^` gives the same set (16.x a, 2026-10-19).
+    # share no bit, so `^` gives the same set.
     "replace \\| with \\^ in GpuEncoder::gpu_encode_scoped",
     # Not excluded, accepted: `pipeline`'s `available_memory` has one arm per platform, and only
     # the host's arm compiles, so each run lists the others' replacements as missed. The Windows
-    # arm is caught on Windows, the Linux arm on Linux (the VPS, measured 2026-10-01); the
-    # other-platform arm (a plain `None`) compiles on no tested OS. A pattern telling the arms
-    # apart would need line numbers, which drift. The same holds for `studio_core`'s
-    # running-PES probe (`pes_process.rs`): its Linux arm (`cmdlines`, `probe`), drawn into the
-    # Windows half, is listed missed there and caught on Linux by
-    # `cmdlines_hold_this_test_process` and `running_pes_lists_a_running_game_with_its_exe`
-    # (by reading, 5.6b); its Windows arm, drawn into the Linux half, is rerun here
-    # (`WINDOWS_ONLY_TESTS` in `scripts/mutants.py`); its other-platform `probe` compiles on no
-    # tested OS.
-    # pes_model 2.20g equivalences, each checked by reasoning rather than a
+    # arm is caught on Windows, the Linux arm on Linux (the VPS, measured); the other-platform
+    # arm (a plain `None`) compiles on no tested OS. A pattern telling the arms apart would need
+    # line numbers, which drift. The same holds for `studio_core`'s running-PES probe
+    # (`pes_process.rs`). Its Linux arm (`cmdlines`, `probe`), drawn into the Windows half, is
+    # listed missed there and caught on Linux by `cmdlines_hold_this_test_process` and
+    # `running_pes_lists_a_running_game_with_its_exe` (checked by reading). Its Windows arm,
+    # drawn into the Linux half, is rerun here (`WINDOWS_ONLY_TESTS` in `scripts/mutants.py`).
+    # Its other-platform `probe` compiles on no tested OS.
+    # pes_model equivalences, each checked by reasoning rather than a
     # distinguishing input existing:
     # `locate`'s `relative < section.bytes.len()` -> `<=` is equivalent. The
     # only address where they differ is one equal to a section's end, which
@@ -126,7 +124,7 @@ exclude_re = [
     # `<material`; the scan back over spaces/tabs stops at that tag's
     # bytes and start can never reach 0 for `>=` to differ (or panic).
     "replace > with >= in detect_style",
-    # model_convert 2.20h equivalences:
+    # model_convert equivalences:
     # `assemble`'s `skip(g + 1)` -> `skip(g)` is equivalent. `Model::validate`
     # rejects a group that is its own parent, so on every validated model the
     # group's own entry already fails `keep[g]` independently of the child
@@ -136,7 +134,7 @@ exclude_re = [
     # slot, `remaining_weight` becomes exactly 0 only after a slot whose weight equals what
     # remained (`x - y == 0` only when `x == y`), and that slot took `round(1.0 * total)`, the
     # whole total left, so every later slot computes `weight / 0.0 * 0`, a NaN whose `as i32`
-    # cast is 0: the byte the `else` arm writes. Measured at 3.w: no differing output over 6
+    # cast is 0: the byte the `else` arm writes. Measured: no differing output over 6
     # million inputs. (The audit first took `[1.0, 2^-25, 0, 0]` to kill it; by the second
     # slot that input's total is already 0.)
     "replace > with >= in quantize_weights",
@@ -148,7 +146,7 @@ exclude_re = [
     # fold remap, an out-of-range unweighted entry panics there.)
     "retarget\\.rs:212:37: replace > with >=",
     "retarget\\.rs:229:37: replace > with >=",
-    # model_convert 2.20h round-1 equivalences:
+    # More model_convert equivalences:
     # `fox_has_hand_weights` in every form. The helper feeds only
     # `needs_conversion`'s Fox branch, which runs for Fox targets (18/19/21)
     # alone; on all three versions a shared name's `hand_*` matrix differs
@@ -156,7 +154,7 @@ exclude_re = [
     # `conforming` returns a bone whose matrix `bone_moved` always judges
     # the same whichever table order is used. The `.model` side,
     # `prefox_has_hand_weights`, is not covered by this argument and its tests
-    # kill it (3.w), hence the `replace`/` in` prefix keeping `prefox_` out.
+    # kill it, hence the `replace`/` in` prefix keeping `prefox_` out.
     "(replace| in) fox_has_hand_weights",
     # `blend_direction`'s `sum` guard and `/=` division (retarget.rs:236,
     # :238) are equivalent in any form: the caller passes the closure's
@@ -168,7 +166,7 @@ exclude_re = [
     "retarget\\.rs:236:28: replace > with",
     "retarget\\.rs:238:40: replace /= with \\*=",
     "retarget\\.rs:219:28: replace > with >=",
-    # pes_savefile 2.20i equivalences:
+    # pes_savefile equivalences:
     # `fresh_salt`'s `n > 0` -> `n >= 0` is equivalent. It only rehashes
     # chunk 0 as well, so every chunk is still a distinct link of the
     # payload-and-clock hash chain, and the salt's only contract is that
@@ -176,108 +174,105 @@ exclude_re = [
     # the chain after chunk 0, leave the chunks equal, and stay in: the
     # pairwise-distinct test kills them.
     "replace > with >= in fresh_salt",
-    # pes_savefile 5.1a5: `write_undecoded`'s `(byte & mask) | (source & !mask)` -> `^` is
+    # pes_savefile: `write_undecoded`'s `(byte & mask) | (source & !mask)` -> `^` is
     # equivalent: the two operands are masked by a mask and its complement, so they share no
     # set bit and `|` and `^` give the same byte.
     "replace \\| with \\^ in IngameFace::write_undecoded",
-    # team_compiler 4.y-conv equivalences (the whole-crate run of 2026-10-09):
+    # team_compiler equivalences:
     # `centre_square`'s and `letterboxed`'s `width > height` -> `>=` are equivalent. Both
     # are called by `squared` alone, after its `width == height` early return, so the two
-    # comparisons differ on no input they ever see (first ruled at 4.11a, left in by
-    # oversight until this run).
+    # comparisons differ on no input they ever see.
     "replace > with >= in (centre_square|letterboxed)",
-    # Phase 4's close (2026-10-12): `ModelFolder::own_package`'s `ingame_face` guard is read by
+    # team_compiler: `ModelFolder::own_package`'s `ingame_face` guard is read by
     # no consumer of `roles()`: a marked player's own copy or link wins `resolve_path` before
     # any package is consulted, his models are `PreFoxPart`s naming their own package, and he
     # plans no face task. So answering the face for him changes no output. The answer is kept
     # because it is the true one, should a consumer start reading it.
     "replace match guard self\\.ingame_face with false in ModelFolder::own_package",
-    # export_upgrader (mutants-diff 4d3fa0a, worklog 6.8): in `model_folders::run`, the skip of
-    # a copy whose `.mtl` or `face.xml` is rewritten, `||` -> `&&`, is equivalent: no file is
-    # both, so nothing is skipped, and every copy written is then replaced by its rewrite,
-    # written after every copy. Pinned to its site: the two `==` beside it stay measured. The
-    # same skip in `upgrade::run` is equivalent the same way (its rewrites, `kits.written`,
-    # `materials.written`, `face_xml`, are written after every copy). Both pins re-checked at
-    # Phase 6's close (2026-10-19; the first had drifted from 371) and again at its second
-    # close run (2026-10-20, after 6.14-6.16 and `staging.rs`).
+    # export_upgrader: in `model_folders::run`, the skip of a copy whose `.mtl` or `face.xml`
+    # is rewritten, `||` -> `&&`, is equivalent: no file is both, so nothing is skipped, and
+    # every copy written is then replaced by its rewrite, written after every copy. Pinned to
+    # its site: the two `==` beside it stay measured. The same skip in `upgrade::run` is
+    # equivalent the same way: its rewrites (`kits.written`, `materials.written`, `face_xml`)
+    # are written after every copy.
     "export_upgrader/src/model_folders\\.rs:389:13: replace \\|\\| with && in run",
     "export_upgrader/src/upgrade\\.rs:628:13: replace \\|\\| with && in run",
-    # export_upgrader (Phase 6's close): `Tool::default_settings` returns an empty table, which is
-    # what `Default::default()` returns: the tool has no settings (plan step 6).
+    # export_upgrader: `Tool::default_settings` returns an empty table, which is what
+    # `Default::default()` returns: the tool has no settings.
     "export_upgrader/src/lib\\.rs:\\d+:\\d+: replace <impl StudioTool for Tool>::default_settings -> toml::Table with Default::default\\(\\)",
-    # export_upgrader (Phase 6's close): in `kit_folders`, the empty `p1` a Full export gains,
+    # export_upgrader: in `kit_folders`, the empty `p1` a Full export gains,
     # `!=` -> `==`, is equivalent: the slot set feeds only the `all/` hoist, and an inserted
     # slot has no copies, so wherever the two forms differ ({g1} alone, or no g1) an empty kit
     # already blocks every hoist or there are fewer than two kits.
     "export_upgrader/src/kits\\.rs:600:42: replace != with == in kit_folders",
-    # Every tool's `icon()` (worklog 8.6a): `studio`'s `every_registered_tool_has_a_matching_planned_entry`
+    # Every tool's `icon()`: `studio`'s `every_registered_tool_has_a_matching_planned_entry`
     # pins each registered tool's glyph to its `PLANNED` entry, and a run of the tool's own crate
     # does not execute `studio`'s tests (as for `fixtures.rs` above); a mutated glyph fails there.
     "tools/[a-z_]+/src/lib\\.rs:\\d+:\\d+: replace <impl StudioTool for Tool>::icon -> &'static str with",
-    # studio_core (mutants-diff 5921663, worklog 8.6b): in `StatusBar::expire`, the repaint
+    # studio_core: in `StatusBar::expire`, the repaint
     # request's guard `remaining > 0.0` -> `>=` is equivalent: at exactly no time left the same
     # call dismisses the notice, so the only difference is one zero-delay repaint, which draws
     # what the dismissal already drew. Pinned to its site: `> 0.0` -> `==` stays measured.
     "studio_core/src/shell/status_bar\\.rs:\\d+:\\d+: replace > with >= in StatusBar::expire",
-    # studio (mutants-diff 5921663, worklog 8.6b): `run_cli_mode`'s `printer.join().is_err() ||
+    # studio: `run_cli_mode`'s `printer.join().is_err() ||
     # !matches!(notices.join(), ..)` -> `&&` is not equivalent, but neither printer can fail
     # under a test: the event printer fails on a closed stdout, the notice printer on a closed
     # stderr, and a test cannot hand the binary either portably. Unmeasured on purpose.
     "studio/src/main\\.rs:\\d+:\\d+: replace \\|\\| with && in run_cli_mode",
-    # studio_core (mutants-diff 59216630, worklog 8.6b, review S4): `Settings::save`'s
+    # studio_core: `Settings::save`'s
     # read-back guard `read_back == desired` -> `true` survives because no known file edits into
     # TOML that parses yet reads back as other values: the one shape found (an inline section
     # under a comment) fails to parse, which the `Err` arm beside it catches and its test pins.
     # The comparison stays as the net for a shape nobody has found, so that it is written fresh
     # instead of saved wrong. Unmeasured on purpose; the `Err` arm stays measured.
     "studio_core/src/settings/mod\\.rs:\\d+:\\d+: replace match guard read_back == desired with true in Settings::save",
-    # studio_core (mutants-diff fe5d4af2, worklog 8.6c2): the browser build's `FirstRun`
+    # studio_core: the browser build's `FirstRun`
     # stand-in (`first_run.rs`, under `cfg(target_arch = "wasm32")`, after the native impl,
     # so on a three-digit line where the native `up` sits on a two-digit one) is compiled on
     # no tested OS, so its `up -> true` builds and "passes" untouched. The native `up` stays
     # measured.
     "studio_core/src/shell/first_run\\.rs:1\\d\\d:\\d+: replace FirstRun::up -> bool with true",
-    # studio_core (mutants-diff b635aafe, worklog 8.6d3): the log panel's `at_bottom` guard
+    # studio_core: the log panel's `at_bottom` guard
     # `max_offset < 0.0` -> `<=` is equivalent: at an end of exactly 0 egui clamps the offset
     # to 0, so `offset.y == max_offset` beside it already holds. `body` has no other `<`;
     # `< 0.0` -> `==` stays measured (`a_log_shorter_than_the_view_shows_no_jump_button`).
     "studio_core/src/widgets/log_panel\\.rs:\\d+:\\d+: replace < with <= in body",
-    # team_widgets (mutants-diff 12ffa8c3, worklog 8.8): `bound`'s `value > bound` -> `>=` is
+    # team_widgets: `bound`'s `value > bound` -> `>=` is
     # equivalent: `bound` words a violation `logic.rhai`'s `misses` emitted, which is
     # `value > target` for an `at_most` name and `value != target` otherwise, so no violation
     # it words has `value == bound`. `bound` has no other comparison.
     "team_widgets/src/violations\\.rs:\\d+:\\d+: replace > with >= in bound",
-    # pes_savefile (mutants-diff 95f20eac, worklog 8.9b1): `text_spans`' character walk
+    # pes_savefile: `text_spans`' character walk
     # `end < bytes.len()` -> `<=` is equivalent: `is_char_boundary(len)` is true, so at
     # `end == len` the loop's other test ends it at the same place. Pinned by line and column:
     # the function's two other `<` (the `\x11c`/`\x11d` look-aheads) stay measured.
     "pes_savefile/src/model/names\\.rs:112:23: replace < with <= in text_spans",
-    # save_editor (mutants-diff, worklog 8.9b2): `odd_seed`'s seed is
+    # save_editor: `odd_seed`'s seed is
     # `nanos ^ secs | 1`: `^` -> `&` or `|` still yields an odd seed, the
     # seed's only requirement (a zero state would draw 1 forever); which odd
     # seed the clock takes is unconstrained. The `| 1` mutants stay measured
     # (`the_odd_seed_is_odd_on_even_inputs`).
     "save_editor/src/view/appearance/mod\\.rs:\\d+:\\d+: replace \\^ with & in odd_seed",
     "save_editor/src/view/appearance/mod\\.rs:\\d+:\\d+: replace \\^ with \\| in odd_seed",
-    # `clock_seed` whole (mutants-diff, worklog 8.9d1): the wall clock is
+    # `clock_seed` whole: the wall clock is
     # its only input, so no test observes its return without depending on
     # the clock — `-> 1` survives `the_clock_seed_is_odd` (1 is odd), and
     # which odd seed the clock takes is unconstrained. The arithmetic it
     # wrapped lives in `odd_seed` and is tested.
     "save_editor/src/view/appearance/mod\\.rs:\\d+:\\d+: replace clock_seed",
-    # team_widgets (mutants-diff, worklog 8.9e): `bench_row`'s bench move
+    # team_widgets: `bench_row`'s bench move
     # `from < index` -> `<=` and `from > index` -> `>=` are equivalent: at
     # `from == index` the rotated slice is the one row, which
     # `rotate_left(1)` and `rotate_right(1)` leave as it was. Its only `<`
     # and `>`; the move's two directions stay measured.
     "team_widgets/src/pitch/lineup\\.rs:\\d+:\\d+: replace < with <= in bench_row",
     "team_widgets/src/pitch/lineup\\.rs:\\d+:\\d+: replace > with >= in bench_row",
-    # save_editor (mutants-diff, worklog 8.9g slice 2): `Portraits::select`'s `(None, None)`
+    # save_editor: `Portraits::select`'s `(None, None)`
     # arm deleted sends "no game, still no game" to the restart: it sets the selection and the
     # worker to the `None` they were and clears maps only a worker's replies fill, which are
     # empty without one. The other arms' change detection stays measured.
     "save_editor/src/view/portraits\\.rs:\\d+:\\d+: delete match arm \\(None, None\\) in Portraits::select",
-    # team_widgets (mutants-diff e14a64da, worklog 8.9f4c): `two_pairs_width`'s toggle column
+    # team_widgets: `two_pairs_width`'s toggle column
     # `(SLIDERS.len() + index) % 2` -> `*` swaps the toggles between the two columns (five
     # sliders: `5 * i` and `5 + i` have opposite parities), and the swap leaves the sum
     # unchanged: every slider's control has one width, so `max(slider, A) + max(slider, B)`
@@ -291,7 +286,7 @@ exclude_re = [
     # tooltip repeating the text the button shows whole. Pinned to its site: `>` -> `<` and
     # `==` stay measured (`instructions.rs`' hover tests).
     "team_widgets/src/tactics/instructions\\.rs:\\d+:\\d+: replace > with >= in capped_combo",
-    # studio (mutants-diff dc02a76e, worklog 0.0.1o2a and s3): `overflow_the_stack` only has to
+    # studio: `overflow_the_stack` only has to
     # recurse until the stack runs out. `depth + 1` -> `depth * 1` keeps `depth` at the 0 it
     # starts from, never `u64::MAX`, so it still recurses; the `+` after the call adds to a
     # value no call returns. Both still overflow (ST-RUN-10's test reads the dump's
@@ -301,15 +296,15 @@ exclude_re = [
     "studio/src/crash_dump\\.rs:\\d+:35: replace \\+ with - in overflow_the_stack",
     # studio: `main` attaches to the parent's console when it has arguments (`args.len() > 1`),
     # which only a real console shows: the CLI tests read the exe's output through pipes, which
-    # need no console, so `>=` and `<` pass them. Their check is ST-RUN-04's manual run
-    # (worklog 0.0.1l2: a command typed in a terminal prints there). Pinned by column, `main`
+    # need no console, so `>=` and `<` pass them. Their check is ST-RUN-04's manual run: a
+    # command typed in a terminal prints there. Pinned by column, `main`
     # being long; `==` timed out and stays measured.
     "studio/src/main\\.rs:\\d+:19: replace > with (>=|<) in main",
     # studio_core: `monitors` reads the OS's monitors through the frame's winit window, which a
     # test frame has none of (its doc says so); the placement it feeds is tested through
     # `place_or_fit` on given monitors, and the window itself is TC-GUI-01's manual run.
     "replace monitors -> Vec<Monitor> with vec!\\[\\]",
-    # save_editor (mutants-diff dc02a76e): `set_stats_cell` caps the button at the cell less
+    # save_editor: `set_stats_cell` caps the button at the cell less
     # the gap and the number field, a cap that never binds: the list is a fixed 240-point
     # panel, so the cell is at least 83.75 wide (a natural column, or 108.5 when the columns
     # halve) and the cap binds only under 81.75 (button 54.28 + gap 6 + field 21.47, measured

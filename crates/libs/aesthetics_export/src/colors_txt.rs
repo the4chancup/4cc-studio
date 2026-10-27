@@ -1,6 +1,6 @@
-//! The `colors.txt` reader (`player_folders.md` "Root files", "Colors"): one grammar for the
-//! export's root `colors.txt`, the team's colors, and a kit folder's `colors.txt`, the kit's
-//! two menu colors. Bytes in, the colors and the refused lines out.
+//! The `colors.txt` reader: one grammar for the export's root `colors.txt`, the team's colors,
+//! and a kit folder's `colors.txt`, the kit's two menu colors. Bytes in, the colors and the
+//! refused lines out. The grammar is in `spec/aesthetics_export/player_folders.md` "Root files".
 
 /// What a `colors.txt` holds: its valid colors, as many as the file's capacity allows, and
 /// the lines it refuses.

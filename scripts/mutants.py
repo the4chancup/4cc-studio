@@ -64,16 +64,16 @@ REMOTE_REF = "refs/mutants/remote"
 REMOTE_ONLY = False
 # The extra_mutants kinds `just mutants <crate>` runs before the cargo-mutants
 # run starts, so a whole-crate run stays one command and its missed_all.txt the
-# one list to triage (DECISIONS, 2026-10-12, "literal and normalize mutants join
-# converge" and "order mutants join converge, bool mutants do not"; `bool`
-# joined once `.cargo/extra_mutants.toml` gave its ruled equivalents a home).
-# `mutants-diff` does not run them: the decision is converge only.
+# one list to triage. A kind is listed when about half its survivors are real
+# gaps, since each equivalent survivor costs a ruling every phase. `bool` joined
+# once `.cargo/extra_mutants.toml` gave its ruled equivalents a home.
+# `mutants-diff` does not run them: they run when a phase closes, only.
 EXTRA_KINDS = ("bool", "literal", "normalize", "order")
 # missed.txt lines whose only catching tests are #[cfg(windows)]: they survive on
 # the Linux remote half, so summarize() reruns them on this machine when it is
 # Windows and REMOTE_ONLY is off. The seed is deploy.rs's match guards
-# (deploy.rs:180, :409 and :565 survived on bonfire at Phase 4's close and were
-# caught on rerun here): sweep_run's lock arm is caught by
+# (deploy.rs:180, :409 and :565 survived on bonfire and were caught on rerun
+# here): sweep_run's lock arm is caught by
 # a_staging_whose_lock_cannot_be_opened_is_left (a lock path that is a folder
 # cannot be opened on Windows; Linux opens and locks folders), probe_download's
 # access-denied arm by the held-open CLI tests
@@ -85,7 +85,7 @@ EXTRA_KINDS = ("bool", "literal", "normalize", "order")
 # (FILE_SHARE_READ denies the delete on Windows). Matched by file and function,
 # never by line number, which drifts. studio_core's running-PES probe has a
 # `#[cfg(windows)]` arm (processes, image_path, probe) the Linux half never
-# compiles, so its mutants all came back missed there at 5.6b; `probe` also names
+# compiles, so its mutants all came back missed there; `probe` also names
 # the Linux and other-platform arms, which a rerun here leaves missed, as they are.
 WINDOWS_ONLY_TESTS = [
     re.compile(
@@ -99,8 +99,8 @@ WINDOWS_ONLY_TESTS = [
     re.compile(r"crates/tools/export_upgrader/src/upgrade\.rs:\d+:\d+: .* in retry_while_locked$"),
 ]
 # The remote half's systemd unit: a transient service so its cgroup is
-# memory-capped and CPU-idle — an allocating mutant OOM-killed the host at
-# the 2.20i remainder run, and Fluxer's production services have priority.
+# memory-capped and CPU-idle: an allocating mutant once OOM-killed the host,
+# and Fluxer's production services have priority.
 REMOTE_UNIT = "studio-mutants"
 # `just gates-remote`'s unit (`remote_gates.py`), which a mutants run waits for:
 # both rewrite the remote clone.
@@ -115,21 +115,21 @@ REMOTE_MEMORY_RESERVE = 2**30
 # Build jobs per remote cargo process (two run at once): fewer than the
 # remote's half-the-CPUs test threads, because a build's memory grows with
 # its parallel rustc processes and the GUI crates' dependencies (naga, wgpu,
-# wayland) are the largest the workspace builds (maintainer, 3.z). 2 until
-# 4.14b, whose rerun peaked at the 9 GiB cap with three builds killed.
+# wayland) are the largest the workspace builds. At 2, a rerun peaked at the
+# 9 GiB cap with three builds killed.
 REMOTE_BUILD_JOBS = 1
 # Crates whose mutants never go to the remote because their builds outgrow the
 # cap even at one build job. A `mutants-diff` holding any of their mutants runs
-# locally whole. Empty since 4.y-conv: team_compiler was listed from 4.14d
-# (two builds killed at 9 GiB with REMOTE_BUILD_JOBS 1) until the converge
-# audit found the cause in the host's tmpfs `/tmp`, where cargo-mutants put
-# its two build copies (`REMOTE_TMPDIR` below); if a crate's builds are killed
-# again with the copies on disk, list it here.
+# locally whole. Empty now: team_compiler was listed after two of its builds
+# were killed at 9 GiB with REMOTE_BUILD_JOBS 1, until the cause turned out to
+# be the host's tmpfs `/tmp`, where cargo-mutants put its two build copies
+# (`REMOTE_TMPDIR` below). If a crate's builds are killed again with the
+# copies on disk, list it here.
 LOCAL_ONLY_CRATES: frozenset[str] = frozenset()
 # Where the remote half's cargo-mutants makes its two copies of the tree. The
 # host's `/tmp`, cargo-mutants' default, is a 7.8 GiB tmpfs (checked
 # 2026-10-09), so each copy's `target/` (4 GiB with egui linked) lived in RAM
-# and counted against the unit's MemoryMax: the 4.14d kills were per-mutant
+# and counted against the unit's MemoryMax: the team_compiler kills were per-mutant
 # rebuilds of 1-2 GiB on top of two such trees, not the egui build itself.
 REMOTE_TMPDIR = "$HOME/studio-mutants/tmp"
 # The most of the host's disk `REMOTE_BASE` may hold when a run that uses the
@@ -162,11 +162,11 @@ COST_CACHE = (
     Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".cache") / "4cc-studio" / "mutants-cost.json"
 )
 # The baseline (a cold build and test of the mutated packages in a fresh copy
-# of the tree) of a crate no local run has measured yet: the 3.z run's
+# of the tree) of a crate no local run has measured yet: one measured run's
 # 56 s + 8 s for team_compiler, studio_core and studio, rounded.
 DEFAULT_BASELINE_SECONDS = 60.0
 # Polling starts when the local half ends, so this is the wait after a remote
-# half that finishes last (about half the runs to 4.y-sub b3a), a mean of half
+# half that finishes last (about half the runs measured), a mean of half
 # the interval; each poll is one short ssh call.
 POLL_SECONDS = 15
 # Below this estimated local wall time a diff run stays local: the split's
@@ -199,8 +199,8 @@ def ssh_binary() -> str:
 
 
 def ssh(host: str, remote: str, **kwargs) -> subprocess.CompletedProcess:
-    # A call that sends nothing gets an empty stdin (what `ssh -n` does). At 4.y's
-    # close two calls of a detached run hung for good with the link up, the likely
+    # A call that sends nothing gets an empty stdin (what `ssh -n` does). Without
+    # it, two calls of a detached run once hung for good with the link up, the likely
     # cause being Windows' ssh.exe waiting on the inherited hidden console.
     if "input" not in kwargs:
         kwargs.setdefault("stdin", subprocess.DEVNULL)
@@ -433,7 +433,7 @@ def remote_run_state(host: str) -> str | None:
     host rebooted); None when the host could not be reached. `running` asks
     systemd for the unit, not `kill -0` for the pid: after a reboot the pid may
     belong to another process, which would read as a half running forever."""
-    # A timeout as well as the keepalives: at 4.y's close one poll hung for five
+    # A timeout as well as the keepalives: one poll once hung for five
     # hours with the link up, so the keepalives never fired, and the finished
     # half sat uncollected; the timeout turns such a hang into one failed poll.
     try:

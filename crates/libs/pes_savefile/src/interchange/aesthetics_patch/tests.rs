@@ -15,8 +15,9 @@ fn doc(tail: &str) -> String {
     format!("{KEYS}{tail}")
 }
 
-/// The plan's sample, the motion lines as `settings.toml`'s emitter
-/// writes them (`padded` puts `#` at column 33).
+/// The sample patch of `spec/pes_savefile/operations.md` "Aesthetics patch
+/// (new)", the motion lines as `settings.toml`'s emitter writes them
+/// (`padded` puts `#` at column 33).
 const GOLDEN: &str = "\
 # aesthetics_patch.toml, written by the Team compiler to its output folder
 pes_version = 21

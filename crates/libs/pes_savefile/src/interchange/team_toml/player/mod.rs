@@ -268,10 +268,12 @@ fn emit_player(
 }
 
 /// The `;`-joined addition to a `[players.NN]` header's comment when the
-/// slot breaks the roster order (`plans/pes_savefile/operations.md`
-/// "Roster order"): the player the slot holds and the one the rule puts
-/// there. Empty when the slot keeps the order or the document carries no
-/// ids to check (a parsed or hand-built one).
+/// slot breaks the roster order: the player the slot holds and the one the
+/// rule puts there. A Team TOML lands players by slot, so the record would
+/// no longer match the aesthetics export that names it by id; the note is
+/// how a member learns that before applying the file. Empty when the slot
+/// keeps the order or the document carries no ids to check (a parsed or
+/// hand-built one).
 fn roster_note(slot: u8, team_id: Option<u32>, roster_breaks: &[(u8, u32)]) -> String {
     let Some(team_id) = team_id else {
         return String::new();
@@ -848,7 +850,7 @@ fn apply_text(
 /// the version lacks, or a face or hair key of the other layout (`held_on`),
 /// is dropped with a `NotInThisVersion` note, a face type
 /// over `face_type_cap` resets to 0 with a `Capped` note, and skin 7 on a
-/// target without a custom skin becomes 1 (2.17f's conversion rules).
+/// target without a custom skin becomes 1.
 /// Same-version documents write the values as stored (a
 /// `SettingsError` — a `Some` the version lacks — propagates).
 fn apply_appearance_table(
@@ -899,8 +901,8 @@ fn apply_appearance_table(
                     if let Some(cap) = face_type_cap(context.to, field)
                         && value > cap
                     {
-                        // 2.17f's rule: an unencodable face type resets to 0,
-                        // it is not clamped to the target's cap.
+                        // An unencodable face type resets to 0; it is not
+                        // clamped to the target's cap.
                         set_appearance(&mut appearance, key, Some(0));
                         notes.push(ImportNote::Capped {
                             path: leaf,

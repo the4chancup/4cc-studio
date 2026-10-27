@@ -277,8 +277,8 @@ def release(version: str) -> None:
         print(checksum)
         print(f"{archive.stat().st_size} bytes")
         # The symbols archive: the exe and its .pdb, kept out of the bundle for
-        # `symbolize_log.py` to name a posted log's frames against (the plan's
-        # distribution section). The .pdb keeps its build name, the one the exe records.
+        # `symbolize_log.py` to name a posted log's frames against. The .pdb keeps
+        # its build name, the one the exe records.
         pdb = target / "release" / PDB_NAME
         if not pdb.exists():
             raise Refusal(f"{pdb} does not exist; the release's symbols cannot be packed")

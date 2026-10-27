@@ -1,9 +1,9 @@
 //! `aesthetics_patch.toml`: the file the Team compiler writes to its output
 //! folder with its CPKs, holding what the CPK's tables cannot — on Fox,
 //! every compiled player's motions and a `write_names` export's names — for the
-//! savefile builder to apply (plan: `pes_savefile/operations.md` "Aesthetics
-//! patch"). This module is the Fox half's types, text form and `apply`; the
-//! pre-Fox keys arrive with that half.
+//! savefile builder to apply (`spec/pes_savefile/operations.md` "Aesthetics patch
+//! (new)"). This module is the Fox half's types, text form and `apply`; the
+//! pre-Fox keys are not built yet.
 
 use std::collections::BTreeMap;
 
@@ -24,8 +24,8 @@ use crate::settings_toml::{
 #[cfg(test)]
 mod tests;
 
-/// The suite's boots and gloves ID allocation scheme (`team_compiler/pipeline.md`); a patch
-/// from another scheme is refused.
+/// The version of the Team compiler's boots and gloves ID allocation scheme. A patch from
+/// another scheme is refused.
 pub const ALLOCATION_SCHEME_VERSION: u32 = 1;
 
 /// The first line of a generated `aesthetics_patch.toml`.
@@ -233,7 +233,7 @@ impl AestheticsPatch {
         })
     }
 
-    /// The patch's text form (the plan's block): the header comment and its
+    /// The patch's text form: the header comment and its
     /// five keys, then each team a `[[teams]]` block with a
     /// `[teams.players.NN]` per player — the header always written, `name`
     /// and `shirt_name` only when set — and its `[…appearance.motion]`

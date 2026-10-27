@@ -38,9 +38,9 @@ pub fn fmdl_to_ir(
         });
     }
 
-    // Parent-first order, as `.model` bones already arrive ("Bone order" in ir.md): a
-    // bone listed before its parent moves right after it, file order otherwise; every
-    // bone index — parents, bone groups — remaps. `decode` validated the parents' range
+    // Parent-first order, as `.model` bones already arrive, since every IR consumer relies
+    // on it. A bone listed before its parent moves right after it, file order otherwise.
+    // Every bone index (parents, bone groups) remaps. `decode` validated the parents' range
     // and acyclicity, so an `Err` here cannot come from a file the crate read.
     let fmdl_parents: Vec<Option<usize>> = model.bones.iter().map(|bone| bone.parent).collect();
     let order = crate::ir::parent_first_order(&fmdl_parents)

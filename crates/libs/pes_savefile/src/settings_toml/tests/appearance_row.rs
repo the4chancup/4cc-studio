@@ -1,10 +1,10 @@
 use super::*;
 
-/// The step's done-when: a save player's settings give back exactly his row
-/// — the id, then the record's 56 bytes at the row offset (128 on PES 18/19,
-/// 252 on PES 20/21, written literally so the check does not lean on
-/// `row_offset`). 5.1a's completeness test gave every bit of that span one
-/// carrier in `PlayerSettings`, so nothing can be lost. `from_player` is the
+/// A save player's settings give back exactly his row: the id, then the
+/// record's 56 bytes at the row offset (128 on PES 18/19, 252 on PES 20/21,
+/// written literally so the check does not lean on `row_offset`). The
+/// completeness test gives every bit of that span one carrier in
+/// `PlayerSettings`, so nothing can be lost. `from_player` is the
 /// settings' construction; where it refuses (a stored value the key table
 /// cannot express) the same settings come through `appearance_from`, the
 /// stored-ranges reader that carries such values verbatim. No fixture

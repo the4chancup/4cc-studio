@@ -56,11 +56,11 @@ pub fn team_text_fits(version: PesVersion, which: TeamText, text: &str) -> bool 
     .is_none()
 }
 
-/// Whether `text` may replace `stored` in `version`'s shirt-name field
-/// (the info strip's rule, `plans/save_editor.md` "Editing UI"; the name
-/// field's rule is `name_fits` on the version's own field): the
-/// codec's own content rule (no NUL, the single-byte charset) and, in
-/// length, either within the shorter of `portable_text_max` and the
+/// Whether `text` may replace `stored` in `version`'s shirt-name field, the
+/// rule the Save editor's info strip applies. The name field's rule is
+/// `name_fits` on the version's own field. The text must pass the codec's
+/// own content rule (no NUL, the single-byte charset) and, in length, be
+/// either within the shorter of `portable_text_max` and the
 /// version's own field, or no longer than `stored`, since a shirt name the
 /// save already holds past the limit can be shortened a keystroke at a
 /// time, never lengthened.

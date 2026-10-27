@@ -24,8 +24,8 @@ const SQUAD: &[u8] = include_bytes!("../../tests/fixtures/pes19_squad.4ccs");
 const NIGHTLY: &[u8] = include_bytes!("../../tests/fixtures/pes19_tactics.4cct");
 
 /// The `.4ccs` each version's fixture save exports for one of its teams —
-/// `(version, bytes, team id)`. The parity evidence of `verification.md`
-/// "Cross-implementation parity".
+/// `(version, bytes, team id)`: the parity evidence that this crate's field
+/// values match the reference editor's for the same save.
 const PARITY: &[(PesVersion, &[u8], u32)] = &[
     (
         PesVersion::Pes15,

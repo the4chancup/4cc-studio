@@ -28,8 +28,18 @@ PATTERNS = {
     "plan": re.compile(r"\bplans/|\b(?:core|the|tool's|its|this) plan\b|\bplan's\b|\bPhase \d", re.I),
     "decisions": re.compile(r"DECISIONS"),
     "worklog": re.compile(r"\bWORKLOG\b|\bLOG\.md\b|\bworklog\b", re.I),
-    # A letter after the number, not an exponent (`1.3e-5`).
-    "step": re.compile(r"\b\d+\.\d+(?:\.\d+)?(?!e[-+]?\d)[a-z]\d*\b"),
+    # A letter after the number (`5.6e`, `0.0.1m2`, `3.w`), not a signed exponent (`1.3e-5`); a
+    # bare number only where the words make it a step ("step 4.18", "3.7's"), since "1.5 points"
+    # cannot be told apart from "at 3.8" otherwise. A letter right after the dot or a possessive
+    # needs a first number from 1, so versions pass (`0.y.z`, "egui 0.37's").
+    "step": re.compile(
+        r"\b\d+\.\d+(?:\.\d+)?(?!e[-+]\d)[a-z]\d*\b"
+        r"|\b[1-9]\d*\.[a-z]\b"
+        r"|\b[Ss]tep \d+\.\d+"
+        r"|(?<![\w.])[1-9]\d*\.\d+'s\b"
+    ),
+    # A commit a review or a mutation run was made at.
+    "history": re.compile(r"\bmutants-diff [0-9a-f]{7,40}\b"),
     # A Markdown file other than a spec file, the two tooling documents (what a tooling file's
     # comment may point at) or a fixture folder's README (its provenance): a plan, the worklog.
     "document": re.compile(

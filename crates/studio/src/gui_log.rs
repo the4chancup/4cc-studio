@@ -1,7 +1,7 @@
 //! The window's diagnostic sink: `studio.log` in the data location, the previous run's
 //! renamed to `studio.old.log` at start, every line flushed as it is written and the
 //! user's home folder written as `~`, because the file is what a member posts with a bug
-//! report (core plan, "Diagnostic logging"; ST-RUN-07). A panic is written to it with a
+//! report (ST-RUN-07). A panic is written to it with a
 //! backtrace of module bases and offsets by the panic hook, and a panic that ends the
 //! window raises a dialog naming the file before the process exits with the code an
 //! unguarded panic would (ST-RUN-08). A session ends with a closing line, so an old log
@@ -117,8 +117,8 @@ pub(crate) fn open_log(data_dir: &Path, first_line: &str) -> io::Result<OpenedLo
     Ok(OpenedLog { file, last_session })
 }
 
-/// The `log::Log` writing `studio.log`, at most `Info` (the plan's level: a double-click
-/// passes no `-v` or `RUST_LOG`). A struct, not a closure, so the tests can drive the
+/// The `log::Log` writing `studio.log`, at most `Info`, since a double-click passes no `-v`
+/// or `RUST_LOG`. A struct, not a closure, so the tests can drive the
 /// `log` method — a process holds one logger and `main`'s tests already install the
 /// CLI's.
 struct FileLog {
@@ -244,8 +244,8 @@ pub(crate) fn install_panic_hook() {
 /// One backtrace frame as `{index}: 0x<base>+0x<offset>` (the frame's module base and
 /// the offset into it), not a name: a release exe names its frames only with its `.pdb`
 /// beside it, which the bundle does not ship, so the names are resolved later by
-/// `scripts/symbolize_log.py` against the release's kept symbols (core plan,
-/// "Diagnostic logging"). Frame 0 is always inside the exe (the `backtrace` crate is
+/// `scripts/symbolize_log.py` against the release's kept symbols. Frame 0 is always
+/// inside the exe (the `backtrace` crate is
 /// linked into it), which is how the script tells the exe's module from the system's.
 /// A frame no module claims has no base and reads `{index}: 0x<ip>`; it stays unnamed.
 fn frame_line(index: usize, ip: usize, base: Option<usize>) -> String {
@@ -380,7 +380,7 @@ pub(crate) fn guard_gui(
 /// The blocking dialog raised when a double-clicked window cannot print: `Error` for a
 /// startup error, a window that could not open or the panic that ended it; `Info` for
 /// the unclean-shutdown notice, whose session may have been ended by Windows rather
-/// than crashed, and the plan keeps that wording neutral. Titled with the suite's
+/// than crashed, so its wording stays neutral. Titled with the suite's
 /// name, one OK button.
 pub(crate) fn show_dialog(level: rfd::MessageLevel, text: &str) {
     rfd::MessageDialog::new()

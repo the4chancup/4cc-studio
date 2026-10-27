@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LIBS_DIR = ROOT / "crates" / "libs"
 
-# Lib crates exempt from the wasm32 check, with the plan section that exempts them.
+# Lib crates exempt from the wasm32 check, each with the reason it is exempt.
 EXCLUDED = {
     "python_bindings": "PyO3 cdylib for Blender; native only (core plan, guardrail 4)",
 }

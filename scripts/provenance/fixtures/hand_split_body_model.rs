@@ -1,5 +1,5 @@
 //! Provenance of `crates/tools/team_compiler/tests/fixtures/hand_split/body.model` and
-//! `body.mtl` (step 4.14e3, TC-MOD-43): the pre-Fox twin of `body.fmdl`, the same strip
+//! `body.mtl` (TC-MOD-43): the pre-Fox twin of `body.fmdl`, the same strip
 //! (`hand_split_body.rs`: 33 vertices, 40 faces, one mesh, one material, both hands weighted on
 //! `skh_index_mcp_l`/`_r`) written by `ir_to_model`, with the `.mtl` the export gives it.
 //!
@@ -68,7 +68,8 @@ fn main() {
     assert_eq!(counts(glove_r), (9, 8));
     assert_eq!(counts(&split.body), (21, 24));
     // Each part exports back to a `.model` naming the strip's one material, so the source
-    // `.mtl` defines every material a part uses (`hand_split.md` "Pipeline integration").
+    // `.mtl` defines every material a part uses (`spec/model_conversion/hand_split.md`
+    // "Pipeline integration").
     for (name, part) in [("body", &split.body), ("glove_l", glove_l), ("glove_r", glove_r)] {
         let part = ir_to_model(part).unwrap_or_else(|error| panic!("{name} exports: {error}"));
         assert_eq!(part.model.materials, ["body_mat"], "{name}");

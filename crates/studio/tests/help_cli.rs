@@ -130,7 +130,7 @@ fn commands_of(help: &str) -> Vec<String> {
     commands
 }
 
-// 0.0.1d
+// The preview goes by its codename, so no help text a member sees names 4cc Studio.
 #[test]
 fn no_member_visible_text_names_4cc_studio() {
     let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("help_cli_codename");

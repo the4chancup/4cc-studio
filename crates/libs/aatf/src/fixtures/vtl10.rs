@@ -765,8 +765,9 @@ fn card_limits_name_the_economy() {
     // shows) and `max_a_positions` unset — plus `tier_values`' weak
     // foot. Slots: 9 for the gold, 5 the silver, 14 the regular; for
     // the buffed, slot 7 — registered CMF, so no wingback A and no
-    // debuff (the plan's only card figure is the gold's; the rest of the
-    // numbers are the file's, "the plan names no number").
+    // debuff. Only the gold's card figures are written down
+    // (`spec/aatf_rules.md` "VTL10"); the other numbers are the ones the
+    // ruleset file holds.
     let weak_foot = |slot: u8, tier: &str| {
         rules
             .tier_values(&team, team.player(slot).expect("filled"), tier)

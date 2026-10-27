@@ -248,7 +248,7 @@ pub fn convert_player(
     // The nine measured motions copy capped at `to`'s top: the target's
     // editor shows a past-top value as the top anyway, and a copied one can
     // be rewritten to the list's first entry on the player's next in-game
-    // save (the plan's "Cross-version player conversion").
+    // save.
     for field in [
         PlayerField::HunchingDribbling,
         PlayerField::HunchingRunning,

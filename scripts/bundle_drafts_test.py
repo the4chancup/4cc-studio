@@ -111,7 +111,7 @@ class Bundle(unittest.TestCase):
         for src in [drafts / "index.html", *(drafts / "tools").glob("*.js")]:
             referenced |= set(re.findall(r'"(assets/[^"\n]+)"', src.read_text(encoding="utf-8")))
         referenced = {p[len("assets/"):] for p in referenced}
-        # README.md files are left out of the files side: the fonts' licence
+        # The readme files are left out of the files side: the fonts' licence
         # note is documentation beside the assets, not an asset a page draws.
         files = {f.relative_to(drafts / "assets").as_posix()
                  for f in (drafts / "assets").rglob("*")

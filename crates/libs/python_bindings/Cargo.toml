@@ -8,7 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 # A cdylib Python extension: the interpreter that imports it provides libpython, so
-# `cargo test`/`cargo doc` must never link it (core plan, "Phase 2", `python_bindings`).
+# `cargo test`/`cargo doc` must never link it.
 [lib]
 name = "pes_models_native"
 crate-type = ["cdylib"]

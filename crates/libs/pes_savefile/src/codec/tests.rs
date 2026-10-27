@@ -1262,7 +1262,7 @@ fn tactics_literals() {
     assert_eq!(team.tactics.starting_eleven, [255; 11]);
 }
 
-/// The measured man-marking runs (DECISIONS.md, 2026-10-13): each preset's
+/// The man-marking runs, measured in-game: each preset's
 /// eleven own-formation-slot bytes, each the marked opponent's formation
 /// slot or 0xFF for none.
 #[test]
@@ -1371,8 +1371,7 @@ fn man_marking_literals() {
 }
 
 /// PES 15's three auto flags, measured in-game at the record's +0x1FE to
-/// +0x200 (DECISIONS.md, 2026-10-13); the attack/defence-level flag stays
-/// PES 17+.
+/// +0x200. The attack/defence-level flag stays PES 17+.
 #[test]
 fn pes15_auto_flags_literals() {
     let team = find_team(

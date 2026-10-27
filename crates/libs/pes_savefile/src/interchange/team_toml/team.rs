@@ -1,6 +1,7 @@
 //! `team.toml`'s team half and the `TeamToml` entry points (the tactics half is
 //! `tactics.rs`, the shared item helpers `items.rs`): `from_team` dumps a `TeamEntry`,
-//! `to_toml` emits the plan's block (one key per line, comments at column 33,
+//! `to_toml` emits the TOML block of `spec/pes_savefile/operations.md` "Team TOML"
+//! (one key per line, comments at column 33,
 //! an unset key as its commented neutral line, a table only when its section
 //! carries data), `parse` accepts partial documents (absent = untouched on
 //! import) and `apply` writes the present keys back, gated by the target
@@ -151,7 +152,7 @@ impl TeamToml {
         })
     }
 
-    /// The document's text, in the plan block's order. A `None` key emits its
+    /// The document's text, in the TOML block's order. A `None` key emits its
     /// commented neutral line. `[team]`, `[tactics]` and its `set_pieces`,
     /// `auto` and preset `style`/`sliders` tables, and every `[players.NN]`
     /// block are emitted whole, every key shown or commented; the tables
@@ -927,7 +928,7 @@ mod tests {
         assert_eq!(TeamToml::parse(&text).expect("reparse"), doc);
     }
 
-    /// (f) The emitted text opens with the plan block's lines.
+    /// (f) The emitted text opens with the spec's TOML block's lines.
     #[test]
     fn the_emitted_text_follows_the_plan_block() {
         let (file, _) = open(PesVersion::Pes19);
@@ -1077,7 +1078,7 @@ mod tests {
     }
 
     /// An embedded NUL would reload as a truncated string at the codec's
-    /// terminator; refused at parse like settings.toml's name (2.17e).
+    /// terminator, so it is refused at parse, like a NUL in settings.toml's name.
     #[test]
     fn a_nul_inside_a_text_is_refused_at_parse() {
         for (key, doc) in [

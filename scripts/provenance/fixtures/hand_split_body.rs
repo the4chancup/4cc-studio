@@ -1,5 +1,5 @@
-//! Provenance of `crates/tools/team_compiler/tests/fixtures/hand_split/body.fmdl` (step 4.18,
-//! TC-MOD-31): a full-body model reduced to one strip, both arms with their hands still on,
+//! Provenance of `crates/tools/team_compiler/tests/fixtures/hand_split/body.fmdl`
+//! (TC-MOD-31): a full-body model reduced to one strip, both arms with their hands still on,
 //! for the compiler's hand auto-split.
 //!
 //! The strip is a grid of 11 columns (x = -5..5) by 3 rows (y = 0..2), each square cut along

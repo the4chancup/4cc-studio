@@ -1,6 +1,6 @@
 //! The roster's structural rules: assignment validity, numbering without a
-//! roster file, and the sanitized slot→folder map ("Validation semantics" →
-//! "Roster entries", `player_folders.md` "Player numbering").
+//! roster file, and the sanitized slot→folder map
+//! (`spec/aesthetics_export/player_folders.md` "Player numbering").
 
 use std::collections::BTreeMap;
 

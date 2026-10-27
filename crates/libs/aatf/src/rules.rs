@@ -128,9 +128,8 @@ impl Rules {
     /// raised in Rust before the script runs (`spec/aatf_rules.md` "The
     /// host"), then the file's `check_team(team)` converted. The list is
     /// ordered by roster slot, each slot's own rows kept (a slot's roster
-    /// break first), the team's rows (no slot) last — the order the
-    /// violations panels display (`plans/save_editor.md`, the groups keep
-    /// `check_team`'s order).
+    /// break first), the team's rows (no slot) last. The violations panels
+    /// display their groups in this order.
     pub fn check_team(&self, team: &TeamView) -> Result<Vec<Violation>, CheckError> {
         let mut out: Vec<Violation> = team
             .roster_breaks
@@ -486,8 +485,8 @@ mod tests {
 
     /// The result lists the players by slot, then the team's rows: a
     /// roster-order break on a later slot lands in its slot's place, not
-    /// ahead of every player's violations (`plans/save_editor.md`, the
-    /// violations panel's "the players by slot, then the team's own rows").
+    /// ahead of every player's violations, because the violations panel
+    /// shows the players by slot, then the team's own rows.
     #[test]
     fn the_result_is_ordered_by_slot_the_teams_rows_last() {
         // Team 701 of the PES 15 fixture already errors on slot 0 (Stat
@@ -549,7 +548,7 @@ mod tests {
     }
 
     /// The official ruleset on the sample team costs under a tenth of
-    /// `MAX_OPERATIONS` (the plan's tenfold margin), and the limit is not
+    /// `MAX_OPERATIONS`, so the limit keeps its tenfold margin, and it is not
     /// stale: under thirty times the cost. The count and the time are in
     /// the assertion messages: to read them, tighten a bound for one run.
     #[test]

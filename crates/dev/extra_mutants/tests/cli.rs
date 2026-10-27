@@ -1,6 +1,6 @@
 //! The binary end to end: `extra_mutants.py` parses this output, so a lister
 //! that silently skips files or prints nothing reads as "no mutants, nothing
-//! missed" (worklog 5.0b).
+//! missed".
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

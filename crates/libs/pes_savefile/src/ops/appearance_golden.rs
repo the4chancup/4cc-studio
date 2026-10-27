@@ -2,7 +2,7 @@
 //! scripts' byte rules, transcribed here as literal offsets into the
 //! appearance block (bytes relative to the block's first byte, the id), over
 //! every player of every fixture. The rules are the whole semantic content of
-//! the scripts; their container crypto is `container`'s parity (2.17a).
+//! the scripts; their container crypto is `container`'s parity test.
 
 use std::collections::BTreeSet;
 

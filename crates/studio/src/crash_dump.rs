@@ -1,6 +1,5 @@
-//! The crash dump (core plan, "Diagnostic logging", the crash dump bullet): a stack
-//! overflow or an access violation in native code leaves a log that simply stops, the
-//! kind of crash the panic hook never sees. The window starts a copy of its own exe as
+//! The crash dump, for the crashes the panic hook never sees: a stack overflow or an
+//! access violation in native code leaves a log that simply stops. The window starts a copy of its own exe as
 //! a monitor (`--crash-monitor`), connects to it over a socket file named after the
 //! process id in the temp folder, and the `crash-handler` hook asks the connected
 //! monitor for a dump when a crash comes: the monitor writes `studio.dmp` beside

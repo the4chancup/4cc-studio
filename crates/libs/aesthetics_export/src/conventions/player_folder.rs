@@ -73,8 +73,8 @@ pub fn ends_with_name(stem: &str, name: &str) -> bool {
 }
 
 /// The per-player singletons: a player has one of each, so each counts directly
-/// in the player folder alone, as the markers do; two from different folders
-/// of his tree would have no merge (`player_folders.md` "Subfolders"). Their
+/// in the player folder alone, as the markers do. Two from different folders
+/// of his tree would have no way to merge. Their
 /// kinds (`Xml`, `Bin`, `Fclo`) admit other files below a subfolder, so they
 /// are told by name.
 const PLAYER_SINGLETONS: [&str; 4] = [

@@ -66,7 +66,7 @@ fn is_installed_texture(name: &str, context: &ValidationContext) -> bool {
 
 /// Every player folder's link files resolved to their targets: its `SharedLink` and
 /// `CommonLink` files wherever they count as links (`counts_as_link`): at any depth, a link
-/// below a subfolder acting as one in the root (`player_folders.md` "Subfolders"). A `.common`
+/// below a subfolder acting as one in the root. A `.common`
 /// link's target is the `Common/` file at the link's own path below the folder
 /// (`common_link_target`), at any depth of `Common/`.
 pub(crate) fn player_links(
@@ -153,8 +153,8 @@ pub fn common_link_files<'a>(common: &'a [FileDescriptor], below: &str) -> Vec<&
 }
 
 /// The `.common` links of a shared folder, resolved as `player_links` resolves a player
-/// folder's (`player_folders.md` "Subfolders": a shared folder's tree is a player
-/// folder's): the only links it holds, a `.face`, `.boots` or `.gloves` file there being
+/// folder's, since a shared folder's tree is laid out as a player folder's. They are the
+/// only links it holds: a `.face`, `.boots` or `.gloves` file there is
 /// `file_type_disallowed`, never a link.
 pub(crate) fn shared_links(
     folder: &FolderDraft,

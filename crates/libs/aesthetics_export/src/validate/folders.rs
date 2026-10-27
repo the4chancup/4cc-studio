@@ -24,7 +24,8 @@ use super::links;
 /// references; `files` holds the model-pipeline content (models, textures,
 /// material files, skeletons), however it reaches the output — files inside a
 /// subfolder, of any name and at any depth, are ordinary `files` entries, the
-/// path keeping the subfolder (`player_folders.md` "Subfolders").
+/// path keeping the subfolder (`spec/aesthetics_export/player_folders.md`
+/// "Subfolders").
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PlayerFolder {
     /// The folder's path (`Players/03 - A`): the scope its issues name.
@@ -106,7 +107,7 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
         // Only a file directly in the folder can be a marker, settings or
         // portrait; everything else below a subfolder is pipeline content (the
         // allowlist names such a file out of place). A shared link counts at
-        // any depth, as one in the root (`player_folders.md` "Subfolders").
+        // any depth, as one in the root.
         if file.path.segments().count() != depth && !matches!(file.kind, FileKind::SharedLink(_)) {
             files.push(file.clone());
             continue;
@@ -256,7 +257,7 @@ pub(crate) enum Position {
     /// Directly in the folder, where the markers and settings are read.
     Direct,
     /// Anywhere below one of its subfolders, at any depth: a player folder of
-    /// its own, holding model content and links (`player_folders.md` "Subfolders").
+    /// its own, holding model content and links.
     Below,
 }
 
@@ -369,7 +370,7 @@ fn player_below_allowed(file: &FileDescriptor) -> bool {
 /// Whether `file`, a file of a player folder, is a link where it sits: a shared
 /// link at any depth, read as one in the root, and a `.common` link at any depth,
 /// standing for the `Common/` file at its own path below the folder
-/// (`player_folders.md` "Subfolders", `spec/model_format.md` "Link files").
+/// (`spec/model_format.md` "Link files").
 pub(crate) fn counts_as_link(file: &FileDescriptor) -> bool {
     match file.kind {
         FileKind::SharedLink(_) | FileKind::CommonLink => true,
@@ -411,8 +412,8 @@ const PROTO_SUBFOLDERS: [&str; 4] = ["face", "boots", "gloves", "common"];
 /// In a referee export, the first direct subfolder of `folder`, in its files'
 /// order, named as one of `PROTO_SUBFOLDERS`, spelled as the export spells it:
 /// the prototype referee layout, which types a subfolder's files by the subfolder's
-/// name where a Studio subfolder's files are typed by their own names
-/// (`player_folders.md` "Subfolders"). `None` in a team export, where the names
+/// name where a Studio subfolder's files are typed by their own names. `None`
+/// in a team export, where the names
 /// are plain subfolders.
 fn proto_layout_subfolder<'a>(
     draft: &AestheticsExportDraft,
@@ -595,11 +596,10 @@ pub(crate) fn check_player(
     }
 
     // 8. Texture stems collide within one folder of the player folder's tree, the
-    // root or one subfolder: a texture name resolves nearest first, in its model's
-    // folder before each parent (`player_folders.md` "Subfolders"), so the root's
-    // `hair.dds` and a subfolder's are no conflict. A texture `.common` link claims
-    // its linked name in the folder holding it (a link counts as the linked file being
-    // local, `spec/model_format.md` "Rules").
+    // root or one subfolder. A texture name resolves nearest first, in its model's
+    // folder before each parent, so the root's `hair.dds` and a subfolder's are no
+    // conflict. A texture `.common` link claims its linked name in the folder holding
+    // it, because a link counts as the linked file being local.
     tree_stem_conflicts(folder, texture_claim, context, issues);
 
     // 9. The edit-hair files.
@@ -633,7 +633,7 @@ fn shared_texture_claim(engine: pes_version::Engine) -> fn(&FileDescriptor) -> O
 
 /// One `texture_stem_conflict` per folded stem two or more files of `folder` claim in one
 /// directory of its tree: a texture name resolves nearest first, in its model's folder
-/// before each parent (`player_folders.md` "Subfolders"), so the same stem in two
+/// before each parent, so the same stem in two
 /// directories is no conflict. `claim` is what a file asserts in its directory's namespace
 /// (`texture_claim` for a player or shared folder's links).
 fn tree_stem_conflicts(
@@ -693,7 +693,7 @@ pub(crate) fn check_shared(
 ) {
     let scope = IssueScope::Folder(folder.path.clone());
 
-    // A shared folder's tree is a player folder's (`player_folders.md` "Subfolders"): model
+    // A shared folder's tree is laid out as a player folder's: model
     // content directly in the folder, and below a subfolder what a player's admits except a
     // shared link — it holds none — while its `.common` links count at any depth.
     for file in &folder.files {
@@ -787,8 +787,8 @@ fn edithair_files(
 ) {
     match context.version.engine() {
         pes_version::Engine::PreFox => {}
-        // The file means nothing to a Fox game (an XML there is
-        // `xml_ignored_fox`'s, `team_compiler/messages.md`).
+        // The file means nothing to a Fox game. An XML there is
+        // reported as `xml_ignored_fox` instead.
         pes_version::Engine::Fox => return,
     }
     for file in &folder.files {

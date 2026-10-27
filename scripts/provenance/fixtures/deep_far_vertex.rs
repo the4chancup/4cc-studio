@@ -1,4 +1,4 @@
-//! Provenance of `crates/tools/team_compiler/tests/fixtures/deep/boots_far.fmdl` (step 4.7a):
+//! Provenance of `crates/tools/team_compiler/tests/fixtures/deep/boots_far.fmdl`:
 //! the tracer export's `boots.fmdl` with the first vertex of its first mesh moved to
 //! (6000, 0, 0), which is 1000 units past the limit of `fmdl_vertex_far_from_origin`.
 //!

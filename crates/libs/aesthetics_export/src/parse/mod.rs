@@ -155,9 +155,8 @@ fn drop_segment(path: &ScopePath, depth: usize) -> ScopePath {
     ScopePath::new(&kept.join("/")).expect("a canonical path minus a segment is still canonical")
 }
 
-/// Whether `folder` directly holds a content folder or a root `logo*` image —
-/// a usable export root (`pipeline.md` step 1: metadata alone does not make
-/// one).
+/// Whether `folder` directly holds a content folder or a root `logo*` image,
+/// which makes it a usable export root. Metadata alone does not make one.
 fn is_usable_root(tree: &CanonicalTree, folder: Option<&ScopePath>) -> bool {
     let (files, folders) = tree.children(folder);
     folders.iter().any(|path| {

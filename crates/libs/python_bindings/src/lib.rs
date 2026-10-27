@@ -1,5 +1,5 @@
-//! The `pes_models_native` Python extension (core plan, "Phase 2", `python_bindings`):
-//! the `fmdl` and `pes_model` codecs for Blender's bundled Python, one wheel per
+//! The `pes_models_native` Python extension: the `fmdl` and `pes_model` codecs for
+//! Blender's bundled Python, one wheel per
 //! platform via `abi3-py311`. The surface is each codec's `read`/`write`; Blender
 //! accessors arrive with the `pes-models` extension's hot-path step.
 

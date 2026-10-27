@@ -41,8 +41,7 @@ pub enum ListedKind {
 /// consumer reads every listed file `is_small_metadata` accepts; a failed read
 /// carries its reason (`source_read_failed`, with the disposition of what the
 /// file is: `DropExport` for a roster, `DropFile` for `notes.txt`). A listed
-/// file missing from the map was not read: Phase 3 treats it as a failed
-/// read; the GUI's shallow check gives it its own state in Phase 8.
+/// file missing from the map was not read, and counts as a failed read.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SmallMetadata {
     /// Each small metadata file's content, or its read failure's reason.

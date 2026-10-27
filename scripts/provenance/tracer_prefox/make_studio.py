@@ -10,9 +10,8 @@ import shutil
 from pathlib import Path
 
 HERE = Path(r"C:\Data\4cc\Tools_Mine\4cc-studio\.tmp\4_16\tracer_prefox")
-# Pre-Fox kits compile from step 4.16a: until then a kit refused the whole export, so the twin
-# held none (the kit's rows were "not produced yet" in the parity test); since 4.16a it holds
-# `Kits/g1/`.
+# The twin holds `Kits/g1/` now that pre-Fox kits compile. Before, a kit refused the whole
+# export, so the twin held none and the parity test marked the kit's rows "not produced yet".
 WITH_KIT = True
 OLD = HERE / "old" / "jp Tracer"
 FACE = OLD / "Faces" / "XXX20 - Fumos"

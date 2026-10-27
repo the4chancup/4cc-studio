@@ -1,6 +1,5 @@
 //! The built exe is a Windows GUI-subsystem application on every build, so a
-//! double-click opens no console window beside the GUI (core plan, "Windows
-//! subsystem"). The subsystem is a field of the PE header the linker wrote: the DOS
+//! double-click opens no console window beside the GUI. The subsystem is a field of the PE header the linker wrote: the DOS
 //! header's `e_lfanew` (the `u32` little-endian at `0x3C`) points at the `PE\0\0`
 //! signature, the 20-byte file header follows it, and the optional header's
 //! `Subsystem` field sits at that header's offset 68 — `e_lfanew + 4 + 20 + 68`,

@@ -50,8 +50,8 @@ pub(crate) fn hand_of(bone: &str) -> Option<Hand> {
     }
 }
 
-/// Whether any vertex carries a positive weight on a hand bone (the plan's detection
-/// rule: names in a bone list do not count, weights do).
+/// Whether any vertex carries a positive weight on a hand bone. Names in a bone list do
+/// not count, weights do.
 pub(crate) fn has_hand_weights(ir: &CanonicalModel) -> bool {
     ir.meshes.iter().any(|mesh| {
         let (Some(indices), Some(weights)) =
@@ -354,8 +354,8 @@ fn assemble(source: &CanonicalModel, parts: Vec<Option<Mesh>>) -> CanonicalModel
     model
 }
 
-/// The plan's select -> grow once -> separate, per hand in turn, in Rust: the
-/// left hand first, then the right hand on what the left separation left, so a
+/// Select, grow once, then separate, per hand in turn
+/// (`spec/model_conversion/hand_split.md` "Split"): the left hand first, then the right hand on what the left separation left, so a
 /// face fully selected by both goes to `glove_l` only and is never duplicated.
 pub fn split_by_skeleton_group(ir: &CanonicalModel) -> HandSplit {
     if !has_hand_weights(ir) {

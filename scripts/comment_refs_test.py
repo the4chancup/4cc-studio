@@ -23,13 +23,18 @@ class CommentRefsTest(unittest.TestCase):
                 "// the sidekick's contradiction",
                 '//! Stages 3 and 4 (`team_compiler/pipeline.md` "3. Per-model-folder")',
                 "// as `gui.md` says",
+                "// measured at 3.w",
+                "// 3.7's diff runs",
+                "// moved here at step 4.18",
+                "// the hand split of 4.14e3",
+                "// excluded since mutants-diff 95f20eac",
             ]
         )
         self.assertEqual(
             self.kinds("crates/x/src/lib.rs", text),
             [
                 "plan", "plan", "plan", "decisions", "worklog", "step", "step", "review", "review",
-                "document", "document",
+                "document", "document", "step", "step", "step", "step", "history",
             ],
         )
 
@@ -47,6 +52,10 @@ class CommentRefsTest(unittest.TestCase):
                 "// a planned tool, an airplane, the plane's normal",
                 "// 1.5 points wider",
                 "// within 1.3e-5 of the body's",
+                "// 2.5 times the width; at 1.5 points",
+                "// egui 0.37's roles, egui 0.36.1's widgets",
+                "// `pre-alpha` for 0.0.x, `alpha` for 0.y.z",
+                "// BAG VGL18.5's `player_XXX08.jpg` migrated",
                 '// docs/spec/core/gui.md "Shell layout"',
                 '# cargo-mutants configuration (CONTRIBUTING.md "Mutation runs")',
                 "// the provenance in tests/fixtures/README.md",

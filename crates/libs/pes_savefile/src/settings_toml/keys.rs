@@ -1,5 +1,6 @@
-//! The settings.toml key table: one `SettingKey` per key of the aesthetics
-//! export plan's "Player settings in exports" block, in the block's order,
+//! The settings.toml key table: one `SettingKey` per key of the block in
+//! `spec/aesthetics_export/settings_toml.md` "Player settings in exports
+//! (settings.toml)", in the block's order,
 //! with the block's tables, ranges, label lists and comments reproduced
 //! literally.
 

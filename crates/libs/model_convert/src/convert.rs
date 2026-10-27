@@ -33,7 +33,7 @@ pub enum NativeModelBundle {
         /// The `.mtl`.
         mtl: ::pes_model::format::mtl::MaterialSet,
     },
-    // Gltf(GltfModel) joins in Phase 7
+    // No glTF source yet: glTF import is not built.
 }
 
 /// `convert`'s result: the converted bundle and every finding the round trip produced.
@@ -91,7 +91,8 @@ pub fn convert(bundle: NativeModelBundle, target: PesVersion) -> Result<Converte
 
 /// Whether `convert` would go through the IR: another engine, a bone the bundle's groups use
 /// that `target` lacks, or a vertex blending bones whose deltas to `target`'s tables differ
-/// (`conversion.md` item 3, "When re-binding changes anything"). A vertex weighted to one
+/// (`spec/model_conversion/conversion.md` "Skeleton retargeting and bone conformance"). A
+/// vertex weighted to one
 /// bone, or to bones sharing one delta, draws the same re-bound or not, so a model off the
 /// target's pose but moved rigidly is native. A face's `skf_*` bones and custom bones take
 /// no part. Reads bone names, the source poses, the target's tables and the weight rows; no

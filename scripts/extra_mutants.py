@@ -143,7 +143,7 @@ def extract_tree(tree: str, dest: Path) -> None:
     dest.mkdir(parents=True)
     # The whole archive is read before extracting, as `mutants.py` fetches the remote
     # half's results: streamed through a pipe, `git archive` twice sat unexited after
-    # writing every member (5.0g2, 35 minutes, not reproduced since).
+    # writing every member (once for 35 minutes, not reproduced since).
     archived = subprocess.run(
         ["git", "archive", "--format=tar", tree],
         cwd=ROOT,

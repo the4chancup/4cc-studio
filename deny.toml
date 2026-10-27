@@ -1,4 +1,4 @@
-# cargo-deny configuration: the license allowlist from the core plan, "License".
+# cargo-deny configuration: the license allowlist (`spec/core/distribution.md` "License").
 # Run through `just deps-check`. A license compatible with MIT OR Apache-2.0 (no copyleft
 # obligation on Studio's source or binary) is added here when a dependency needs it; any other
 # license is a question for the maintainer.

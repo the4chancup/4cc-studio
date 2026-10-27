@@ -3,9 +3,8 @@
 //! 15-17 `TEXPORT00000000` (a whole savefile container; the table names where
 //! the team, roster, tactics and player records sit in its payload).
 //!
-//! Provenance: the 18-21 constants are measured on real files (four 18,
-//! eleven 19, one 20, five 21 texports; counts in `operations.md` "Interchange
-//! formats"). The 15-17 layout is measured on all 46 texports of the
+//! Provenance: the 18-21 constants are measured on real files: four 18,
+//! eleven 19, one 20 and five 21 texports. The 15-17 layout is measured on all 46 texports of the
 //! reference machine (12 PES 16, 34 17; PES 15's is PES 16's, unverified).
 
 use pes_version::PesVersion;

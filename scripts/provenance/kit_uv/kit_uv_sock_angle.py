@@ -34,10 +34,10 @@ U_HI, V_LO, V_HI = 520, 600, 1200  # the left sock island's box, px
 ENDS_17, ENDS_21 = (11.0, 438.0), (11.0, 369.0)
 BIN = 16
 # The point where the two bands meet: the one KIT_LAYOUT_REMAP uses, and the one read off PES
-# Master's templates (docs/plans/team_compiler/pipeline.md), both checked against the pairs.
-# Candidate maps, as (pre-Fox u, Fox u) points joined by straight lines: KIT_LAYOUT_REMAP's two
-# bands, the two bands read off PES Master's templates (docs/plans/team_compiler/pipeline.md),
-# and one scale from seam to seam. Each is checked against the pairs below.
+# Master's templates (`spec/team_compiler/pipeline.md` "Layout conversion"), both checked
+# against the pairs. Candidate maps, as (pre-Fox u, Fox u) points joined by straight lines:
+# KIT_LAYOUT_REMAP's two bands, the two bands read off PES Master's templates, and one scale
+# from seam to seam. Each is checked against the pairs below.
 TABLE = ((8, 8), (168, 128), (448, 376))
 PES_MASTER = ((8, 8), (195, 137), (440, 380))
 ONE_SCALE = ((ENDS_17[0], ENDS_21[0]), (ENDS_17[1], ENDS_21[1]))

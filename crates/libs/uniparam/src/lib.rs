@@ -223,10 +223,9 @@ mod tests {
         let before: Vec<(&str, &[u8])> = up.entries().collect();
         let after: Vec<(&str, &[u8])> = reread.entries().collect();
         assert_eq!(before, after);
-        // Konami's layout differs from a writer-made file's (table order, a
-        // 16-aligned content pool: `format_crates.md` "`uniparam`"), so the
-        // standard here is entry equality; byte identity is the `SAMPLE`
-        // fixture's test above.
+        // Konami's layout differs from a writer-made file's in table order and
+        // a 16-aligned content pool, so the standard here is entry equality.
+        // Byte identity is the `SAMPLE` fixture's test above.
     }
 
     #[test]

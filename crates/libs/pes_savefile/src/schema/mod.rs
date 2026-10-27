@@ -298,9 +298,9 @@ pub fn schema_for(version: PesVersion) -> &'static VersionSchema {
 
 /// The Fox `PlayerAppearance.bin` row's 56 appearance bytes' offset inside
 /// the version's player record: right where the appearance block's
-/// base-copy id ends (record bytes 128 to 184 on PES 18/19, 252 to 308 on
-/// PES 20/21; `model.md` "The Fox database row": the games' own tables hold
-/// the same bytes at the same place in the same 72-byte block). `None` on a
+/// base-copy id ends: record bytes 128 to 184 on PES 18/19, 252 to 308 on
+/// PES 20/21. The games' own tables hold the same bytes at the same place
+/// in the same 72-byte block. `None` on a
 /// pre-Fox version: its appearance travels in the savefile (PES 17's own
 /// table reads a row at this place in this block, but its compile writes
 /// the savefile instead).

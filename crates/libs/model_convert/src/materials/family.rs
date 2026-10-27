@@ -1,5 +1,5 @@
-//! Reading a material's shader family off a native shader name. The rules are the format
-//! plan's "Shader families" inference column: Fox by substring, pre-Fox by exact name.
+//! Reading a material's shader family off a native shader name: Fox by substring, pre-Fox
+//! by exact name (`spec/model_format.md` "Shader families").
 
 use super::MaterialFamily;
 

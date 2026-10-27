@@ -1,5 +1,5 @@
 //! The `[players.NN]` scalar-key table: one `PlayerKey` per scalar key of the
-//! plan's TOML block (`operations.md`, "Team TOML"), in the block's order,
+//! TOML block in `spec/pes_savefile/operations.md` "Team TOML", in the block's order,
 //! driving parse, emit and apply for every scalar field. The non-scalar keys
 //! (`name`, `shirt_name`, `number`, `positions.playable`,
 //! `positions.playing_style`, `skills.skills`, `skills.com_styles`,
@@ -43,7 +43,7 @@ pub(crate) struct KeySpec {
     pub kind: Kind,
     /// The savefile field: the model accessor and the apply-time gate.
     pub field: PlayerField,
-    /// The comment emitted after the key, verbatim from the plan block.
+    /// The comment emitted after the key, verbatim from the spec's TOML block.
     pub comment: &'static str,
 }
 
@@ -190,7 +190,7 @@ const fn flag(path: &'static str, field: PlayerField) -> KeySpec {
 }
 
 impl PlayerKey {
-    /// Every scalar key, in the plan block's order (top level, stats,
+    /// Every scalar key, in the TOML block's order (top level, stats,
     /// positions scalars, edit flags).
     pub(crate) const ALL: [PlayerKey; 55] = [
         PlayerKey::Nationality,

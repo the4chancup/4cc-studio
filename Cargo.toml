@@ -9,9 +9,9 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/the4chancup/4cc-studio"
 rust-version = "1.98"
 
-# Every shared dependency is declared once here; crates inherit with `dep.workspace = true`
-# (core plan, "Workspace guardrails" rule 2). Only crates listed in the core plan's
-# "External Dependencies" table may be added (CONTRIBUTING.md "Dependencies").
+# Every shared dependency is declared once here, and crates inherit it with
+# `dep.workspace = true`. This keeps every crate on one version of each, egui above all.
+# Which crates may be added is in CONTRIBUTING.md "Dependencies".
 [workspace.dependencies]
 anyhow = "1.0.104"
 backtrace = "0.3.76"
@@ -27,15 +27,15 @@ directories = "6.0.0"
 # the `egui` of their release, so the exact `egui` pin holds them without a pin of their own.
 eframe = "=0.37.0"
 egui = "=0.37.0"
-# The help window's Markdown (`plans/core/README.md` "External Dependencies"): exact like `egui`,
-# 0.26.0 being the release on egui 0.37; no image loaders, the help shows no images.
+# The help window's Markdown. It is pinned exact like `egui`, because each release follows one
+# egui minor and 0.26.0 is the one on egui 0.37. It has no image loaders: the help shows no images.
 egui_commonmark = { version = "=0.26.0", default-features = false, features = ["pulldown_cmark"] }
 env_logger = { version = "0.11.11", default-features = false }
 flate2 = "1.1.10"
 libc = "0.2.189"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "bmp", "webp", "tga", "tiff"] }
-# The console's progress line in `studio` (`plans/core/README.md` "External Dependencies"):
-# terminal width handling, the Windows console and the draw-rate cap come with it.
+# The console's progress line in `studio`. Terminal width handling, the Windows console and the
+# draw-rate cap come with it.
 indicatif = { version = "0.18.6", default-features = false }
 indexmap = "2.14.2"
 log = "0.4.34"
@@ -50,7 +50,7 @@ rayon = "1.12.0"
 # teams in parallel, and the Live AATF worker uses the ruleset the window loaded
 # (`spec/aatf_rules.md` "The host").
 rhai = { version = "1.26.1", default-features = false, features = ["std", "serde", "only_i64", "sync"] }
-# The native file dialogs (`plans/core/README.md` "External Dependencies"). `xdg-portal`
+# The native file dialogs. `xdg-portal`
 # is the Linux backend, its dialog drawn by the desktop portal through libdbus with
 # `pollster` blocking, so no async runtime enters the tree; `wayland` (a parent-window
 # handle we never set) and `gtk3` are off.
@@ -65,8 +65,8 @@ tiff = { version = "0.11.3", default-features = false }
 toml = "0.9.8"
 toml_edit = "0.23.9"
 unicode-normalization = "0.1.25"
-# `dds_convert`'s GPU BC7 device (native only); the version eframe's egui-wgpu already
-# resolves, so the build holds one wgpu (`plans/libs/README.md` "First-release desktop GPU BC7").
+# The device of `dds_convert`'s GPU BC7 encoder, on native targets only. It is the version
+# eframe's egui-wgpu already resolves, so the build holds one wgpu.
 wgpu = "30.0.1"
 windows = { version = "0.62.2", features = ["Win32_Foundation", "Win32_Security", "Win32_System_Console", "Win32_System_Diagnostics_ToolHelp", "Win32_System_Registry", "Win32_System_SystemInformation", "Win32_System_Threading", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
 winresource = { version = "0.1.34", default-features = false }
@@ -105,8 +105,8 @@ uniparam = { path = "crates/libs/uniparam" }
 vtree = { path = "crates/libs/vtree" }
 wezlib = { path = "crates/libs/wezlib" }
 
-# The lint policy, inherited by every member via `[lints] workspace = true`
-# (core plan, "Workspace guardrails" rule 5). Gates run clippy with `-D warnings`, so a
+# The lint policy, inherited by every member via `[lints] workspace = true`.
+# Gates run clippy with `-D warnings`, so a
 # `warn` here is a red gate; `deny` is for the rules that must fail even outside the gates.
 [workspace.lints.rust]
 missing_docs = "warn"
@@ -120,27 +120,25 @@ todo = "warn"
 
 # The line tables land in the `.pdb` the release's symbols archive keeps, so
 # `symbolize_log.py` names a logged frame's file and line; they live in the `.pdb`
-# alone, leaving the exe's size as it was (core plan, "Distribution").
+# alone, leaving the exe's size as it was.
 [profile.release]
 debug = "line-tables-only"
 
-# Dependencies build without debug info; workspace crates keep theirs
-# (core plan, "Phase 1"; DECISIONS.md 2026-09-12 "dependencies build without debug info").
+# Dependencies build without debug info: nobody steps into them, and theirs was most of a dev
+# build's target folder. The workspace's own crates keep theirs.
 [profile.dev.package."*"]
 debug = false
 
 # The BC7 encoder is unusable unoptimized: one 1024x1024 texture took 56 s in a test build
-# against 9 s optimized, and every mutant reruns that test (DECISIONS.md 2026-10-03 "the BC7
-# encoder builds optimized in dev").
+# against 9 s optimized, and every mutant reruns that test.
 [profile.dev.package.block_compression]
 opt-level = 3
 
 # The AATF rules interpreter and the save container's inflate and hashes are the bulk of the
 # test suites' time unoptimized: `check-aatf` over a fixture save's 220 teams took 128 s in a
 # test build against 19 s with these four optimized, a one-team check 5.6 s against 2.5 s, and
-# the build took no longer (DECISIONS.md 2026-10-22 "the hot dependencies build optimized in
-# dev"). Every dependency optimized gained little more and cost 88 s per cold
-# build, which every mutation run pays.
+# the build took no longer. Every dependency optimized gained little more and cost 88 s per
+# cold build, which every mutation run pays.
 [profile.dev.package.rhai]
 opt-level = 3
 

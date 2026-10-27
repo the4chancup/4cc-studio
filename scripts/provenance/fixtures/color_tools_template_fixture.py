@@ -14,7 +14,7 @@ SRC = Path(r"C:/Data/4cc/Kits/Kit_col_template_pes19.png")
 DEST = Path(r"C:/Data/4cc/Tools_Mine/4cc-studio/crates/libs/color_tools/tests/fixtures")
 OUT = DEST / "kit_col_template_pes19_128.rgba"
 SIZE = 128
-# The crate's regions (color_tools.md "Dominant kit-color extraction", step 2).
+# The crate's regions (`spec/libs/color_tools.md` "Dominant kit-color extraction", step 2).
 SHIRT = (0.36, 0.05, 0.64, 0.88)
 SHORTS = [(0.04, 0.61, 0.29, 0.90), (0.71, 0.61, 0.96, 0.90)]
 

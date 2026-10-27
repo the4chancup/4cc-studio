@@ -1,4 +1,5 @@
-# Pinned toolchain (core plan, "Workspace guardrails" rule 5; CONTRIBUTING.md "Toolchain notes").
+# Pinned toolchain, so a `rustup update` never turns the gates red with a new clippy's lints
+# (CONTRIBUTING.md "Toolchain notes").
 # Bumping the version is its own commit: run the gates on the new toolchain first.
 [toolchain]
 channel = "1.98.1"

@@ -896,7 +896,8 @@ fn every_fixture_player_round_trips_through_his_settings() {
         }
         assert!(checked > 0, "{version:?}: no player checked");
     }
-    // The one celebration past every range is a worklog issue (2026-10-13).
+    // The one celebration past every range (PES 16's 183) stays refused: it is
+    // past every version's top.
     let unexpected: Vec<_> = refused
         .iter()
         .filter(|(line, _)| line.as_str() != "Pes16 goal_celebration_2 = 183")
@@ -1023,16 +1024,16 @@ fn a_family_only_key_is_skipped_on_the_other_layout() {
     assert_eq!(face.get(F::NoseType).expect("PES 21's"), 9);
 }
 
-/// Every face and hair key's field at the plan's byte:bit and width, and
-/// every measured-unused row at the plan's bits and value
-/// (`spec/pes_savefile/model.md`, "The ingame-face run"). The
-/// table is copied from the plan, not derived from the schema, so a row
+/// Every face and hair key's field at the byte:bit and width, and every
+/// measured-unused row at the bits and value, that
+/// `spec/pes_savefile/model.md` "The ingame-face run" gives. The table is
+/// copied from that section, not derived from the schema, so a row
 /// of the schema that moved, changed width or swapped with another fails
 /// here even where both fields hold the same value in every fixture.
 #[test]
 fn every_face_key_sits_at_the_plans_bits() {
     // (key, byte, bit, width): a slider 4 bits, a colour channel 6,
-    // `gloves` 1, others as the plan writes them.
+    // `gloves` 1, others as the spec writes them.
     const PLAN: [(&str, u32, u32, u32); 92] = [
         ("jawline", 0, 4, 4),
         ("jaw_height", 1, 0, 4),

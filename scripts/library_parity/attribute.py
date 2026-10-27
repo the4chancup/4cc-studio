@@ -34,7 +34,7 @@ WEARER = re.compile(r"wearer_assumed at (Boots|Gloves)/([kg])(\d+).*?\(id=\d+, s
 ITEM_FOLDER = re.compile(r" at (Boots|Gloves)/([kg]\d+) - (.*?) \(", re.M)
 TEAM = re.compile(r"export_identified \(team=[^,]*, id=(\d+)\)")
 MISSING = ("red_only", "cpk_member_missing", "fpk_member_missing")
-# The game-path face folder exports (6.12c D7).
+# The exports holding game-path face folders.
 GAME_PATH_EXPORTS = {"FGOG Aesthetic Export from VGL6", "FGOG Aesthetic Export minipatch.zip", "co_fetus_new_aesthetics"}
 
 
@@ -228,12 +228,12 @@ def cause_of(job, side, red, ours, class_, detail, version):
     slot = job.slot_of(path)
     if class_ == "dropped_fpk_xml":
         return "I1 fpk.xml dropped"
-    # 6.16 (DECISIONS 2026-10-20 correction): a game-path face folder's face.xml under Red is
-    # one Red generated at the player's path, the member's tree nested below it.
+    # A game-path face folder's face.xml under Red is one Red generated at the player's path,
+    # the member's tree nested below it.
     if class_ == "xml_differs" and kind == "face" and os.path.basename(job.source) in GAME_PATH_EXPORTS:
         return "I30 game-path face folder: Red's generated face.xml, ours the member's"
-    # 6.16a: a Full slot's kit texture no config names, or a copy, is a leftover the upgrade
-    # drops; Red packs it (no row loads it), ours packs nothing or the placeholder there.
+    # A Full slot's kit texture no config names, or a copy, is a leftover the upgrade drops.
+    # Red packs it (no row loads it); ours packs nothing or the placeholder there.
     if class_ == "ours_only" and kind in ("boots", "gloves", "common") and slot in job.stray_slots:
         return "I33 an item folder with a stray FMDL: Red discards it, ours drops the file and packs the rest (step 10)"
     if class_ in ("red_only", "ftex_differs") and kind == "kit texture" and job.team is not None:
@@ -242,8 +242,8 @@ def cause_of(job, side, red, ours, class_, detail, version):
             return "I31 a kit texture the upgrade drops as a leftover (step 10): Red packs it"
     if job.midcup and class_ == "ours_only" and slot and slot.startswith("Kits/") and "kit_placeholder" in job.codes[slot]:
         return "D2 Midcup colors-only kit compiled as a placeholder"
-    # 6.16b: a Midcup kit without a config keeps the installed one; this run installs nothing,
-    # so each gets the template (`messages.md` `kit_config_generated`), where Red writes none.
+    # A Midcup kit without a config keeps the installed one. This run installs nothing, so
+    # each gets the template (`kit_config_generated`), where Red writes none.
     if job.midcup and class_ == "ours_only" and slot and slot.startswith("Kits/") and kind == "kit config" and "kit_config_generated" in job.codes[slot]:
         return "I29 Midcup kit config from the template: nothing installed in this measurement"
     if job.midcup and class_ == "ours_only" and kind == "bins" and any("kit_config_generated" in codes for codes in job.codes.values()):
@@ -263,12 +263,13 @@ def cause_of(job, side, red, ours, class_, detail, version):
         return "error: " + ",".join(sorted(job.errors[shared]))
     kit_errors = sorted({code for scope, codes in job.errors.items() if scope.startswith("Kits/") for code in codes})
     if class_ == "bin_records_differ" and kit_errors:
-        # A failed kit keeps the entry it had in the record (pipeline.md "Bins accumulation").
+        # A failed kit keeps the entry it had in the record
+        # (`spec/team_compiler/pipeline.md` "Bins accumulation").
         return "error: " + ",".join(kit_errors)
     if slot is not None and job.errors.get(slot):
         return "error: " + ",".join(sorted(job.errors[slot]))
-    # 6.16d (DECISIONS 2026-10-20): a face naming the team's Common as `common/o/` was refused
-    # by Red ("broken mtl files", or its Common-path block for a face.xml); ours migrates it.
+    # A face naming the team's Common as `common/o/` was refused by Red ("broken mtl files",
+    # or its Common-path block for a face.xml); ours migrates it.
     if slot is not None and (job.red_discarded.get(slot) == "broken mtl files" or slot in job.red_common_path):
         return "I34 a face whose Common path names the team (common/o/): Red discards it, ours migrates it"
     if slot is not None and "is not allowed" in job.red_discarded.get(slot, ""):

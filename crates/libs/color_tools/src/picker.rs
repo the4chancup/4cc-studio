@@ -1,5 +1,4 @@
-//! The suite's color field: a color button opening the picker popup of
-//! `plans/libs/color_tools.md` "Color-picker widget (Phase 8)", drafted in
+//! The suite's color field: a color button opening the picker popup drafted in
 //! `docs/prototypes/tools/save_editor.js` ("The colour picker" section). The button shows the color
 //! (or the live candidate while a swatch is hovered or a drag runs); the popup edits it
 //! through a saturation-value square and a hue strip, a hex field, R/G/B fields, the
@@ -29,8 +28,8 @@ pub struct ColorFieldOutput {
     pub candidate: Option<[u8; 3]>,
 }
 
-/// A color button that opens the suite's picker popup (`plans/libs/color_tools.md`
-/// "Color-picker widget (Phase 8)"). `color` changes only on a finished gesture.
+/// A color button that opens the suite's picker popup. `color` changes only on a
+/// finished gesture.
 pub fn color_field(
     ui: &mut Ui,
     id_salt: impl egui::AsIdSalt,
@@ -226,9 +225,9 @@ fn hsva_of(rgb: [u8; 3]) -> Hsva {
     Hsva { h, s, v, a: 1.0 }
 }
 
-/// The working hsv as `[u8; 3]` sRGB, in the plan's "HSV over sRGB values" (the draft's
-/// `hsvToRgb`): the formula's output used as the sRGB value, not re-encoded, so a pick
-/// equals the color the gradients show, which a renderer interpolates as sRGB.
+/// The working hsv as `[u8; 3]` sRGB, as the draft's `hsvToRgb` computes it: HSV taken
+/// over sRGB values, the formula's output used as the sRGB value, not re-encoded. So a
+/// pick equals the color the gradients show, which a renderer interpolates as sRGB.
 fn rgb_of(hsva: Hsva) -> [u8; 3] {
     let [r, g, b] = egui::ecolor::rgb_from_hsv((hsva.h, hsva.s, hsva.v));
     [channel(r), channel(g), channel(b)]
@@ -507,11 +506,10 @@ fn swatch_row(
 
 /// The popup's contents, top to bottom as the draft lays them out: the square and the
 /// strip, the hex field, the R/G/B fields, the host's suggestions, the session's recents.
-/// The gesture rule (`plans/libs/color_tools.md` "Color-picker widget (Phase 8)"): a press
-/// on the square, the strip or an R/G/B field previews while held and commits once on
-/// release; a typed value, a committed hex text and a swatch click are one change each. A
-/// swatch click also closes the popup (`popup_id`); the square, the strip and the fields
-/// keep it open, being the fine-tuning path.
+/// The gesture rule: a press on the square, the strip or an R/G/B field previews while
+/// held and commits once on release. A typed value, a committed hex text and a swatch
+/// click are one change each. A swatch click also closes the popup (`popup_id`); the
+/// square, the strip and the fields keep it open, being the fine-tuning path.
 fn popup_body(
     ui: &mut Ui,
     popup_id: egui::Id,

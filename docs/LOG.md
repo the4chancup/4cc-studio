@@ -2689,3 +2689,5 @@ worklog passed 7,000 lines.
   button) order, new names are checked at entry, the `pause`, `end`, `every` and `match` forms stop losing or breaking values.
 - **2026-10-27** — 0.0.1q/q4 built-window checks: the place, the 200% monitor, close maximized and the simulated off-monitor
   record all reopen as specified; a maximized reopen shows two blips under one frame each (QUESTIONS asks if they flicker).
+- **2026-10-27** — 0.0.1cm1: the config files, scripts, `crates/dev`, `studio` and twelve libs' comments stand on their own
+  (257 rewritten, comment lines only); `comment_refs.py` also catches bare and letter step tags and `mutants-diff` commits.

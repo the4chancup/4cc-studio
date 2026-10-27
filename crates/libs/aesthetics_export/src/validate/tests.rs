@@ -249,7 +249,7 @@ fn two_textures_sharing_a_stem_drop_the_folder() {
 #[test]
 fn a_subfolder_s_texture_shares_no_stem_with_the_root_s() {
     // A subfolder is a folder of its own: its `hair.dds` is looked up beside its models first,
-    // so it is no second `hair` of the root's (`player_folders.md` "Subfolders").
+    // so it is no second `hair` of the root's.
     let report = report(
         "egg Midcup",
         &[

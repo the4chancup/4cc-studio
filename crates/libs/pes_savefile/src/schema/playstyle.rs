@@ -1,4 +1,4 @@
-//! The per-version playing-style lists (plan: `pes_savefile/operations.md`,
+//! The per-version playing-style lists (`spec/pes_savefile/operations.md`
 //! "Cross-version player conversion"). The stored `u8` indexes the list of the
 //! version's group; `None` marks a hole no style occupies (PES 15/16's 16).
 

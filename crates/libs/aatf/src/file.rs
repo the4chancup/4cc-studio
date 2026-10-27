@@ -79,7 +79,7 @@ pub struct FileSections {
     pub logic: Option<String>,
     /// The CUSTOM CHECKS section, banner included, to the end; `None`
     /// without one, and `None` when it is the empty stub every assembled
-    /// file without checks carries (the plan: the stub counts as none).
+    /// file without checks carries: the stub counts as no checks.
     pub custom_checks: Option<String>,
 }
 

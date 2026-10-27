@@ -1,4 +1,4 @@
-//! Finds the mutants `cargo-mutants` never makes (worklog 5.0b): `if` guards dropped by
+//! Finds the mutants `cargo-mutants` never makes: `if` guards dropped by
 //! replacing the condition with `false`, elements removed from the literal lists a
 //! `matches!` or a separator method decides by, `.trim()`-style calls stripped,
 //! in-place ordering statements deleted and `true`/`false` arguments flipped.
@@ -15,7 +15,7 @@ use syn::{
     ImplItemFn, Item, ItemFn, Lit, Pat, PatOr, Stmt, Token, TraitItemFn,
 };
 
-/// The method names whose receiver or arguments decide by a literal list (worklog 5.0b).
+/// The method names whose receiver or arguments decide by a literal list.
 const LIST_METHODS: &[&str] = &[
     "split",
     "rsplit",

@@ -1,7 +1,7 @@
 //! The label tables `team.toml` writes where the record stores a number or a
 //! bit: `(key, ["false" label, "true" label])` pairs for the style switches,
 //! index tables for positions, instructions, ratings, styles, skills and COM
-//! styles. Pure data; the player tables are defined here for 2.17h-3.
+//! styles. Pure data.
 
 /// `[tactics.preset_N.style]`: `(key, [false label, true label])` in emit order.
 pub const STYLE_SWITCHES: [(&str, [&str; 2]); 7] = [
@@ -306,8 +306,9 @@ mod tests {
 
     #[test]
     fn labels_are_snake_case_or_the_uppercase_short_forms() {
-        // Positions ("GK") and the ratings' letter grades are uppercase by the
-        // plan's own TOML block; everything else is snake_case.
+        // Positions ("GK") and the ratings' letter grades are uppercase in the
+        // TOML block of `spec/pes_savefile/operations.md` "Team TOML";
+        // everything else is snake_case.
         for label in INSTRUCTIONS
             .iter()
             .chain(PLAY_STYLES.iter())

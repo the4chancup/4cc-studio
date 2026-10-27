@@ -1,7 +1,7 @@
 //! The per-version player skeletons: the games' own `.skl` files, embedded and parsed once at
-//! first use. Each version's skeleton differs (bone counts and rest poses — see the plan's
-//! "Skeleton data"), so importers and retargeting always go through [`skeletons`] rather than
-//! assuming one skeleton.
+//! first use. Each version's skeleton differs in bone count and rest poses
+//! (`spec/model_conversion/conversion.md` "Skeleton data"), so importers and retargeting always
+//! go through [`skeletons`] rather than assuming one skeleton.
 //!
 //! Two hierarchies exist side by side: `skl_parent` is the `.skl` file's own parent column,
 //! which makes almost every `dsk_*` bone a root; `render_parent` is the transcribed hierarchy
@@ -144,9 +144,9 @@ pub(crate) fn version_bone<'a>(tables: &'a VersionSkeletons, name: &str) -> Opti
 }
 
 /// `version_bone` with the hand tables first: the conforming lookup for a model carrying
-/// `skh_` weights — shared wrist/forearm names sit at a different pose in `hand_*` than
-/// in `body` (conversion.md, "Hands and face conform ... against the target's `hand_*`
-/// tables"). On versions where the tables agree this returns the same bone either way.
+/// `skh_` weights. Such a model conforms to the target's `hand_*` tables, and shared
+/// wrist/forearm names sit at a different pose in `hand_*` than in `body`. On versions
+/// where the tables agree this returns the same bone either way.
 pub(crate) fn version_bone_hand_first<'a>(
     tables: &'a VersionSkeletons,
     name: &str,
@@ -172,7 +172,7 @@ pub(crate) fn is_standard(name: &str) -> bool {
 
 /// Whether `name` is a face bone (`skf_*`): posed per face (the base face table moved by the
 /// player's own face diff), so no shared table is a reference for it. It keeps the model's own
-/// matrix through conformance, as a custom bone does (`conversion.md` item 4).
+/// matrix through conformance, as a custom bone does.
 pub(crate) fn is_face_bone(name: &str) -> bool {
     name.starts_with("skf_")
 }

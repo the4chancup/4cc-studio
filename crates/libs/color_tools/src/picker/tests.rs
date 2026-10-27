@@ -390,8 +390,7 @@ fn format_hex_is_upper_case_rrggbb() {
     assert_eq!(format_hex([255, 130, 0]), "#FF8200");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a committed hex text is
-// one change.
+// A committed hex text is one change.
 #[test]
 fn hex_text_committed_with_enter_is_one_change() {
     let mut window = Headless::new();
@@ -412,8 +411,7 @@ fn hex_text_committed_with_enter_is_one_change() {
     assert!(!out.changed, "changed fires on the commit frame only");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the `#` is optional and
-// the field commits on focus loss.
+// The `#` is optional, and the field commits on focus loss.
 #[test]
 fn hex_text_without_hash_commits_on_focus_loss() {
     let mut window = Headless::new();
@@ -431,9 +429,8 @@ fn hex_text_without_hash_commits_on_focus_loss() {
     assert!(!out.changed, "changed fires on the commit frame only");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a parseable text commits
-// whenever the field loses focus, the popup closing included; the field's own
-// button closing it is not an exception.
+// A parseable text commits whenever the field loses focus, the popup closing included.
+// The field's own button closing it is not an exception.
 #[test]
 fn a_typed_hex_commits_when_the_button_closes_the_popup() {
     let mut window = Headless::new();
@@ -462,8 +459,7 @@ fn a_typed_hex_commits_when_the_button_closes_the_popup() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a committed R/G/B value
-// is one change; the keystrokes before it change nothing.
+// A committed R/G/B value is one change. The keystrokes before it change nothing.
 #[test]
 fn a_typed_rgb_value_commits_on_enter() {
     let mut window = Headless::new();
@@ -486,8 +482,7 @@ fn a_typed_rgb_value_commits_on_enter() {
     assert!(!out.changed, "changed fires on the commit frame only");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": Tab between the channel
-// fields is one edit: the last focus loss commits all three at once.
+// Tab between the channel fields is one edit: the last focus loss commits all three at once.
 #[test]
 fn tab_between_channels_commits_only_when_the_edit_ends() {
     let mut window = Headless::new();
@@ -512,9 +507,8 @@ fn tab_between_channels_commits_only_when_the_edit_ends() {
     assert_eq!(color, [10, 20, 0], "R's and G's edits both landed");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": typing is not a
-// gesture; a click inside the field being edited moves the caret and commits
-// nothing.
+// Typing is not a gesture. A click inside the field being edited moves the caret and
+// commits nothing.
 #[test]
 fn a_click_inside_a_typed_channel_moves_the_caret_without_a_commit() {
     let mut window = Headless::new();
@@ -537,8 +531,8 @@ fn a_click_inside_a_typed_channel_moves_the_caret_without_a_commit() {
     assert_eq!(color, [200, 0, 0], "the typed channel committed");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a press on another text
-// field settles a pending text first, then the new field takes the focus.
+// A press on another text field settles a pending text first, then the new field takes
+// the focus.
 #[test]
 fn a_press_on_another_text_field_commits_the_pending_text() {
     let mut window = Headless::new();
@@ -562,8 +556,8 @@ fn a_press_on_another_text_field_commits_the_pending_text() {
     assert_eq!(color[0], 9, "the R channel took the keystroke: {color:?}");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a press on a gradient
-// settles a pending text first, then a tap commits the tap's own color.
+// A press on a gradient settles a pending text first, then a tap commits the tap's own
+// color.
 #[test]
 fn a_typed_hex_then_a_one_frame_tap_on_the_strip() {
     let mut window = Headless::new();
@@ -593,8 +587,7 @@ fn a_typed_hex_then_a_one_frame_tap_on_the_strip() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a typed value commits at
-// the press, then the swatch's own commit lands on its release.
+// A typed value commits at the press, then the swatch's own commit lands on its release.
 #[test]
 fn a_swatch_click_after_typing_commits_the_text_then_the_swatch() {
     let mut window = Headless::new();
@@ -626,9 +619,8 @@ fn a_swatch_click_after_typing_commits_the_text_then_the_swatch() {
     assert_eq!(color, [17, 34, 51], "the swatch's color won");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a swatch click while
-// the hex field holds a pending text settles the text first, then the swatch
-// commits and the popup closes with it.
+// A swatch click while the hex field holds a pending text settles the text first. Then
+// the swatch commits and the popup closes with it.
 #[test]
 fn a_swatch_click_with_a_pending_hex_commits_the_swatch_and_closes() {
     let mut window = Headless::new();
@@ -661,8 +653,7 @@ fn a_swatch_click_with_a_pending_hex_commits_the_swatch_and_closes() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a drag on an R/G/B
-// field is a candidate while it lasts and one change when released.
+// A drag on an R/G/B field is a candidate while it lasts and one change when released.
 #[test]
 fn a_drag_on_an_rgb_field_is_one_change() {
     let mut window = Headless::new();
@@ -706,9 +697,8 @@ fn a_drag_on_an_rgb_field_is_one_change() {
     assert_eq!(out.candidate, None);
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": any close but Escape
-// commits a parseable typed text, hex or R/G/B; the field's own button closing it
-// is not an exception.
+// Any close but Escape commits a parseable typed text, hex or R/G/B. The field's own
+// button closing it is not an exception.
 #[test]
 fn a_typed_channel_commits_when_the_button_closes_the_popup() {
     let mut window = Headless::new();
@@ -729,9 +719,8 @@ fn a_typed_channel_commits_when_the_button_closes_the_popup() {
     assert!(!out.changed, "the commit fires once");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on the square
-// is a gesture too, however short; a text naming the current color has nothing to
-// reset and must not wipe the click.
+// A click on the square is a gesture too, however short. A text naming the current color
+// has nothing to reset and must not wipe the click.
 #[test]
 fn a_square_click_after_focusing_the_hex_commits_the_point() {
     let mut window = Headless::new();
@@ -759,8 +748,7 @@ fn a_square_click_after_focusing_the_hex_commits_the_point() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the same for an R/G/B
-// field focused before the click.
+// The same for an R/G/B field focused before the click.
 #[test]
 fn a_square_click_after_focusing_a_channel_field_commits_the_point() {
     let mut window = Headless::new();
@@ -782,8 +770,7 @@ fn a_square_click_after_focusing_a_channel_field_commits_the_point() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a text that does not
-// read as `#RRGGBB` is put back when the field loses focus.
+// A text that does not read as `#RRGGBB` is put back when the field loses focus.
 #[test]
 fn invalid_hex_text_is_put_back_on_focus_loss() {
     let mut window = Headless::new();
@@ -805,9 +792,8 @@ fn invalid_hex_text_is_put_back_on_focus_loss() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": closing on another color
-// joins the session's recent colors, shared by every picker; a swatch click is one
-// change.
+// Closing on another color joins the session's recent colors, shared by every picker. A
+// swatch click is one change.
 #[test]
 fn a_second_field_shares_the_firsts_recent_colors() {
     let mut window = Headless::new();
@@ -846,8 +832,8 @@ fn a_second_field_shares_the_firsts_recent_colors() {
     assert!(!out_b.changed, "changed fires on the click frame only");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a color joins the
-// recents only when the popup closes on a color other than the one it opened on.
+// A color joins the recents only when the popup closes on a color other than the one it
+// opened on.
 #[test]
 fn closing_unchanged_adds_no_recent() {
     let mut window = Headless::new();
@@ -883,8 +869,8 @@ fn closing_unchanged_adds_no_recent() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": any close but Escape
-// commits a parseable typed text, including a close that lands between frames.
+// Any close but Escape commits a parseable typed text, including a close that lands
+// between frames.
 #[test]
 fn a_typed_hex_commits_when_the_popup_closes_between_frames() {
     let mut window = Headless::new();
@@ -920,8 +906,7 @@ fn a_typed_hex_commits_when_the_popup_closes_between_frames() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the same for a typed
-// R, G or B value.
+// The same for a typed R, G or B value.
 #[test]
 fn a_typed_channel_commits_when_the_popup_closes_between_frames() {
     let mut window = Headless::new();
@@ -954,8 +939,7 @@ fn a_typed_channel_commits_when_the_popup_closes_between_frames() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a color joins the
-// recents when the popup closes, not when the gesture commits.
+// A color joins the recents when the popup closes, not when the gesture commits.
 #[test]
 fn a_commit_joins_the_recents_only_on_close() {
     let mut window = Headless::new();
@@ -991,9 +975,8 @@ fn a_commit_joins_the_recents_only_on_close() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on a recent
-// swatch commits its color and closes the popup, and the close joins the swatch's
-// color to the front of the recents.
+// A click on a recent swatch commits its color and closes the popup. The close puts the
+// swatch's color at the front of the recents.
 #[test]
 fn a_recent_swatch_click_commits_and_closes_the_popup() {
     let mut window = Headless::new();
@@ -1041,8 +1024,7 @@ fn a_recent_swatch_click_commits_and_closes_the_popup() {
     window.field(&mut color, &[], key(egui::Key::Escape));
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the recents are the
-// session's, shared by every picker in the program.
+// The recents are the session's, shared by every picker in the program.
 #[test]
 fn a_sibling_field_close_pushes_the_color_to_the_shared_recents() {
     let mut window = Headless::new();
@@ -1092,9 +1074,8 @@ fn a_sibling_field_close_pushes_the_color_to_the_shared_recents() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the host owns the
-// color; its own edits (an undo) are not picks, so the popup follows and nothing
-// joins the recents.
+// The host owns the color. Its own edits, such as an undo, are not picks, so the popup
+// follows and nothing joins the recents.
 #[test]
 fn a_host_change_reseeds_the_open_popup_and_is_not_a_pick() {
     let mut window = Headless::new();
@@ -1123,9 +1104,8 @@ fn a_host_change_reseeds_the_open_popup_and_is_not_a_pick() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the host's rounding of
-// the widget's own commit (the Save editor's 6 bits), arriving the next frame, is
-// that commit, which still joins the recents on close.
+// The host's rounding of the widget's own commit (the Save editor's 6 bits) arrives the
+// next frame. It is still that commit, so it joins the recents on close.
 #[test]
 fn the_hosts_rounding_of_a_commit_still_joins_the_recents() {
     let mut window = Headless::new();
@@ -1156,8 +1136,7 @@ fn the_hosts_rounding_of_a_commit_still_joins_the_recents() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a hovered swatch is a
-// hover candidate for the host's live preview, not a change.
+// A hovered swatch is a hover candidate for the host's live preview, not a change.
 #[test]
 fn hovering_a_swatch_previews_it_without_committing() {
     let mut window = Headless::new();
@@ -1202,8 +1181,7 @@ fn hovering_a_swatch_previews_it_without_committing() {
     assert!(!out.changed && color == [68, 85, 102]);
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a drag in the square is
-// a candidate while it lasts and one change when released.
+// A drag in the square is a candidate while it lasts and one change when released.
 #[test]
 fn a_drag_on_the_square_is_one_change() {
     let mut window = Headless::new();
@@ -1250,8 +1228,7 @@ fn a_drag_on_the_square_is_one_change() {
     assert_eq!(out.candidate, None);
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a drag on the hue strip
-// is a candidate while it lasts and one change when released.
+// A drag on the hue strip is a candidate while it lasts and one change when released.
 #[test]
 fn a_drag_on_the_hue_strip_is_one_change() {
     let mut window = Headless::new();
@@ -1301,8 +1278,7 @@ fn a_drag_on_the_hue_strip_is_one_change() {
     assert!(!out.changed, "no repeat on the idle frame");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": Escape cancels a running
-// gesture: the dragged candidate never lands.
+// Escape cancels a running gesture: the dragged candidate never lands.
 #[test]
 fn escape_during_a_square_drag_cancels_it() {
     let mut window = Headless::new();
@@ -1326,8 +1302,7 @@ fn escape_during_a_square_drag_cancels_it() {
     assert_eq!(color, [255, 128, 0], "the dragged candidate was dropped");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": Escape cancels the edit
-// instead; a typed text is discarded, not committed.
+// Escape cancels the edit instead: a typed text is discarded, not committed.
 #[test]
 fn escape_discards_a_typed_hex() {
     let mut window = Headless::new();
@@ -1353,8 +1328,7 @@ fn escape_discards_a_typed_hex() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the same for a typed
-// channel value.
+// The same for a typed channel value.
 #[test]
 fn escape_discards_a_typed_channel() {
     let mut window = Headless::new();
@@ -1380,8 +1354,7 @@ fn escape_discards_a_typed_channel() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the same for a drag on
-// the hue strip.
+// The same for a drag on the hue strip.
 #[test]
 fn escape_during_a_strip_drag_cancels_it() {
     let mut window = Headless::new();
@@ -1404,8 +1377,7 @@ fn escape_during_a_strip_drag_cancels_it() {
     assert_eq!(color, [255, 128, 0], "the dragged candidate was dropped");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on the square
-// or the slider is a gesture too, however short.
+// A click on the square or the slider is a gesture too, however short.
 #[test]
 fn a_one_frame_click_on_the_square_commits() {
     let mut window = Headless::new();
@@ -1439,8 +1411,7 @@ fn a_one_frame_click_on_the_square_commits() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on the square
-// or the slider is a gesture too, however short.
+// A click on the square or the slider is a gesture too, however short.
 #[test]
 fn a_one_frame_click_on_the_strip_commits() {
     let mut window = Headless::new();
@@ -1470,8 +1441,7 @@ fn a_one_frame_click_on_the_strip_commits() {
     assert!(!out.changed, "no repeat on the idle frame");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a drag only previews
-// while it lasts; a held press commits nothing until its release.
+// A drag only previews while it lasts: a held press commits nothing until its release.
 #[test]
 fn a_held_press_after_focusing_the_hex_commits_nothing_until_release() {
     let mut window = Headless::new();
@@ -1496,8 +1466,7 @@ fn a_held_press_after_focusing_the_hex_commits_nothing_until_release() {
     assert_ne!(color, [255, 128, 0], "the release's color committed");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": and on a hueless color
-// the working hue survives a held press, not just a release.
+// On a hueless color, the working hue survives a held press, not just a release.
 #[test]
 fn a_held_press_on_gray_keeps_the_hue_chosen_on_the_strip() {
     let mut window = Headless::new();
@@ -1539,9 +1508,8 @@ fn a_held_press_on_gray_keeps_the_hue_chosen_on_the_strip() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a press on the square
-// or the strip commits the pending text first, then the gesture runs and ends on
-// the dragged color.
+// A press on the square or the strip commits the pending text first. Then the gesture
+// runs and ends on the dragged color.
 #[test]
 fn a_drag_after_focusing_the_hex_ends_on_the_dragged_color() {
     let mut window = Headless::new();
@@ -1583,8 +1551,7 @@ fn a_drag_after_focusing_the_hex_ends_on_the_dragged_color() {
     assert!(!out.changed, "closing changes nothing further");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a typed text commits at
-// the press, then the gesture's release commits again.
+// A typed text commits at the press, then the gesture's release commits again.
 #[test]
 fn a_drag_after_a_typed_hex_commits_the_text_then_the_drag() {
     let mut window = Headless::new();
@@ -1624,10 +1591,9 @@ fn press_and_drag_on_the_square(
     assert_ne!(*color, typed, "the dragged color won");
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the window losing
-// focus mid-edit (an Alt+Tab) is not the field's focus loss: the press still
-// settles the typed text, then the drag runs — the same outputs as the sequence
-// with no unfocused frame.
+// The window losing focus mid-edit (an Alt+Tab) is not the field's focus loss. The
+// press still settles the typed text, then the drag runs: the same outputs as the
+// sequence with no unfocused frame.
 #[test]
 fn a_drag_after_a_typed_hex_through_a_window_focus_loss() {
     let mut window = Headless::new();
@@ -1646,8 +1612,7 @@ fn a_drag_after_a_typed_hex_through_a_window_focus_loss() {
     press_and_drag_on_the_square(&mut window, &mut color, &nodes, [0, 255, 0]);
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the same for a
-// typed channel value through the window's focus loss.
+// The same for a typed channel value through the window's focus loss.
 #[test]
 fn a_drag_after_a_typed_channel_through_a_window_focus_loss() {
     let mut window = Headless::new();
@@ -1666,8 +1631,7 @@ fn a_drag_after_a_typed_channel_through_a_window_focus_loss() {
     press_and_drag_on_the_square(&mut window, &mut color, &nodes, [10, 0, 0]);
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the working hue
-// survives a gesture on white, gray or black, whose RGB holds no hue.
+// The working hue survives a gesture on white, gray or black, whose RGB holds no hue.
 #[test]
 fn a_hue_chosen_on_a_hueless_color_survives_for_the_square() {
     let mut window = Headless::new();
@@ -1736,8 +1700,7 @@ fn a_hue_chosen_on_a_hueless_color_survives_for_the_square() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the recent colors row
-// keeps at most eight.
+// The recent colors row keeps at most eight.
 #[test]
 fn nine_commits_leave_eight_recent_swatches() {
     let mut window = Headless::new();
@@ -1763,8 +1726,7 @@ fn nine_commits_leave_eight_recent_swatches() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a typed text commits on
-// an outside click too, and the closed color joins the recents.
+// A typed text commits on an outside click too, and the closed color joins the recents.
 #[test]
 fn an_outside_click_commits_the_typed_text_and_joins_recents() {
     let mut window = Headless::new();
@@ -1796,8 +1758,7 @@ fn an_outside_click_commits_the_typed_text_and_joins_recents() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": Escape or a click
-// outside closes the popup.
+// Escape or a click outside closes the popup.
 #[test]
 fn escape_and_an_outside_click_each_close_the_popup() {
     let mut window = Headless::new();
@@ -1835,8 +1796,7 @@ fn escape_and_an_outside_click_each_close_the_popup() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the host's suggestion
-// swatches, shown only when it passes some.
+// The host's suggestion swatches are shown only when it passes some.
 #[test]
 fn the_suggestion_row_shows_only_when_the_host_passes_some() {
     let mut window = Headless::new();
@@ -1862,8 +1822,7 @@ fn the_suggestion_row_shows_only_when_the_host_passes_some() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on a
-// suggestion swatch commits its color and closes the popup, like a recent.
+// A click on a suggestion swatch commits its color and closes the popup, like a recent.
 #[test]
 fn a_suggestion_swatch_click_commits_and_closes_the_popup() {
     let mut window = Headless::new();
@@ -1912,8 +1871,8 @@ fn recents_keep_the_eight_newest_without_duplicates() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the popup holds egui's
-// saturation-value square and hue strip, opaque, and the swatch rows.
+// The popup holds egui's saturation-value square and hue strip, opaque, and the swatch
+// rows.
 #[test]
 fn the_painted_shapes_match_the_working_color() {
     let mut window = Headless::new();
@@ -2019,8 +1978,7 @@ fn the_painted_shapes_match_the_working_color() {
     );
 }
 
-// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the gradients show the
-// color a click there picks (HSV over sRGB).
+// The gradients show the color a click there picks, HSV being taken over sRGB values.
 #[test]
 fn a_click_inside_the_gradients_picks_the_shown_color() {
     let mut window = Headless::new();

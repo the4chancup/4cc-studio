@@ -8,7 +8,7 @@
 //! finished container bytes (a DDS for PES 15-17, an FTEX for PES 18-21);
 //! [`Converter`] is the session cache in front of both. [`encode_dds`] is
 //! the one exception to choosing by version: a file every engine reads as a
-//! DDS in a codec the plan fixes (a player portrait, BC3) names its codec.
+//! DDS in one fixed codec (a player portrait, BC3) names its codec.
 //! [`probe`] reads a source's size from its header alone, for checks that
 //! must not pay a decode per texture. [`resize`] is the suite's one
 //! resampler (Lanczos3). [`encode_png`] is the one raster the crate writes:
@@ -209,9 +209,10 @@ pub fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertErro
 /// CPU and the encoder stays usable; a failure on the device is logged, makes
 /// `gpu.unavailable()` return its reason, and the mip it happened on and
 /// everything after it (in that texture and in later ones) is encoded on the
-/// CPU. Output bytes may differ from `convert`'s (the plan's
-/// "Reproducibility"), never its container layout, dimensions, mip count or
-/// mips' uncompressed sizes; an FTEX's compressed sizes and total length may.
+/// CPU. Output bytes may differ from `convert`'s, and across GPUs and drivers:
+/// only the CPU encode is byte-reproducible. The container layout, dimensions,
+/// mip count and mips' uncompressed sizes never differ; an FTEX's compressed
+/// sizes and total length may.
 ///
 /// # Errors
 ///
@@ -506,7 +507,7 @@ mod tests {
     /// sacrificed is the encoder's choice, hence worst channel rather than
     /// channel by channel. Per-mip means are not compared: the CPU BC1 core
     /// (PCA plus one refinement pass) trails the reference by about 2.5 on
-    /// the 8x4 mip of a grey ramp (worklog, open issues).
+    /// the 8x4 mip of a grey ramp, a known gap.
     fn assert_not_worse_than_reference(
         label: &str,
         truth: &[Vec<u8>],

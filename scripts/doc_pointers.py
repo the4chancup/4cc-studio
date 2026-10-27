@@ -51,16 +51,15 @@ LIST_MARKER = re.compile(r"^\s*(?:[-*]|\d+\.)\s+")
 BOLD = re.compile(r"\*\*(?P<title>[^*]+?)\*\*")
 LINK = re.compile(r"\]\((?P<target>[^)\s#:]+\.md)(?:#[^)]*)?\)")
 SKIPPED = {"docs/DECISIONS.md", "docs/LOG.md"}
-# Phase 6 closed (2026-10-20) and moved its sections.
+# The plans code may still point at: each holds sections already built whose phase is still
+# open, and they move to the spec when it closes.
 OPEN_PHASE_PLANS = {
-    # `libs/music_export` is built ahead of Phase 10 (worklog 10.0); its format section moves
-    # to the spec when that phase closes.
+    # `libs/music_export` is built ahead of the Music player; its format section is here.
     "docs/plans/music_player.md",
-    # Phase 8 (open): `color_tools`' picker widget (worklog 8.7b) and the Save editor's
-    # `team_widgets` (8.8).
+    # `color_tools`' picker widget and the Save editor's `team_widgets`.
     "docs/plans/libs/color_tools.md",
     "docs/plans/save_editor.md",
-    # Phase 20 (open): the Ruleset editor, built from its plan (worklog 20.5 onward).
+    # The Ruleset editor.
     "docs/plans/ruleset_editor.md",
 }
 

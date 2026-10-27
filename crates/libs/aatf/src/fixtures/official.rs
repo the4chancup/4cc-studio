@@ -1379,8 +1379,9 @@ fn nothing_is_suggested_for_an_allowance_not_listed() {
     }
 }
 
-/// A medal's free COM style is a trade (DECISIONS 2026-10-21 D1), so one
-/// who holds neither a COM style nor an extra A position is told of the
+/// A medal's free COM style can be traded for a free extra A position.
+/// Neither exists until taken, so one who holds neither a COM style nor an
+/// extra A position would hear nothing; instead he is told of the
 /// trade he leaves: the bronze (slot 9) without his COM style, and the
 /// gold (slot 2) keeping one COM style of two and no extra A position,
 /// for his second trade.

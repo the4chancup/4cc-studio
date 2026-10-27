@@ -50,7 +50,7 @@ kit_back = gradient(128, 64, alpha=False)
 put("kit_back.tga", lambda path: kit_back.save(path, format="TGA", rle=False))
 put("bc7.dds", lambda path: shutil.copyfile(BC7_SOURCE, path))
 
-# Step 4.6b: portraits in raster formats, the sizes the conversion refuses, and a codec
+# Portraits in raster formats, the sizes the conversion refuses, and a codec
 # `dds_convert` cannot decode.
 portrait = gradient(128, 128, alpha=False)
 put("portrait.png", lambda path: portrait.save(path, format="PNG"))

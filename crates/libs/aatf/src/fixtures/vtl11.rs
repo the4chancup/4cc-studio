@@ -899,8 +899,9 @@ fn card_limits_name_the_economy() {
     // shows) and `max_a_positions` unset — plus `tier_values`' weak
     // foot. Slots: 9 for the gold (the playing-style bonus is a stat
     // bonus and changes none of these numbers), 5 the silver, 14 the
-    // regular, 3 the buffed. The plan ("Background") names no number for
-    // these fields; the values are the file's.
+    // regular, 3 the buffed. The values are the ones the ruleset file
+    // holds: `spec/aatf_rules.md` "Background" names no number for these
+    // fields.
     assert_economy(
         &rules,
         &team,

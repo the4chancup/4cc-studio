@@ -11,9 +11,9 @@ use crate::team::{PlayerView, TeamView};
 
 /// The most operations one script run may take: the official ruleset's
 /// `check_team` on the sample team costs about 600 000 operations
-/// (measured 2026-10-15, `rules.rs`), and the plan sets a tenfold margin,
-/// which that file's test keeps honest. A script that loops forever
-/// stops here with a script error, never a hang.
+/// (measured by a test in `rules.rs`), and the limit leaves a tenfold
+/// margin over that, which the same test keeps honest. A script that
+/// loops forever stops here with a script error, never a hang.
 pub(crate) const MAX_OPERATIONS: u64 = 10_000_000;
 
 /// A script error naming `message`.

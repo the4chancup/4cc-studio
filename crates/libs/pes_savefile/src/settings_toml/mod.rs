@@ -1090,8 +1090,8 @@ impl PlayerSettings {
 
     /// Applies an `fpc` preset's strip keys and skin, mapped as
     /// `ops::fpc::apply` maps them onto a savefile player, the preset's boots
-    /// and gloves IDs aside: an export resolves those itself (the numbered
-    /// list of `aesthetics_export/settings_toml.md`). Returns the dotted key
+    /// and gloves IDs aside: an export resolves those itself, from its own
+    /// models, a numeric key or its FPC marker. Returns the dotted key
     /// of each the file had set to another value, for the Team compiler's
     /// `fpc_strip_conflict`: `skin_color` only when a `SkinColor::Preset`
     /// preset resets an authored custom skin (7) to 1; any other skin it

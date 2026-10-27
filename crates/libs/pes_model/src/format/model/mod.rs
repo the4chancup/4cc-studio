@@ -10,11 +10,13 @@ use crate::format::{ModelContainer, ModelError, SectionKind};
 mod tests;
 
 /// A `.model` with every pointer resolved: what the file says, in the file's own terms (raw
-/// vertex bytes, u16 face indices), nothing interpreted. `read(write(m)) == m`; the bytes differ
-/// from Konami's (see the plan).
+/// vertex bytes, u16 face indices), nothing interpreted. `read(write(m)) == m`, but the bytes
+/// differ from Konami's, because `write` lays out a fresh file (`spec/libs/format_crates.md`
+/// "pes_model::format: the .model container and its sections").
 #[derive(Debug, Clone, PartialEq)]
 pub struct PreFoxModel {
-    /// The version word the file declared; `write` always emits 19, see the plan.
+    /// The version word the file declared. `write` always emits 19: with its record sizes,
+    /// that is the combination PES 16 and 17 are known to accept.
     pub version: u16,
     /// Header flags word (0; 4 in two face-montage models, meaning unknown).
     pub flags: u32,

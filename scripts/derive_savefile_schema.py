@@ -483,15 +483,16 @@ PLAYER = {
 # The fields the ingame-face run carries (`schema/ingame_face.rs`): they leave the per-version
 # tables and the `PlayerField` enum for `IngameFace` accessors, so no byte has two owners.
 INGAME_FACE_PATHS = ("gloves", "gloves_col", "skin_col", "iris_col")
-# The measured run, byte 22 of the appearance block to the block's end (`model.md`, "The
-# ingame-face run"): the 15/16 appearance record, the player record on 17+.
+# The measured run, byte 22 of the appearance block to the block's end
+# (`spec/pes_savefile/model.md` "The ingame-face run"): the 15/16 appearance record, the
+# player record on 17+.
 EXPECTED_RUN = {15: (22, 46), 16: (22, 50), 17: (138, 50), 18: (138, 50), 19: (138, 50), 20: (262, 50)}
 # Fields the reference itself under-reads, corrected to the stored width the save
-# census measured (2.20i: PES 18 records set bit 297 for 2,808 players where the
-# walk reads only 2 of mo_armd's bits).
+# census measured: PES 18 records set bit 297 for 2,808 players where the walk reads
+# only 2 of mo_armd's bits.
 WIDTH_FIXES = {(18, "mo_armd"): 3}
-# Fields the reference never reads, measured in-game (docs/DECISIONS.md,
-# 2026-10-12 and 2026-10-13), as byte offsets. "man_marking": the first byte of
+# Fields the reference never reads, measured in-game, as byte offsets.
+# "man_marking": the first byte of
 # each preset's eleven-byte man-marking run within a preset block (byte i is own
 # formation slot i's assignment: the marked opponent's formation slot, 0xFF
 # none); the three presets sit one preset_stride apart, and PES 21 shares PES

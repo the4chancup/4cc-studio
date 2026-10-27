@@ -15,9 +15,9 @@ use super::{
     version_bone_hand_first,
 };
 
-/// The moved threshold on a delta matrix's components (`conversion.md` item 3): above
-/// Konami's own PES 17 glove `g101`, 0.0025 off the hand table on three finger bones, and
-/// below the smallest difference between two versions' body tables, 0.0042 (one hem bone,
+/// The moved threshold on a delta matrix's components, past which a bone counts as moved
+/// and its vertices are re-bound. It sits above Konami's own PES 17 glove `g101`, 0.0025
+/// off the hand table on three finger bones, and below the smallest difference between two versions' body tables, 0.0042 (one hem bone,
 /// PES 15 against 17), so the games' own files pass and every version difference is caught.
 pub(crate) const MOVED_TOLERANCE: f32 = 3e-3;
 
@@ -56,8 +56,8 @@ pub fn retarget(
     let tables = skeletons(target);
     let mut findings = Vec::new();
     // A model with `skh_` weights conforms to the `hand_*` tables: shared
-    // wrist/forearm names carry a different pose there than in `body`
-    // (conversion.md "Hands and face"). Existence checks keep `version_bone`.
+    // wrist/forearm names carry a different pose there than in `body`.
+    // Existence checks keep `version_bone`.
     // A face's `skf_*` bones have no conforming bone: they keep their own matrices.
     let hand = crate::ops::hand_split::has_hand_weights(&ir);
     let conforming = |name: &str| -> Option<&PesBone> {

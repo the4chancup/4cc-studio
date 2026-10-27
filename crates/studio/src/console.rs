@@ -1,9 +1,8 @@
 //! The CLI's event and notice printers: each drains its channel on its own thread while a
-//! command runs — events' lines go to stdout, as `studio_core::EventLines` formats them (core
-//! plan, "Event system", "CLI translates events"), notices' texts to stderr (the status bar's
-//! right slot, rendered as lines; `gui.md` "Status bar" "CLI equivalence"). On a terminal
-//! stderr the event printer also draws the run's progress line and leaves its summary (core
-//! plan, "The console's progress line and run summary"); piped, it prints stdout alone.
+//! command runs. Events' lines go to stdout, as `studio_core::EventLines` formats them.
+//! Notices' texts go to stderr: the status bar's right slot, rendered as lines. On a terminal
+//! stderr the event printer also draws the run's progress line and leaves its summary;
+//! piped, it prints stdout alone.
 
 use std::io::{self, IsTerminal, Write};
 use std::thread::JoinHandle;

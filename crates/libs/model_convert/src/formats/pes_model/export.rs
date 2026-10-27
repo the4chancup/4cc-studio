@@ -131,8 +131,8 @@ pub fn ir_to_model(ir: &CanonicalModel) -> Result<ExportedPreFox, ConvertError> 
                 }
             }
             // The `.mtl` schema has no home for the shadow flags' two
-            // engine-only bits (the plan's "Engine mapping" flag rule): the no-shadow
-            // bit is a finding, the invisible bit leaves the material's meshes out.
+            // Fox-only bits. The no-shadow bit is a finding, and the invisible
+            // bit leaves the material's meshes out.
             let mut shadow_flags = fox.shadow_flags;
             if let Some(cast_shadow) = fox.cast_shadow {
                 shadow_flags = if cast_shadow {
