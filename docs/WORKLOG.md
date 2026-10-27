@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 to c3, c4a to c4d and c5 done (c4e, the help's fact audit: c4e1 and c4e2 done, c4e3 open); 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 to c5 done, the help chapters' fact audit (c4e) included, c6 outside its locks; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2187,7 +2187,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         loop's end.
         Table `.tmp/8_29/c3_table.md`. Files: `team_compiler/src/messages{,/catalog}.rs`,
         `export_upgrader/src/messages.rs`
-      - [ ] c4 the Team compiler's CLI output, `--help`, window strings and help chapter, in three
+      - [x] c4 the Team compiler's CLI output, `--help`, window strings and help chapter, in three
         slices (the chapter alone is 862 lines):
         - [x] c4a the CLI's refusals and `--help` (`cli.rs`), the window's strings (`view/mod.rs`,
           `gui_run.rs`): 20 texts rewritten, the tests pinning them following; the lead's three
@@ -2250,7 +2250,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           (side/text worktree). Files: 19 `team_compiler/src/` modules, six `tests/cli/`
           files. The Save editor's `view/portraits.rs` keeps its own "not a CPK the reader
           accepts", for whoever holds that crate
-        - [ ] c4e a fact audit of `help/01_command_line.md` (and the upgrader's) against the
+        - [x] c4e a fact audit of `help/01_command_line.md` (and the upgrader's) against the
           catalog and the spec: c4b's review rounds S1 to S6 found over fifty facts the chapter's first half stated
           narrower, staler or for one engine only, and their last ones need the code read
           (side-lead U's rulings, `.tmp/8_29/rulings.md` "Round S6c4b", routed: pre-Fox
@@ -2309,7 +2309,21 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
             worktree). Files:
             `team_compiler/help/01_command_line.md`, `team_compiler/src/messages/catalog.rs`,
             `spec/team_compiler/{messages,pipeline}.md`
-          - [ ] c4e3 the upgrader's chapter, with S1c5b's four routed items
+          - [x] c4e3 the upgrader's chapter: 12 facts made true, S1c5b's four routed items
+            among them (a report line names a path only for a file or folder, the output's
+            for a check of the output; the referee fold's clash cases; an unnamed `common/`
+            model left out only when the folder folds; exit code 3's other aborts), and `refs`,
+            the coverage words and tags matched in any letter case, a referee export refusing
+            `--coverage`, a roster that is not UTF-8, `Refs list.txt` only without `refs.txt`,
+            `no_old_export` before `refs_txt_missing`, a Team Note entry left unmigrated (the
+            lead retouched one). The spec's report line (`spec/export_upgrader.md` "CLI" and
+            "Acceptance") brought to the code. SWE-2 rounds: S1 9 concerns, 5 accepted (the
+            report's last line for a run that stops at once, the usage line a referee export
+            follows, a second-word tag before the `midcup` guess; the spec's usage line); S2
+            4, 4 (an input of the wrong kind, an unparsable teams list), the loop's end.
+            Tables `.tmp/8_29/c4e3_table.md`, `c4e3_s{1,2}_table.md`, `c4e3_evidence.md`
+            (side/text worktree). Files:
+            `export_upgrader/help/01_command_line.md`, `spec/export_upgrader.md`
       - [x] c5 the Export upgrader, in two slices:
         - [x] c5a its catalog (`messages.rs`): its own rows' two texts and the structure-pass
           rows' effects, whose `when`s stay the Team compiler's word for word: 45 texts

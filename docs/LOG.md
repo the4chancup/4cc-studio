@@ -2579,3 +2579,6 @@ worklog passed 7,000 lines.
 - **2026-10-27** — 8.29c4e2: the Team compiler's help chapter, second half, audited for facts: 33 passages made
   true to the code (the install, the bins, the templates, the save); three catalog rows and two spec passages
   brought to the code.
+- **2026-10-27** — 8.29c4e3: the Export upgrader's help chapter audited for facts: 12 passages made true to the code
+  (the report line's path, the referee fold's clashes, exit code 3's aborts, letter case); the spec's report line
+  brought to the code. 8.29c is done but c6, outside side-lead U's locks.
