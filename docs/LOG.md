@@ -2563,3 +2563,5 @@ worklog passed 7,000 lines.
   (58 texts), the Export upgrader's 13 copies of the structure-pass conditions following word for word.
 - **2026-10-26** — 8.29c4a: the Team compiler's command-line refusals, `--help` and window status lines rewritten as
   sentences that flow (20 texts); the window's settings note now points at the settings menu, which had shipped.
+- **2026-10-27** — 8.29c4b: the first half of the Team compiler's help chapter reread for flow (55 passages, its
+  long sentences split and pronouns named); two `.mtl` search facts brought to the spec.

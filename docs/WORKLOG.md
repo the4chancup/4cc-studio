@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 to c3 and c4a done; 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 to c3, c4a and c4b done; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2199,7 +2199,30 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           (among them the download-folder refusal, which sent a member with the right PES
           folder to change it), the loop's end; `libs/fpc`'s hide-ID refusals keep a
           "key = value: must be" shape, for whoever holds that crate
-        - [ ] c4b `help/01_command_line.md`, its first half (to a paragraph boundary near line 430)
+        - [x] c4b `help/01_command_line.md`, its first half (lines 1-440, to the referees CPK's
+          paragraph): 55 passages rewritten, mostly a semicolon or a stacked colon made a new
+          sentence and a pronoun named (the lead retouched eight and reverted one: a "that name"
+          left without its noun, a face diff that "counts as the player's own" where it counts
+          as a `face_diff.bin`, "an FPC team's own collar"). Two facts brought to the spec
+          (`spec/model_format.md` "Pre-Fox: the `.mtl` a `.model` uses"): a model's `.mtl` is
+          searched in the player's or shared folder holding it, and a `.common` link's search
+          ends in the player's folder. SWE-2 round S1: 14 concerns, 12 accepted (one the rewrite's
+          own: a `.mtl`'s name match said backwards; the others facts the chapter had narrower
+          than the catalog or the code: PES 2015 to 2017's texture codecs, `skl_no_slot`'s and
+          `face_file_not_used`'s scope, `shared_folder_no_model`'s condition, link files in
+          subfolders, which work), 2 nits; S2: 11, 9 accepted (`texture_unreadable`, which the
+          chapter called `folder_pack_failed`, a shared folder one player links taking his own
+          ID, `.jpeg` and `.tiff`, `.common` links never the same as a real file), 2 rejected; S3: 15, 10 accepted (the
+          chapter's opening still said `compile` builds PES 2018 to 2021 only, a `logo_small`
+          alone builds no logo, a plain `Faces` link reports nothing), 2 nits, 3 rejected; S4: 7,
+          5 accepted (among them an unlisted `.model` said to be kept), 2 nits; S5: 10, 7 accepted
+          (pre-Fox and Fox rules told as one: the `.common` model link, the bundled `.fclo`, a
+          `face_diff.xml`'s packing; the referee kits' bins CPK under `multicpk_mode`); S6: 18,
+          8 accepted, 4 nits, 2 rejected, 4 routed to c4e; S7 (scoped to the slice's flow and its
+          own fixes): 7, 4 accepted, the loop's end.
+          Tables `.tmp/8_29/c4b_table.md` and `c4b_s{1,...,7}_table.md`, checked against the diff by `.tmp/8_29/prose_table_check.py`
+          (side/text worktree). Files:
+          `team_compiler/help/01_command_line.md`
         - [ ] c4c `help/01_command_line.md`, its second half; the catalog slices' notes on its
           prose (lines 177, 217, 513, 563, 589, 602, 707, 727, 740, 855: wording the catalog
           now says differently) are in side-lead U's notes file
@@ -2207,6 +2230,13 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           `bail!` texts of `upgrade.rs`, `compile.rs` and the like, printed as `error: ...`
           beside the refusals c4a rewrote (`{}: cannot rename {from} to it: the file already
           exists`; review S1c4a-9)
+        - [ ] c4e a fact audit of `help/01_command_line.md` against the catalog and the spec:
+          c4b's review rounds S1 to S6 found over fifty facts the chapter's first half stated
+          narrower, staler or for one engine only, and their last ones need the code read
+          (side-lead U's rulings, `.tmp/8_29/rulings.md` "Round S6c4b", routed: pre-Fox
+          `Common` subfolders, a shared folder's subfolder rules, the PES 2021 skeleton default's
+          reason, the pre-Fox merge twin of `fmdl_merged`, how a `.skl` is packed); the second
+          half (c4c) likely holds as many
       - [ ] c5 the Export upgrader's catalog (its own `effect`s and rows), `cli.rs` and
         `help/01_command_line.md`
       - [ ] c6 the injected comments: they live in `pes_savefile` (`settings_toml/`, the
