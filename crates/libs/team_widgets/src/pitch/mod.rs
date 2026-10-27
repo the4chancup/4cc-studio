@@ -269,11 +269,18 @@ pub fn pitch(
             responses[index] = Some(marker(ui, canvas, version, tactics, view, roster, spot));
         }
         // A drop hits the topmost marker first (the draft's `hitMarker`
-        // checks back to front); the canvas' own is the grass.
+        // checks back to front); the canvas' own is the grass. egui
+        // reports a release to the closest widget within its 5-point
+        // search radius, not only the one under the pointer, so a marker
+        // is the target only when the release is inside his box.
+        let release = ui.ctx().pointer_interact_pos();
         let mut dropped = None;
         for index in order.iter().rev() {
+            let under =
+                release.is_some_and(|pos| marker_rect(centres[*index], canvas).contains(pos));
             if let Some(payload) = responses[*index]
                 .as_ref()
+                .filter(|_| under)
                 .and_then(|response| response.dnd_release_payload::<LineupDrag>())
             {
                 dropped = Some((Some(*index), *payload));

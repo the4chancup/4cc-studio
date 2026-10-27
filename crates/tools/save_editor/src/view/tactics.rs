@@ -83,7 +83,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 .map(|player| player.id)
         })
         .collect();
-    let textures = portraits.textures(ui.ctx(), version, &player_ids);
+    let textures = portraits.textures(ui.ctx(), &player_ids);
     // The badges' medal letters: `player_tier` per roster slot under the
     // active ruleset, once per `MedalKey` (the open save's revision, the
     // team, the rules file) as the Cards left badge is — not every

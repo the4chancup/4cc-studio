@@ -38,23 +38,26 @@ fn placeholder_file(version: PesVersion) -> (&'static str, &'static [u8]) {
     }
 }
 
-/// The portrait source's state: the selection `select` last pointed it at, its worker, the
-/// players' answered textures (`resolved`), the asks still out (`pending`) and the bundled
-/// placeholder's uploaded texture (`placeholder`).
+/// The portrait source's state: the folder and the version `select` last pointed it at, its
+/// worker, the players' answered textures (`resolved`), the asks still out (`pending`) and the
+/// bundled placeholder's uploaded texture (`placeholder`).
 #[derive(Default)]
 pub(crate) struct Portraits {
-    /// What `select` last pointed the source at (the PES folder and the version), `None` for
-    /// "no game": an empty setting is no folder.
-    selection: Option<(PathBuf, PesVersion)>,
-    /// The selection's reading thread, `None` when there is no selection.
+    /// The PES folder `select` last pointed the source at, `None` for "no folder": an empty
+    /// setting is no folder.
+    folder: Option<PathBuf>,
+    /// The game `select` was last given (the sidebar's PES), held whether or not a folder is
+    /// set or readable: the placeholder is its. `None` before the first `select`.
+    version: Option<PesVersion>,
+    /// The folder's reading thread, `None` when there is no folder.
     worker: Option<Worker>,
     /// The ids the worker answered: `Some`'s uploaded texture, `None` a portrait absent from
     /// the CPKs or undecodable (asked once, never again).
     resolved: HashMap<u32, Option<egui::TextureHandle>>,
     /// The ids asked of the worker, not answered yet.
     pending: HashSet<u32>,
-    /// The placeholder's texture for the version `textures` was last asked for, decoded and
-    /// uploaded once per version (`placeholder_file`).
+    /// The placeholder's texture for the version it was last drawn for, decoded and uploaded
+    /// once per version (`placeholder_file`).
     placeholder: Option<(PesVersion, egui::TextureHandle)>,
     /// The images the worker decoded, kept for the tests' pixel checks only.
     #[cfg(test)]
@@ -94,42 +97,36 @@ impl Portraits {
 
     /// Points the source at `pes_folder` for `version` (the sidebar's PES and the PES folder
     /// setting, each frame); a change drops the current worker and its textures and starts a
-    /// new one.
+    /// new one when a folder is set.
     pub(crate) fn select(&mut self, ctx: &egui::Context, pes_folder: &Path, version: PesVersion) {
-        let wanted = (!pes_folder.as_os_str().is_empty()).then_some((pes_folder, version));
-        let same = match (&self.selection, wanted) {
-            (Some((held, held_version)), Some((folder, version))) => {
-                held == folder && *held_version == version
-            }
-            (None, None) => true,
-            _ => false,
-        };
-        if same {
+        let folder = (!pes_folder.as_os_str().is_empty()).then_some(pes_folder);
+        if self.folder.as_deref() == folder && self.version == Some(version) {
             return;
         }
-        self.selection = wanted.map(|(folder, version)| (folder.to_path_buf(), version));
+        self.folder = folder.map(Path::to_path_buf);
+        self.version = Some(version);
         // Dropping the request sender ends the worker; its textures go with it.
         self.worker = None;
         self.resolved.clear();
         self.pending.clear();
         #[cfg(test)]
         self.images.clear();
-        if let Some((folder, version)) = &self.selection {
-            self.worker = Some(Worker::spawn(ctx, folder, *version));
+        if let Some(folder) = &self.folder {
+            self.worker = Some(Worker::spawn(ctx, folder, version));
         }
     }
 
     /// The textures of `player_ids` (a roster's, `None` an empty slot), in order: a filled
-    /// slot gets its decoded texture once the worker answered it, `version`'s bundled
-    /// placeholder (`placeholder_file`, the game's own portrait for a player who has none)
-    /// every other time (pending, absent from the CPKs, undecodable, or no worker because
-    /// no PES folder is set or the game is unreadable), so a marker never draws blank above
-    /// its badge. An empty slot stays `None`. Asks the worker for the ids neither held nor
-    /// pending, and uploads what it sent back.
+    /// slot gets its decoded texture once the worker answered it, the selected game's bundled
+    /// placeholder (`placeholder_file` for the version `select` was last given, the game's
+    /// own portrait for a player who has none) every other time (pending, absent from the
+    /// CPKs, undecodable, or no worker because no PES folder is set or the game is
+    /// unreadable), so a marker never draws blank above its badge. An empty slot stays
+    /// `None`, and so does every slot before the first `select` (no game, no placeholder).
+    /// Asks the worker for the ids neither held nor pending, and uploads what it sent back.
     pub(crate) fn textures(
         &mut self,
         ctx: &egui::Context,
-        version: PesVersion,
         player_ids: &[Option<u32>],
     ) -> Vec<Option<egui::TextureId>> {
         if let Some(worker) = &self.worker {
@@ -164,13 +161,16 @@ impl Portraits {
         player_ids
             .iter()
             .map(|id| {
-                id.map(|id| {
+                id.and_then(|id| {
                     let held = self
                         .resolved
                         .get(&id)
                         .and_then(|held| held.as_ref())
                         .map(egui::TextureHandle::id);
-                    held.unwrap_or_else(|| self.placeholder_texture(ctx, version))
+                    held.or_else(|| {
+                        self.version
+                            .map(|version| self.placeholder_texture(ctx, version))
+                    })
                 })
             })
             .collect()
@@ -333,11 +333,10 @@ mod tests {
     fn served(
         portraits: &mut Portraits,
         ctx: &egui::Context,
-        version: PesVersion,
         ids: &[Option<u32>],
     ) -> Vec<Option<egui::TextureId>> {
         for _ in 0..200 {
-            let answer = portraits.textures(ctx, version, ids);
+            let answer = portraits.textures(ctx, ids);
             if ids
                 .iter()
                 .flatten()
@@ -393,7 +392,7 @@ mod tests {
             portraits.select(&ctx, &folder, PesVersion::Pes21);
 
             assert!(
-                served(&mut portraits, &ctx, PesVersion::Pes21, &[Some(75823)])[0].is_some(),
+                served(&mut portraits, &ctx, &[Some(75823)])[0].is_some(),
                 "{case}: a texture for 75823"
             );
             let image = portraits.decoded_image(75823).expect("decoded");
@@ -417,7 +416,7 @@ mod tests {
         let mut portraits = Portraits::new();
         portraits.select(&ctx, &folder, PesVersion::Pes17);
 
-        assert!(served(&mut portraits, &ctx, PesVersion::Pes17, &[Some(71801)])[0].is_some());
+        assert!(served(&mut portraits, &ctx, &[Some(71801)])[0].is_some());
         let image = portraits.decoded_image(71801).expect("decoded");
         assert_eq!(
             image.size,
@@ -437,7 +436,7 @@ mod tests {
         let folder = scratch("portraits_no_download").join("PES");
         let mut portraits = Portraits::new();
         portraits.select(&ctx, &folder, PesVersion::Pes21);
-        let shown = served(&mut portraits, &ctx, PesVersion::Pes21, &ids);
+        let shown = served(&mut portraits, &ctx, &ids);
         let placeholder = portraits
             .placeholder_id(PesVersion::Pes21)
             .expect("the placeholder uploaded");
@@ -461,11 +460,40 @@ mod tests {
         let folder = download.parent().unwrap().to_path_buf();
         let mut portraits = Portraits::new();
         portraits.select(&ctx, &folder, PesVersion::Pes21);
-        let shown = served(&mut portraits, &ctx, PesVersion::Pes21, &ids);
+        let shown = served(&mut portraits, &ctx, &ids);
         let placeholder = portraits
             .placeholder_id(PesVersion::Pes21)
             .expect("the placeholder uploaded");
         assert_eq!(shown, [None, Some(placeholder), Some(placeholder)]);
+    }
+
+    // Round A1's A1b-1: the placeholder is the selected game's (the version `select` was
+    // last given, the sidebar's), not the open save's: a source selected for PES 2017 with
+    // an unreadable folder, then with none set, draws PES 2017's placeholder for a PES 2021
+    // save's roster, never PES 2021's.
+    #[test]
+    fn the_placeholder_is_the_selected_games() {
+        let ctx = egui::Context::default();
+        let ids = [None, Some(75823)];
+
+        let folder = scratch("portraits_selected_game").join("PES");
+        let mut portraits = Portraits::new();
+        portraits.select(&ctx, &folder, PesVersion::Pes17);
+        let shown = served(&mut portraits, &ctx, &ids);
+        let placeholder = portraits
+            .placeholder_id(PesVersion::Pes17)
+            .expect("PES 2017's placeholder uploaded");
+        assert_eq!(shown, [None, Some(placeholder)], "an unreadable folder");
+        assert_eq!(portraits.placeholder_id(PesVersion::Pes21), None);
+
+        let mut portraits = Portraits::new();
+        portraits.select(&ctx, Path::new(""), PesVersion::Pes17);
+        let shown = portraits.textures(&ctx, &ids);
+        let placeholder = portraits
+            .placeholder_id(PesVersion::Pes17)
+            .expect("PES 2017's placeholder uploaded");
+        assert_eq!(shown, [None, Some(placeholder)], "no folder set");
+        assert_eq!(portraits.placeholder_id(PesVersion::Pes21), None);
     }
 
     // A change of the PES folder or the version drops the worker and every answered texture
@@ -481,7 +509,7 @@ mod tests {
         let mut portraits = Portraits::new();
 
         portraits.select(&ctx, &folder_a, PesVersion::Pes21);
-        assert!(served(&mut portraits, &ctx, PesVersion::Pes21, &[Some(75823)])[0].is_some());
+        assert!(served(&mut portraits, &ctx, &[Some(75823)])[0].is_some());
         close(
             portraits.decoded_image(75823).expect("decoded").pixels[64 * 128 + 64],
             [148, 219, 247, 255],
@@ -497,7 +525,7 @@ mod tests {
         // Another folder: cleared at once, then the new game's portrait.
         portraits.select(&ctx, &folder_b, PesVersion::Pes21);
         assert_eq!(portraits.answered(75823), None, "a new folder clears");
-        assert!(served(&mut portraits, &ctx, PesVersion::Pes21, &[Some(75823)])[0].is_some());
+        assert!(served(&mut portraits, &ctx, &[Some(75823)])[0].is_some());
         close(
             portraits.decoded_image(75823).expect("decoded").pixels[64 * 128 + 64],
             [255, 255, 255, 255],
@@ -506,7 +534,7 @@ mod tests {
         // The same folder, another version (the same `<id>.dds` path): cleared again.
         portraits.select(&ctx, &folder_b, PesVersion::Pes20);
         assert_eq!(portraits.answered(75823), None, "a version change clears");
-        assert!(served(&mut portraits, &ctx, PesVersion::Pes20, &[Some(75823)])[0].is_some());
+        assert!(served(&mut portraits, &ctx, &[Some(75823)])[0].is_some());
         close(
             portraits.decoded_image(75823).expect("decoded").pixels[64 * 128 + 64],
             [255, 255, 255, 255],
@@ -523,6 +551,7 @@ mod tests {
         let (requests, requests_rx) = crossbeam_channel::unbounded();
         let (replies, replies_rx) = crossbeam_channel::unbounded();
         let mut portraits = Portraits {
+            version: Some(PesVersion::Pes21),
             worker: Some(Worker {
                 requests,
                 replies: replies_rx,
@@ -533,7 +562,7 @@ mod tests {
         // The ask: pending, not resolved, one request on the channel, the slot drawing the
         // placeholder until the answer lands.
         assert_eq!(
-            portraits.textures(&ctx, PesVersion::Pes21, &[Some(75823)]),
+            portraits.textures(&ctx, &[Some(75823)]),
             [Some(
                 portraits
                     .placeholder_id(PesVersion::Pes21)
@@ -545,7 +574,7 @@ mod tests {
         assert_eq!(requests_rx.try_recv().unwrap(), [75823], "the one request");
 
         // Still pending: the same call sends nothing again.
-        portraits.textures(&ctx, PesVersion::Pes21, &[Some(75823)]);
+        portraits.textures(&ctx, &[Some(75823)]);
         assert_eq!(
             requests_rx.try_recv().unwrap_err(),
             crossbeam_channel::TryRecvError::Empty,
@@ -559,9 +588,9 @@ mod tests {
                 Some(egui::ColorImage::filled([1, 1], egui::Color32::RED)),
             ))
             .unwrap();
-        assert!(served(&mut portraits, &ctx, PesVersion::Pes21, &[Some(75823)])[0].is_some());
+        assert!(served(&mut portraits, &ctx, &[Some(75823)])[0].is_some());
         assert!(portraits.pending.is_empty(), "answered, pending emptied");
-        portraits.textures(&ctx, PesVersion::Pes21, &[Some(75823)]);
+        portraits.textures(&ctx, &[Some(75823)]);
         assert_eq!(
             requests_rx.try_recv().unwrap_err(),
             crossbeam_channel::TryRecvError::Empty,
@@ -609,7 +638,7 @@ mod tests {
         let folder = pes_folder("portraits_placeholder", &[("4cc_40_faces.cpk", bad)]);
         let mut portraits = Portraits::new();
         portraits.select(&ctx, &folder, PesVersion::Pes21);
-        let shown = served(&mut portraits, &ctx, PesVersion::Pes21, &ids);
+        let shown = served(&mut portraits, &ctx, &ids);
         let placeholder = portraits
             .placeholder_id(PesVersion::Pes21)
             .expect("the placeholder uploaded");
@@ -619,7 +648,7 @@ mod tests {
         // the placeholder from the first call, no wait needed.
         let mut portraits = Portraits::new();
         portraits.select(&ctx, Path::new(""), PesVersion::Pes21);
-        let shown = portraits.textures(&ctx, PesVersion::Pes21, &ids);
+        let shown = portraits.textures(&ctx, &ids);
         let placeholder = portraits
             .placeholder_id(PesVersion::Pes21)
             .expect("the placeholder uploaded");
@@ -638,12 +667,7 @@ mod tests {
         let mut portraits = Portraits::new();
         portraits.select(&ctx, &folder, PesVersion::Pes21);
 
-        let shown = served(
-            &mut portraits,
-            &ctx,
-            PesVersion::Pes21,
-            &[Some(75823), Some(1)],
-        );
+        let shown = served(&mut portraits, &ctx, &[Some(75823), Some(1)]);
         let placeholder = portraits
             .placeholder_id(PesVersion::Pes21)
             .expect("the placeholder uploaded");
@@ -665,12 +689,15 @@ mod tests {
     #[test]
     fn the_placeholder_is_decoded_once_per_version() {
         let ctx = egui::Context::default();
-        // No worker: `textures` answers the placeholder at once for any filled slot.
+        // No folder, so no worker: `textures` answers the placeholder at once for any filled
+        // slot.
         let mut portraits = Portraits::new();
         let absent = [Some(1)];
 
-        let first = portraits.textures(&ctx, PesVersion::Pes21, &absent)[0].expect("shown");
-        let second = portraits.textures(&ctx, PesVersion::Pes17, &absent)[0].expect("shown");
+        portraits.select(&ctx, Path::new(""), PesVersion::Pes21);
+        let first = portraits.textures(&ctx, &absent)[0].expect("shown");
+        portraits.select(&ctx, Path::new(""), PesVersion::Pes17);
+        let second = portraits.textures(&ctx, &absent)[0].expect("shown");
         assert_ne!(first, second, "another version uploads its own placeholder");
         let decoded = dds_convert::decode(
             placeholder_file(PesVersion::Pes17).1,
@@ -682,7 +709,7 @@ mod tests {
             [146, 156, 172, 255],
             "PES 2017's is the _16 file"
         );
-        let again = portraits.textures(&ctx, PesVersion::Pes17, &absent)[0].expect("shown");
+        let again = portraits.textures(&ctx, &absent)[0].expect("shown");
         assert_eq!(again, second, "the same version is not decoded again");
     }
 }

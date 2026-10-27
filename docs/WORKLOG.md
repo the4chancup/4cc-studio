@@ -3418,8 +3418,15 @@ briefs, review loops, gates and mutation runs as for any step.
       as a drop on a marker, the placeholder portrait the save's game's rather than the
       selected one's, the help's "without portraits", six tests passing on wrong
       implementations: the shown preset in the popover, panels and host, the swap mark's
-      paint order, a name's bound, the armed chip, the side lists); rework briefed
-      (`brief_tac_a1_rework.md`), then a SWE-2 loop over it and round A2
+      paint order, a name's bound, the armed chip, the side lists); reworked 2026-10-27 (Opus,
+      `brief_tac_a1_rework.md`): a marker is the drop target only when the release is inside
+      his box (egui reports it to the closest widget within 5 points), the placeholder follows
+      the game `Portraits::select` was last given, the help's blank portrait, the six tests
+      made to fail on the wrong code; the brief's off-canvas guard dropped as unreachable
+      (markers are clamped inside the canvas). Files: `team_widgets/src/pitch/{mod.rs,tests/
+      {drops,paint,popover}.rs}`, `tactics/instructions/tests.rs`, `save_editor/src/view/
+      {portraits,tactics}.rs`, `view/tests/tactics.rs`, `help/08_tactics.md`. Next: a SWE-2
+      loop over the rework, then round A2
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";

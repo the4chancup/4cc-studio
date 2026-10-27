@@ -1,4 +1,4 @@
-use egui::accesskit::Role;
+use egui::accesskit::{self, Role};
 
 use super::*;
 use crate::tactics::TacticsView;
@@ -56,6 +56,15 @@ fn each_combo_lists_its_side_less_tight_marking() {
             (1, InstructionSide::Defence, 0, false),
             (1, InstructionSide::Defence, 1, true),
         ] {
+            // Every version's list holds its own side's instructions
+            // and `Off` alone.
+            for inst in offered(version, side) {
+                assert!(
+                    inst == Instruction::Off || inst.side() == Some(side),
+                    "{version:?} {side:?} offers {inst:?}, of the other side"
+                );
+            }
+            let (closed, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
             let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
             let combo = combo_row(&nodes, index)[column];
             click(
@@ -70,30 +79,52 @@ fn each_combo_lists_its_side_less_tight_marking() {
             // hides invisible widgets from the AccessKit tree, so
             // its items join from the next frame on.
             let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-            // The popup's buttons, unfiltered: offering Tight
-            // Marking must fail here, not inside the `labels`
-            // filter below (a filter that already excludes it
-            // would hide the offer).
-            assert!(
-                !nodes.iter().any(|node| {
-                    node.role() == Role::Button && node.label() == Some("Tight Marking")
-                }),
-                "{version:?} {side:?} does not offer Tight Marking"
-            );
-            let mut expected: Vec<&str> = offered(version, side)
-                .iter()
-                .map(|inst| instruction_label(*inst))
+            let (open, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
+            // The popup's buttons, unfiltered: every button the open
+            // frame holds that the closed one did not, in draw order,
+            // so an item outside the expectation (Tight Marking, the
+            // other side's) shows here rather than being filtered out.
+            let before: std::collections::HashSet<accesskit::NodeId> =
+                closed.iter().map(|(id, _)| *id).collect();
+            let popup: Vec<accesskit::Node> = open
+                .into_iter()
+                .filter(|(id, _)| !before.contains(id))
+                .map(|(_, node)| node)
                 .collect();
+            let drawn = button_labels(&popup, |_| true);
+            // PES 2021's lists, from the draft's `instructionsFor`:
+            // the stored table's order, its own side plus `Off`, less
+            // Tight Marking.
+            let mut expected: Vec<&str> = match (version, side) {
+                (PesVersion::Pes21, InstructionSide::Attack) => vec![
+                    "Unassigned",
+                    "Hug the Touchline",
+                    "False No. 9",
+                    "False Full-Backs",
+                    "Attacking Full-Backs",
+                    "Wing Rotation",
+                    "Tiki-Taka",
+                    "Centering Targets",
+                    "Defensive",
+                    "False Winger",
+                    "Anchoring",
+                ],
+                (PesVersion::Pes21, InstructionSide::Defence) => vec![
+                    "Unassigned",
+                    "Swarm the Box",
+                    "Deep Defensive Line",
+                    "Gegenpress",
+                    "Counter Target",
+                    "Wing-Back",
+                ],
+                _ => offered(version, side)
+                    .iter()
+                    .map(|inst| instruction_label(*inst))
+                    .collect(),
+            };
             if wrong_side {
                 expected.push("Hug the Touchline");
             }
-            let labels: std::collections::BTreeSet<&str> = expected.iter().copied().collect();
-            let drawn = button_labels(&nodes, |label| labels.contains(label));
-            assert_eq!(
-                drawn.len(),
-                expected.len(),
-                "{version:?} {side:?}'s item count, got {drawn:?}"
-            );
             assert_eq!(
                 drawn, expected,
                 "{version:?} {side:?}'s items in stored order"
@@ -537,7 +568,15 @@ fn each_instruction_row_writes_its_own_entry() {
         assert!(!chip.is_disabled(), "{side:?} {row}: the chip is enabled");
         let (_, changed) = click(&mut window, chip, version, &mut tactics, &mut view, &roster);
         assert!(!changed, "{side:?} {row}: arming writes no record");
-        Assign::Target { side, index: row }.write(version, &mut tactics, &mut view, pick);
+        // The chip armed its own row, and the write goes through the
+        // armed mode: two chips arming one row would fail here.
+        assert_eq!(
+            view.assign,
+            Some(Assign::Target { side, index: row }),
+            "{side:?} {row}: the chip armed its own row"
+        );
+        let armed = view.assign.expect("the chip armed a mode");
+        armed.write(version, &mut tactics, &mut view, pick);
         assert_eq!(
             view.assign, None,
             "{side:?} {row}: disarmed after the write"
@@ -548,6 +587,88 @@ fn each_instruction_row_writes_its_own_entry() {
             "{side:?} {row}: only that row's entry changed"
         );
     }
+}
+
+// Round A1's A1b-4: the panel writes the shown preset, not a fixed one:
+// an instruction and its target picked on preset 2 land in preset 2's
+// entry alone, preset 1 and every other field unchanged.
+#[test]
+fn an_instruction_pick_lands_in_the_shown_preset() {
+    let mut window = Headless::sized(800.0, 900.0);
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    // A non-identity eleven (a roster slot that equals its index would
+    // hide an index write).
+    tactics.starting_eleven.swap(2, 9);
+    let pick = 2;
+    let mut view = TacticsView {
+        preset: 1,
+        ..TacticsView::default()
+    };
+    let rows = fixture_rows(version);
+    let roster = roster_rows(&rows);
+    let before = tactics.clone();
+    let encode = |inst| instruction::encode(version, inst).expect("PES 21 stores it");
+    let entry = before.presets[1]
+        .attack_instructions
+        .as_ref()
+        .expect("PES 21 has instructions")[0];
+    assert_ne!(
+        entry.instruction,
+        encode(Instruction::Defensive),
+        "premise: a real instruction change"
+    );
+    assert_ne!(
+        entry.player, tactics.starting_eleven[pick],
+        "premise: a real target change"
+    );
+
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let combo = combo_row(&nodes, 0)[0];
+    click(
+        &mut window,
+        combo,
+        version,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
+    let item = entry_id(&ids, Role::Button, "Defensive");
+    window.action_click_tactics(item, version, &mut tactics, &mut view, &roster);
+    // The popup stays open past an AccessKit pick: a pointer click on
+    // empty space closes it first.
+    window.tactics(
+        version,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(egui::pos2(5.0, 5.0), true),
+    );
+    window.tactics(
+        version,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(egui::pos2(5.0, 5.0), false),
+    );
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let chip = chip_under(&nodes, combo_row(&nodes, 0)[0]);
+    click(&mut window, chip, version, &mut tactics, &mut view, &roster);
+    let armed = view.assign.expect("the chip armed a mode");
+    armed.write(version, &mut tactics, &mut view, pick);
+
+    let mut expected = before;
+    let entry = &mut expected.presets[1]
+        .attack_instructions
+        .as_mut()
+        .expect("instructions")[0];
+    entry.instruction = encode(Instruction::Defensive);
+    entry.player = tactics.starting_eleven[pick];
+    assert_eq!(
+        tactics, expected,
+        "only preset 2's first attack entry changed"
+    );
 }
 
 // The Target chip's text is the name alone (the draft's chip reads

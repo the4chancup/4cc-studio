@@ -1385,7 +1385,7 @@ fn a_long_name_is_cut_at_the_lists_width() {
     rows[slot].1 = "3DSMAX HAS STOPPED WORKING".to_owned();
     let roster = roster_rows(&rows);
     let mut window = Headless::sized(200.0, 900.0);
-    let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let (nodes, shapes) = window.lineup_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
 
     let row = &lineup_rows(&nodes)[2];
     let name = row.last().expect("the row's name label");
@@ -1394,10 +1394,29 @@ fn a_long_name_is_cut_at_the_lists_width() {
         Some("3DSMAX HAS STOPPED WORKING"),
         "premise: the third starter's row names him"
     );
+    // The starting eleven's list ends where its half of the width does,
+    // 6 points before the bench's framed box (the right of the two
+    // stroked rects taller than a row), which sits there whatever the
+    // eleven's rows hold; a frame grown by a name could not bound it.
+    let bench_left = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape) if !shape.stroke.is_empty() && shape.rect.height() > 100.0 => {
+                Some(shape.rect.min.x)
+            }
+            _ => None,
+        })
+        .max_by(f32::total_cmp)
+        .expect("the bench's frame");
+    let list_right = bench_left - 6.0;
+    assert!(
+        list_right < 150.0,
+        "premise: the eleven's list ends well inside the window ({list_right})"
+    );
     let bounds = name.bounds().expect("name bounds");
     assert!(
-        bounds.x1 <= 200.0,
-        "the name ends inside the list's width ({bounds:?})"
+        bounds.x1 <= f64::from(list_right),
+        "the name ends inside the eleven's list ({bounds:?}, list ends at {list_right})"
     );
 }
 
@@ -1406,17 +1425,26 @@ fn a_long_name_is_cut_at_the_lists_width() {
 // 2026-10-27: while a dragged starter is held over another, that one
 // carries the selected player's corner brackets drawn over everything
 // and the dragged marker goes to 35% opacity, so a drag meant only to
-// move can be steered off): over another marker the brackets show and
-// his badge fades; over the grass, neither.
+// move can be steered off): over another marker the brackets show,
+// painted after every shape of the dragged marker, and his badge fades;
+// over the grass, neither.
 #[test]
 fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
     let mut window = Headless::sized(600.0, 450.0);
     let mut tactics = fixture_tactics(PesVersion::Pes21);
     let mut view = TacticsView::default();
     let rows = fixture_rows(PesVersion::Pes21);
-    let roster = roster_rows(&rows);
+    let mut roster = roster_rows(&rows);
     let players = tactics.presets[0].formations[0].players;
     let (dragged, target) = (3, 6);
+    // A portrait for the dragged starter, so his marker paints one the
+    // brackets must cover.
+    let texture = window.ctx.load_texture(
+        "a portrait",
+        egui::ColorImage::new([4, 4], vec![egui::Color32::RED; 16]),
+        egui::TextureOptions::LINEAR,
+    );
+    roster[usize::from(tactics.starting_eleven[dragged])].portrait = Some(texture.id());
 
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
@@ -1500,6 +1528,40 @@ fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
         BADGE_FILL.gamma_multiply(0.35),
         "the dragged badge at 35% opacity"
     );
+    // The brackets are drawn over everything: every arm after the
+    // dragged marker's portrait and badge.
+    let dragged_shapes: Vec<usize> = shapes
+        .iter()
+        .enumerate()
+        .filter(|(_, clipped)| match &clipped.shape {
+            egui::Shape::Rect(shape) => shape.rect == dragged_badge,
+            shape @ egui::Shape::Mesh(_) => shape.texture_id() == texture.id(),
+            _ => false,
+        })
+        .map(|(index, _)| index)
+        .collect();
+    assert_eq!(
+        dragged_shapes.len(),
+        2,
+        "premise: the dragged marker's portrait and badge"
+    );
+    let arm_indices: Vec<usize> = shapes
+        .iter()
+        .enumerate()
+        .filter(|(_, clipped)| {
+            matches!(
+                &clipped.shape,
+                egui::Shape::LineSegment { stroke, .. } if stroke.color == SELECTED_CORNERS
+            )
+        })
+        .map(|(index, _)| index)
+        .collect();
+    for arm in &arm_indices {
+        assert!(
+            dragged_shapes.iter().all(|shape| shape < arm),
+            "arm shape {arm} painted after the dragged marker's shapes {dragged_shapes:?}"
+        );
+    }
 
     // Held over the grass instead: no brackets, full opacity.
     let grass = grass_point(canvas, &players, egui::Rect::NOTHING);

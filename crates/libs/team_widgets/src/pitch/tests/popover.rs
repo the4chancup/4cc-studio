@@ -539,6 +539,102 @@ fn the_popovers_position_pick_writes_the_slot() {
     assert!(view.popover.is_some(), "the pick leaves the popover open");
 }
 
+// Round A1's A1a-3: the popover writes the shown preset's shown
+// formation, not a fixed one: a position pick and an X edit on preset
+// 2's In-possession change that slot there alone.
+#[test]
+fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView {
+        preset: 1,
+        formation: 1,
+        ..TacticsView::default()
+    };
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    // The fixture's preset 2 In-possession holds preset 1's Kick-off's
+    // outfield slots: the slot is moved a unit up there, so the two
+    // formations' slots differ.
+    let index = 3;
+    tactics.presets[1].formations[1].players[index].y += 1;
+    let before = tactics.clone();
+    let players = before.presets[1].formations[1].players;
+    assert!(players[index].position != 0, "premise: an outfield slot");
+    assert_ne!(
+        players[index], before.presets[0].formations[0].players[index],
+        "premise: the slot differs from preset 1's Kick-off"
+    );
+    let cf = POSITIONS
+        .iter()
+        .position(|label| *label == "CF")
+        .expect("CF is a position") as u8;
+    assert_ne!(
+        players[index].position, cf,
+        "premise: a real position change"
+    );
+    assert_ne!(players[index].x, 55, "premise: a real x change");
+
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let at = marker_point(&nodes, &players, index);
+    window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let combo = controls_right_of(&nodes, "Position", Role::ComboBox)
+        .into_iter()
+        .next()
+        .expect("the position combo");
+    window.click_pitch(
+        centre(combo),
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    let ids = window.pitch_ids(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let item = entry_id(&ids, Role::Button, "CF");
+    window.action_click_pitch(item, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let field = controls_right_of(&nodes, "X", Role::SpinButton)
+        .into_iter()
+        .next()
+        .expect("the X field");
+    window.click_pitch(
+        centre(field),
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::Text("55".to_owned())],
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::Key {
+            key: egui::Key::Enter,
+            physical_key: None,
+            pressed: true,
+            modifiers: egui::Modifiers::NONE,
+            repeat: false,
+        }],
+    );
+
+    let mut expect = before;
+    expect.presets[1].formations[1].players[index].position = cf;
+    expect.presets[1].formations[1].players[index].x = 55;
+    assert_eq!(
+        tactics, expect,
+        "only preset 2's In-possession slot took the position and x"
+    );
+}
+
 /// The open slot popover's rect: its `Area` is `open.scope`'s
 /// "slot popover" layer (a combo's open popup is another Foreground
 /// layer beside it, so an order scan cannot pick it out).

@@ -507,6 +507,54 @@ fn a_marker_released_off_the_pitch_changes_nothing() {
     assert_eq!(tactics, before, "and nothing moved");
 }
 
+// Round A1's A1a-1: egui reports a release to the closest widget within
+// its 5-point search radius, so a marker released 3 points off the pitch
+// beside an edge marker's box is still off the pitch: no swap with that
+// marker, no move to the snapped edge point.
+#[test]
+fn a_marker_released_off_the_pitch_beside_an_edge_marker_stays() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    // `edge` moved to the grid's right end: his box, clamped inside the
+    // canvas, meets its right edge.
+    let (edge, index) = (6, 3);
+    tactics.presets[0].formations[0].players[edge].x = GRID_X;
+    let before = tactics.clone();
+    let players = before.presets[0].formations[0].players;
+    assert!(
+        players[edge].position != 0 && players[index].position != 0,
+        "premise: two outfield slots"
+    );
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let edge_box = marker_rect(centres_of(canvas, &players)[edge], canvas);
+    assert!(
+        (edge_box.right() - canvas.right()).abs() < 0.01,
+        "premise: his box meets the canvas' right edge"
+    );
+    let onto = egui::pos2(canvas.right() + 3.0, edge_box.center().y);
+    assert!(!canvas.contains(onto), "premise: a release off the pitch");
+    assert!(
+        edge_box.distance_to_pos(onto) < 5.0,
+        "premise: within egui's search radius of his box"
+    );
+    let from = marker_point(&nodes, &players, index);
+
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(!changed, "a release off the pitch writes nothing");
+    assert_eq!(tactics, before, "and nothing moved");
+}
+
 // An eleven row released on the grass is no drop (the draft's canvas
 // drop returns when it hits no marker): the grass move is
 // `LineupDrag::Marker`'s alone.
@@ -534,6 +582,76 @@ fn an_eleven_row_released_on_the_grass_changes_nothing() {
     );
     assert!(!changed, "an eleven row on the grass is no drop");
     assert_eq!(tactics, before, "and nothing moved");
+}
+
+// Round A1's A1a-1: a row released on the grass 3 points beside a
+// marker's box, within egui's 5-point search radius, is still on the
+// grass: a bench row swaps nobody in, an eleven row exchanges nobody.
+#[test]
+fn a_row_released_on_the_grass_beside_a_marker_does_nothing() {
+    let mut window = Headless::sized(600.0, 1100.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let before = tactics.clone();
+    let players = before.presets[0].formations[0].players;
+    let (nodes, _) =
+        window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    // 3 points out from the middle of one of a marker's sides.
+    let (index, onto) = (0..11)
+        .flat_map(|index| {
+            let rect = marker_rect(centres[index], canvas);
+            [
+                egui::pos2(rect.left() - 3.0, rect.center().y),
+                egui::pos2(rect.right() + 3.0, rect.center().y),
+                egui::pos2(rect.center().x, rect.top() - 3.0),
+                egui::pos2(rect.center().x, rect.bottom() + 3.0),
+            ]
+            .map(|point| (index, point))
+        })
+        .find(|(_, point)| {
+            canvas.contains(*point)
+                && centres
+                    .iter()
+                    .all(|centre| !marker_rect(*centre, canvas).contains(*point))
+        })
+        .expect("a marker with grass 3 points beside his box");
+    assert!(
+        (0..11).all(|other| !marker_rect(centres[other], canvas).contains(onto)),
+        "premise: the release is in no marker's box"
+    );
+    assert!(
+        marker_rect(centres[index], canvas).distance_to_pos(onto) < 5.0,
+        "premise: within egui's search radius of his box"
+    );
+
+    let changed = window.drag_pitch_and_lineup(
+        row_centre(&nodes, 11),
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(!changed, "a bench row on the grass is no drop");
+    assert_eq!(tactics, before, "and nobody swapped in");
+
+    let starter = (0..11)
+        .find(|&row| row != index)
+        .expect("another eleven row");
+    let changed = window.drag_pitch_and_lineup(
+        row_centre(&nodes, starter),
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(!changed, "an eleven row on the grass is no drop");
+    assert_eq!(tactics, before, "and nobody exchanged");
 }
 
 // A starter released on his own marker moves too (the arm's "or on his

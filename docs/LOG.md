@@ -2668,3 +2668,5 @@ worklog passed 7,000 lines.
   replaces TC-SAV-10 in the spec.
 - **2026-10-27** — 0.0.1f1: the release recipe stages the bundle's `data/settings.toml` and DBC7's rules file, checked by the
   staged exe; the readme gains DBC's and VGL's organizer's steps; the exe measured at 37.6 MiB with `cargo bloat`.
+- **2026-10-27** — 0.0.1s5, Astra round A1's rework: a pitch drop counts on a marker only when released inside his box;
+  the Tactics placeholder portrait follows the selected game; six tests that passed on wrong code now fail on it.

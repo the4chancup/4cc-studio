@@ -272,6 +272,74 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
     assert_eq!(tactics.presets[2].formations[2], formations_before[0]);
 }
 
+// Round A1's A1b-4: the formation bar acts on the shown preset, not a
+// fixed one: with preset 2 selected through the preset bar, its Swap
+// with and Copy to change preset 2's formations alone, preset 1's (where
+// a swap would show too) and every other field unchanged.
+#[test]
+fn the_formation_bar_copies_and_swaps_in_the_shown_preset() {
+    let path = fixture(PesVersion::Pes21, "tactics_copy_swap_preset_2");
+    // Distinct coordinates per formation in presets 1 and 2, so a swap
+    // or a copy in either is a real change.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    for (preset, xs) in [(0, [10, 20, 30]), (1, [11, 21, 31])] {
+        let formations = &mut file.team_mut(701).unwrap().tactics.presets[preset].formations;
+        for (formation, x) in formations.iter_mut().zip(xs) {
+            formation.players[0].x = x;
+        }
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 900.0);
+    open_team_view(&mut window, &mut view, 701);
+    let before = team_entry(&view, 701).tactics;
+    let formations_before = before.presets[1].formations.clone();
+    assert!(
+        formations_before[0] != formations_before[1]
+            && formations_before[1] != formations_before[2],
+        "premise: the swap and the copy are real changes"
+    );
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "2"),
+        &mut view,
+    );
+    assert_eq!(view.tactics.preset, 1, "preset 2 is on screen");
+    assert_eq!(view.tactics.formation, 0, "on its Kick-off");
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, copy_swap_button(&nodes, 1), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Swap with In-possession"),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, copy_swap_button(&nodes, 1), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Copy to Out-of-possession"),
+        &mut view,
+    );
+
+    let mut expected = before;
+    expected.presets[1].formations = [
+        formations_before[1].clone(),
+        formations_before[0].clone(),
+        formations_before[1].clone(),
+    ];
+    assert_eq!(
+        team_entry(&view, 701).tactics,
+        expected,
+        "only preset 2's formations swapped and copied"
+    );
+}
+
 // The preset selector writes `TacticsView`, not the record: switching
 // presets leaves the session clean (no undo entry, no unsaved dot).
 #[test]
