@@ -109,6 +109,18 @@ input[type=range]:focus { outline: none; }
    name and its values read without scrolling sideways (save_editor.md, the closing bullet). */
 .window[data-dlg="unsaved-changes"] { max-width: 90%; }
 #unsaved-changes td, #unsaved-changes th { white-space: nowrap; }
+/* The toolbar's unsaved-changes label is a clickable label (egui: a Label
+   with Sense::click and the pointing-hand cursor); its popup lists the
+   changes, the close prompt's table without the prompt's three answers
+   (egui::Popup under the label, closed by a click outside, Esc, the label
+   again or an edit). Shifted left when it would pass the window's right
+   edge, as egui keeps an Area on screen. */
+.chfield { position: relative; display: inline-block; }
+.chfield .unsaved { cursor: pointer; }
+.chpop { position: absolute; top: 100%; left: 0; margin-top: 3px; z-index: 30;
+  width: max-content; min-width: 460px; max-width: 640px;
+  background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px;
+  padding: 8px; box-shadow: 0 4px 16px #000a; }
 /* save editor view */
 .toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
 .master { display: flex; gap: 12px; align-items: flex-start; }
@@ -2583,6 +2595,8 @@ const S = { save: null, baseline: null, teamSel: "all", filter: "",
   // The colour picker: the open popup (its field's key, the shown colour it
   // opened on and the current one) and the session's recent colours.
   picker: null, recentColors: [],
+  // Whether the toolbar label's list of unsaved changes is open.
+  changesPop: false,
   // Tactics view state: the drawn preset and formation, the open slot
   // popover (a formation index), the armed assignment mode and a live drag.
   tac: { preset: 0, formation: 0 }, slotPop: null, assign: null, pitchDrag: null };
@@ -2670,7 +2684,7 @@ function openSave(key, path) {
   // "Edit aesthetics anyway" is the tool run's, off only at its start: an open keeps it.
   S.undo = []; S.redo = [];
   S.assign = null; S.slotPop = null; S.pitchDrag = null;
-  S.picker = null;
+  S.picker = null; S.changesPop = false;
   S.panel = null;
   S.cmp = { second: null, refused: null, scope: "all", team: "all" };
   S.aatf = { mode: "current", teams: {}, sugg: false, validate: null, savedCopy: null };
@@ -2743,6 +2757,10 @@ function edit(label, fn) {
   fn();
   S.undo.push({ label, before, after: snapshot() });
   S.redo = [];
+  // The list of changes is computed when it opens: an edit under it (a
+  // shortcut's, the pointer's click already closed it) closes it rather
+  // than leaving a stale list.
+  S.changesPop = false;
 }
 function snapshot() { return JSON.stringify(S.save.teams); }
 function restore(snap) { S.save.teams = JSON.parse(snap); }
@@ -2753,12 +2771,14 @@ function doUndo() {
   const e = S.undo.pop(); if (!e) return;
   const cur = snapshot(); restore(e.before);
   S.redo.push({ label: e.label, before: e.before, after: cur });
+  S.changesPop = false;
   render();
 }
 function doRedo() {
   const e = S.redo.pop(); if (!e) return;
   const cur = snapshot(); restore(e.after);
   S.undo.push({ label: e.label, before: cur, after: e.after });
+  S.changesPop = false;
   render();
 }
 // Unsaved changes = the model differs from the opened/last-saved bytes (the
@@ -2824,10 +2844,17 @@ function flatDiff(a, b, path, out) {
     out.push([path, a, b]);
   }
 }
+// The view's label where it is not the key's title case (the real view
+// words every row from its terms; the draft words the few its renders show).
+const CHANGE_LABELS = { fluid: "Fluid formation" };
 function changeLabel(path) {
   const named = path.filter(k => !/^\d+$/.test(k));
   const index = path.filter(k => /^\d+$/.test(k)).map(k => Number(k) + 1);
-  return titleCase(named[named.length - 1] || "") + (index.length ? " " + index.join(".") : "");
+  const key = named[named.length - 1] || "";
+  // A preset's field names its preset as the Tactics bar does; any other
+  // indexed field keeps its 1-based index after the label.
+  if (named.includes("presets")) return "Preset " + index[0] + " · " + (CHANGE_LABELS[key] || titleCase(key));
+  return titleCase(key) + (index.length ? " " + index.join(".") : "");
 }
 function unsavedChanges() {
   const base = JSON.parse(S.baseline);
@@ -2846,20 +2873,33 @@ function unsavedChanges() {
   for (const t of S.save.teams) {
     const bt = base.find(x => x.id === t.id);
     if (!bt) continue;
+    // A colour is one row with the hex the team view shows, not a row per
+    // stored channel.
+    const skip = { players: undefined, color_1: undefined, color_2: undefined };
+    for (const [key, label] of [["color_1", "Colour 1"], ["color_2", "Colour 2"]])
+      if (shownHex(bt[key]) !== shownHex(t[key]))
+        rows.push([t.name + " · " + label, shownHex(bt[key]).toUpperCase(), shownHex(t[key]).toUpperCase()]);
     const out = [];
-    flatDiff({ ...bt, players: undefined }, { ...t, players: undefined }, [], out);
+    flatDiff({ ...bt, ...skip }, { ...t, ...skip }, [], out);
     for (const [path, o, n] of out) rows.push([t.name + " · " + changeLabel(path), o, n]);
   }
   return rows;
 }
-function drawUnsavedPrompt(then) {
-  const show = v => v === undefined || v === null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+// The table of unsaved changes, the close prompt's and the toolbar label's
+// popup's alike: one row per changed field, a checkbox read as on or off,
+// scrolling past 240 points.
+function changesTable() {
+  const show = v => v === undefined || v === null ? "" : typeof v === "boolean" ? (v ? "on" : "off")
+    : typeof v === "object" ? JSON.stringify(v) : String(v);
   const changes = h("table", { class: "grid", id: "unsaved-changes" },
     h("tr", {}, h("th", {}, "Item"), h("th", {}, "Old value"), h("th", {}, "New value")),
     unsavedChanges().map(([item, o, n]) => h("tr", {},
       h("td", {}, item), h("td", { class: "mono" }, show(o)), h("td", { class: "mono" }, show(n)))));
+  return h("div", { style: "max-height:240px; overflow:auto" }, changes);
+}
+function drawUnsavedPrompt(then) {
   window_("Unsaved changes", h("div", {},
-    h("div",{ style: "max-height:240px; overflow:auto" }, changes)),
+    changesTable()),
     [button("Save", () => { closeWindow(); saveFile(); if (!D.gameRunning) { then(); } render(); }),
      button("Discard", () => { closeWindow(); then(); render(); }),
      button("Cancel", closeWindow)], "unsaved-changes");
@@ -3066,8 +3106,48 @@ function renderToolbar() {
     liveButton(),
     // The save's path is in the window title (`titleDetail`): beside the
     // unsaved mark it could wrap the toolbar onto a second row.
-    dirty() ? h("span", { class: "weak" }, "• unsaved changes") : null);
+    dirty() ? unsavedLabel() : null);
 }
+// The unsaved-changes label (a Label with Sense::click; the pointing-hand
+// cursor and a tooltip say it opens something) and, while open, its popup
+// under it: the close prompt's table without its answers, computed when it
+// opens as the prompt's is. Closed by a click outside, Esc, the label again
+// or an edit; the toolbar's Undo is a click outside, so it closes the list
+// and the label reopens it one row shorter. Not a window: a glance at what
+// Save would write, not a workspace to keep open.
+// sample wording: the tooltip and the line under the table.
+function unsavedLabel() {
+  return h("span", { class: "chfield" },
+    h("span", { class: "weak unsaved", id: "unsaved-label",
+      title: "Lists the changes since the save was opened or last saved",
+      onclick: () => { S.changesPop = !S.changesPop; render(); } }, "• unsaved changes"),
+    S.changesPop ? changesPopup() : null);
+}
+function changesPopup() {
+  const pop = h("div", { class: "chpop", id: "changes-popup" }, changesTable(),
+    h("div", { class: "weak", style: "margin-top:6px" },
+      "Compared with the file as opened or last saved."));
+  // Measured once drawn: the label sits late in the toolbar, so a wide
+  // table under it can pass the window's edge (egui's Area is constrained
+  // to the screen; here the popup slides left by the overhang).
+  requestAnimationFrame(() => {
+    const win = document.getElementById("win");
+    if (!pop.isConnected || !win) return;
+    const over = pop.getBoundingClientRect().right - (win.getBoundingClientRect().right - 8 * winScale());
+    if (over > 0) pop.style.left = -over / winScale() + "px";
+  });
+  return pop;
+}
+// A press anywhere but inside the label or its popup closes the list (a
+// press on the label itself toggles it in its click). The node goes, not a
+// render: a render under a pressed button would replace it before its click.
+document.addEventListener("pointerdown", e => {
+  if (S.changesPop && !(e.target instanceof Element && e.target.closest(".chfield"))) {
+    S.changesPop = false;
+    const pop = document.getElementById("changes-popup");
+    if (pop) pop.remove();
+  }
+});
 // The kept shortcuts (Ctrl+S, Ctrl+F, Ctrl+I); the draft binds them on the
 // document. Ctrl+F/Ctrl+I are aesthetics writes: no-ops under the lock.
 function onKey(e) {
@@ -3077,6 +3157,7 @@ function onKey(e) {
     else if (e.key === "f" && aesUnlocked()) { e.preventDefault(); clearVisualFlags(); }
   }
   if (e.key === "Escape" && S.picker) { closePicker(); render(); }
+  if (e.key === "Escape" && S.changesPop) { S.changesPop = false; render(); }
 }
 // ---- Full Player Customization (spec/libs/fpc.md; SE-GUI-11) ----
 // The hide/unhide presets' fields (fpc::preset): the nonexistent ids are the
