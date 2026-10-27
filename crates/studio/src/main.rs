@@ -1,17 +1,21 @@
 //! The 4cc Studio binary: registers the tools, then launches the GUI or dispatches the CLI.
 //! With no arguments it opens the shell on the registered tools; `--gui` autorun arrives with
-//! the GUI phase. On Windows the exe is a GUI-subsystem application on every build, so a
-//! double-click opens no console window beside it (core plan, "Windows subsystem").
+//! the GUI phase. Two hidden arguments are not commands a member types: `--crash-monitor`
+//! runs the crash-dump monitor a window spawns, and `--crash-test` its crash trigger (core
+//! plan, "Diagnostic logging"). On Windows the exe is a GUI-subsystem application on every
+//! build, so a double-click opens no console window beside it (core plan, "Windows subsystem").
 // Not on the unit tests' harness, built from this file too: a GUI-subsystem test binary's
 // output never reaches the test runner, so a failing assertion would print nothing. The
 // exe the integration tests run keeps the attribute.
 #![cfg_attr(not(test), windows_subsystem = "windows")]
 
 mod console;
+mod crash_dump;
 mod gui_log;
 #[cfg(test)]
 mod test_dir;
 
+use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::{Arc, Mutex};
@@ -29,8 +33,11 @@ use studio_core::{
 };
 
 use crate::console::{spawn_notice_printer, spawn_printer};
+use crate::crash_dump::{
+    HiddenLaunch, hidden_launch, overflow_the_stack, run_monitor, watch_crashes,
+};
 use crate::gui_log::{
-    guard_gui, install_gui_logger, install_panic_hook, show_dialog, unclean_text,
+    LastSession, guard_gui, install_gui_logger, install_panic_hook, show_dialog, unclean_text,
 };
 
 /// The suite's whole registry as data, in sidebar order (core plan, "Tool plugin
@@ -271,10 +278,12 @@ fn run_help_mode(
 }
 
 /// Opens the shell on the registered tools and returns when the window closes: 0, the startup
-/// failure's code, 3 when the window could not be opened, or 101 when a panic ended it. A
-/// failure shows its text in a dialog: a window started by a double-click has no console to
-/// print it to.
-fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
+/// failure's code, 3 when the window could not be opened or the crash test's trigger
+/// returned, or 101 when a panic ended it. A failure shows its text in a dialog: a window
+/// started by a double-click has no console to print it to. `crash_test` is the hidden
+/// `--crash-test stack` launch (ST-RUN-10): the window's start runs as usual, then the
+/// stack is overflowed before any window.
+fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>, crash_test: bool) -> ExitCode {
     let (settings, paths) = match startup(&tools) {
         Ok(loaded) => loaded,
         Err((code, text)) => {
@@ -286,13 +295,30 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
     // startup resolved, and the hook needs the log so a panic's line lands in it.
     let installed_log = install_gui_logger(paths.data_dir.as_deref());
     install_panic_hook();
+    // The monitor starts with the log, once the data location exists: a first run has neither.
+    let _crash_handler = match (&installed_log, &paths.data_dir) {
+        (Some(_), Some(data_dir)) => {
+            watch_crashes(std::env::current_exe(), data_dir, log::logger())
+        }
+        _ => None,
+    };
+    // ST-RUN-10's trigger, past the monitor's start and before any window, so the test
+    // needs no display.
+    if crash_test {
+        let depth = overflow_the_stack(0);
+        log::error!("the crash test's stack overflow returned {depth} instead of crashing");
+        return ExitCode::from(3);
+    }
     // A previous session's log without a closing line means a crash the hook could not
     // see, or a session Windows ended (ST-RUN-09): say so before the window opens,
-    // naming the old log.
+    // naming the old log, and the dump beside it when the monitor wrote one (ST-RUN-10).
     if let Some(installed) = &installed_log
-        && installed.previous_unclean
+        && installed.last_session != LastSession::Closed
     {
-        show_dialog(MessageLevel::Info, &unclean_text(&installed.old_path()));
+        show_dialog(
+            MessageLevel::Info,
+            &unclean_text(&installed.old_path(), installed.dump_path().as_deref()),
+        );
     }
     // The receiver is dropped at once (the `_` pattern): a tool's run has its own sink
     // (`ToolContext::with_events`), and the notices the tools publish reach the status bar
@@ -349,14 +375,24 @@ fn attach_parent_console() {}
 
 #[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
 fn main() -> ExitCode {
+    let args: Vec<OsString> = std::env::args_os().collect();
+    // The monitor and the crash test are read before the command line is parsed:
+    // neither is a command a member types, so neither is in `--help`.
+    match hidden_launch(&args) {
+        Some(HiddenLaunch::Monitor { data_dir, socket }) => {
+            return run_monitor(&data_dir, &socket);
+        }
+        Some(HiddenLaunch::CrashTest) => return run_gui_mode(tools(), true),
+        None => {}
+    }
     // More than the program name in the arguments means a CLI run, a `--help` or a clap
     // error, all of which print; the window mode attaches to no console, which a
     // double-click does not have.
-    if std::env::args_os().nth(1).is_some() {
+    if args.len() > 1 {
         attach_parent_console();
     }
     let tools = tools();
-    let launch = match parse_launch(&tools, std::env::args_os()) {
+    let launch = match parse_launch(&tools, args) {
         Ok(launch) => launch,
         Err(error) => error.exit(),
     };
@@ -366,7 +402,7 @@ fn main() -> ExitCode {
         install_cli_logger(launch.verbosity);
     }
     match launch.mode {
-        LaunchMode::Gui => run_gui_mode(tools),
+        LaunchMode::Gui => run_gui_mode(tools, false),
         LaunchMode::GuiAutorun { .. } => {
             eprintln!(
                 "`--gui` is not available yet; it arrives with the GUI phase. Run the command without it, or `{EXE_NAME}` alone for the window."

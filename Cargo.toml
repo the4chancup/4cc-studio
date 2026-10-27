@@ -19,6 +19,7 @@ base64 = { version = "0.23.1", default-features = false, features = ["std"] }
 binrw = "0.15.2"
 block_compression = { version = "0.10.0", default-features = false, features = ["bc15", "bc7"] }
 clap = { version = "4.6.6", features = ["derive"] }
+crash-handler = "0.8.1"
 crossbeam-channel = "0.5.17"
 directories = "6.0.0"
 # Exact, so a bare `cargo update` cannot move even a patch release unreviewed (`spec/core/gui.md`
@@ -39,6 +40,8 @@ indicatif = { version = "0.18.6", default-features = false }
 indexmap = "2.14.2"
 log = "0.4.34"
 md-5 = "0.11.0"
+minidump = "0.27.0"
+minidumper = "0.11.0"
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
 pyo3 = { version = "0.29.2", features = ["abi3-py311", "extension-module"] }
 pyo3-log = "0.13.4"

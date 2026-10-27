@@ -10,7 +10,7 @@
 //! `env_logger`: a log file a member is asked to post is a GUI-mode need.
 
 use std::any::Any;
-use std::fs::{self, File};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, Write};
 use std::panic::{self, AssertUnwindSafe, PanicHookInfo};
 use std::path::{Path, PathBuf};
@@ -22,7 +22,7 @@ use log::{Level, LevelFilter, Metadata, Record};
 use studio_core::version_label;
 
 /// `studio.log`'s name in the data location.
-const LOG_FILE_NAME: &str = "studio.log";
+pub(crate) const LOG_FILE_NAME: &str = "studio.log";
 /// What the previous run's log is renamed to, so a crash followed by a relaunch keeps
 /// the crash's log.
 const OLD_LOG_FILE_NAME: &str = "studio.old.log";
@@ -39,50 +39,82 @@ const CRASH_REPORTED_LINE: &str = "the crash above was shown to the member";
 /// `line` with the user's home folder written as `~`, because findings carry absolute
 /// paths and the log is posted where the cup's members can read it (ST-RUN-07). No home
 /// known (`None`) and an empty one both leave the line as it is.
-fn redact_home(line: &str, home: Option<&str>) -> String {
+pub(crate) fn redact_home(line: &str, home: Option<&str>) -> String {
     match home {
         Some(home) if !home.is_empty() => line.replace(home, "~"),
         _ => line.to_string(),
     }
 }
 
-/// Whether `log`'s last non-empty line is one of the session lines, a normal close's
-/// or a reported crash's (ST-RUN-09). The lines read `INFO  session: <line>`, so the
-/// marker is what the line *ends* with.
-fn ended_with_a_closing_line(log: &str) -> bool {
-    log.lines()
-        .rev()
-        .find(|line| !line.trim().is_empty())
-        .is_some_and(|last| last.ends_with(CLOSING_LINE) || last.ends_with(CRASH_REPORTED_LINE))
+/// One log line as `FileLog::log` writes it (`"INFO  session: …\n"`), factored out so
+/// the crash monitor in its own process appends a line in the same shape (ST-RUN-10).
+pub(crate) fn log_line(level: Level, target: &str, text: &dyn std::fmt::Display) -> String {
+    format!("{:<5} {}: {}\n", level, target, text)
 }
 
-/// What `open_log` opened: `studio.log`'s file, and whether the previous run's log it
-/// rotated away ended without a closing line (ST-RUN-09).
-struct OpenedLog {
+/// How the previous run's log ended (ST-RUN-09, ST-RUN-10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LastSession {
+    /// No previous log, or it ended with a closing line: nothing to tell the member.
+    Closed,
+    /// It ended without one: a crash nothing caught, or a session Windows ended.
+    Unclean,
+    /// It ended with the monitor's line: a crash whose dump was written beside the log.
+    Dumped,
+}
+
+/// How the session `log` holds ended (ST-RUN-09, ST-RUN-10). The lines read
+/// `INFO  session: <line>` or `ERROR crash_dump: <line>`, so a marker is what a line
+/// *ends* with. A closing line counts only last, and wins: a second window's monitor
+/// may append into this log (the second start renamed the first window's log away), and
+/// this session still closed. Otherwise the monitor's line counts anywhere, not only
+/// last: the crashed thread waits for the monitor's reply while the window's other
+/// threads run on and may log after it. A log with no line at all (a session that ended
+/// before its first) is unclean.
+fn last_session(log: &str) -> LastSession {
+    let last = log.lines().rev().find(|line| !line.trim().is_empty());
+    if last.is_some_and(|last| last.ends_with(CLOSING_LINE) || last.ends_with(CRASH_REPORTED_LINE))
+    {
+        return LastSession::Closed;
+    }
+    if log
+        .lines()
+        .any(|line| line.ends_with(crate::crash_dump::DUMP_WRITTEN_LINE))
+    {
+        LastSession::Dumped
+    } else {
+        LastSession::Unclean
+    }
+}
+
+/// What `open_log` opened: `studio.log`'s file, and how the previous run's log it
+/// rotated away ended (ST-RUN-09, ST-RUN-10).
+pub(crate) struct OpenedLog {
     file: File,
-    previous_unclean: bool,
+    pub(crate) last_session: LastSession,
 }
 
 /// Creates `data_dir/studio.log` with `first_line` as its first line, the previous run's
 /// renamed to `studio.old.log` first: `fs::rename` replaces the older file on Windows
 /// and Linux alike, so a crash followed by a relaunch keeps the crash's log. The old
-/// log is read before the rename: its last line is what tells an ended session from a
-/// clean one (ST-RUN-09).
-fn open_log(data_dir: &Path, first_line: &str) -> io::Result<OpenedLog> {
+/// log is read before the rename: its lines are what tell an ended session from a clean
+/// one (`last_session`; ST-RUN-09, ST-RUN-10).
+pub(crate) fn open_log(data_dir: &Path, first_line: &str) -> io::Result<OpenedLog> {
     let path = data_dir.join(LOG_FILE_NAME);
-    let previous_unclean = if path.exists() {
+    let last_session = if path.exists() {
         let old = fs::read(&path)?;
         fs::rename(&path, data_dir.join(OLD_LOG_FILE_NAME))?;
-        !ended_with_a_closing_line(&String::from_utf8_lossy(&old))
+        last_session(&String::from_utf8_lossy(&old))
     } else {
-        false
+        LastSession::Closed
     };
-    let mut file = File::create(&path)?;
+    // Append, never write-at-offset: the crash monitor appends its own line to this
+    // file from another process, and a window thread still writing at the offset it
+    // held would overwrite it (ST-RUN-10). The old log was renamed away, so the file
+    // starts empty either way.
+    let mut file = OpenOptions::new().create(true).append(true).open(&path)?;
     writeln!(file, "{first_line}")?;
-    Ok(OpenedLog {
-        file,
-        previous_unclean,
-    })
+    Ok(OpenedLog { file, last_session })
 }
 
 /// The `log::Log` writing `studio.log`, at most `Info` (the plan's level: a double-click
@@ -112,12 +144,7 @@ impl log::Log for FileLog {
             return;
         }
         let line = redact_home(
-            &format!(
-                "{:<5} {}: {}\n",
-                record.level(),
-                record.target(),
-                record.args()
-            ),
+            &log_line(record.level(), record.target(), &record.args()),
             self.home.as_deref(),
         );
         let mut file = self.locked();
@@ -141,21 +168,30 @@ impl log::Log for FileLog {
     }
 }
 
-/// What `install_gui_logger` reports back: `studio.log`'s path, and whether the
-/// previous run's log ended without a closing line, the signal for the
-/// unclean-shutdown dialog the next start shows before the window opens (ST-RUN-09).
+/// What `install_gui_logger` reports back: `studio.log`'s path, and how the previous
+/// run's log ended, the signal for the unclean-shutdown dialog the next start shows
+/// before the window opens (ST-RUN-09).
 pub(crate) struct InstalledLog {
     /// `studio.log`'s path in the data location.
     pub(crate) path: PathBuf,
-    /// The previous run's `studio.log` had no closing line: that session crashed in a
-    /// way the hook could not see, or Windows ended it.
-    pub(crate) previous_unclean: bool,
+    /// How the previous run's `studio.log` ended (ST-RUN-09, ST-RUN-10).
+    pub(crate) last_session: LastSession,
 }
 
 impl InstalledLog {
     /// `studio.old.log`'s path: the previous run's `studio.log` as `open_log` renamed it.
     pub(crate) fn old_path(&self) -> PathBuf {
         self.path.with_file_name(OLD_LOG_FILE_NAME)
+    }
+
+    /// `studio.dmp`'s path beside the log when the previous session's monitor said it
+    /// wrote one and the file is still there (ST-RUN-10), else `None`.
+    pub(crate) fn dump_path(&self) -> Option<PathBuf> {
+        if self.last_session != LastSession::Dumped {
+            return None;
+        }
+        let path = self.path.with_file_name(crate::crash_dump::DUMP_FILE_NAME);
+        path.is_file().then_some(path)
     }
 }
 
@@ -177,7 +213,7 @@ pub(crate) fn install_gui_logger(data_dir: Option<&Path>) -> Option<InstalledLog
     log::set_max_level(LevelFilter::Info);
     Some(InstalledLog {
         path: data_dir.join(LOG_FILE_NAME),
-        previous_unclean: opened.previous_unclean,
+        last_session: opened.last_session,
     })
 }
 
@@ -270,12 +306,22 @@ fn panic_message(payload: &(dyn Any + Send)) -> String {
 /// The next start's dialog when the previous session left no closing line (ST-RUN-09):
 /// the session may have crashed in a way the hook cannot see, or Windows may have ended
 /// it, and the wording stays neutral between the two. `old_log` is `studio.old.log`'s
-/// path.
-pub(crate) fn unclean_text(old_log: &Path) -> String {
-    format!(
-        "The last session did not close normally. If it crashed, please post this file where you report problems: {}. Your home folder is written in it as ~.",
-        old_log.display()
-    )
+/// path; `dump` is `studio.dmp`'s when a crashed session's monitor wrote one
+/// (ST-RUN-10), asked for beside the log; the dump may still show the member's user
+/// name (its module list holds the exe's full path), which the log writes as `~`.
+pub(crate) fn unclean_text(old_log: &Path, dump: Option<&Path>) -> String {
+    match dump {
+        Some(dump) => format!(
+            "The last session did not close normally. If it crashed, please post these two files where you report problems: {} and {}. Your home folder is written in the log as ~, but {} may still show your user name.",
+            old_log.display(),
+            dump.display(),
+            crate::crash_dump::DUMP_FILE_NAME
+        ),
+        None => format!(
+            "The last session did not close normally. If it crashed, please post this file where you report problems: {}. Your home folder is written in it as ~.",
+            old_log.display()
+        ),
+    }
 }
 
 /// One `session` line through `logger` at `Info`, the level `FileLog` keeps.
@@ -340,6 +386,7 @@ mod tests {
     use log::Log;
 
     use super::*;
+    use crate::crash_dump::{DUMP_FILE_NAME, DUMP_WRITTEN_LINE};
     use crate::test_dir::TestDir;
 
     // ST-RUN-07
@@ -573,20 +620,58 @@ mod tests {
         );
     }
 
-    // ST-RUN-09
+    // ST-RUN-09, ST-RUN-10
     #[test]
-    fn ended_with_a_closing_line_reads_the_logs_last_non_empty_line() {
+    fn last_session_reads_the_logs_last_non_empty_line() {
         let version = "Unlimited Tool Works v0.0.1 pre-alpha";
         for marker in [CLOSING_LINE, CRASH_REPORTED_LINE] {
             let clean = format!("{version}\nINFO  session: {marker}");
-            assert!(ended_with_a_closing_line(&clean), "{clean}");
-            assert!(
-                ended_with_a_closing_line(&format!("{clean}\n")),
+            assert_eq!(last_session(&clean), LastSession::Closed, "{clean}");
+            assert_eq!(
+                last_session(&format!("{clean}\n")),
+                LastSession::Closed,
                 "{clean}+newline"
             );
         }
-        assert!(!ended_with_a_closing_line(&format!("{version}\n")));
-        assert!(!ended_with_a_closing_line(""));
+        // A log the session left empty (it ended before its first line) is unclean too.
+        assert_eq!(last_session(""), LastSession::Unclean);
+        assert_eq!(last_session(&format!("{version}\n")), LastSession::Unclean);
+
+        let dumped = format!(
+            "{version}\n{}",
+            log_line(Level::Error, "crash_dump", &DUMP_WRITTEN_LINE)
+        );
+        assert_eq!(last_session(&dumped), LastSession::Dumped, "{dumped}");
+        assert_eq!(
+            last_session(dumped.trim_end()),
+            LastSession::Dumped,
+            "no trailing newline"
+        );
+        // A window thread still running while the crashed one waited for the monitor's
+        // reply may log after the monitor's line.
+        let logged_after = format!("{dumped}WARN  save_editor: a portrait did not load\n");
+        assert_eq!(
+            last_session(&logged_after),
+            LastSession::Dumped,
+            "{logged_after}"
+        );
+        // A second window's monitor can append into this window's log (the second start
+        // renamed the first window's log away); this window's own clean close still wins.
+        let closed_after = format!("{dumped}INFO  session: {CLOSING_LINE}\n");
+        assert_eq!(
+            last_session(&closed_after),
+            LastSession::Closed,
+            "{closed_after}"
+        );
+        let failed = format!(
+            "{version}\n{}",
+            log_line(
+                Level::Error,
+                "crash_dump",
+                &"the crash dump could not be written: disk full"
+            )
+        );
+        assert_eq!(last_session(&failed), LastSession::Unclean, "{failed}");
     }
 
     // ST-RUN-09
@@ -598,7 +683,10 @@ mod tests {
             "v\nERROR panic: thread 'main' panicked: boom\n  0: 0x7ff6a1230000+0x59c4\n",
         )
         .unwrap();
-        assert!(open_log(dir.path(), "v").unwrap().previous_unclean);
+        assert_eq!(
+            open_log(dir.path(), "v").unwrap().last_session,
+            LastSession::Unclean
+        );
 
         let dir = TestDir::new("clean_old_log");
         fs::write(
@@ -606,18 +694,58 @@ mod tests {
             "v\nINFO  session: the window closed normally\n",
         )
         .unwrap();
-        assert!(!open_log(dir.path(), "v").unwrap().previous_unclean);
+        assert_eq!(
+            open_log(dir.path(), "v").unwrap().last_session,
+            LastSession::Closed
+        );
 
         let dir = TestDir::new("no_old_log");
-        assert!(!open_log(dir.path(), "v").unwrap().previous_unclean);
+        assert_eq!(
+            open_log(dir.path(), "v").unwrap().last_session,
+            LastSession::Closed
+        );
+    }
+
+    // ST-RUN-10: the log is append-mode, so a line the monitor appends from its own
+    // process between two of the window's writes is kept rather than overwritten.
+    #[test]
+    fn open_log_appends_so_a_monitors_line_lands_between_the_windows() {
+        let dir = TestDir::new("append");
+        let mut opened = open_log(dir.path(), "v").unwrap();
+        let mut monitor = OpenOptions::new()
+            .append(true)
+            .open(dir.path().join(LOG_FILE_NAME))
+            .unwrap();
+        monitor.write_all(b"monitor\n").unwrap();
+        writeln!(opened.file, "window").unwrap();
+        assert_eq!(
+            fs::read_to_string(dir.path().join(LOG_FILE_NAME)).unwrap(),
+            "v\nmonitor\nwindow\n"
+        );
     }
 
     // ST-RUN-09
     #[test]
     fn unclean_text_names_the_old_log() {
-        let text = unclean_text(Path::new("C:\\data\\studio.old.log"));
+        let text = unclean_text(Path::new("C:\\data\\studio.old.log"), None);
         assert!(text.contains("did not close normally"), "{text}");
         assert!(text.contains("C:\\data\\studio.old.log"), "{text}");
+    }
+
+    // ST-RUN-10
+    #[test]
+    fn unclean_text_with_a_dump_names_the_log_and_the_dump() {
+        let text = unclean_text(
+            Path::new("C:\\data\\studio.old.log"),
+            Some(Path::new("C:\\data\\studio.dmp")),
+        );
+        assert!(text.contains("did not close normally"), "{text}");
+        assert!(text.contains("C:\\data\\studio.old.log"), "{text}");
+        assert!(text.contains("C:\\data\\studio.dmp"), "{text}");
+        assert_eq!(
+            unclean_text(Path::new("C:\\data\\studio.old.log"), None),
+            "The last session did not close normally. If it crashed, please post this file where you report problems: C:\\data\\studio.old.log. Your home folder is written in it as ~."
+        );
     }
 
     // ST-RUN-09: the dialog names the file `open_log` renamed the previous log to.
@@ -625,12 +753,37 @@ mod tests {
     fn old_path_is_the_old_log_beside_the_log() {
         let installed = InstalledLog {
             path: Path::new("C:\\data").join(LOG_FILE_NAME),
-            previous_unclean: true,
+            last_session: LastSession::Unclean,
         };
         assert_eq!(
             installed.old_path(),
             Path::new("C:\\data").join(OLD_LOG_FILE_NAME)
         );
+    }
+
+    // ST-RUN-10: the dialog names the dump only when the monitor said it wrote one and
+    // the file is still there.
+    #[test]
+    fn dump_path_names_the_dump_beside_a_dumped_log_still_there() {
+        let dir = TestDir::new("dump_path");
+        fs::write(dir.path().join(DUMP_FILE_NAME), "dump").unwrap();
+        let installed = InstalledLog {
+            path: dir.path().join(LOG_FILE_NAME),
+            last_session: LastSession::Dumped,
+        };
+        assert_eq!(installed.dump_path(), Some(dir.path().join(DUMP_FILE_NAME)));
+        let installed = InstalledLog {
+            last_session: LastSession::Unclean,
+            ..installed
+        };
+        assert_eq!(installed.dump_path(), None);
+
+        let dir = TestDir::new("dump_path_missing");
+        let installed = InstalledLog {
+            path: dir.path().join(LOG_FILE_NAME),
+            last_session: LastSession::Dumped,
+        };
+        assert_eq!(installed.dump_path(), None);
     }
 
     // A process sets one global logger ever, and `main`'s verbosity test installs the
@@ -657,7 +810,7 @@ mod tests {
         assert!(install_gui_logger(None).is_none());
         let installed = install_gui_logger(Some(dir.path())).unwrap();
         assert_eq!(installed.path, dir.path().join(LOG_FILE_NAME));
-        assert!(!installed.previous_unclean);
+        assert_eq!(installed.last_session, LastSession::Closed);
         log::info!("install probe");
         let written = fs::read_to_string(&installed.path).unwrap();
         let mut lines = written.lines();

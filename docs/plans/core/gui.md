@@ -1143,6 +1143,7 @@ ST-RUN-10   GIVEN the built exe started over a test data location with `--crash-
                  holds the warning
 ST-RUN-11   manual  GIVEN ST-RUN-10's dump from a release build
                     WHEN `minidump-stackwalk` reads it against that build's kept `.pdb`
+                         (through `dump_syms`' symbol files)
                     THEN the crashed thread's stack names the trigger's function
 ST-CLI-01   GIVEN a data directory that cannot be written
             WHEN a CLI command runs

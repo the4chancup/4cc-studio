@@ -2596,3 +2596,7 @@ worklog passed 7,000 lines.
   puts each field's cross on its own control's row. The Tactics grid (s5) sliced into s5a-s5e.
 - **2026-10-27** — The Tactics editor's grid frame built (0.0.1s5a, SWE-2, one rework): three columns and three rows, the two bars with
   four-entry Copy/swap menus, Scroll names remembered, the lists untitled; the old narrow arrangement gone.
+- **2026-10-27** — The crash dump landed: the window starts its own exe as a monitor, one `unsafe` block attaches the hook, and
+  a stack overflow leaves `studio.dmp` the next start names beside the old log; the exe grew 140.5 KiB (0.0.1k4b).
+- **2026-10-27** — The crash dump's checks closed: Astra's checkpoint found one case and it was ruled an edge case; the release dump
+  names `overflow_the_stack` through `dump_syms` and `minidump-stackwalk`; a normal close leaves no monitor (0.0.1k4b).

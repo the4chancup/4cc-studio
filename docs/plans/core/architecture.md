@@ -299,10 +299,16 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   crashed, please post this file where you report problems: <path>", naming the home folder's
   `~`. This catches what the panic hook cannot see (a stack overflow, a failed allocation, a
   crash in native code), and the crash dump below, where one was written, adds its stacks;
-  when the old log's last
-  line is the monitor's, naming a dump, and that file is still there, the same dialog names
-  it. We read the monitor's line rather than compare times: the monitor writes the dump
-  before it appends that line, so the log is always the newer file. The wording is neutral because the dialog also follows a session Windows
+  when the old log holds the monitor's line naming a dump (anywhere, not only last: the
+  window's other threads may log after it while the crashed one waits for the monitor's
+  reply; a closing line last still wins, since a second window's monitor may append into
+  the log the second start opened) and that file is still there, the same dialog
+  names it beside the old log, asking for both files and saying that the dump, unlike the
+  log, may still show the member's user name (its module list holds the exe's full path).
+  A log left empty, by a session that ended before its first line, counts as not closed. We
+  read the monitor's line rather than compare times: the monitor writes the dump before it
+  appends that line, so the log is always the newer file. The wording is neutral because
+  the dialog also follows a session Windows
   ended: winit 0.30 handles neither `WM_QUERYENDSESSION` nor `WM_ENDSESSION`, so a shutdown
   with the window open ends the process with no closing line, as a kill from Task Manager
   or a power cut does. We do not tell the two apart through the boot time: a crash followed
@@ -331,18 +337,25 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   a monitor, the same exe started again with a hidden argument (no second exe in the bundle),
   because a crashed process cannot reliably write its own dump; on a crash the monitor writes
   `studio.dmp` beside the log (every thread's stack, a few MB), replacing the previous one,
-  appends a line naming it to the log (the window's process is gone by then, and a crashed
-  session's log has no closing line for it to follow), and exits with the window's process;
+  appends a line naming it to the log (the crashed thread waits in the hook for the
+  monitor's reply, sent after the line, so no closing line follows it), and exits with the
+  window's process; a monitor that cannot bind its socket or serve appends its error to the
+  log instead, since the window sees only its exit code;
   on a normal close it writes nothing, so the closing line stays the log's last. Through
   Embark's `crash-handler` (the hook in the window's process) and `minidumper` (the link to
   the monitor), and `minidump-writer` (the dump, under `minidumper`); the
   maintainer reads a dump with `minidump-stackwalk` against the release's kept `.pdb`, the
-  exe's symbols the log's offsets are named from too. The link is a socket file named after
+  exe's symbols the log's offsets are named from too, converted first: `minidump-stackwalk`
+  reads Breakpad symbol files, not a `.pdb`, so `dump_syms <pdb> --store <dir>` writes them
+  and `minidump-stackwalk --symbols-path <dir> studio.dmp` reads them (both `cargo install`). The window's log is opened for
+  appending, as the monitor's line is: a window thread still writing at its own offset would
+  overwrite the monitor's line. The link is a socket file named after
   the window's process id in the system's temp folder, its path passed in the hidden
-  argument: not in the data location, because a Windows socket path holds at most 107 bytes,
-  which a data location deep in folders can pass, and not one fixed name, because a second
-  window's monitor removes the socket file and binds the name again, so one of the two
-  windows would go unwatched. The
+  argument after the data location's (`--crash-monitor <data location> <socket>`): not in
+  the data location, because a Windows socket path holds at most 107 bytes, which a data
+  location deep in folders can pass, and not one fixed name, because a second window's
+  monitor removes the socket file and binds the name again, so one of the two windows would
+  go unwatched. The window waits at most two seconds for the monitor to answer. The
   three crates were accepted on a growth of at most 10 MB, and add 221 KiB to a probe exe
   built with the release profile (measured at 0.0.1k4, with and without the monitor, the
   hook and a stack overflow wired); ours should grow less, since it already holds the

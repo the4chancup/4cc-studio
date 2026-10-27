@@ -15,12 +15,14 @@ path = "src/main.rs"
 anyhow.workspace = true
 backtrace.workspace = true
 clap.workspace = true
+crash-handler.workspace = true
 crossbeam-channel.workspace = true
 directories.workspace = true
 env_logger.workspace = true
 export_upgrader.workspace = true
 indicatif.workspace = true
 log.workspace = true
+minidumper.workspace = true
 rfd.workspace = true
 ruleset_editor.workspace = true
 save_editor.workspace = true
@@ -28,6 +30,7 @@ studio_core.workspace = true
 team_compiler.workspace = true
 
 [dev-dependencies]
+minidump.workspace = true
 pes_savefile = { workspace = true, features = ["test-support"] }
 pes_version.workspace = true
 

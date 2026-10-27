@@ -2568,12 +2568,31 @@ briefs, review loops, gates and mutation runs as for any step.
       hook and a stack overflow on the argument `stack` wired): 243,200 B without, 469,504 B with, so 221 KiB of
       the 10 MB allowed; the probe's overflow wrote `studio.dmp` (1 MB), read by `minidump`
       0.27 as five threads and exception `0xC00000FD` (DECISIONS 2026-10-26)
-    - [ ] k4b the build (the `unsafe` block allowed by the maintainer, 2026-10-27; DECISIONS
+    - [x] k4b the build (the `unsafe` block allowed by the maintainer, 2026-10-27; DECISIONS
       "The crash dump's hook is one `unsafe` block of ours"): the attach through
       `crash-handler`'s `unsafe fn make_crash_event` with its `// SAFETY:` comment, the plan's
       bullet as written, `minidump-writer` only through `minidumper`
       unless our code calls it, the rows in `plans/core/README.md` "External Dependencies",
-      `just deps-check`, and our release exe's size before and after (the probe's is a bound)
+      `just deps-check`, and our release exe's size before and after (the probe's is a bound).
+      Done 2026-10-27 (SWE-2, one run): `crates/studio/src/crash_dump.rs` (the hidden
+      `--crash-monitor <data location> <socket>` and `--crash-test stack`, `DumpWriter`,
+      `watch_crashes`, the one `unsafe` block, `overflow_the_stack`), `gui_log.rs`
+      (`LastSession` in place of the unclean flag, `studio.log` opened for appending,
+      `dump_path`, the dialog naming both files), `main.rs`, `tests/crash_dump.rs`
+      (ST-RUN-10 end to end); 37 packages in `Cargo.lock`, licenses ok; the release exe
+      39,465,984 B before, 39,609,856 after (+140.5 KiB); the release build's
+      `--crash-test stack` exits `0xC00000FD` with a 1 MB dump and the monitor's line last.
+      ST-RUN-11 manual: checked 2026-10-27 (k4b's release dump, its exe and `.pdb` kept in
+      `4cc-studio-temp/st_run_11/`; `dump_syms` then `minidump-stackwalk`: the crashed main
+      thread's frames 2-3 `4cc_studio::crash_dump::overflow_the_stack()`, `crash_dump.rs`
+      254 and 263, under `__chkstk` and `memset`; the plan's sentence now names `dump_syms`).
+      manual: checked 2026-10-27, the built window's normal close leaves no monitor (the same
+      release exe, portable over a fresh `data/`; `st_run_11/close_check.py`): two processes
+      open, the window and its `--crash-monitor`, none within 15 s of `WM_CLOSE`, exit 0,
+      the closing line last, no dump.
+      Open: the Linux job's
+      first run of `tests/crash_dump.rs` (expects SIGSEGV, 11; not run here). Reviews:
+      SWE-2 S1 7 of 18, S2 1 of 5, Astra A1 (checkpoint b) 0 of 1 (`.tmp/0_0_1k4b/rulings.md`)
 - [ ] 0.0.1l no console window in the preview (`plans/core/architecture.md` "Windows
   subsystem", DECISIONS 2026-10-25, `AttachConsole` approved): `#![windows_subsystem =
   "windows"]` on every Windows build (the plan's paragraph after it says why debug too),

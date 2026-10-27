@@ -11799,3 +11799,21 @@ pointer after each click, and one pick model for every player-taking field. The 
 "An opponent", which says what Tight Marking's byte holds (the opposing formation's slot).
 Plan: `plans/save_editor.md` "Tactics editor", the pitch, click-to-assign and instruction
 bullets; the draft's `slotPopover` and `instrSet`.
+
+## 2026-10-27 — studio — The crash dump's dialog asks for both files, and the monitor appends to an append-mode log
+Decision: the next start's dialog after a dumped crash asks for the old log and `studio.dmp`
+together, saying the dump may still show the member's user name; the monitor's line counts
+anywhere in an old log that did not end with a closing line, not only last, and an empty
+old log counts as not closed; the
+window opens `studio.log` for appending, as the monitor does, and a monitor that cannot bind
+or serve appends its error there; the monitor's hidden argument carries the data location
+before the socket's path; the window waits at most two seconds for it.
+Why: the dump's module list holds the exe's full path, often under the user's folder, which no
+redaction reaches, so the member is told rather than promised a clean file; a window thread
+writing at its own offset after the monitor's line would overwrite it, and append mode puts
+every write at the end, and the window's other threads keep running (and may log) while the
+crashed one waits for the monitor's reply, so a last-line check would lose the dump, while a
+second window's monitor can append into a log whose session then closes, so the closing
+line wins; passing
+the folder, not resolving it again, keeps the monitor writing where the window's log is.
+Plan: `plans/core/architecture.md` "Diagnostic logging", the session bullet and the crash dump bullet.
