@@ -3156,10 +3156,29 @@ briefs, review loops, gates and mutation runs as for any step.
     window.png}`; the script reads each ICO size back and asserts it is its own crop (a
     one-image ICO fails it: its 16 is the resized whole picture). Preview
     `.tmp/0_0_1v/icon_sheet2.png`
-  - [ ] v2 the code (SWE-2, after S's chain releases `studio`): the window icon per platform
+  - [x] v2 the code (SWE-2, after S's chain releases `studio`): the window icon per platform
     and the build script with `winresource` → verify: each PNG decoded to its `IconData` size
     in a test; the release exe's icon in Explorer and the built window's title bar and
     taskbar (`manual: checked` lines; ask before the window check)
+    Done 2026-10-27 (side-lead S, SWE-2): `native_options` sets `small.png` on Windows,
+    `window.png` elsewhere, for both openings (`window_size.rs`, two tests: each PNG decodes
+    at 64 and 256; both openings carry the platform's icon); `crates/studio/build.rs` compiles
+    `icon.ico` with `winresource` 0.1.34 (Windows build hosts only), its version block naming
+    Unlimited Tool Works (DECISIONS "The exe's version details carry the codename"). Read back
+    from the release exe (`.tmp/0_0_1v2/exe_icon_check.py`): one icon group, the six sizes
+    byte-identical to `icon.ico`, the description and product name Unlimited Tool Works; the
+    exe before the change had no resources (the script fails on it). eframe 0.37 makes both
+    window icons from the one image (`native/app_icon.rs`: `ICON_BIG` at `SM_CXICON`,
+    `ICON_SMALL` at `SM_CXSMICON`, Lanczos-resized), so the taskbar shows the tight crop too;
+    whether that reads better than the whole picture at the taskbar's size has no headless
+    check. Files: `Cargo.toml`, `Cargo.lock`, `crates/studio/{Cargo.toml,build.rs}`,
+    `crates/studio_core/src/shell/window_size/{mod,tests}.rs` (split from `window_size.rs`,
+    past a thousand lines), `plans/core/{development_plan,README}.md`. Review: SWE-2 S1, 2
+    accepted of 7 (the eframe fact above, the split), loop ended (`.tmp/0_0_1v2/rulings.md`).
+    Open: the built-window check (top lead): the title bar's icon is the tight crop; the
+    taskbar's button and Alt+Tab (the tight crop: if the whole picture should be there, the
+    plan's bullet on `small.png` says what that costs); Explorer's file icon on the release
+    exe; Task Manager's name for the running program
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

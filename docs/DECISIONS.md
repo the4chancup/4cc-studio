@@ -11817,3 +11817,16 @@ second window's monitor can append into a log whose session then closes, so the 
 line wins; passing
 the folder, not resolving it again, keeps the monitor writing where the window's log is.
 Plan: `plans/core/architecture.md` "Diagnostic logging", the session bullet and the crash dump bullet.
+
+## 2026-10-27 — studio — The exe's version details carry the codename
+Decision: the resource `studio`'s build script compiles on Windows sets the exe's file
+description and product name to Unlimited Tool Works, spelled as text in `build.rs`; the
+version fields stay `winresource`'s (the workspace version, 0.0.1).
+Why: `winresource` writes a version block with every icon, its file description and product
+name defaulting to the package's name, `studio`, and Task Manager lists a running program by
+its file description, so the icon's step would have shown members a name the preview never
+uses (without the block, Task Manager shows the file name). A text spelling, not
+`studio_core`'s `app_name!`: a build script runs before the crate is compiled, and making
+`studio_core` a build dependency would compile eframe twice for one string.
+Plan: `plans/core/development_plan.md` "The preview's icon" (`icon.ico`'s bullet) and "The
+preview's codename: Unlimited Tool Works" (the text spellings).

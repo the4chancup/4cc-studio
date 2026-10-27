@@ -2606,3 +2606,5 @@ worklog passed 7,000 lines.
   target picked on the pitch, Automatic settings as a two-column grid, Substitution a combo of the game's names.
 - **2026-10-27** — The open save's path moved from the Save editor's toolbar to the idle window title (`title_detail`), and the
   fixed-width side panels (sidebar, help tree, Ruleset rail) stopped showing a resize cursor on their edge (0.0.1s4t).
+- **2026-10-27** — The preview's icon reached the code: Archer is the window's icon (the tight crop on Windows, the whole picture
+  elsewhere) and, through a `winresource` build script, the exe's file icon, its version details naming Unlimited Tool Works (0.0.1v2).

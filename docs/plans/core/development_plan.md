@@ -106,7 +106,8 @@ community's own and fits a suite that traces every tool its cups have used. The 
 the name from two constants in `studio_core`, the display name and the executable's, so the
 window, the CLI and the findings' text switch back in one line at 1.0.0. The help pages and
 the launchers spell the executable's name as text, since a Markdown page and a batch file
-cannot read a Rust constant; a test over the `help --export` files and the CLI's `--help`
+cannot read a Rust constant, and `studio`'s build script spells the display name (the exe's
+version details, "The preview's icon" below); a test over the `help --export` files and the CLI's `--help`
 output finds any "4cc Studio" left, which is the list a 1.0.0 switch rewrites. Text a file
 format keeps names no product at all (a ruleset file's header and its logic banner, the
 shared-IDs file's comment: "written by the Ruleset editor", "by the Team compiler"): the
@@ -126,14 +127,26 @@ face alone. Three files under `resources/icon/` carry it:
 - `icon.ico`, the six sizes (16, 24 tight; 32, 48, 64, 256 whole), the executable's file icon
   (Explorer, a shortcut, the bundle's exe before it runs). Windows draws only what an exe's
   resources hold there, so `studio`'s build script compiles it in on Windows with
-  `winresource`, a build dependency, which calls the Windows SDK's `rc.exe`.
+  `winresource`, a build dependency, which calls the Windows SDK's `rc.exe`. Its resource
+  also carries the exe's version details, whose file description is the name Task Manager
+  lists the running program under and whose product name Explorer's Details tab shows: both
+  say Unlimited Tool Works, not `winresource`'s default, the package's name `studio`. The
+  build script spells the name as text, like the launchers, since it runs before any
+  crate's constant exists.
 - `small.png`, the tight crop at 64 pixels: the window's icon on Windows
-  (`eframe::icon_data::from_png_bytes`). winit hands eframe's window icon to Windows as the
-  window's small icon alone (`ICON_SMALL`: the title bar, 16 pixels at 100% scaling, 24 at
-  150%), so it is the tight crop; the taskbar's big icon, which eframe leaves unset, falls back
-  to Windows' own choice, checked on the built window.
+  (`eframe::icon_data::from_png_bytes`). eframe makes both of the window's icons from this
+  one image, resized: the small one (`ICON_SMALL`: the title bar, 16 pixels at 100% scaling,
+  24 at 150%) and the big one (`ICON_BIG`, 32 and 48: the taskbar's). The title bar needs the
+  tight crop; whether the taskbar's button, about 24 pixels at 100%, is better served by it or
+  by the whole picture is checked on the built window. Giving the two icons different
+  pictures would mean setting them past eframe, through winit's own calls on the first frame
+  (a direct `winit` dependency, since eframe does not re-export it), which waits for that
+  check to show the need.
 - `window.png`, the whole picture at 256: the window's icon elsewhere, where one image serves
-  every size.
+  every size. On Linux that holds under X11; a Wayland compositor ignores a window's own icon
+  and shows the one its desktop entry names (matched by the app id), which a Linux package
+  installs. The preview's archive installs none, so on Wayland its window shows the
+  compositor's default until a package does.
 
 `scripts/make_icon.py` makes the three once from the picture, checking each of the ICO's
 sizes holds its own crop, and they are committed, so a build needs no image tool. At 1.0.0 the
