@@ -18,17 +18,6 @@ names where the question came from so the context can be read there.
   Substitution says whether Very early is there. A save's stored value outside the offered
   ones still shows, as its number.
 
-- **The game's rule for a dragged player's position: worth a deeper study?** (worklog
-  0.0.1y3.) You asked to map the areas; measured in PES 2021, there are none: the same spot
-  gives different positions by who is dragged and where his teammates stand
-  (`.tmp/0_0_1y3/findings.md`: a dragged LMF reads AMF where a dragged CMF reads LMF; the LMF
-  turns CMF about 11.5 short of the nearest CMF, wherever it stands). The editor keeps the
-  dragged player's position, as before. Reproducing the game's choice needs its rule: either
-  a longer series of in-game scans (each of the rule's three unknown parts, what counts as a
-  teammate's line, each position's allowed region, the defaults where it is not allowed, its
-  own series), or the rule read from the executable. Say if either is worth it; otherwise
-  the drop stays as it is.
-
 ## Draft looks
 
 - **Which body font? (0.0.1w4.)** Open `.tmp/0_0_1w/font_trial/index.html`: a dropdown draws

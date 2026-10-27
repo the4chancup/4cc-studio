@@ -12100,3 +12100,14 @@ in `data/` because a relative `aatf_rules` resolves there, where one beside the 
 checks catch a join that drifts from the format. The two Team compiler lines let the readme
 tell VGL's organizer which value to change instead of what to type in.
 Plan: `plans/core/development_plan.md` "Divegrass Before Christmas".
+## 2026-10-27 — save_editor — The dragged player's position rule is read from PES 2016's executable
+Decision: the game's rule for the position a dragged starter takes is read from PES 2016's
+executable (worklog 0.0.1y4), not fitted to more in-game scans; the reading is then checked
+against the PES 2021 scans of 0.0.1y3, and a rule that reproduces them replaces the kept
+position for the versions it holds in. Until then a pitch drop keeps the position.
+Why: the maintainer's answer to the question 0.0.1y3 parked. The scans showed a rule with
+three unknown parts (what counts as a teammate's line, each position's allowed region, the
+defaults where it is not allowed), each a series of scans of its own, where the code states
+it whole; PES 2016's is the last executable that is not packed, so its code reads directly
+(PES 2021's is the version the scans measured, so they are the check).
+Plan: `plans/save_editor.md` "Tactics editor", the bullet "A pitch player dropped on another".

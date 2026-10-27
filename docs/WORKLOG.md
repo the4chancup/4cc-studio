@@ -3654,8 +3654,21 @@ briefs, review loops, gates and mutation runs as for any step.
       with the teammates (an LMF turns CMF about 11.5 short of the nearest CMF, at x 41.3 or
       31.7 as that CMF stands at 53 or 43)
     - [x] y3b, y3c dropped: a rule fitted to these scans has three unknown parts, each a study
-      of its own, and a wrong guess sets positions silently; whether a deeper study is wanted
-      is QUESTIONS "The game's rule for a dragged player's position"
+      of its own, and a wrong guess sets positions silently; the maintainer's answer: read the
+      rule from the executable (0.0.1y4)
+  - [ ] y4 the dragged player's position rule read from PES 2016's executable (the maintainer,
+    2026-10-27: "the last one with a clean exe"; plan "A pitch player dropped on another",
+    DECISIONS "The dragged player's position rule is read from PES 2016's executable"); does
+    not hold the cut, the drop keeping the position meanwhile. The exe copied to
+    `4cc-studio-temp/pes16_re/` (sha256 `1576ee45...`): 32-bit, `.text` not packed (entropy
+    6.7; `.bind` is the Steam stub); capstone and pefile approved (the maintainer)
+    - [ ] y4a find the Team Sheet drag's code: the routine that writes a formation slot's
+      position byte after a drop (from the slot record's layout, the save's 2-byte X/Y pair
+      and position byte, and the edit screen's strings), and the tables it reads
+    - [ ] y4b state the rule as code reads it (inputs: the dragged slot, its drop point, the
+      other slots; output: the position byte), each table dumped
+    - [ ] y4c check it against `.tmp/0_0_1y3/findings.md`'s four PES 2021 scans (every
+      transition within one push); a rule that reproduces them goes to the plan, then the code
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

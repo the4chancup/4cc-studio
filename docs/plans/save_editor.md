@@ -675,7 +675,10 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   short of the nearest CMF, wherever that CMF stands), and the area the screen lights while he
   is held is not where his position changes. The editor keeps the position, so a member
   changes it in the player's box, rather than guess at a rule whose wrong guesses would set
-  positions silently. A lineup row released on the grass
+  positions silently. The rule is read from the game's code instead: PES 2016's executable,
+  the last one that is not packed, its reading then checked against the PES 2021 scans; a
+  rule that reproduces them replaces the kept position for the versions it is shown to hold
+  in, and until then the position stays. A lineup row released on the grass
   does nothing, as in the draft: a row moves players between the lists, never on the pitch.
   While a dragged starter is held over another, that one carries the selected player's corner
   brackets (`#14fbff`), drawn over everything, and the dragged marker goes to 35% opacity over
