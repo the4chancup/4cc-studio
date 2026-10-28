@@ -554,9 +554,10 @@ Win32 original hurt the most):
      bottom. Substitution is a combo naming the game's choices (measured in game: Off 0, Very
      late 1, Flexible 2 on PES 15, 16 and 21, Very early 3 on PES 21; PES 17's screen lists
      Off, Very late, Flexible and Very early, PES 21's four in PES 21's order, so its stored
-     values are read as PES 21's and it offers the four; PES 18 to 20 offer the three until
-     looked at, `QUESTIONS.md`), a stored value outside them shown as its number, so the
-     combo never misreports the save.
+     values are read as PES 21's and it offers the four; PES 18 to 20, between the two, offer
+     the four too, taken rather than looked at, a look at each game's Substitution choices
+     still to come), a stored value outside them shown as its number, so the combo never
+     misreports the save.
   The grid is laid out at the design width; a narrower window scales the whole UI with its
   width (`spec/core/gui.md` "Scaling with the width") rather than rearranging it, so the grid has
   no narrow fallback. A shorter window scrolls the team view to reach its last row rather
@@ -586,9 +587,14 @@ Win32 original hurt the most):
     in every one of the PES 2021 save's 1,890 formations, and the editor never moves it.
   - **A marker**, top to bottom: the portrait, the whole 128 x 128 texture drawn 50 x 50
     standing on the badge (the cup's portraits carry their own padding and any ribbon); the
-    badge, 50 x 14, `#242b2d`, corners 2, the position's abbreviation at its left in its
+    badge, 56 x 14, `#242b2d`, corners 2, the position's abbreviation at its left in its
     group's colour (forwards `#ff2c77`, midfielders `#57e42b`, defenders `#00d2ff`, keeper
-    `#ffde00`); the name in its colour codes' colours (white where it has none: the screen
+    `#ffde00`) and his overall at its right in white, each 3 in from its end, a medal's
+    outline round it (both below, "A starter's badge"). The game's badge is 50 wide; the
+    editor's is 56 because its widest pair, a three-letter position and an overall of 100 or
+    more (`CMF 109`), measures 45.9 in the body font at the badge's 12 pt and needs a space's
+    gap between them, where the game's narrower face fits it in 50; the font is not condensed
+    to match, the suite drawing Roboto Flex untuned. The name in its colour codes' colours (white where it has none: the screen
     draws them as its lists do), 13 px below the badge's centre, centred, or from the
     badge's left edge and cut to the badge's width when wider. A wider name scrolls as the
     game's does (measured on four names over 30 s captures): every 13.5 s it scrolls left at
@@ -622,9 +628,7 @@ Win32 original hurt the most):
     loads none of `download/`'s CPKs (the Team compiler's `dpfilelist_cpk_missing`), so
     portraits from the others would show what the game does not. The DpFileList reader is `cpk`'s and the portrait path `pes_savefile`'s, shared
     with the Team compiler, so the editor finds a portrait wherever the compiler put it.
-  - **What the screen shows that the editor leaves out**: the overall rating at the badge's
-    right, the game's own computation, which the suite does not have. The screen's selection
-    marks are reused for the editor's states: the open popover's marker gets the selected
+  - **The screen's selection marks** are reused for the editor's states: the open popover's marker gets the selected
     player's corner brackets (`#14fbff`), and every marker the armed assignment mode can take
     gets the candidates' (`#ff4e7f`), each a 50 x 50 box of corners around the portrait; a
     join member while join mode is armed has its badge filled `#005c80`.
@@ -636,8 +640,7 @@ Win32 original hurt the most):
     spot turns `3-3-1-3` into `3-4-3`; DMF DMF CMF LMF RMF SS CF reads `3-3-2-2`, the wide
     midfielders with the AMF, not the CMF). The grid's rows and the name are one table, so the
     two cannot disagree. It names the shown formation of the shown preset: a slot's position
-    change updates it, and a drag, which keeps the position here (the pitch-drop bullet
-    below), does not. The label is white, its digits 15 pt tall at the pitch's scale, its ink
+    change updates it, a drop's included (the pitch-drop bullet below). The label is white, its digits 15 pt tall at the pitch's scale, its ink
     7 pt in from the pitch's left edge and its bottom 6 pt up from the bottom edge (measured
     on the 720p capture), drawn after the markers so a low marker never covers it. The
     typeface need not be the game's, but the stroke must match the game's label, about 3 px
@@ -668,10 +671,19 @@ Win32 original hurt the most):
   with, each of the other two ("Copy to 2", "Copy to 3", "Swap with 2", "Swap with 3" from
   preset 1; "Copy to In-possession" and so on for a formation), four entries rather than the
   nine pairs of 4ccEditor's menu tree (its 18-item menu is not kept).
-- **A starter's badge names his medal tier**: at the badge's right, where the game draws the
-  overall rating, a gold `G` (`#cc9900`, the tier's name colour), a silver `S` (`#c0c0c0`)
-  or a bronze `B` (`#cd7f32`) for a player the active ruleset recognizes as that tier (the
-  tier ids `gold`, `silver`, `bronze` every ruleset shares); nothing for any other.
+- **A starter's badge shows his overall and his medal tier**, as the game's shows the
+  overall. The overall is his per-position overall at his slot's position (the formula the
+  pitch drop's rule uses, below), so a position change on the popover or a swap redraws it;
+  it is exact on PES 2017 and within 2 of the game's on PES 2021 (108 of 201 read there
+  equal), the precision the drop's paragraph states. A player the active ruleset
+  recognizes as a medal tier (the tier ids `gold`, `silver`, `bronze` every ruleset shares)
+  gets a 1.5-point outline inside the badge's edge in the tier's colour: gold `#cc9900` (the
+  tier's name colour), silver `#c0c0c0`, bronze `#8c4a20` (far darker than the metal's
+  `#cd7f32`, which a thin outline let pass for gold: on an outline this thin the tiers' colours
+  must differ plainly); any other tier, a ruleset that does
+  not load, or none, gets no outline. An outline, not the badge filled in the metal: on the
+  three metals the position colours read at a contrast of 1.0 to 2.4 and white at 1.8 to 3.1.
+  Join mode's fill (`#005c80`) replaces the dark one under the outline while armed.
 - **Formation pictures.** The Team menu's "Save a picture of the formations…" writes one PNG
   of the selected row's team through a dialog of the tool's own, not rfd's save-file dialog,
   since a native dialog cannot hold the checkbox the range dialog has too: the folder last used
@@ -756,8 +768,8 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   the other, exchanges the two players in the starting eleven, so it reaches every formation of
   every preset; the editor's is an XI row dropped on another row or on a pitch marker, or a
   pitch marker dropped on an XI row. One
-  released on the grass moves to the snapped drop point, his position kept, and one released
-  off the pitch stays where he was. The game also changes the position of a dragged
+  released on the grass moves to the snapped drop point, his position set by the rule below,
+  and one released off the pitch stays where he was. The game also changes the position of a dragged
   player (an AMF dragged lower becomes a DMF), but not by fixed areas of the pitch: the same
   spot gives different positions depending on who is dragged and where his teammates stand (a
   dragged LMF reads AMF at a spot where a dragged CMF reads LMF; the LMF turns CMF about 11.5
@@ -771,9 +783,20 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   band's default (the first of CB, CMF, SS whose rectangle holds the point) or the first
   free one of LB, RB, DMF, LMF, RMF, AMF, LWF, RWF, CF, CB, SS holding it, whichever his own
   per-position overall rates higher, the default on a tie. His teammates' spots never enter
-  it. The overall is PES 2016's formula on every version whose own is not measured: PES
-  2021's differs from it by up to 2 (12 of 201 points read in game), so where the two
-  candidates' overalls are within 2 the editor's pick can differ from the game's. PES 2017,
+  it. The overall is PES 2016's formula on every version, no other version's being read: PES
+  2021's differs from it by up to 2 (93 of 201 points read in game differ, 12 of them by 2),
+  so where the two candidates' overalls are within 2 the editor's pick can differ from the
+  game's. The formula is `pes_savefile`'s, on its player model (a player's abilities and
+  positions and a position in, the overall out): twenty abilities weighted per position,
+  the position's bonus (registered, A, B; C none), and at the registered position, a
+  keeper's aside, a blend with the first nineteen abilities' mean through a lookup table,
+  clamped to 40-109. Its weights, bonuses and lookup are PES 2016's tables, a measurement
+  hand-written by the lead; which ability each weight reads is inferred from its profile
+  (the code reads them unnamed), and the two alternatives tried (kicking power and swerve
+  swapped, physical contact for body control) change no overall read in PES 2017 or 2021.
+  One function serves the drop's rule and the badge's number; the host hands
+  `team_widgets` each starter's thirteen per-position overalls in his `RosterRow`, since
+  the widgets read no player record. PES 2017,
   the game DBC7 plays, follows both exactly: ten rectangle edges crossed by six players
   dragged in its Lineup/Edit Position (CF's y 40 among them) fall where PES 2016's tables put
   them, and PES 2016's formula gives every one of 150 overalls read there (23 players, nine

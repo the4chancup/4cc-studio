@@ -4548,11 +4548,76 @@ function assignClick(t, fieldIdx) {
 // turf's eleven bands and grain, the lines, and per starter a marker - his
 // portrait, the position badge, his name - centred on the badge. The drag
 // state lives in S.pitchDrag; marker hit tests are ui.interact rects.
-const MARKER = { badgeW: 50, badgeH: 14, portrait: 50, gap: 0, nameDy: 13 };
-// The medal tiers' initials on a pitch badge, by tier id (the rulesets share
-// the ids gold, silver and bronze): gold in the game's gold name code, the
-// colour a gold player's name carries; silver and bronze their metals'.
-const MEDAL_MARK = { gold: ["G", "#cc9900"], silver: ["S", "#c0c0c0"], bronze: ["B", "#cd7f32"] };
+// The badge is 56 wide where the game's is 50: the widest pair it holds, a
+// three-letter position and an overall of 100 or more (CMF 109), is 45.9 in
+// the body font at 12, and needs a space's gap and 3 at each end; the game's
+// narrower face fits it in 50.
+const MARKER = { badgeW: 56, badgeH: 14, portrait: 50, gap: 0, nameDy: 13 };
+// The medal tiers' outline colours on a pitch badge, by tier id (the rulesets
+// share the ids gold, silver and bronze): gold in the game's gold name code,
+// the colour a gold player's name carries; silver its metal's; bronze far
+// darker than the metal's #cd7f32, which an outline this thin let pass for
+// gold.
+const MEDAL_MARK = { gold: "#cc9900", silver: "#c0c0c0", bronze: "#8c4a20" };
+// The medal outline's width.
+const MEDAL_OUTLINE = 1.5;
+// ---- A player's overall at a position (PES 2016's own computation) ----
+// Read from PES 2016's executable; PES 2017 shows the number it gives for
+// every player checked (150 overalls, nine positions), PES 2021 one within 2.
+// Twenty abilities weighted per position, the position's bonus added, and at
+// his registered position (a keeper's aside) a blend with the mean of the
+// first nineteen. An array is its abilities' mean, rounded down; null is a
+// 2-bit field, which counts 1 whatever it holds.
+const OVR_COLS = ["GK", "CB", "RB", "LB", "DMF", "CMF", "RMF", "LMF", "AMF", "RWF", "LWF", "SS", "CF"];
+const OVR_WEIGHTS = [
+  ["attacking_prowess", [0, 0, 6, 6, 7, 5, 7, 7, 14, 17, 17, 15, 31]],
+  ["ball_control", [0, 0, 10, 10, 18, 24, 15, 15, 24, 19, 19, 19, 24]],
+  ["dribbling", [0, 0, 14, 14, 15, 24, 25, 25, 24, 22, 22, 19, 14]],
+  ["low_pass", [0, 0, 0, 0, 18, 24, 7, 7, 22, 5, 5, 9, 0]],
+  ["lofted_pass", [0, 0, 14, 14, 19, 21, 12, 12, 14, 9, 9, 9, 0]],
+  ["finishing", [0, 0, 0, 0, 0, 0, 0, 0, 17, 11, 11, 14, 36]],
+  ["place_kicking", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+  ["kicking_power", [0, 0, 0, 0, 12, 0, 4, 4, 0, 0, 0, 0, 0]],
+  ["heading", [0, 23, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3]],
+  ["defensive_prowess", [0, 26, 14, 14, 8, 3, 0, 0, 0, 0, 0, 0, 0]],
+  ["ball_winning", [0, 26, 13, 13, 4, 0, 0, 0, 0, 0, 0, 0, 0]],
+  ["swerve", [0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 5, 6, 3]],
+  ["speed", [0, 10, 16, 16, 3, 4, 24, 24, 5, 15, 15, 9, 5]],
+  ["explosive_power", [0, 0, 14, 14, 3, 6, 22, 22, 7, 15, 15, 22, 5]],
+  ["body_control", [11, 20, 12, 12, 13, 5, 0, 0, 5, 6, 6, 7, 9]],
+  ["jump", [11, 20, 12, 12, 5, 0, 0, 0, 0, 0, 0, 0, 3]],
+  [["goalkeeping", "coverage"], [49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+  [["catching", "clearing", "reflexes"], [49, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]],
+  ["stamina", [0, 9, 14, 14, 14, 17, 13, 13, 3, 6, 6, 4, 0]],
+  [null, [0, 24, 58, 58, 24, 24, 56, 56, 38, 47, 47, 38, 38]],
+];
+const OVR_BONUS = {
+  registered: [8, 8, 9, 9, 9, 8, 8, 8, 8, 10, 10, 9, 8],
+  A: [5, 5, 4, 4, 4, 5, 5, 5, 5, 4, 4, 5, 5],
+  B: [3, 3, 2, 2, 2, 3, 3, 3, 3, 2, 2, 3, 3],
+};
+// The blend's second term by the nineteen abilities' mean (0 to 99).
+const OVR_LOOKUP = Array(40).fill(0).concat([31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43,
+  44, 45, 46, 47, 48, 49, 50, 51, 52, 56, 59, 62, 65, 67, 70, 73, 75, 77, 79, 82, 83, 85, 87, 89,
+  90, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
+  112, 113]);
+function ovrValue(stats, a) {
+  return Array.isArray(a) ? Math.floor(a.reduce((n, k) => n + stats[k], 0) / a.length) : stats[a];
+}
+function overallAt(p, pos) {
+  const col = OVR_COLS.indexOf(pos), reg = p.positions.registered;
+  let total = 0;
+  for (const [a, w] of OVR_WEIGHTS) total += w[col] * (a === null ? 1 : Math.max(1, ovrValue(p.stats, a) - 25));
+  // A C rating has no bonus.
+  const bonus = pos === reg ? OVR_BONUS.registered : OVR_BONUS[p.positions.playable[pos]];
+  let raw = Math.floor((total + 50) / 100) + (bonus ? bonus[col] : 0);
+  if (pos === reg && pos !== "GK") {
+    const sum = OVR_WEIGHTS.slice(0, 19).reduce((n, [a]) => n + ovrValue(p.stats, a), 0);
+    const mean = Math.floor((Math.floor(sum * 100 / 19) + 50) / 100);
+    raw = Math.floor((raw * 60 + 50 + OVR_LOOKUP[mean] * 40) / 100);
+  }
+  return Math.max(40, Math.min(109, raw));
+}
 // The playable positions grid's rows, front to back, left wing to right
 // wing, the midfield in two (the attacking and wide ones, then the central
 // ones), GK alone below.
@@ -4740,15 +4805,26 @@ function paintPitch(g, t, f0, live) {
       MARKER.portrait, MARKER.portrait);
     g.fillStyle = live && S.assign && S.assign.kind === "join" && joined.includes(roster) ? "#005c80" : "#242b2d";
     g.beginPath(); g.roundRect(bl, bt, MARKER.badgeW, MARKER.badgeH, 2); g.fill();
+    // His tier under the active ruleset outlines the badge in the medal's
+    // colour, inside its edge; a tier that is no medal draws none. An outline,
+    // not a fill: the position colours read at a contrast of 1.0 to 2.4 on
+    // the three metals.
+    const medal = p && !D.rulesBroken && MEDAL_MARK[(recognizedTier(p, RULESETS[D.ruleset]) || {}).id];
+    if (medal) {
+      g.strokeStyle = medal; g.lineWidth = MEDAL_OUTLINE;
+      g.beginPath();
+      g.roundRect(bl + MEDAL_OUTLINE / 2, bt + MEDAL_OUTLINE / 2, MARKER.badgeW - MEDAL_OUTLINE,
+        MARKER.badgeH - MEDAL_OUTLINE, 2 - MEDAL_OUTLINE / 2);
+      g.stroke();
+    }
     g.textBaseline = "middle"; g.textAlign = "left";
     g.fillStyle = POS_COLOUR(s.position); g.font = "12px " + FONT_BODY;
     g.fillText(s.position, bl + 3, y + 1);
-    // His tier under the active ruleset, a medal's initial in the medal's
-    // colour at the badge's right end; a tier that is no medal draws none.
-    const medal = p && !D.rulesBroken && MEDAL_MARK[(recognizedTier(p, RULESETS[D.ruleset]) || {}).id];
-    if (medal) {
-      g.fillStyle = medal[1]; g.textAlign = "right";
-      g.fillText(medal[0], bl + MARKER.badgeW - 3, y + 1);
+    // His overall at the slot's position at the badge's right end, where the
+    // game draws it, white as the game's.
+    if (p) {
+      g.fillStyle = "#ffffff"; g.textAlign = "right";
+      g.fillText(String(overallAt(p, s.position)), bl + MARKER.badgeW - 3, y + 1);
       g.textAlign = "left";
     }
     // Live AATF's cross for a FieldedNotA about him at this spot, just left of
@@ -5129,10 +5205,10 @@ function tacticsTab(t) {
     " Scroll names");
   // Auto substitution as the game names its choices (measured in-game: Off 0,
   // Very late 1, Flexible 2 on PES 15, 16 and 21, Very early 3 on PES 21; PES
-  // 17's screen lists the same four in 21's order; 18 to 20 not looked at, so
-  // offered the three); a stored value outside them is offered as its number,
-  // so the combo never misreports it.
-  const subs = SUBSTITUTION_LABEL.slice(0, version() === 17 || version() >= 21 ? 4 : 3)
+  // 17's screen lists the same four in 21's order; 18 to 20, between the two,
+  // are taken to offer the four too, not yet looked at); a stored value
+  // outside them is offered as its number, so the combo never misreports it.
+  const subs = SUBSTITUTION_LABEL.slice(0, version() >= 17 ? 4 : 3)
     .map((label, i) => [String(i), label]);
   const subNow = String(auto.substitution ?? 0);
   const substitution = h("span", { class: "row" }, "Substitution",

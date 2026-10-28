@@ -12555,3 +12555,20 @@ pointer. A dropdown sized to its longest entry left the popover's row ragged (th
 the two must fill the width).
 Plan: `plans/save_editor.md` "Editing UI" (the changes popup), "Tactics editor" ("Formation
 pictures", "The pitch is the editor"), "Team operations" and "Database operations" (a row each).
+
+## 2026-10-28 — save_editor — The pitch badge shows the overall, the medal as an outline; Very early on PES 2018-2020
+Decision: a starter's pitch badge shows his overall at his slot's position at its right, in white
+as the game's, computed by PES 2016's formula (the one the drop's rule uses, `pes_savefile`'s);
+his medal tier becomes a 1.5-point outline inside the badge's edge in the tier's colour instead
+of the letter that stood where the overall now is, bronze darkened from the metal's `#cd7f32` to
+`#8c4a20`; the badge is 56 wide, not the game's 50. Substitution offers Very early on PES 2018 to
+2020 as on 2017 and 2021, until a look in those games says otherwise.
+Why: the maintainer asked for the overall (parity with the game's screen) and for the medal on
+the bar itself. A fill in the metal was the first draft; the position colours read at a contrast
+of 1.0 to 2.4 on it, so the maintainer chose an outline, and a bronze outline at the metal's colour
+passed for gold; the darkest of five candidates was picked, an outline this thin needing the
+tiers' colours to differ plainly. `CMF 109` measures 45.9 in Roboto Flex at 12 and, untuned, cannot fit 50 with a
+gap and margins. The overall is exact on PES 2017 (150 read) and within 2 on PES 2021 (108 of 201
+equal). PES 2018-2020 lie between the two versions known to offer Very early (the maintainer).
+Plan: `plans/save_editor.md` "Tactics editor" ("A marker", "A starter's badge shows his overall
+and his medal tier", the pitch-drop paragraph's formula, the Automatic settings' Substitution).

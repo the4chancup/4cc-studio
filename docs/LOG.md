@@ -2754,3 +2754,5 @@ worklog passed 7,000 lines.
   all 150 overalls read in game exactly, so the editor's PES 2017 drag is the rule as it stands; the save unchanged by hash.
 - **2026-10-28** — The maintainer's draft looks answered: the font, layout and slider drafts approved (the app's code may follow), the changes
   popup and the formation pictures landed on main with their plan (one picture dialog of the tool's own, team pickers for a range), 8.30 withdrawn.
+- **2026-10-28** — Drafted the pitch badge's overall (PES 2016's formula, ported and checked against the in-game reads) with the medal tier as an
+  outline and the badge 56 wide; Very early offered on PES 2018-2020; y4e split into the formula and the rule, y6 and y7 added.

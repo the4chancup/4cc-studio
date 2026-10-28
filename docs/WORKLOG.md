@@ -3913,9 +3913,16 @@ briefs, review loops, gates and mutation runs as for any step.
       0 on every one; 23 players, the held frames' swap previews included, weak foot 1 and 3
       alike). Not tested: the kicking power/swerve and body control/physical contact mapping
       (no player here has those unequal), the B bonus
-    - [ ] y4e the code: the rule in `team_widgets`' pitch drop (the rectangles, the band
-      default, the candidates, PES 2016's overall), on every version, with the y3 scans, y4c's
-      points and y4d's edges and points as tests
+    - [ ] y4e the code, on every version (`plans/save_editor.md` "Tactics editor", the
+      pitch-drop paragraph), in two slices
+      - [ ] y4e1 the overall in `pes_savefile`'s player model: the weights, bonuses and
+        lookup hand-written by the lead (or checked byte for byte against
+        `.tmp/0_0_1y4/y4d_overall.py`), y4d's 150 points as exact tests and y4c's 201 as
+        recorded residuals (all within 2) → verify: `cargo test -p pes_savefile`; the
+        draft's `overallAt` agrees (`.tmp/fb1028/overall_port_check.py`)
+      - [ ] y4e2 the rule in `team_widgets`' pitch drop (the rectangles, the band default,
+        the candidates), `RosterRow` carrying each starter's thirteen overalls from the host,
+        the y3 scans and y4d's edges as tests
   - [ ] y5 the slot popover's position row (the maintainer, 2026-10-28): no Position label,
     the dropdown and Make GK filling the popover's width, the button at its own width
     - [x] y5a the draft (`5d668583` and the commit after it) and `plans/save_editor.md` "The
@@ -3923,6 +3930,28 @@ briefs, review loops, gates and mutation runs as for any step.
       the popover, no page error (`.tmp/fb1028/answers_check.py`)
     - [ ] y5b the code (`team_widgets` `pitch/popover.rs`) → verify: the gates; the built
       popover against the draft (asks before it takes focus)
+  - [ ] y6 the badge's overall and medal outline (the maintainer, 2026-10-28): the starter's
+    overall at his slot's position at the badge's right in white, his medal tier a 1.5-point
+    outline in its colour (bronze darkened to `#8c4a20`) instead of its letter, the badge 56
+    wide for `CMF 109`
+    - [x] y6a the draft and `plans/save_editor.md` "A marker", "A starter's badge shows his
+      overall and his medal tier"; checked: the draft's `overallAt` equals
+      `y4d_overall.py` on 128,570 player-position pairs, gives 150 of 150 overalls read in
+      PES 2017 and 201 of 201 read in PES 2021 within 2 (`.tmp/fb1028/overall_port_check.py`);
+      captures `.tmp/fb1028/badges_*.png`, no page error
+    - [ ] y6b the code, after y4e1 (`team_widgets`' pitch paint and `RosterRow`, the save
+      editor's host filling the overalls) → verify: the gates, the paint tests' medal letter
+      (`team_widgets` `pitch/tests/paint.rs`) turned into the outline's; the built pitch
+      against the draft (asks before it takes focus)
+  - [ ] y7 Substitution's Very early on PES 2018 to 2020 too (the maintainer, 2026-10-28:
+    taken from PES 2017 and 2021 having it, the games between them)
+    - [x] y7a the draft and `plans/save_editor.md` "Tactics editor" (the Automatic
+      settings' Substitution)
+    - [ ] y7b the code: `team_widgets`' `substitution_choices` offers Very early from PES
+      2017 on; its test's PES 2019 row expects it → verify: `cargo test -p team_widgets`
+    - [ ] y7c later (the maintainer: "we'll check in detail in the future"): a look at PES
+      2018, 2019 and 2020's Game Plan, Automatic settings, Substitution; the plan's "taken
+      rather than looked at" goes with it
 - [ ] 0.0.1z the maintainer's look at the built app (2026-10-27 ~21:10): the app's sliders
   kept, the drafts made to match
   - [x] z1 the drafts: sliders drawn as egui's (8-point rail, 11 × 14 handle, value box), the
