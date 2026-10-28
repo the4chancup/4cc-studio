@@ -23,6 +23,16 @@ names where the question came from so the context can be read there.
   in the built app; the preview's icon where the lead cannot capture it (worklog 0.0.1v: the
   taskbar button and Alt+Tab show the tight crop of the head; Explorer's file icon on the
   exe). Then the confirmation that freezes logic version 1's hash (0.0.1f2).
+- **Live AATF's whole look** (the maintainer asked for it, 2026-10-28, not vetted before):
+  every element it draws, rendered from the drafts with each kind injected into a copy's
+  recorded run, captioned with what it shows and its tooltips: `.tmp/0_0_1ov/live/` (01 the
+  toggle; 02-06 the dock with issues, collapsed, checking, passing, failed; 07 the player
+  list's marks; 08-10 the field crosses; 11 the pitch's). Found on the way: the drafts draw no
+  failed check (06: the plan clears every mark and shows the failure); a cross makes the
+  "Registered position" and "Weak foot: Usage" labels wrap to a second line (08); the Height,
+  Weight and Age crosses stand just left of their boxes while the stats' now stand left of
+  their labels (08, 09); the dock's rows name a violation by its kind's code
+  (`PlayingStyleRange`, `WeakFootUsage`) before its sentence (02).
 - **The rename's exe name.** The project becomes Unlimited Tool Works (`unlimited-tool-works`,
   shorthand UTW, the exe named after the shorthand; worklog 0.0.1rn). Which spelling does the
   exe take: `UTW.exe` or `utw.exe` (and `utw` on Linux either way)? It is also the command

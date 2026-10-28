@@ -4352,6 +4352,10 @@ briefs, review loops, gates and mutation runs as for any step.
       drafts done): egui's solid bar, 4 points from the content and 6 wide, the strip kept
       while nothing scrolls; a row's fill reaching the frame's edge (`save_editor`'s
       `player_list.rs`, replacing the reserved floating band)
+  - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
+    the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/` (QUESTIONS "Live
+    AATF's whole look", with the four things found on the way); the maintainer's rulings
+    then drafted and planned before code
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
