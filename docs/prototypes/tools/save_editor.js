@@ -4210,7 +4210,7 @@ function teamFields(t) {
       h("span", { class: "mono weak" }, shown.toUpperCase()));
   };
   return named(h("div", { class: "row", id: "team-fields" },
-    "Team", nameIn, "Short", shortIn,
+    "Name", nameIn, "Short", shortIn,
     colour("color_1", "Colour 1"), colour("color_2", "Colour 2")), "team-fields");
 }
 // The kit slot assignments, behind the team view's Kit slots button.

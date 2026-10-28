@@ -427,8 +427,9 @@ all side by side.
     celebrations 122; PES 20+: 5, 10, 10, 20, 7, 162), which give a PES 15 player arm
     movements and celebrations that game does not have (its tops are 5 and 112) and never
     reach PES 18's and 19's last celebrations (127, 140); the measured tops do neither.
-- **The team view**: the team's name as its title, in the body text's strong weight rather
-  than a heading's size; then one row holding the team's name (a 140-point box), short name
+- **The team view**: `<id> <name>` as its title (above), in the body text's strong weight
+  rather than a heading's size; then one row holding the team's name (`Name`, a 140-point
+  box: the title already says it is the team's, as `Short` names its short name), short name
   and colours 1-2 (RGB, each colour's picker and its hex, labelled `Col. 1` and `Col. 2`), the
   short name's box taking three characters (the game shows a three-letter abbreviation; every
   version stores it in 4 bytes, so a longer one typed would not reach the game as typed),

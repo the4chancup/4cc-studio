@@ -12915,3 +12915,10 @@ sits 2 lower, the gaps even in ink.
 Why: the maintainer's look: the titles sat almost against the toolbar; the team's id belongs
 beside its name as a player's does.
 Plan: `plans/save_editor.md` "Editing UI" (No view draws the tool's name).
+
+## 2026-10-28 — save_editor — The team view's name field is labelled Name
+Decision: the team view's name box is labelled `Name`, not `Team`, beside `Short`. The label is
+the field's in the Comparator's and the unsaved-changes list's rows too, which word a field
+as its view does, under the team's own header.
+Why: the maintainer's look: the view's title already says whose fields these are.
+Plan: `plans/save_editor.md` "Editing UI" (The team view).
