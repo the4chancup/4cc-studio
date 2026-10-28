@@ -789,7 +789,10 @@ its plan section.
   PrintWindow script into `assets/captures/<tool>_<screen>.png`, refreshed when a view's slice
   lands, each dated in its corner so a stale one shows. A shifted panel or a different gap
   shows at once, to the maintainer as to the lead, where two separate captures compared by eye
-  miss it.
+  miss it. A difference of one pixel between the draft and the app is accepted, two where
+  matching closer would complicate the implementation (a browser and egui round text and
+  borders apart, and chasing the last pixel costs code a maintainer then owns); a larger one
+  is a mismatch, fixed or ruled. A layout test pinning a draft measure may allow the same.
 - **Draft shots.** `scripts/draft_shots.py` captures every screen of every tool (the list from
   the tool scripts' registrations, reached through their links) at the default and the
   smallest default size with Playwright, and lists those whose pixels changed since its last

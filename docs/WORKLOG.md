@@ -4321,7 +4321,8 @@ briefs, review loops, gates and mutation runs as for any step.
     Save editor, About, Settings, Help, the player and team views, the comparator, the AATF
     panel, the unsaved prompt) captured from the built window (PrintWindow, 1280 × 800) and
     from the draft at the same size (1280 × 780 since ov2a), laid over each other at half opacity, beside each other,
-    and as a difference image; every mismatch listed for the maintainer → verify: the first-run
+    and as a difference image; every mismatch over the tolerance (one pixel, two where needed:
+    `plans/core/gui.md` the Overlay bullet) listed for the maintainer → verify: the first-run
     prompt's mismatch shows in its overlay
   - [ ] ov2 the fixes (sidekick, one brief): the mismatches the maintainer confirms, each with
     a layout test of the draft's measures (the first-run prompt: two columns of equal width 16

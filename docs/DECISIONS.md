@@ -12991,3 +12991,12 @@ kept 2 before the text would then leave the column's marks at as many x's as the
 lengths, which the marks' one-column rule forbids.
 Plan: `plans/save_editor.md` "Editing UI" (the player view's Ability stats), "Configurable AATF
 rules" (Live AATF, the field a row is about).
+
+## 2026-10-28 — gui — A pixel of difference between the drafts and the app is accepted
+Decision: the app matches a draft within one pixel, within two where matching closer would
+complicate the implementation; a larger difference is a mismatch to fix or rule. Layout
+tests pinning a draft measure may use the same tolerance.
+Why: the maintainer's ruling: pixel-perfect parity between a browser draft and egui is not
+worth its cost (the two round text metrics and borders differently, and code bent to land
+the last pixel is code to maintain), and a pixel or two is not seen.
+Plan: `plans/core/gui.md` "Prototypes before implementation" (the Overlay bullet).
