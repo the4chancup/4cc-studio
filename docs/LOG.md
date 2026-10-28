@@ -2771,3 +2771,4 @@ worklog passed 7,000 lines.
 - **2026-10-28** — w5: every modal's and floating window's title in a 14-point strong window-title style (the drafts' `.window .title`), pages' headings at 15 (SWE-2, reviewed; the three `egui::Window` titles by the lead, whose title bar takes a styled title).
 - **2026-10-28** — w5's built-window check at `825f1885`: About's and Help's titles at 14 in white; the drafts' floating window titles centred as egui's title bar draws them.
 - **2026-10-28** — Worklog bookkeeping while the final pass waits: 0.0.1j, cm and m closed (m's three stale test comments rewritten); the plan's settings path row off egui's old 13-point font; the draft's path box kept at 440 (472 wraps its Browse buttons).
+- **2026-10-28** — The marks' built-window look (o2, 0.0.1o closed): truncated rows clear their marks; the drafts' crosses go from 4 to the app's 2 points, since 4 pushes the Registered position cross into its combo.

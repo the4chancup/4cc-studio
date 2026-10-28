@@ -451,8 +451,9 @@ button.livebtn.on { background: var(--sel-bg); color: var(--sel-fg); }
 .plist .dot + .mark { margin-left: 4px; }
 .mark.pass { color: var(--success); }
 /* The cross beside a field: between the label and the field, so the field's
-   own box keeps its x. */
-.xmark { flex: none; margin: 0 4px; }
+   own box keeps its x; 2 px from each side, the room the Registered position
+   label leaves before its combo. */
+.xmark { flex: none; margin: 0 2px; }
 .gen .pair .boxed { display: flex; align-items: center; flex: none; }
 .panel .tlist { background: var(--extreme); border: 1px solid var(--stroke);
   max-height: 180px; overflow: auto; }
@@ -4884,9 +4885,9 @@ function paintPitch(g, t, f0, live) {
   for (const [cx, cy, color] of crosses) { g.fillStyle = color; g.fillText("✖", cx, cy); }
   g.textAlign = "left";
 }
-// The pitch's Live AATF cross: 4 px left of the badge (a field cross's
+// The pitch's Live AATF cross: 2 px left of the badge (a field cross's
 // margin), the glyph about 11 px wide at the body size.
-const PITCH_CROSS = { gap: 4, w: 11 };
+const PITCH_CROSS = { gap: 2, w: 11 };
 // The FieldedNotA rows the pitch marks on `p`'s marker at `position`: the
 // shown preset's, about that position, while the shown formation is one the
 // preset fields (a fluid preset's three, else its kick-off one); null for

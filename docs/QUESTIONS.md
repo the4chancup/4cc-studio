@@ -18,8 +18,9 @@ names where the question came from so the context can be read there.
   landed, the sidebar opens with no flicker. Two choices the lead applied that the pass may
   reverse: windows' titles at 14 in white, modals the drafts lack included (DECISIONS "A
   window's title is its place"); the floating windows' titles centred in the drafts as
-  egui's title bar draws them (DECISIONS "A floating window's title centred"). In the same
-  pass: the preview's icon where the lead cannot
+  egui's title bar draws them (DECISIONS "A floating window's title centred"); Live AATF's
+  crosses 2 points from what they mark, the drafts' 4 brought to the app's (DECISIONS "Live
+  AATF's crosses 2 points from what they mark"). In the same pass: the preview's icon where the lead cannot
   capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the head;
   Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's hash
   (0.0.1f2).

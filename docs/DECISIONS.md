@@ -12616,3 +12616,13 @@ left-aligned title in the app would mean drawing the title bar by hand (its drag
 close), code egui already carries, for a difference the drafts can absorb, as they copy egui's own
 slider. Found in the built window at 0.0.1w5's check.
 Plan: `plans/core/gui.md` "Dark/light theme" row, the window title's sentence.
+
+## 2026-10-28 — save_editor — Live AATF's crosses 2 points from what they mark, in the drafts too
+Decision: every Live AATF cross stands 2 points from the field, label or badge it marks
+(`team_widgets::violations::MARK_GAP`); the drafts' field cross margin and pitch cross gap go from
+4 to 2 to match.
+Why: at 4 the Registered position row's cross, placed after General info's longest label, ends 2
+points inside its combo; 4 everywhere would mean widening the approved label column, and a gap per
+site would break the one figure that keeps every mark's spacing alike. Found at the built-window
+look at the marks.
+Plan: `plans/save_editor.md` "Configurable AATF rules", the field cross bullet.

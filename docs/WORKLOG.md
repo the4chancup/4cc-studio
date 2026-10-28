@@ -2939,7 +2939,7 @@ briefs, review loops, gates and mutation runs as for any step.
   1280 draws at 1 and 960 at exactly 0.75 over a 1280-point layout. Headless check
   (`.tmp/drafts_layout_check.py`, Firefox): 12 of 12. Files: `docs/prototypes/{index.html,
   tools/save_editor.js}`
-- [ ] 0.0.1o Live AATF seen where the fix is (the maintainer's ruling on P37, 2026-10-26;
+- [x] 0.0.1o Live AATF seen where the fix is (the maintainer's ruling on P37, 2026-10-26;
   DECISIONS "Live AATF stays off by default"; `plans/save_editor.md` "Configurable AATF
   rules", the "Live AATF" bullet): the toggle a framed button, the player list's cross or check mark per checked
   player, the cross beside the field a selected player's violation is about (one kind-to-field
@@ -2956,7 +2956,7 @@ briefs, review loops, gates and mutation runs as for any step.
     The maintainer's look is open; the code (o2) follows s3's close without waiting on it,
     the plan having ruled the marks. Files: `docs/prototypes/tools/save_editor.js`,
     `plans/save_editor.md`
-  - [ ] o2 the code
+  - [x] o2 the code
     - [x] o2a the toolbar's framed toggle, the list's marks (player and team rows, their own
       hover, the text truncated before them), the field crosses beside every field the plan
       maps (`live_marks.rs`: `held_violations`, `marked_field` with no `_ =>` arm,
@@ -3015,7 +3015,17 @@ briefs, review loops, gates and mutation runs as for any step.
       `aatf/src/{ruleset/mod.rs,team.rs}`, `team_widgets/src/{violations.rs,tactics/mod.rs,
       pitch/mod.rs,test_support.rs}`, `save_editor/src/view/{live_marks,tactics,aatf_check,
       aatf_panel,live_aatf,comparator,prompt,terms}.rs`, their tests, `help/02_window.md`
-    - [ ] the built-window look at the marks (their clearance at the real font)
+    - [x] the built-window look at the marks (their clearance at the real font), 2026-10-28 at
+      `825f1885` (Live AATF on the PES 2021 save copy, Autumn 26: 67 issues;
+      `.tmp/0_0_1z/shots/w5_10_live.png`, `w5_11_marks_zoom.png`, `w5_13_cards_zoom.png`):
+      a truncated row's ellipsis ends 13-14 px before its mark; the Cards left badge's cross
+      sat 3 px of ink after "cards", where the drafts spaced every cross 4 points
+      (`.xmark`'s margin, the pitch's `PITCH_CROSS.gap`) and the app's `MARK_GAP` is 2. At 4
+      the app's Registered position cross ended 2 points inside its combo (three
+      `live_marks` tests failed), so the drafts took 2 instead (DECISIONS "Live AATF's crosses
+      2 points from what they mark"; `.tmp/0_0_1s/draft_live_marks.py` 16 of 17, its one
+      failure the toggle's label it predates, "▶ Live AATF"); the pitch's cross test
+      measures the literal 2
 - [x] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
   "Usability proposals P17-P24 and P32-P38 accepted"; built: `spec/export_upgrader.md` step
   10, "CLI", "Message catalog"), one commit each:

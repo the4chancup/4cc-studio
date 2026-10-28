@@ -7,7 +7,7 @@ use pes_version::PesVersion;
 use super::*;
 use crate::tactics::{FieldedMark, Medal};
 use crate::test_support::{Headless, fixture_rows, fixture_tactics, painted_color, roster_rows};
-use crate::violations::{CROSS, MARK_GAP};
+use crate::violations::CROSS;
 
 /// An outfield slot at (`x`, `y`), for the pure mapping tests.
 fn outfield(x: u8, y: u8) -> FormationSlot {
@@ -1978,11 +1978,13 @@ fn a_fielded_mark_paints_a_cross_left_of_the_starters_badge() {
     );
     // The right edge is the glyph's advance, not its ink: the draft
     // right-aligns the cross's text at the badge minus the gap, and the
-    // ink stops short of the advance by the glyph's side bearing.
+    // ink stops short of the advance by the glyph's side bearing. The gap
+    // is the draft's 2 points, written out so a changed `MARK_GAP` fails.
     let advance_right = cross.pos.x + cross.galley.rect.max.x;
     assert!(
-        (advance_right - (badge.left() - MARK_GAP)).abs() <= 0.5,
-        "the right edge MARK_GAP left of the badge"
+        (advance_right - (badge.left() - 2.0)).abs() <= 0.5,
+        "the right edge 2 points left of the badge, at {advance_right} against {}",
+        badge.left()
     );
     let rect = cross.visual_bounding_rect();
     assert!(

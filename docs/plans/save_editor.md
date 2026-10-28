@@ -1199,7 +1199,8 @@ What this editor adds on top of the lib:
     team's own violations (no slot) mark the team's row the same way.
   - **The field a violation is about** gets a cross beside it when its player is selected
     (the pitch's, when his team's row is: the pitch is the team view's), drawn between the
-    field's label and the field so the field keeps its x: just left of a box whose label
+    field's label and the field so the field keeps its x, 2 points from what it marks (the
+    Registered position label, General info's longest, leaves no more room before its combo): just left of a box whose label
     sits at the row's left (the Height box, a stat's), after the label of a field drawn
     under or beside its label (the name, a combo), after the header of a panel (the
     positions grid, the skills, the COM styles), and after the Cards left badge for the badge:

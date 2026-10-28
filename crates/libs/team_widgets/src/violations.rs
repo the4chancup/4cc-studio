@@ -10,7 +10,8 @@ pub const CROSS: char = '\u{2716}';
 
 /// The gap between a cross and what it sits beside (a field's box, a
 /// label's text, a pitch badge): one figure so every mark's spacing
-/// agrees.
+/// agrees. Not wider: the Registered position label, the General info
+/// column's longest, leaves its cross no more room before the combo.
 pub const MARK_GAP: f32 = 2.0;
 
 /// A rostered player as the list's group header shows him.
