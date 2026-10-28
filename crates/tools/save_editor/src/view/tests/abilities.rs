@@ -32,8 +32,8 @@ fn in_skills_column_prefixed(nodes: &[accesskit::Node], prefix: &str) -> bool {
     })
 }
 
-/// The badge texts a frame's Cards left row drew (`"Regular: 3 of 7
-/// cards"` or the weak `"No tier matches"`), in left-to-right order: the
+/// The badge texts a frame's Cards left row drew (`"Regular: 3 of 7"`
+/// or the weak `"No tier matches"`), in left-to-right order: the
 /// Labels at the heading's height or below it of the badge's shapes
 /// (labels of another shape must not pass).
 fn cards_left_badges(nodes: &[accesskit::Node]) -> Vec<String> {
@@ -53,9 +53,14 @@ fn cards_left_badges(nodes: &[accesskit::Node]) -> Vec<String> {
                     .bounds()
                     .is_some_and(|bounds| bounds.y0 >= heading_y - 1.0)
                 && node.value().is_some_and(|value| {
-                    // The badge's text is "tier: left of limit cards" or the
-                    // weak stand-in; the "Free cards" panel's own title is not.
-                    value == "No tier matches" || (value.ends_with(" cards") && value.contains(':'))
+                    // The badge's text is "tier: left of limit" or the weak
+                    // stand-in; the "Free cards" panel's own title is not.
+                    value == "No tier matches"
+                        || value.rsplit_once(": ").is_some_and(|(_, count)| {
+                            count.split_once(" of ").is_some_and(|(left, limit)| {
+                                left.parse::<i32>().is_ok() && limit.parse::<u8>().is_ok()
+                            })
+                        })
                 })
         })
         .collect();
@@ -171,7 +176,7 @@ fn an_ability_edit_marks_the_row_until_ctrl_s_writes_the_save() {
         |ui| show(ui, &mut view, &|| Vec::new(), None),
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    row(&nodes, "1 CB PLACEHOLDER ●");
+    row(&nodes, "01 CB PLACEHOLDER ●");
     assert_eq!(
         std::fs::read(&path).unwrap(),
         original,
@@ -185,7 +190,7 @@ fn an_ability_edit_marks_the_row_until_ctrl_s_writes_the_save() {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    row(&nodes, "1 CB PLACEHOLDER");
+    row(&nodes, "01 CB PLACEHOLDER");
     assert_eq!(
         std::fs::read(&bak).unwrap(),
         original,
@@ -481,7 +486,7 @@ fn the_positions_grid_draws_five_centered_rows_with_the_registered_outlined() {
     // centred ratings row, so the outside ratings' bounds bound the
     // span).
     let column_left = label_bounds(&nodes, "General info").x0;
-    let column_centre = column_left + f64::from(crate::view::info_strip::GENERAL_WIDTH) / 2.0;
+    let column_centre = column_left + 350.0 / 2.0;
     for row in EXPECTED {
         let first_c = rating_buttons(&nodes, row[0])[0].bounds().expect("bounds");
         let last_a = rating_buttons(&nodes, row[row.len() - 1])[2]
@@ -784,7 +789,7 @@ fn an_out_of_range_value_draws_as_stored_without_marking_the_player() {
 }
 
 // The Cards left badge is one badge, the player's own tier under the
-// active ruleset (`label: left of limit cards`, `limit - paid`); a ticked
+// active ruleset (`label: left of limit`, `limit - paid`); a ticked
 // skill that no free group covers lowers it by one; the `aatf_rules`
 // file's reading is the badge's.
 #[test]
@@ -809,14 +814,14 @@ fn the_cards_left_badge_reads_the_players_own_tier() {
         );
         let limits = rules.card_limits(&team, player, &tier.id).unwrap();
         format!(
-            "{}: {} of {} cards",
+            "{}: {} of {}",
             tier.label,
             i32::from(limits.limit) - i32::from(limits.paid),
             limits.limit
         )
     }
-    /// The `left` an `expected` badge text carries (`"Regular: 3 of 7
-    /// cards"` reads 3).
+    /// The `left` an `expected` badge text carries (`"Regular: 3 of 7"`
+    /// reads 3).
     fn left_of(view: &SaveView, rules: &aatf::Rules, slot: u8) -> i32 {
         expected(view, rules, slot)
             .split(": ")
@@ -969,7 +974,7 @@ fn an_overdrawn_badge_paints_in_the_error_colour() {
             limits.limit
         );
         format!(
-            "{}: {} of {} cards",
+            "{}: {} of {}",
             tier.label,
             i32::from(limits.limit) - i32::from(limits.paid),
             limits.limit
@@ -2287,21 +2292,18 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         "the second columns share an x ({skills_xs:?} vs {com_xs:?})"
     );
 
-    // The columns 36 points apart: Skills' left is General info's column
-    // width and the 36 after its left — the fields' flush edge is the
+    // The columns one gap apart: Skills' left is General info's 350-point
+    // column and a gap after its left (the fields' flush edge is the
     // measured label-left rows' width inside the column, so the gap to
-    // the fields' edge moves with the body font.
-    assert!(
-        (titles[1].x0 - titles[0].x0 - f64::from(crate::view::info_strip::GENERAL_WIDTH) - 36.0)
-            .abs()
-            <= 1.0,
-        "the Skills column the column's width and 36 after General info's ({titles:?})"
-    );
+    // the fields' edge moves with the body font), Ability stats' the same
+    // gap after the cards' right edge.
+    let after_general = titles[1].x0 - titles[0].x0 - 350.0;
     let cards_right = skills_xs[1] + f64::from(team_widgets::cards::CARD_COLUMN_WIDTH);
+    let after_cards = titles[2].x0 - cards_right;
     assert!(
-        (titles[2].x0 - cards_right - 36.0).abs() <= 1.0,
-        "the Ability stats column 36 points after the cards ({:?} vs {cards_right})",
-        titles[2]
+        (after_general - after_cards).abs() <= 0.5,
+        "the columns one gap apart ({after_general} after General info, {after_cards} after \
+         the cards)"
     );
 
     // Nothing drawn past the pane's right edge, the pane's right less
@@ -2328,15 +2330,16 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     }
 }
 
-// The view is centred between the player list and the window's right
-// edge: the gap after the list equals the margin after Ability
-// stats to the window's right, the room the fixed columns leave split
-// evenly, on every pane width.
-// The centring pad reads the columns' width the previous frame measured
-// (egui memory), so three settle frames run before the read.
+// The room the three fixed columns leave is split into four equal gaps:
+// after the player list, counted from its frame, between the columns, and
+// after Ability stats to the window's edge; 29.4 points each at the
+// 1280 x 780 window, and still equal on a wider one. The title line and
+// Appearance start at General info's title.
+// The gaps read the columns' widths the previous frame measured (egui
+// memory), so three settle frames run before the read.
 #[test]
-fn the_player_view_centres_its_columns_in_the_pane() {
-    let path = fixture(PesVersion::Pes21, "view_centered");
+fn the_player_view_splits_its_room_into_four_equal_gaps() {
+    let path = fixture(PesVersion::Pes21, "view_gaps");
     let mut view = SaveView::new();
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
@@ -2347,24 +2350,151 @@ fn the_player_view_centres_its_columns_in_the_pane() {
         }
         let (_, nodes, shapes) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-
-        let gen_left = label_bounds(&nodes, "General info").x0;
-        let stats_left = label_bounds(&nodes, "Ability stats").x0;
-        let stats_right = nodes
-            .iter()
-            .filter(|node| node.role() == Role::SpinButton)
-            .filter_map(|node| node.bounds())
-            .filter(|bounds| bounds.x0 >= stats_left - 1.0)
-            .map(|bounds| bounds.x1)
-            .fold(0.0, f64::max);
-        let (list_right, _) = pane_frame(&shapes, window.screen);
-        let left = gen_left - list_right;
-        let right = f64::from(screen_w) - stats_right;
+        let widths: [f32; 3] = window
+            .ctx
+            .data(|data| data.get_temp(egui::Id::unique(crate::view::abilities::COLUMN_WIDTHS_ID)))
+            .expect("the columns' measured widths");
+        let frame_right = f64::from(list_frame(&window, &shapes).max.x);
+        let lefts = ["General info", "Skills", "Ability stats"].map(|t| label_bounds(&nodes, t).x0);
+        let gaps = [
+            lefts[0] - frame_right,
+            lefts[1] - lefts[0] - f64::from(widths[0]),
+            lefts[2] - lefts[1] - f64::from(widths[1]),
+            f64::from(screen_w) - lefts[2] - f64::from(widths[2]),
+        ];
+        let (least, most) = gaps.iter().fold((f64::MAX, f64::MIN), |(lo, hi), &gap| {
+            (lo.min(gap), hi.max(gap))
+        });
         assert!(
-            (left - right).abs() < 1.0,
-            "the gap after the list ({left}) equals the margin after Ability stats ({right}) at {screen_w}"
+            most - least <= 0.5,
+            "the four gaps equal at {screen_w}: {gaps:?}"
+        );
+        if screen_w == DEFAULT_PANE.x {
+            for gap in gaps {
+                assert!(
+                    (gap - 29.4).abs() <= 0.5,
+                    "each gap 29.4 at the 1280 x 780 window: {gaps:?}, the frame's right {frame_right}, the columns {widths:?}"
+                );
+            }
+        }
+
+        // The title line and Appearance start at General info's title.
+        let title = nodes
+            .iter()
+            .filter(|node| node.role() == Role::Label)
+            .find(|node| {
+                node.value()
+                    .is_some_and(|value| value.starts_with("70101 "))
+            })
+            .and_then(accesskit::Node::bounds)
+            .expect("the view's title");
+        let appearance = node_labeled(&nodes, Role::DisclosureTriangle, "Appearance")
+            .bounds()
+            .expect("bounds");
+        assert!(
+            (title.x0 - lefts[0]).abs() <= 0.5 && (appearance.x0 - lefts[0]).abs() <= 0.5,
+            "the title ({title:?}) and Appearance ({appearance:?}) start at {}",
+            lefts[0]
         );
     }
+}
+
+// General info's and Other stats' fields and labels stand 6 in from
+// their titles, as the ability stats stand in from theirs: the column
+// 350 wide, the fields 344.
+#[test]
+fn general_info_and_other_stats_stand_six_in_from_their_titles() {
+    let path = fixture(PesVersion::Pes21, "general_inset");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::new();
+    for _ in 0..3 {
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    }
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let general = label_bounds(&nodes, "General info").x0;
+    let name = nodes
+        .iter()
+        .filter(|node| node.role() == Role::Label)
+        .find(|node| {
+            node.value()
+                .is_some_and(|value| value.starts_with("Name ("))
+        })
+        .and_then(accesskit::Node::bounds)
+        .expect("the Name label");
+    for (what, left) in [
+        ("Name's label", name.x0),
+        ("Height's label", label_bounds(&nodes, "Height").x0),
+        (
+            "Stronger foot's label",
+            label_bounds(&nodes, "Stronger foot").x0,
+        ),
+    ] {
+        assert!(
+            (left - general - 6.0).abs() <= 0.5,
+            "{what} 6 in from General info's title ({left} vs {general})"
+        );
+    }
+    let other = label_bounds(&nodes, "Other stats").x0;
+    let injury = label_bounds(&nodes, "Injury resistance").x0;
+    assert!(
+        (injury - other - 6.0).abs() <= 0.5,
+        "Injury resistance 6 in from Other stats' title ({injury} vs {other})"
+    );
+}
+
+// The Ability stats column is the draft's 169.4 points: each row a label
+// cell and a value cell with 6 points of padding a side (the draft's
+// `stats-grid` cells), so the widest label stands 6 in from the title and
+// the boxes end 6 short of the column's right edge.
+#[test]
+fn the_ability_stats_column_is_the_drafts_width() {
+    let path = fixture(PesVersion::Pes21, "ability_column");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::new();
+    for _ in 0..3 {
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    }
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let widths: [f32; 3] = window
+        .ctx
+        .data(|data| data.get_temp(egui::Id::unique(crate::view::abilities::COLUMN_WIDTHS_ID)))
+        .expect("the columns' measured widths");
+    assert!(
+        (widths[2] - 169.4).abs() <= 0.5,
+        "the Ability stats column 169.4 wide ({widths:?})"
+    );
+
+    let title = label_bounds(&nodes, "Ability stats").x0;
+    let widest = pes_savefile::interchange::team_toml::labels::ABILITY_STATS
+        .iter()
+        .map(|name| {
+            label_bounds(
+                &nodes,
+                &pes_savefile::interchange::team_toml::labels::title_case(name),
+            )
+        })
+        .max_by(|a, b| (a.x1 - a.x0).total_cmp(&(b.x1 - b.x0)))
+        .expect("the stats' labels");
+    assert!(
+        (widest.x0 - title - 6.0).abs() <= 0.5,
+        "the widest label 6 in from the title ({widest:?} vs {title})"
+    );
+    let boxes_right = nodes
+        .iter()
+        .filter(|node| node.role() == Role::SpinButton)
+        .filter_map(accesskit::Node::bounds)
+        .filter(|bounds| bounds.x0 >= title)
+        .map(|bounds| bounds.x1)
+        .fold(f64::MIN, f64::max);
+    let column_right = title + f64::from(widths[2]);
+    assert!(
+        (column_right - boxes_right - 6.0).abs() <= 0.5,
+        "the boxes end 6 short of the column's right edge ({boxes_right} vs {column_right})"
+    );
 }
 
 /// The color the letter's galley painted inside `bounds`: a section's own
@@ -2394,7 +2524,7 @@ fn letter_color(
 }
 
 // The chosen rating's fill and letter (the draft's `.sel.on` variants):
-// A the success green with a dark letter, B the selection colour with
+// A a deep green (`#129648`) under a white letter, B the selection colour with
 // its foreground, C a grey square with the normal text, so the three
 // tell apart at a glance.
 #[test]
@@ -2427,8 +2557,8 @@ fn the_chosen_ratings_paint_their_fills_and_letters() {
         (
             "CF",
             2,
-            studio_core::theme::SUCCESS_FG,
-            egui::Color32::from_gray(0x1a),
+            egui::Color32::from_rgb(0x12, 0x96, 0x48),
+            egui::Color32::WHITE,
         ),
         (
             "SS",

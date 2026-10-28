@@ -42,10 +42,10 @@ pub(super) const NATION_LABEL: &str = "Nation";
 /// The General info panel's Shirt number field.
 pub(super) const NUMBER_LABEL: &str = "Shirt number";
 
-/// The General info column's width (the draft's `.pcol.first` 344px: room
-/// for the longest pair label, "Injury resistance", beside its box on
-/// each half and for the label-left rows; no wider, so the player view's
-/// three columns stay on one row beside the 255-point list).
+/// General info's fields' width (the draft's 344px: room for the longest
+/// pair label, "Injury resistance", beside its box on each half and for
+/// the label-left rows; no wider, so the player view's three columns stay
+/// on one row beside the 255-point list).
 pub(super) const GENERAL_WIDTH: f32 = 344.0;
 /// A pair's box width (the draft's `.pair` fields).
 const BOX_WIDTH: f32 = 54.0;
@@ -203,7 +203,7 @@ pub(super) fn general(
                 name.replace("\\x11", "\x11").len(),
                 text_len(schema, PlayerText::Name),
             ),
-            overlong,
+            text_len(schema, PlayerText::Name).min(portable_text_max(PlayerText::Name)),
         )
         .on_hover_text(&tip);
         if let Some(marks) = marks {
@@ -249,17 +249,15 @@ pub(super) fn general(
                     .min(text_len(schema, PlayerText::ShirtName))
             )
         };
+        let shirt_limit =
+            portable_text_max(PlayerText::ShirtName).min(text_len(schema, PlayerText::ShirtName));
         counted_label(
             ui,
             shirt_label_id,
             shirt_label,
             SHIRT_LABEL,
-            (
-                shirt.chars().count(),
-                portable_text_max(PlayerText::ShirtName)
-                    .min(text_len(schema, PlayerText::ShirtName)),
-            ),
-            shirt_overlong,
+            (shirt.chars().count(), shirt_limit),
+            shirt_limit,
         )
         .on_hover_text(&tip);
         let response = response.on_hover_text(&tip);
@@ -709,11 +707,26 @@ fn side_row(ui: &mut egui::Ui, field_width: f32, held: u8) -> Option<(u8, u64)> 
     picked
 }
 
+/// The grey of a counted label's count under its limit (the draft's
+/// `.gen .count`, a disabled card label's `#5a5a5a`): quiet, so a count
+/// draws the eye only once the field reaches its limit.
+const COUNT_GREY: egui::Color32 = egui::Color32::from_rgb(0x5a, 0x5a, 0x5a);
+
+/// How near `limit` a count of `n` is, as its colour: the grey under it,
+/// the warning colour on it, the error colour past it.
+fn count_color(visuals: &egui::Visuals, n: usize, limit: usize) -> egui::Color32 {
+    match n.cmp(&limit) {
+        std::cmp::Ordering::Less => COUNT_GREY,
+        std::cmp::Ordering::Equal => visuals.warn_fg_color,
+        std::cmp::Ordering::Greater => visuals.error_fg_color,
+    }
+}
+
 /// The `label (n/max)` line painted at `rect` under `id` (allocated before
 /// the field was drawn, so the count follows the field's text as typed
-/// this frame): `label` in the normal text colour, `count`'s `(n/max)`
-/// the same — or the warning colour when `warn` (the count past the
-/// portable limit). Returns the label's response (the AccessKit node for
+/// this frame): `label` in the normal text colour, `count`'s `(n/max)` in
+/// `count_color`'s against `limit` (the smaller of the shown maximum and
+/// the portable one). Returns the label's response (the AccessKit node for
 /// the hover it shares with the field).
 fn counted_label(
     ui: &mut egui::Ui,
@@ -721,7 +734,7 @@ fn counted_label(
     rect: egui::Rect,
     label: &str,
     count: (usize, usize),
-    warn: bool,
+    limit: usize,
 ) -> egui::Response {
     let (n, max) = count;
     let text_color = ui.visuals().text_color();
@@ -735,14 +748,7 @@ fn counted_label(
     job.append(
         &format!("({n}/{max})"),
         0.0,
-        egui::TextFormat::simple(
-            body,
-            if warn {
-                ui.visuals().warn_fg_color
-            } else {
-                text_color
-            },
-        ),
+        egui::TextFormat::simple(body, count_color(ui.visuals(), n, limit)),
     );
     let galley = ui.painter().layout_job(job);
     // `interact`, not `allocate_rect`: the space was taken before the
