@@ -3932,13 +3932,15 @@ briefs, review loops, gates and mutation runs as for any step.
       popover against the draft (asks before it takes focus)
   - [ ] y6 the badge's overall and medal outline (the maintainer, 2026-10-28): the starter's
     overall at his slot's position at the badge's right in white, his medal tier a 1.5-point
-    outline in its colour (bronze darkened to `#8c4a20`) instead of its letter, the badge 56
-    wide for `CMF 109`
+    outline in its colour (bronze darkened to `#8c4a20`) instead of its letter, the badge's
+    texts at 11.5 pt 2 in from its ends (the badge stays 50), the captain's mark outlined
+    1 px in `#242b2d`
     - [x] y6a the draft and `plans/save_editor.md` "A marker", "A starter's badge shows his
       overall and his medal tier"; checked: the draft's `overallAt` equals
       `y4d_overall.py` on 128,570 player-position pairs, gives 150 of 150 overalls read in
       PES 2017 and 201 of 201 read in PES 2021 within 2 (`.tmp/fb1028/overall_port_check.py`);
-      captures `.tmp/fb1028/badges_*.png`, no page error
+      captures `.tmp/fb1028/badges_*.png`, no page error; the margins and the captain's
+      outline measured on the maintainer's 720p capture (`.tmp/fb1028/cap_pixels.py`)
     - [ ] y6b the code, after y4e1 (`team_widgets`' pitch paint and `RosterRow`, the save
       editor's host filling the overalls) → verify: the gates, the paint tests' medal letter
       (`team_widgets` `pitch/tests/paint.rs`) turned into the outline's; the built pitch

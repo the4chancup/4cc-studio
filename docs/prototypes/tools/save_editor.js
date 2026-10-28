@@ -4548,11 +4548,11 @@ function assignClick(t, fieldIdx) {
 // turf's eleven bands and grain, the lines, and per starter a marker - his
 // portrait, the position badge, his name - centred on the badge. The drag
 // state lives in S.pitchDrag; marker hit tests are ui.interact rects.
-// The badge is 56 wide where the game's is 50: the widest pair it holds, a
-// three-letter position and an overall of 100 or more (CMF 109), is 45.9 in
-// the body font at 12, and needs a space's gap and 3 at each end; the game's
-// narrower face fits it in 50.
-const MARKER = { badgeW: 56, badgeH: 14, portrait: 50, gap: 0, nameDy: 13 };
+// The badge's texts, 2 in from its ends as the game's ink is, at 11.5: the
+// widest pair, a three-letter position and an overall of 100 or more
+// (CMF 109), is 44 there, which leaves about 2 between them in the 50 wide
+// badge; the two colours tell them apart where they come close.
+const MARKER = { badgeW: 50, badgeH: 14, portrait: 50, gap: 0, nameDy: 13, textInset: 2, badgeFont: 11.5 };
 // The medal tiers' outline colours on a pitch badge, by tier id (the rulesets
 // share the ids gold, silver and bronze): gold in the game's gold name code,
 // the colour a gold player's name carries; silver its metal's; bronze far
@@ -4818,13 +4818,13 @@ function paintPitch(g, t, f0, live) {
       g.stroke();
     }
     g.textBaseline = "middle"; g.textAlign = "left";
-    g.fillStyle = POS_COLOUR(s.position); g.font = "12px " + FONT_BODY;
-    g.fillText(s.position, bl + 3, y + 1);
+    g.fillStyle = POS_COLOUR(s.position); g.font = MARKER.badgeFont + "px " + FONT_BODY;
+    g.fillText(s.position, bl + MARKER.textInset, y + 1);
     // His overall at the slot's position at the badge's right end, where the
     // game draws it, white as the game's.
     if (p) {
       g.fillStyle = "#ffffff"; g.textAlign = "right";
-      g.fillText(String(overallAt(p, s.position)), bl + MARKER.badgeW - 3, y + 1);
+      g.fillText(String(overallAt(p, s.position)), bl + MARKER.badgeW - MARKER.textInset, y + 1);
       g.textAlign = "left";
     }
     // Live AATF's cross for a FieldedNotA about him at this spot, just left of
@@ -4856,11 +4856,15 @@ function paintPitch(g, t, f0, live) {
       }
     }
     g.restore();
+    // The captain's mark: a white box outlined 1 px in the badge's colour,
+    // as the game's (the outline on the badge's left edge plus 1).
     if (roster === t.captain) {
+      g.fillStyle = "#242b2d";
+      g.beginPath(); g.roundRect(bl + 1, bt - 5 - 12, 14, 13, 3); g.fill();
       g.fillStyle = "#ffffff";
-      g.beginPath(); g.roundRect(bl + 1, bt - 5 - 11, 12, 11, 2); g.fill();
+      g.beginPath(); g.roundRect(bl + 2, bt - 5 - 11, 12, 11, 2); g.fill();
       g.fillStyle = "#000000"; g.font = "9px " + FONT_BODY; g.textAlign = "center";
-      g.fillText("C", bl + 7, bt - 10);
+      g.fillText("C", bl + 8, bt - 10);
     }
     if (!live) continue;
     if (S.slotPop && S.slotPop.i === i) corners(g, x, y, "#14fbff");

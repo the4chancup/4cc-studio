@@ -587,14 +587,15 @@ Win32 original hurt the most):
     in every one of the PES 2021 save's 1,890 formations, and the editor never moves it.
   - **A marker**, top to bottom: the portrait, the whole 128 x 128 texture drawn 50 x 50
     standing on the badge (the cup's portraits carry their own padding and any ribbon); the
-    badge, 56 x 14, `#242b2d`, corners 2, the position's abbreviation at its left in its
-    group's colour (forwards `#ff2c77`, midfielders `#57e42b`, defenders `#00d2ff`, keeper
-    `#ffde00`) and his overall at its right in white, each 3 in from its end, a medal's
-    outline round it (both below, "A starter's badge"). The game's badge is 50 wide; the
-    editor's is 56 because its widest pair, a three-letter position and an overall of 100 or
-    more (`CMF 109`), measures 45.9 in the body font at the badge's 12 pt and needs a space's
-    gap between them, where the game's narrower face fits it in 50; the font is not condensed
-    to match, the suite drawing Roboto Flex untuned. The name in its colour codes' colours (white where it has none: the screen
+    badge, 50 x 14 under the 50-point portrait, `#242b2d`, corners 2, the position's
+    abbreviation at its left in its group's colour (forwards `#ff2c77`, midfielders
+    `#57e42b`, defenders `#00d2ff`, keeper `#ffde00`) and his overall at its right in white,
+    both at 11.5 pt and 2 in from their ends as the game's ink is (measured on a 720p
+    capture), a medal's outline round it (both below, "A starter's badge"). At 11.5 the
+    widest pair, a three-letter position and an overall of 100 or more (`CMF 109`), measures
+    44 and leaves about 2 between them; where the two come close their colours tell them
+    apart. The badge is not widened for it: a wider badge stood off the portrait's edges. The
+    name in its colour codes' colours (white where it has none: the screen
     draws them as its lists do), 13 px below the badge's centre, centred, or from the
     badge's left edge and cut to the badge's width when wider. A wider name scrolls as the
     game's does (measured on four names over 30 s captures): every 13.5 s it scrolls left at
@@ -605,8 +606,10 @@ Win32 original hurt the most):
     badge's left when off (a view setting, not an edit: no undo entry, no unsaved dot). Each
     name's period starts when the pitch first shows it, still first. The game
     staggers names by a rule not established (two names 2.1 s apart); the editor's start
-    together when the team view opens. The captain's mark, a white rounded box with a black "C", 12 x 11, sits
-    1 px inside the badge's left edge, 5 px above it, over the portrait. A starter whose
+    together when the team view opens. The captain's mark, a white rounded box with a black "C", 12 x 11,
+    outlined 1 px in the badge's colour (`#242b2d`, as the game's: on a light portrait the
+    white box would otherwise have no edge), sits 5 px above the badge over the portrait, its
+    outline 1 px inside the badge's left edge (measured on a 720p capture). A starter whose
     portrait the editor cannot show, for any reason (none in the CPKs, one that does not
     decode, a folder, list or CPK that cannot be read, no PES folder set, or one still being
     read, which would otherwise draw nothing and then the portrait), shows the game's

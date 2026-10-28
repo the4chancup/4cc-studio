@@ -12572,3 +12572,14 @@ gap and margins. The overall is exact on PES 2017 (150 read) and within 2 on PES
 equal). PES 2018-2020 lie between the two versions known to offer Very early (the maintainer).
 Plan: `plans/save_editor.md` "Tactics editor" ("A marker", "A starter's badge shows his overall
 and his medal tier", the pitch-drop paragraph's formula, the Automatic settings' Substitution).
+
+## 2026-10-28 — save_editor — The pitch badge stays 50 wide; its texts at 11.5; the captain's mark outlined
+Decision: the pitch badge keeps the game's 50 points, not the 56 of the entry before; its position
+and overall are drawn at 11.5 pt, 2 in from the badge's ends as the game's ink is, so `CMF 109`
+(44 at 11.5) leaves about 2 between them. The captain's mark gets the game's 1 px outline in the
+badge's colour `#242b2d`, the outline 1 px inside the badge's left edge, the white box inside it.
+Why: a 56-point badge stood off the 50-point portrait's edges (the maintainer); the two texts'
+colours tell them apart where they come close, and the maintainer asked for slightly smaller
+text. The margins and the outline were measured on the maintainer's PES 2021 capture, 1:1 at
+720p (the badge 50 px wide there).
+Plan: `plans/save_editor.md` "Tactics editor" ("A marker", the captain's mark).
