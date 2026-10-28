@@ -12922,3 +12922,29 @@ the field's in the Comparator's and the unsaved-changes list's rows too, which w
 as its view does, under the team's own header.
 Why: the maintainer's look: the view's title already says whose fields these are.
 Plan: `plans/save_editor.md` "Editing UI" (The team view).
+
+## 2026-10-28 — aatf — check-aatf prints a hint's list as MedalSystem's systems
+Decision: the hints' list fields print on `check-aatf`'s line as `MedalSystem`'s `systems` do,
+`[a, b]`; a height range as `low-high`, an `up to` range from 0 (`fits=[0-175, 180-180]`).
+Why: the line separates its fields with commas; a list spelled another way (the drafts'
+`0-175,180-180`) would split into stray fields, and a second list rule is one more thing a
+script reading the line must know.
+Plan: `plans/aatf_rules.md` "The interpreter" (Hints at a valid value).
+
+## 2026-10-28 — save_editor — The lineup lists' positions in the pitch badges' colours
+Decision: in the team view's starting eleven and bench lists, each row's position label is
+drawn in its group's colour, the pitch badge's (forwards `#ff2c77`, midfielders `#57e42b`,
+defenders `#00d2ff`, keeper `#ffde00`), not the grey it had; the names keep the text colour.
+The player list's positions are unchanged (not asked for).
+Why: the maintainer's request at the final pass: a list then reads as the pitch beside it
+does. On the lists' near-black ground the four colours keep a contrast of 5.8:1 or more.
+Plan: `plans/save_editor.md` "Tactics editor" (the starting eleven and bench lists).
+
+## 2026-10-28 — studio_core — The toolbar's menu bar pieces are global
+Decision: the menu bar the Save editor's toolbar moves into (the bar with the toolbar's style,
+its separator, a menu item with its shortcut, the hover switching) is built as `studio_core`
+widgets, not inside the Save editor.
+Why: the maintainer's ruling: only the Save editor has a finished UI yet, so such changes stay
+global for now, and the other tools' toolbars take them when they are built rather than
+growing their own.
+Plan: `plans/save_editor.md` "Editing UI" (The toolbar).

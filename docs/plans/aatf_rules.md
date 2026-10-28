@@ -286,8 +286,11 @@ man marking: man marking should be off`, the setting in words. A range of one he
 once, one from the bottom `up to` its top. No hint for PositionRange and PlayingStyleRange (the
 editor's controls offer only valid values), Captain, FormationShape (any other shape is valid),
 Special and Custom (the ruleset author's words) and UnusedChoice (naming a choice's options
-would need a sentence for every kind of effect). Like `player_tier`, the fields land before
-logic version 1's freeze.
+would need a sentence for every kind of effect). `check-aatf` prints a list field as it prints
+`MedalSystem`'s systems, `[a, b]`, a height range as `low-high` (`fits=[0-175, 180-180]`, 0
+being an `up to` range's bottom), so its line keeps one comma-separated field per key and a
+script reading it needs no second rule. Like `player_tier`, the fields land before logic
+version 1's freeze.
 
 ## The host
 

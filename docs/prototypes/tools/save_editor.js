@@ -5351,7 +5351,7 @@ function lineupList(t) {
     const p = rosterPlayer(t, tac.starting_eleven[i]);
     const r = h("div", { class: "lrow", "data-xidx": i },
       h("span", { class: "handle" }, "≡"),
-      h("span", { class: "fpos" }, f[i].position),
+      h("span", { class: "fpos", style: "color:" + POS_COLOUR(f[i].position) }, f[i].position),
       h("span", { class: "lname", title: p ? displayName(p.name) : null },
         ...(p ? nameSpans(p.name) : ["(empty)"])));
     listRowDrag(r, "xi:" + i);
@@ -5370,7 +5370,8 @@ function benchList(t) {
     if (!p) return;
     const r = h("div", { class: "lrow", "data-bidx": i },
       h("span", { class: "handle" }, "≡"),
-      h("span", { class: "fpos" }, p.positions.registered),
+      h("span", { class: "fpos", style: "color:" + POS_COLOUR(p.positions.registered) },
+        p.positions.registered),
       h("span", { class: "lname", title: displayName(p.name) }, ...nameSpans(p.name)));
     listRowDrag(r, "bench:" + i);
     rowDrop(r, (kind, j) => kind === "xi" ? swapLineup(t, j, i) : moveBench(t, j, i));

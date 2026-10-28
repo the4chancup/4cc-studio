@@ -240,7 +240,9 @@ all side by side.
   "The make buttons act on a player: pick a player row"; the Player menu's entries are
   disabled too, their tooltip "The Player menu acts on a player: pick a player row".
 - **The toolbar**, in egui's `MenuBar` (0.37), its style left as the toolbar's so the
-  buttons keep their frames: `Open`, `Save`, `Save as`; a separator; `Undo`, `Redo`; a
+  buttons keep their frames, the bar's pieces (the bar, its separator, a menu item with its
+  shortcut) `studio_core`'s widgets rather than this tool's, so every tool's toolbar takes
+  them when it is built (this is the first tool with a finished UI): `Open`, `Save`, `Save as`; a separator; `Undo`, `Redo`; a
   separator; the `Player`, `Team` and `Savefile` menus; a separator; the ruleset dropdown and
   Live AATF (with `Show suggestions` while it is on), then `• unsaved changes`. With one menu
   open, the pointer entering another menu's button opens that one instead, as a menu bar
@@ -587,7 +589,10 @@ Win32 original hurt the most):
   3. **Advanced instructions** over **Automatic settings** in the settings column, beside the
      **starting eleven and bench** lists, which span the other two columns, each list half of
      them (twelve 18-point rows, padded 4 points top and bottom: the eleven with a row to spare,
-     which the bench uses for its twelfth player), the two sides' bottoms level. Advanced
+     which the bench uses for its twelfth player), the two sides' bottoms level. A row's
+     position (the formation's for a starter, the registered one on the bench) is drawn in
+     its group's colour, the pitch badge's (below, "A marker"), so a list reads as the pitch
+     does at a glance; the names stay the text colour. Advanced
      instructions is one grid: the headers Attack and Defence over their columns, each
      instruction's number (1, 2) beside its two combos, each target under its combo.
      Automatic settings is one grid of two columns of 24-point rows (Substitution beside
@@ -1690,13 +1695,13 @@ SE-GUI-37  GIVEN the PES 17 save open on team 701
 SE-GUI-38  GIVEN the save, player 70101's name set to the colour code `\x11cff0000ff` then `AB`,
                 and his shirt name to 20 letters, before it is opened
            WHEN he is selected
-           THEN the Name label reads "Name (12/61)", its count in the weak colour, and the Shirt
+           THEN the Name label reads "Name (12/61)", its count in the disabled card label's grey (`#5a5a5a`), and the Shirt
                 label "Shirt (20/18)", the shirt field tinted with the warning colour, its count
                 in the error colour, and its hover the "PES 2019
                 and older show 18 letters" sentence; WHEN a letter is deleted from the shirt
                 name THEN it reads "Shirt (19/18)", still tinted, and a letter typed after it is
                 refused; WHEN another is deleted THEN "(18/18)" is in the warning colour and the
-                field untinted, and at "(17/18)" the count is in the weak colour; WHEN 47 bytes are typed as his name THEN "Name (47/61)", tinted, its hover
+                field untinted, and at "(17/18)" the count is in that grey; WHEN 47 bytes are typed as his name THEN "Name (47/61)", tinted, its hover
                 the cut PES 2019 makes; GIVEN the PES 16 save THEN a player's Shirt label's
                 limit is 16 and its Name label's 46
 SE-GUI-39  GIVEN the PES 21 save open on team 718 (/f/), its Tactics on preset 1, fluid
