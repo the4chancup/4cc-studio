@@ -30,10 +30,10 @@ fn type_text(window: &mut Headless, view: &mut SaveView, text: &str) {
         events.push(key(egui::Key::Backspace, egui::Modifiers::NONE, true));
     }
     events.push(egui::Event::Text(text.to_owned()));
-    window.frame(events, |ui| show(ui, view, &|| Vec::new(), None));
+    window.frame(events, |ui| show(ui, view, &|| Vec::new()));
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, view, &|| Vec::new(), None),
+        |ui| show(ui, view, &|| Vec::new()),
     );
 }
 
@@ -105,7 +105,7 @@ fn team_menu_button(nodes: &[accesskit::Node]) -> &accesskit::Node {
 /// The Team menu's popup open for one frame: a click on the Team button
 /// (skipped when a previous call left it open), then the frame's nodes.
 fn open_team_menu(window: &mut Headless, view: &mut SaveView) -> Vec<accesskit::Node> {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     if nodes
         .iter()
         .any(|node| node.role() == Role::Button && node.label() == Some("Set edited flag"))
@@ -113,7 +113,7 @@ fn open_team_menu(window: &mut Headless, view: &mut SaveView) -> Vec<accesskit::
         return nodes;
     }
     click(window, team_menu_button(&nodes), view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     nodes
 }
 
@@ -138,7 +138,7 @@ fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() 
 
     // The Name field: the team bar's text input holding the team name
     // (the header's own Name field holds the player's).
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let name_field = nodes
         .iter()
         .find(|node| node.role() == Role::TextInput && node.value() == Some("/3/"))
@@ -152,22 +152,22 @@ fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() 
     );
 
     // The Manager ID control: a typed value lands.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let manager = control_right_of(&nodes, "Manager ID");
     click(&mut window, manager, &mut view);
     window.frame(vec![egui::Event::Text("777".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(team_entry(&view, 701).manager_id, Some(777));
 
     // Colour 1: the picker's hex field takes #FF8000; the save keeps 6
     // bits a channel, so the stored colour is the nearest the save holds.
     // Both colour fields share the grid row, so Colour 1 is the leftmost.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = nodes
         .iter()
         .filter(|node| {
@@ -182,7 +182,7 @@ fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() 
         })
         .expect("the Colour 1 field");
     click(&mut window, field, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let hex = nodes
         .iter()
         .find(|node| {
@@ -201,7 +201,7 @@ fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() 
         "#FF8000 stores as the nearest 6-bit colour"
     );
     // The hex beside the field reads the shown colour back: #FF8200.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         nodes
             .iter()
@@ -211,7 +211,7 @@ fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() 
 
     // Save; the reopened file holds the three values.
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let reopened = EditFile::load(&path).unwrap();
     let team = reopened.team(701).expect("team 701");
@@ -245,18 +245,18 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
     // The Kit slots… button opens the dialog over the view; a second frame
     // before reading nodes: the modal re-centres once its content's size
     // is known, so the first frame's bounds are not the steady ones.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Kit slots\u{2026}"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         label_value(&nodes, "Kit slot assignments"),
         "the dialog's title"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // Slot 1's row: the weak "Slot 1" label's row holds Number and Bound
     // team ID, in x order.
@@ -291,11 +291,11 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
     // its own (PES 17 is the version with kit slots, so the flag is Some).
     click(&mut window, controls[0], &mut view);
     window.frame(vec![egui::Event::Text("9".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         team_entry(&view, 701).kit_slots.expect("kit slots")[0].number,
@@ -309,9 +309,9 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
     // The one undo restores the edit whole, the flag back to clear (a
     // frame first, so the field has given up the keyboard and Ctrl+Z is
     // the session's undo, not the text's own).
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).edit_flags.strip,
@@ -322,11 +322,11 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
     // An edit writes `id * 64 + binding % 64`: the low 5 stays.
     click(&mut window, bound, &mut view);
     window.frame(vec![egui::Event::Text("702".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     let slots = team_entry(&view, 701).kit_slots.expect("kit slots");
     assert_eq!(
@@ -344,11 +344,11 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
     // binding is 24 bits, so 262143): typing 262144 stops there.
     click(&mut window, bound, &mut view);
     window.frame(vec![egui::Event::Text("262144".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     let slots = team_entry(&view, 701).kit_slots.expect("kit slots");
     assert_eq!(
@@ -369,7 +369,7 @@ fn the_team_name_field_gets_its_full_width_on_the_first_frame() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     // The release frame is the first one that draws the team view.
     let nodes = click_at(&mut window, centre(team_row(&nodes, &view, 701)), &mut view);
     assert_eq!(
@@ -397,8 +397,7 @@ fn the_title_is_the_teams_name_in_the_bodys_strong_weight() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (body, strong) = {
         let style = window.ctx.style_of(window.ctx.theme());
         (
@@ -428,7 +427,7 @@ fn the_fields_ids_and_kit_slots_button_share_one_row_at_the_default_pane() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let row_y = label_bounds(&nodes, "Short").y0;
     for label in ["Team", "Col. 1", "Col. 2", "Manager ID", "Stadium ID"] {
@@ -472,7 +471,7 @@ fn the_team_view_fits_the_default_pane() {
     let mut shapes = Vec::new();
     for _ in 0..3 {
         let (_, _, frame_shapes) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         shapes = frame_shapes;
     }
     let (left, _) = pane_frame(&shapes, window.screen);
@@ -506,7 +505,7 @@ fn the_short_name_box_takes_three_characters() {
     );
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = nodes
         .iter()
         .find(|node| node.role() == Role::TextInput && node.value() == Some("3"))
@@ -520,7 +519,7 @@ fn the_short_name_box_takes_three_characters() {
             key(egui::Key::Backspace, egui::Modifiers::NONE, true),
             egui::Event::Text("abcd".to_owned()),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     let field = nodes
         .iter()
@@ -550,7 +549,7 @@ fn a_stored_short_name_past_three_shows_whole_until_edited() {
     );
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = nodes
         .iter()
         .find(|node| node.role() == Role::TextInput && node.value() == Some("ABCD"))
@@ -562,7 +561,7 @@ fn a_stored_short_name_past_three_shows_whole_until_edited() {
             key(egui::Key::End, egui::Modifiers::NONE, true),
             egui::Event::Text("x".to_owned()),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert!(
         nodes
@@ -574,7 +573,7 @@ fn a_stored_short_name_past_three_shows_whole_until_edited() {
     // Deleting edits it as usual: the field takes the three letters.
     window.frame(
         vec![key(egui::Key::Backspace, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(team_entry(&view, 701).short_name, "ABC");
 }
@@ -590,7 +589,7 @@ fn the_header_units_draw_inside_their_claims() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let label_node = |value: &str| {
         nodes
@@ -681,7 +680,7 @@ fn drawing_the_team_view_edits_nothing() {
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
     for _ in 0..3 {
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     }
     let session = view.session.as_ref().unwrap();
     assert!(!session.is_dirty(), "three frames left the session clean");
@@ -716,7 +715,7 @@ fn a_team_name_keystroke_past_the_fields_limit_is_not_taken() {
     .expect("a text field's length fits usize");
     let full = "A".repeat(limit);
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let name_field = nodes
         .iter()
         .find(|node| node.role() == Role::TextInput && node.value() == Some("/3/"))
@@ -730,7 +729,7 @@ fn a_team_name_keystroke_past_the_fields_limit_is_not_taken() {
     );
 
     // One more letter past it: refused, the stored name stands.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let name_field = nodes
         .iter()
         .find(|node| node.role() == Role::TextInput && node.value() == Some(full.as_str()))
@@ -741,7 +740,7 @@ fn a_team_name_keystroke_past_the_fields_limit_is_not_taken() {
             key(egui::Key::End, egui::Modifiers::NONE, true),
             egui::Event::Text("B".to_owned()),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         team_entry(&view, 701).name,
@@ -777,25 +776,25 @@ fn the_boglo_dialogs_preview_names_the_last_filled_slots_id() {
         ),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::RadioButton, "Incremental from"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let incremental = node_labeled(&nodes, Role::RadioButton, "Incremental from");
     let start = right_of(&nodes, incremental, Role::SpinButton);
     click(&mut window, start, &mut view);
     window.frame(vec![egui::Event::Text("100".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let preview = format!("(\u{2192} {})", 100 + last);
     assert!(
         nodes
@@ -863,7 +862,7 @@ fn the_boots_dialog_prefills_the_team_rows_first_filled_slot() {
         ),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         boglo_prefill(&nodes),
         [boots.to_string(), boots.to_string(), gloves.to_string()],
@@ -908,7 +907,7 @@ fn the_boots_dialog_prefills_past_a_dangling_roster_id() {
         ),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         boglo_prefill(&nodes),
         [boots.to_string(), boots.to_string(), gloves.to_string()],
@@ -926,7 +925,7 @@ fn on_pes16_the_colours_ids_and_kit_slots_draw_disabled_with_their_versions() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // The two colour fields, disabled with "PES 17+".
     let mut colours: Vec<&accesskit::Node> = nodes
@@ -969,7 +968,7 @@ fn on_pes16_the_colours_ids_and_kit_slots_draw_disabled_with_their_versions() {
         node_labeled(&nodes, Role::Button, "Kit slots\u{2026}"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         label_value(&nodes, "(this version does not store kit slots)"),
         "the no-records line"
@@ -992,8 +991,7 @@ fn the_short_name_upper_cases_caps_at_three_and_sets_the_flags() {
         );
         let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
         open_team_view(&mut window, &mut view, 701);
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         let field = nodes
             .iter()
             .find(|node| node.role() == Role::TextInput && node.value() == Some("3"))
@@ -1005,8 +1003,7 @@ fn the_short_name_upper_cases_caps_at_three_and_sets_the_flags() {
         assert!(team.edit_flags.name, "the name flag is set");
 
         // A fourth letter is not taken: the field shows the stored text again.
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         let field = nodes
             .iter()
             .find(|node| node.role() == Role::TextInput && node.value() == Some("ABC"))
@@ -1030,7 +1027,7 @@ fn the_short_name_upper_cases_caps_at_three_and_sets_the_flags() {
 fn the_team_view_draws_its_fields_and_edits_them_undoable() {
     let (mut view, mut window) = open_734_with("team_view_fields", &[], 0);
     open_team_view(&mut window, &mut view, 734);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // The title, the fields, the ids and the button; the kit slot rows are
     // behind the dialog, not in the view.
@@ -1072,14 +1069,14 @@ fn the_team_view_draws_its_fields_and_edits_them_undoable() {
 fn the_kit_slots_dialog_opens_edits_and_closes() {
     let (mut view, mut window) = open_734_with("kit_slots_dialog", &[], 0);
     open_team_view(&mut window, &mut view, 734);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Kit slots\u{2026}"),
         &mut view,
     );
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         label_value(&nodes, "Kit slot assignments"),
         "the dialog's title"
@@ -1092,11 +1089,11 @@ fn the_kit_slots_dialog_opens_edits_and_closes() {
         .expect("slot 1's Number");
     click(&mut window, number, &mut view);
     window.frame(vec![egui::Event::Text("9".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         team_entry(&view, 734).kit_slots.expect("kit slots")[0].number,
@@ -1105,17 +1102,17 @@ fn the_kit_slots_dialog_opens_edits_and_closes() {
     assert_ne!(before, 9, "premise: a real change");
     // A frame first, so the field has given up the keyboard and Ctrl+Z is
     // the session's undo, not the text's own.
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(undo_entries(&mut window, &mut view), 1, "one undoable edit");
 
     // OK closes the dialog (its title gone, the button back in reach).
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "OK"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         !label_value(&nodes, "Kit slot assignments"),
         "the dialog closed"
@@ -1196,27 +1193,27 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
         ),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let incremental = node_labeled(&nodes, Role::RadioButton, "Incremental from");
     click(&mut window, incremental, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let incremental = node_labeled(&nodes, Role::RadioButton, "Incremental from");
     let start = right_of(&nodes, incremental, Role::SpinButton);
     click(&mut window, start, &mut view);
     window.frame(vec![egui::Event::Text(start_value.to_string())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::RadioButton, "Same as the boot IDs"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "OK"),
@@ -1260,7 +1257,7 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
 
     // Clear visual flags by Ctrl+F: the four flags off on every slot.
     window.frame(vec![key(egui::Key::F, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     for &(_, id) in &slots {
         let flags = &player_entry(&view, id).edit_flags;
@@ -1277,11 +1274,11 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
     // Redo them all, save, reopen: the file holds the operation's values.
     for _ in 0..4 {
         window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL, true)], |ui| {
-            show(ui, &mut view, &|| Vec::new(), None)
+            show(ui, &mut view, &|| Vec::new())
         });
     }
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let reopened = EditFile::load(&path).unwrap();
     for &(slot, id) in &slots {
@@ -1342,13 +1339,7 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
             .unwrap_or_else(|| panic!("no menu item {label:?}"));
         assert!(item.is_disabled(), "{label} is disabled under the lock");
         assert_eq!(
-            tooltip_containing(
-                &mut window,
-                &mut view,
-                centre(item),
-                "The team's export",
-                None
-            ),
+            tooltip_containing(&mut window, &mut view, centre(item), "The team's export"),
             Some(
                 "The team's export owns the aesthetics, so edit its settings.toml and recompile."
                     .to_string(),
@@ -1365,7 +1356,7 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
 
     // Ctrl+F under the lock: nothing changes, the flags still set.
     window.frame(vec![key(egui::Key::F, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert!(
         !view.session.as_ref().unwrap().is_dirty(),
@@ -1453,7 +1444,7 @@ fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
         assert!(all_set(&view, id), "{id}'s four flags restored");
     }
     window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     for &(_, id) in &slots {
         assert!(cleared(&view, id), "{id}'s flags cleared again");
@@ -1461,7 +1452,7 @@ fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
 
     // Save; the reopened file holds them cleared.
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let reopened = EditFile::load(&path).unwrap();
     for &(_, id) in &slots {
@@ -1532,13 +1523,13 @@ fn the_team_menu_and_ctrl_f_act_on_the_selected_rows_team() {
     // Ctrl+Z restores them; from the same state Ctrl+F clears the team's
     // flags as it does from a player row.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     for &id in &filled {
         assert!(all_set(&view, id), "{id}'s flags restored");
     }
     window.frame(vec![key(egui::Key::F, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     for &(_, id) in &rostered(&view, 701) {
         assert!(cleared(&view, id), "{id}'s visual flags cleared by Ctrl+F");
@@ -1546,7 +1537,7 @@ fn the_team_menu_and_ctrl_f_act_on_the_selected_rows_team() {
 
     // With no row selected the menu is disabled.
     view.selected = None;
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         menu_button(&nodes, "Team").is_disabled(),
         "the Team menu is disabled with no row selected"

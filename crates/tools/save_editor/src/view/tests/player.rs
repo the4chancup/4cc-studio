@@ -30,14 +30,14 @@ fn run_stat_dialog(
 ) {
     let nodes = open_menu(window, view, "Player", "Set all stats");
     click(window, menu_item(&nodes, item), view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     let field = right_of_label(&nodes, line, Role::SpinButton)
         .first()
         .copied()
         .unwrap_or_else(|| panic!("the {item:?} dialog's value field"));
     click(window, field, view);
     type_text(window, view, value);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     click(window, node_labeled(&nodes, Role::Button, "OK"), view);
 }
 
@@ -115,16 +115,16 @@ fn set_and_bump_stats_write_every_ability_as_one_undoable_edit() {
         "90",
     );
     window.frame(vec![key(egui::Key::B, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = right_of_label(&nodes, &bump_line(&name), Role::SpinButton)
         .first()
         .copied()
         .expect("the Bump dialog's value field");
     click(&mut window, field, &mut view);
     type_text(&mut window, &mut view, "10");
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "OK"),
@@ -163,11 +163,11 @@ fn set_and_bump_stats_write_every_ability_as_one_undoable_edit() {
     // Redo them all, save, reopen: the file holds the 40s.
     for _ in 0..5 {
         window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL, true)], |ui| {
-            show(ui, &mut view, &|| Vec::new(), None)
+            show(ui, &mut view, &|| Vec::new())
         });
     }
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_abilities(EditFile::load(&path).unwrap().player(70101).unwrap(), 40);
 
@@ -235,7 +235,7 @@ fn the_bump_dialog_prefills_the_last_n_used() {
     // is typed.
     let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
     click(&mut window, menu_item(&nodes, "Bump all stats"), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = right_of_label(&nodes, &bump_line(&name), Role::SpinButton)
         .first()
         .copied()
@@ -364,10 +364,10 @@ fn dialog_control<'a>(
 fn run_copy_swap(window: &mut Headless, view: &mut SaveView, item: &str, label: &str) {
     let nodes = open_menu(window, view, "Player", "Set all stats");
     click(window, menu_item(&nodes, item), view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     let combo = dialog_control(&nodes, "Player", Role::ComboBox);
     click(window, combo, view);
-    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     // A list row can carry the same label, so the pick is scoped to the
     // open combo's popup — the `Role::ListBox` subtree egui builds for it.
     let parent: HashMap<accesskit::NodeId, accesskit::NodeId> = nodes
@@ -393,7 +393,7 @@ fn run_copy_swap(window: &mut Headless, view: &mut SaveView, item: &str, label: 
         .find(|(id, node)| node.label() == Some(label) && in_listbox(*id))
         .unwrap_or_else(|| panic!("no {label:?} in the player combo"));
     action_click(window, view, *option);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     click(window, node_labeled(&nodes, Role::Button, "OK"), view);
 }
 
@@ -444,10 +444,10 @@ fn copy_stats_writes_the_field_set_and_nothing_else() {
 
     // Redo, save, reopen: the file holds the copy.
     window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         EditFile::load(&path).unwrap().player(70101).unwrap(),
@@ -506,10 +506,10 @@ fn swap_stats_trades_the_field_set_on_pes16() {
     assert_eq!(player_entry(&view, 70101), first_before);
     assert_eq!(player_entry(&view, 70102), second_before);
     window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let reopened = EditFile::load(&path).unwrap();
     assert_eq!(
@@ -539,8 +539,7 @@ fn the_menu_dialogs_draw_their_headings() {
     ] {
         let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
         click(&mut window, menu_item(&nodes, item), &mut view);
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         assert!(
             label_value(&nodes, title),
             "the {item:?} dialog draws its heading {title:?}"
@@ -592,7 +591,7 @@ fn the_copy_swap_dialog_picks_the_teams_first_filled_slot() {
 
     let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
     click(&mut window, menu_item(&nodes, "Copy stats from"), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         player_combo(&nodes).value().map(str::to_owned),
         Some(slot_label(&first, number)),
@@ -603,14 +602,13 @@ fn the_copy_swap_dialog_picks_the_teams_first_filled_slot() {
     // first filled slot.
     let team_combo = dialog_control(&nodes, "Team", Role::ComboBox);
     click(&mut window, team_combo, &mut view);
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (option, _) = nodes
         .iter()
         .find(|(_, node)| node.label() == Some(second_name.as_str()))
         .unwrap_or_else(|| panic!("no {second_name:?} in the team combo"));
     action_click(&mut window, &mut view, *option);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         player_combo(&nodes).value().map(str::to_owned),
         Some(slot_label(&second, second_number)),
@@ -635,8 +633,7 @@ fn the_copy_swap_dialog_closes_on_ok_and_cancel() {
     for button in ["OK", "Cancel"] {
         let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
         click(&mut window, menu_item(&nodes, "Copy stats from"), &mut view);
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         click(
             &mut window,
             node_labeled(&nodes, Role::Button, button),
@@ -748,7 +745,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
 
     // Ctrl+I on a hidden player shows him: the show preset, "...shown".
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         strip_of(&view, 70101),
@@ -853,7 +850,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     // One undo (the Remove entry alone) hides them all again; the next is
     // the Set entry and restores the team's own state.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     for &(slot, id, boots, gloves) in &before {
         let strip = strip_of(&view, id);
@@ -903,7 +900,7 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
 
     // Ctrl+I on a shown player hides him: the hide preset lands.
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
@@ -914,7 +911,7 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
 
     // Ctrl+I again shows him: the show preset lands.
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
@@ -970,7 +967,7 @@ fn hide_body_round_trips_on_pes16() {
     assert!(label_value(&nodes, "The default body is currently hidden"));
 
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let player = EditFile::load(&path)
         .unwrap()
@@ -1014,13 +1011,7 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
         let button = fpc_button(&nodes, label);
         assert!(button.is_disabled(), "{label} is disabled under the lock");
         assert_eq!(
-            tooltip_containing(
-                &mut window,
-                &mut view,
-                centre(button),
-                "The team's export",
-                None
-            ),
+            tooltip_containing(&mut window, &mut view, centre(button), "The team's export"),
             Some(
                 "The team's export owns the aesthetics, so edit its settings.toml and recompile."
                     .to_string(),
@@ -1038,13 +1029,7 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
         "the toggle is disabled under the lock"
     );
     assert_eq!(
-        tooltip_containing(
-            &mut window,
-            &mut view,
-            centre(toggle),
-            "The team's export",
-            None
-        ),
+        tooltip_containing(&mut window, &mut view, centre(toggle), "The team's export"),
         Some(
             "The team's export owns the aesthetics, so edit its settings.toml and recompile."
                 .to_string(),
@@ -1069,13 +1054,7 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
         let item = menu_item(&nodes, label);
         assert!(item.is_disabled(), "{label} is disabled under the lock");
         assert_eq!(
-            tooltip_containing(
-                &mut window,
-                &mut view,
-                centre(item),
-                "The team's export",
-                None
-            ),
+            tooltip_containing(&mut window, &mut view, centre(item), "The team's export"),
             Some(
                 "The team's export owns the aesthetics, so edit its settings.toml and recompile."
                     .to_string(),
@@ -1086,7 +1065,7 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
 
     // Ctrl+I under the lock changes nothing.
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(player_entry(&view, 70101), before, "Ctrl+I changed nothing");
     assert!(!view.session.as_ref().unwrap().is_dirty());
@@ -1198,9 +1177,7 @@ fn the_tool_carries_the_common_hide_ids_into_the_view() {
     // `click` draws through `show`, which lays the view out without what
     // `Tool::view` draws above it: the button is found on a `show` frame,
     // where the click lands (the hide IDs stay on the view).
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut tool.view, &|| Vec::new(), None)
-    });
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut tool.view, &|| Vec::new()));
     click(
         &mut window,
         fpc_button(&nodes, "Hide default body"),
@@ -1250,13 +1227,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
         let button = fpc_button(&nodes, label);
         assert!(button.is_disabled(), "{label} is disabled");
         assert_eq!(
-            tooltip_containing(
-                &mut window,
-                &mut view,
-                centre(button),
-                "fpc_hide_boots_id",
-                None
-            ),
+            tooltip_containing(&mut window, &mut view, centre(button), "fpc_hide_boots_id"),
             Some(error.clone()),
             "{label}'s hover adds a tooltip holding the error's text"
         );
@@ -1268,13 +1239,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
     let toggle = menu_item(&nodes, "Toggle FPC settings");
     assert!(toggle.is_disabled());
     assert_eq!(
-        tooltip_containing(
-            &mut window,
-            &mut view,
-            centre(toggle),
-            "fpc_hide_boots_id",
-            None
-        ),
+        tooltip_containing(&mut window, &mut view, centre(toggle), "fpc_hide_boots_id"),
         Some(error.clone()),
         "the toggle's hover adds a tooltip holding the error's text"
     );
@@ -1289,13 +1254,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
         let item = menu_item(&nodes, label);
         assert!(item.is_disabled(), "{label} is disabled");
         assert_eq!(
-            tooltip_containing(
-                &mut window,
-                &mut view,
-                centre(item),
-                "fpc_hide_boots_id",
-                None
-            ),
+            tooltip_containing(&mut window, &mut view, centre(item), "fpc_hide_boots_id"),
             Some(error.clone()),
             "{label}'s hover adds a tooltip holding the error's text"
         );
@@ -1303,7 +1262,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
 
     // Ctrl+I changes nothing.
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(player_entry(&view, 70101), before, "Ctrl+I changed nothing");
     assert!(!view.session.as_ref().unwrap().is_dirty());
@@ -1363,7 +1322,7 @@ fn every_fpc_path_writes_the_settings_hide_ids() {
     // Ctrl+I on a shown player hides him with the settings' IDs; again
     // it shows him.
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         strip_of(&view, 70101),
@@ -1371,7 +1330,7 @@ fn every_fpc_path_writes_the_settings_hide_ids() {
         "Ctrl+I hides with the settings' IDs"
     );
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         strip_of(&view, 70101),

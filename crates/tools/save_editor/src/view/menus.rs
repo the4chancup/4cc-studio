@@ -266,15 +266,10 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
 }
 
 /// The Panels menu button (after Savefile, the draft's panel items): the
-/// floating AATF violations panel and the comparator. Disabled with no
-/// save open.
+/// comparator. Disabled with no save open.
 pub(crate) fn panels_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     ui.add_enabled_ui(view.session.is_some(), |ui| {
         menu_button(ui, "Panels", |ui| {
-            if ui.button("AATF violations\u{2026}").clicked() {
-                view.aatf.open = true;
-                ui.close();
-            }
             if ui.button("Comparator\u{2026}").clicked() {
                 view.comparator.open = true;
                 ui.close();

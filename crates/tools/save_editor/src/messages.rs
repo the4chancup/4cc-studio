@@ -82,6 +82,10 @@ pub(crate) enum Code {
     /// `check-aatf`: the ruleset's check itself failed on the team, which the other teams'
     /// results do not cover (`team`, `error`).
     AatfCheckFailed,
+    /// `check-aatf` without `--rules`: the `aatf_ruleset` setting names a ruleset that is gone
+    /// from the data folder (or no longer loads), so the first built-in one is checked instead
+    /// (`ruleset`, `used`).
+    AatfRulesetGone,
     /// `check-stripped`: the player's appearance id is set again while another player's is
     /// stripped, so the game shows his save record, not the database rows; the member runs
     /// `check-stripped --strip-again` to strip him again (`player`, `name`). Error while the
@@ -159,6 +163,7 @@ impl Code {
             Code::TeamsListReadOnly => "teams_list_read_only",
             Code::AatfViolation => "aatf_violation",
             Code::AatfCheckFailed => "aatf_check_failed",
+            Code::AatfRulesetGone => "aatf_ruleset_gone",
             Code::AppearanceIdRestored => "appearance_id_restored",
             Code::StripBaseCopiedFace => "strip_base_copied_face",
             Code::FpcInnersBreakHiding => "fpc_inners_break_hiding",
@@ -193,6 +198,7 @@ impl Code {
             | Code::ImportSlotEmpty
             | Code::ImportTextCropped
             | Code::StripBaseCopiedFace
+            | Code::AatfRulesetGone
             | Code::FpcGlovesCheckboxWinterGloves
             | Code::FpcCustomSkinOnNonFpc => Severity::Warning,
             // A skipped team or player is an error and the rest is written (`apply-patch`
@@ -241,6 +247,7 @@ impl Code {
         Code::TeamsListReadOnly,
         Code::AatfViolation,
         Code::AatfCheckFailed,
+        Code::AatfRulesetGone,
         Code::AppearanceIdRestored,
         Code::StripBaseCopiedFace,
         Code::FpcInnersBreakHiding,
@@ -363,6 +370,11 @@ const CATALOG: &[(Code, &str, &str)] = &[
         Code::AatfCheckFailed,
         r#"`check-aatf` could not check the team, because the ruleset's check itself failed on it. The other teams' results do not cover it."#,
         r#"The other teams are still checked, but the command exits 1."#,
+    ),
+    (
+        Code::AatfRulesetGone,
+        r#"`check-aatf` ran without `--rules`, and the ruleset picked last in the Save editor is gone from the data folder or no longer loads (the line names it)."#,
+        r#"The first built-in ruleset, which the line names, is checked instead. Pick the cup's rules again in the dropdown on the Save editor's toolbar."#,
     ),
     (
         Code::AppearanceIdRestored,
@@ -548,6 +560,15 @@ pub(crate) fn aatf_check_failed(team: u32, error: String) -> Message {
     message(
         Code::AatfCheckFailed,
         vec![("team", team.to_string()), ("error", error)],
+    )
+}
+
+/// The message for an `aatf_ruleset` setting naming a ruleset that is gone: `ruleset` is
+/// the setting's value, `used` the description of the first built-in ruleset checked instead.
+pub(crate) fn aatf_ruleset_gone(ruleset: &str, used: &str) -> Message {
+    message(
+        Code::AatfRulesetGone,
+        vec![("ruleset", ruleset.to_owned()), ("used", used.to_owned())],
     )
 }
 

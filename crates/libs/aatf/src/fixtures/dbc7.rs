@@ -156,7 +156,7 @@ fn edited(
 #[test]
 fn the_legal_teams_report_nothing() {
     let rules = rules();
-    assert_eq!(rules.ruleset().name, "DBC7");
+    assert_eq!(rules.ruleset().name, "Divegrass Before Christmas 7");
     for (name, heights) in [
         ("Height", &HEIGHT),
         ("Manlet", &MANLET),

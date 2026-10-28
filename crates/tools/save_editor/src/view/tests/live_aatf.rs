@@ -52,7 +52,7 @@ fn the_list_shrinks_as_edits_fix_violations_and_grows_back_on_undo() {
     // would draw its count instead.
     let at = egui::pos2(1090.0, 12.0);
     let (_, nodes, _) = window.frame(pointer_at(at, true), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert!(
         nodes
@@ -67,18 +67,18 @@ fn the_list_shrinks_as_edits_fix_violations_and_grows_back_on_undo() {
     assert!(
         !nodes.iter().any(|node| node
             .value()
-            .is_some_and(|v| v.ends_with("issues · Autumn 26"))),
+            .is_some_and(|v| v.ends_with("issues · 4cc Autumn 26"))),
         "no count before the first result"
     );
     window.frame(pointer_at(at, false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     assert_eq!(height_rows(&nodes), 2, "both players' Height rows");
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("6 issues · Autumn 26")),
+            .any(|node| node.value() == Some("6 issues · 4cc Autumn 26")),
         "the count header"
     );
 
@@ -90,23 +90,23 @@ fn the_list_shrinks_as_edits_fix_violations_and_grows_back_on_undo() {
         .as_mut()
         .expect("the save opened")
         .edit_players(vec![entry]);
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     assert_eq!(height_rows(&nodes), 1, "73401's Height row is gone");
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("5 issues · Autumn 26")),
+            .any(|node| node.value() == Some("5 issues · 4cc Autumn 26")),
         "the smaller count"
     );
 
     // An undo brings the edit, the row and the count back.
     view.session.as_mut().expect("the save opened").undo();
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     assert_eq!(height_rows(&nodes), 2, "the row is back");
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("6 issues · Autumn 26")),
+            .any(|node| node.value() == Some("6 issues · 4cc Autumn 26")),
         "the count is back"
     );
 }
@@ -120,7 +120,7 @@ fn a_clean_team_reads_no_issues_and_a_broken_rule_the_count() {
     let (mut view, mut window) =
         open_legal_714("live_aatf_clean", Headless::sized(DEFAULT_PANE.x, 800.0));
     view.live_aatf = true;
-    let nodes = live_checked(&mut window, &mut view, None, &[714]);
+    let nodes = live_checked(&mut window, &mut view, &[714]);
     let name = view
         .session
         .as_ref()
@@ -130,7 +130,7 @@ fn a_clean_team_reads_no_issues_and_a_broken_rule_the_count() {
         .expect("team 714")
         .name
         .clone();
-    let header = format!("{name} passes Autumn 26 with no issues.");
+    let header = format!("{name} passes 4cc Autumn 26 with no issues.");
     assert!(
         nodes
             .iter()
@@ -156,17 +156,17 @@ fn a_clean_team_reads_no_issues_and_a_broken_rule_the_count() {
         .as_mut()
         .expect("the save opened")
         .edit_players(vec![entry]);
-    let nodes = live_checked(&mut window, &mut view, None, &[714]);
+    let nodes = live_checked(&mut window, &mut view, &[714]);
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("3 issues · Autumn 26")),
+            .any(|node| node.value() == Some("3 issues · 4cc Autumn 26")),
         "the count after the edit"
     );
 
     // The last one fixed: `No issues` again, and no row is drawn.
     view.session.as_mut().expect("the save opened").undo();
-    let nodes = live_checked(&mut window, &mut view, None, &[714]);
+    let nodes = live_checked(&mut window, &mut view, &[714]);
     assert!(
         nodes
             .iter()
@@ -355,10 +355,10 @@ fn suggestions_are_asked_for_only_while_show_suggestions_is_on() {
         mark_shapes_colored(shapes, "\u{2714}", blue)
             + mark_shapes_colored(shapes, "\u{24d8}", blue)
     };
-    let issues = "3 issues \u{b7} Autumn 26";
+    let issues = "3 issues \u{b7} 4cc Autumn 26";
 
     assert!(!view.live_suggestions, "premise: off by default");
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     let held = view.live.check.result.as_ref().unwrap().1[0]
         .as_ref()
         .unwrap();
@@ -378,12 +378,12 @@ fn suggestions_are_asked_for_only_while_show_suggestions_is_on() {
                 .is_some_and(|label| label.starts_with("Unused"))),
         "no Suggestions heading and no Unused row"
     );
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(blue_marks(&shapes), 0, "no blue mark in the list");
 
     // On: the suggestions asked for and listed after the team's rows.
     view.live_suggestions = true;
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     assert!(
         nodes.iter().any(|node| node.value() == Some(issues)),
         "the header still counts errors and warnings alone"
@@ -432,7 +432,7 @@ fn suggestions_are_asked_for_only_while_show_suggestions_is_on() {
     // his row, and, selected, a blue circled i on his allowance's field.
     let slot = held_slot_with_suggestions_alone(&view);
     view.selected = Some(Selection::Player(734, slot));
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         mark_shapes_colored(&shapes, "\u{2714}", blue) >= 1,
         "a blue check mark in the list"
@@ -483,18 +483,18 @@ fn mark_shapes_colored(
 fn an_edit_marks_the_previous_result_checking() {
     let (mut view, mut window) = open_734_with("live_aatf_checking", &[73401, 73404], 183);
     view.live_aatf = true;
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("6 issues · Autumn 26")),
+            .any(|node| node.value() == Some("6 issues · 4cc Autumn 26")),
         "premise: the count header"
     );
 
     // The press lands on the toolbar's empty end.
     let at = egui::pos2(1090.0, 12.0);
     window.frame(pointer_at(at, true), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let mut entry = player_entry(&view, 73401);
     entry.basic.height = 185;
@@ -502,7 +502,7 @@ fn an_edit_marks_the_previous_result_checking() {
         .as_mut()
         .expect("the save opened")
         .edit_players(vec![entry]);
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     assert!(
         view.live.check.pending.is_none(),
         "premise: no check started while the pointer is held"
@@ -516,19 +516,19 @@ fn an_edit_marks_the_previous_result_checking() {
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("6 issues · Autumn 26")),
+            .any(|node| node.value() == Some("6 issues · 4cc Autumn 26")),
         "the previous count still shown"
     );
     assert_eq!(height_rows(&nodes), 2, "the stale rows stay while checking");
 
     window.frame(pointer_at(at, false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("5 issues · Autumn 26")),
+            .any(|node| node.value() == Some("5 issues · 4cc Autumn 26")),
         "the new count replaces it"
     );
     assert!(
@@ -539,30 +539,30 @@ fn an_edit_marks_the_previous_result_checking() {
     );
 }
 
-/// The dock follows the open team and the rules file: another team picked
-/// re-checks and re-counts it, and a rules file whose result differs
+/// The dock follows the open team and the ruleset: another team picked
+/// re-checks and re-counts it, and a ruleset whose result differs
 /// replaces the rows.
 // SE-GUI-30
 #[test]
-fn the_dock_follows_the_open_team_and_the_rules_file() {
+fn the_dock_follows_the_open_team_and_the_ruleset() {
     let (mut view, mut window) = open_734_with("live_aatf_team_rules", &[73401, 73404], 183);
     view.live_aatf = true;
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("6 issues · Autumn 26")),
+            .any(|node| node.value() == Some("6 issues · 4cc Autumn 26")),
         "premise: 734's count"
     );
 
     // Another team picked, as the selector does: the dock re-checks it.
     view.team = TeamChoice::Team(714);
     view.selected = Some(Selection::Player(714, 0));
-    let nodes = live_checked(&mut window, &mut view, None, &[714]);
+    let nodes = live_checked(&mut window, &mut view, &[714]);
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("3 issues · Autumn 26")),
+            .any(|node| node.value() == Some("3 issues · 4cc Autumn 26")),
         "714's count"
     );
     assert!(
@@ -572,30 +572,21 @@ fn the_dock_follows_the_open_team_and_the_rules_file() {
         "no row of 734's"
     );
 
-    // Back to 734 under a rules file whose result differs: the Tall
+    // Back to 734 under an imported ruleset whose result differs: the Tall
     // bracket also takes 183, so the two Height rows go and the red
     // quota is met.
     view.team = TeamChoice::Team(734);
     view.selected = Some(Selection::Player(734, 0));
-    let dir = view
-        .session
-        .as_ref()
-        .unwrap()
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
-    let taller = dir.join("taller.4ccrules");
-    std::fs::write(
-        &taller,
-        aatf::official_file().replacen("exactly: [185]", "exactly: [183, 185]", 1),
-    )
-    .unwrap();
-    let nodes = live_checked(&mut window, &mut view, Some(taller.as_path()), &[734]);
+    pick_imported(
+        &mut view,
+        "taller.4ccrules",
+        &aatf::official_file().replacen("exactly: [185]", "exactly: [183, 185]", 1),
+    );
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("3 issues · Autumn 26")),
+            .any(|node| node.value() == Some("3 issues · 4cc Autumn 26")),
         "the new file's count"
     );
     assert_eq!(height_rows(&nodes), 0, "183 takes the Tall bracket");
@@ -610,7 +601,7 @@ fn at_all_the_dock_checks_the_selected_players_team() {
     view.live_aatf = true;
     view.team = TeamChoice::All;
     view.selected = Some(Selection::Player(734, 0));
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     assert!(
         nodes
             .iter()
@@ -619,7 +610,7 @@ fn at_all_the_dock_checks_the_selected_players_team() {
     );
 
     view.selected = None;
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     assert!(
         nodes
             .iter()
@@ -635,10 +626,10 @@ fn at_all_the_dock_checks_the_selected_players_team() {
     );
 }
 
-/// SE-GUI-30's current-team rule: the checks follow the selected row's
+/// SE-GUI-30's current-team rule: the dock follows the selected row's
 /// team, another team's too when the filter lists its rows — the selector
 /// at team 701 with `QUALITY` typed lists 70202 of team 702 (`list.rs`'
-/// filter test), and his row clicked makes both checks his team's.
+/// filter test), and his row clicked makes the dock check his team.
 // SE-GUI-30
 #[test]
 fn the_checks_follow_the_selected_rows_team_under_a_filter() {
@@ -659,15 +650,12 @@ fn the_checks_follow_the_selected_rows_team_under_a_filter() {
     view.open(&path);
     view.team = TeamChoice::Team(701);
     view.live_aatf = true;
-    view.aatf.open = true;
-    view.aatf.mode = crate::view::aatf_panel::AatfMode::Current;
     let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
 
     // The filter lists 70202 of team 702 across teams; clicking his row
     // selects him.
     view.filter = "quality".to_owned();
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (target, _) = nodes
         .iter()
         .find(|(_, node)| node.role() == Role::Button && node.label() == Some("02 CB QUALITY"))
@@ -678,46 +666,17 @@ fn the_checks_follow_the_selected_rows_team_under_a_filter() {
         "70202's row selected: {:?}",
         view.selected
     );
-
-    // The dock and the panel's current-team mode each check team 702 (the
-    // keyed results land only for the team each caller picked), each read
-    // inside its own widget's nodes: the other draws the same header, so
-    // a frame-wide scan can be met by the wrong one's copy.
-    live_checked(&mut window, &mut view, None, &[702]);
-    panel_checked(&mut window, &mut view, None, &[702]);
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let panel = nodes_in_window(&pairs, "AATF violations");
+    let nodes = live_checked(&mut window, &mut view, &[702]);
     assert!(
-        panel
+        nodes
             .iter()
-            .any(|(_, node)| node.value() == Some("Team 702 /a/")),
-        "the panel's rows are team 702's"
-    );
-    // The dock's band is the panel's own nodes left out: below its
-    // header row and outside the floating window's subtree.
-    let dock_top = pairs
-        .iter()
-        .find(|(_, node)| node.role() == Role::Label && node.value() == Some("Live AATF"))
-        .and_then(|(_, node)| node.bounds())
-        .expect("the dock's header row")
-        .y0;
-    let panel_ids: std::collections::HashSet<accesskit::NodeId> =
-        panel.iter().map(|(id, _)| *id).collect();
-    assert!(
-        pairs.iter().any(|(id, node)| {
-            !panel_ids.contains(id)
-                && node.value() == Some("Team 702 /a/")
-                && node.bounds().is_some_and(|b| b.y0 >= dock_top - 1.0)
-        }),
+            .any(|node| node.value() == Some("Team 702 /a/")),
         "the dock's rows are team 702's"
     );
 
     // A team row's own team (SE-GUI-30's other clause): the filter lists
     // team 781's row too (78101 renamed QUALITY2), and clicking it makes
-    // both checks 781's, not the selector's 701 nor the player's 702.
-    // The open AATF panel overlays the list, so the click goes through the
-    // row's AccessKit action.
+    // the dock check 781, not the selector's 701 nor the player's 702.
     let name_781 = view
         .session
         .as_ref()
@@ -727,8 +686,7 @@ fn the_checks_follow_the_selected_rows_team_under_a_filter() {
         .unwrap()
         .name
         .clone();
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let label_781 = format!("781 {}", display_name(&name_781));
     let (target, _) = nodes
         .iter()
@@ -741,32 +699,129 @@ fn the_checks_follow_the_selected_rows_team_under_a_filter() {
         "team 781's row selected"
     );
     let header_781 = format!("Team 781 {name_781}");
-    live_checked(&mut window, &mut view, None, &[781]);
-    panel_checked(&mut window, &mut view, None, &[781]);
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let panel = nodes_in_window(&pairs, "AATF violations");
+    let nodes = live_checked(&mut window, &mut view, &[781]);
     assert!(
-        panel
+        nodes
             .iter()
-            .any(|(_, node)| node.value() == Some(header_781.as_str())),
-        "the panel's rows are team 781's"
-    );
-    let dock_top = pairs
-        .iter()
-        .find(|(_, node)| node.role() == Role::Label && node.value() == Some("Live AATF"))
-        .and_then(|(_, node)| node.bounds())
-        .expect("the dock's header row")
-        .y0;
-    let panel_ids: std::collections::HashSet<accesskit::NodeId> =
-        panel.iter().map(|(id, _)| *id).collect();
-    assert!(
-        pairs.iter().any(|(id, node)| {
-            !panel_ids.contains(id)
-                && node.value() == Some(header_781.as_str())
-                && node.bounds().is_some_and(|b| b.y0 >= dock_top - 1.0)
-        }),
+            .any(|node| node.value() == Some(header_781.as_str())),
         "the dock's rows are team 781's"
+    );
+}
+
+/// A violation row's click moves the selector to the player's team, so the
+/// list shows the row it selects; at ALL the selector stays.
+// SE-GUI-30
+#[test]
+fn a_rows_click_moves_the_selector_unless_it_reads_all() {
+    let (mut view, mut window) = open_734_with("live_aatf_click_selector", &[73401, 73404], 183);
+    view.live_aatf = true;
+    // The selector on another team, a 734 player's row selected: the dock
+    // checks 734.
+    view.team = TeamChoice::Team(718);
+    view.selected = Some(Selection::Player(734, 0));
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    click(
+        &mut window,
+        height_row_below(&nodes, "Player 73404  45 Yuki-kun ^~^"),
+        &mut view,
+    );
+    assert_eq!(
+        view.selected,
+        Some(Selection::Player(734, 3)),
+        "73404's team and slot"
+    );
+    assert_eq!(view.team, TeamChoice::Team(734), "the selector moved");
+
+    // At ALL it stays. Another of 734's players selected first, or a
+    // click that did nothing would satisfy both assertions.
+    view.team = TeamChoice::All;
+    view.selected = Some(Selection::Player(734, 0));
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    click(
+        &mut window,
+        height_row_below(&nodes, "Player 73404  45 Yuki-kun ^~^"),
+        &mut view,
+    );
+    assert_eq!(view.selected, Some(Selection::Player(734, 3)));
+    assert_eq!(view.team, TeamChoice::All, "ALL is kept");
+}
+
+/// A violation row's click clears the player list's filter: the selection
+/// is only worth it if the row it lands on can show.
+// SE-GUI-30
+#[test]
+fn a_rows_click_clears_the_filter_so_the_row_shows() {
+    let (mut view, mut window) = open_734_with("live_aatf_click_filter", &[73401, 73404], 183);
+    view.live_aatf = true;
+    view.filter = "no player named this".to_owned();
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    assert!(
+        row_labels(&nodes).is_empty(),
+        "premise: the filter hides every player"
+    );
+    click(
+        &mut window,
+        height_row_below(&nodes, "Player 73404  45 Yuki-kun ^~^"),
+        &mut view,
+    );
+    assert!(view.filter.is_empty(), "the click cleared the filter");
+    let nodes = draw(&mut window, &mut view);
+    assert!(
+        row_labels(&nodes)
+            .iter()
+            .any(|label| label.contains("Yuki-kun")),
+        "the selected player's row shows: {:?}",
+        row_labels(&nodes)
+    );
+}
+
+/// Another save starts the dock's check afresh (`SaveView::open`): the
+/// result and the check in flight go with the old save, Live AATF stays on.
+#[test]
+fn another_save_starts_the_docks_check_afresh() {
+    let (mut view, mut window) = open_734_with("live_aatf_open_reset", &[73401, 73404], 183);
+    view.live_aatf = true;
+    live_checked(&mut window, &mut view, &[734]);
+    assert!(view.live.check.result.is_some(), "premise: a check ran");
+
+    let save17 = fixture(PesVersion::Pes17, "live_aatf_open_reset_17");
+    view.open(&save17);
+    assert!(
+        view.live.check.result.is_none() && view.live.check.pending.is_none(),
+        "the result and its check went with the save"
+    );
+    assert!(view.live_aatf, "Live AATF stays on");
+}
+
+/// A worker that ends without replying: `show` drops the dead check's
+/// `pending` and the next settled frame starts a fresh one.
+#[test]
+fn a_worker_that_ends_without_a_reply_is_checked_again() {
+    let (mut view, mut window) = open_734_with("live_aatf_dead_worker", &[73401, 73404], 183);
+    view.live_aatf = true;
+    view.selected = Some(Selection::Player(734, 0));
+    // The ruleset resolved, so the dead check's key names it.
+    draw(&mut window, &mut view);
+    // A pending whose sender is already gone: the worker died.
+    let (sender, replies) = crossbeam_channel::unbounded();
+    drop(sender);
+    view.live.check.result = None;
+    view.live.check.pending = Some(aatf_check::PendingCheck {
+        key: aatf_check::CheckKey {
+            revision: view.session.as_ref().expect("the save opened").revision(),
+            ids: vec![734],
+            ruleset: "autumn26".to_owned(),
+            suggestions: view.live_suggestions,
+        },
+        replies,
+    });
+    // The dead pending is dropped and a fresh check for the key starts.
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Team 734 /lit/")),
+        "a fresh check ran"
     );
 }
 
@@ -777,7 +832,7 @@ fn the_checks_follow_the_selected_rows_team_under_a_filter() {
 fn a_rows_click_selects_the_player() {
     let (mut view, mut window) = open_734_with("live_aatf_click", &[73401, 73404], 183);
     view.live_aatf = true;
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     // Another of 734's players selected first: a click that did nothing
     // would satisfy the assertion anyway.
     view.selected = Some(Selection::Player(734, 0));
@@ -816,7 +871,7 @@ fn a_fielded_rows_click_selects_the_team_row_on_the_crosss_formation() {
         .as_mut()
         .expect("the save opened")
         .edit_team(1, team);
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
 
     // Another of 734's players selected first and another preset and
     // formation shown: a click that did nothing would satisfy every
@@ -848,7 +903,7 @@ fn a_fielded_rows_click_selects_the_team_row_on_the_crosss_formation() {
         .as_mut()
         .expect("the save opened")
         .edit_team(2, team);
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let nodes = live_checked(&mut window, &mut view, &[734]);
     view.selected = Some(Selection::Player(734, 0));
     view.tactics.preset = 2;
     view.tactics.formation = 1;

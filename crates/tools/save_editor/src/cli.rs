@@ -5,6 +5,7 @@
 use std::fs;
 use std::io::{self, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::anyhow;
 use clap::{ArgGroup, Args, Command, FromArgMatches, Subcommand};
@@ -18,8 +19,8 @@ use studio_core::{CliError, RunningPes, Severity, ToolContext};
 
 use crate::events::Report;
 use crate::messages::{
-    Code, TOOL_ID, aatf_check_failed, aatf_violation, appearance_id_restored, import_note, message,
-    patch_skip, strip_base_copied_face, version_mismatch_sentence,
+    Code, TOOL_ID, aatf_check_failed, aatf_ruleset_gone, aatf_violation, appearance_id_restored,
+    import_note, message, patch_skip, strip_base_copied_face, version_mismatch_sentence,
 };
 use crate::session::{self, Session};
 use crate::{diff, settings, teams_list};
@@ -99,8 +100,8 @@ struct CheckAatfArgs {
     /// every team of the save in the cup range (701 to 920) is checked.
     #[arg(long, value_name = "LIST")]
     teams: Option<String>,
-    /// The AATF rules file to check against. Without it, the aatf_rules setting's file is
-    /// used, or the built-in official ruleset when that is empty.
+    /// The AATF rules file to check against. Without it, the ruleset picked in the Save
+    /// editor's toolbar dropdown is used (the aatf_ruleset setting).
     #[arg(long, value_name = "FILE")]
     rules: Option<PathBuf>,
 }
@@ -411,9 +412,9 @@ fn diff_saves(args: &DiffArgs, report: &mut Report) -> Result<(), CliError> {
     })
 }
 
-/// `check-aatf`: the ruleset is `--rules`, else the `aatf_rules` setting's file, else the
-/// embedded official ruleset; a file that does not read or fails load-time validation is
-/// refused naming it, so the command doubles as a rules file's check. The teams are checked in
+/// `check-aatf`: the ruleset is `--rules`, else the one the `aatf_ruleset` setting picks
+/// (`rules`); a `--rules` file that does not read or fails load-time validation is refused
+/// naming it, so the command doubles as a rules file's check. The teams are checked in
 /// parallel on the one loaded file (each check is ~50 ms of script) and reported in id order; a
 /// team's failed check is an error line and the other teams are still reported; a violation is
 /// one line at its severity, suggestions aside.
@@ -422,7 +423,7 @@ fn check_aatf(
     ctx: &ToolContext,
     report: &mut Report,
 ) -> Result<(), CliError> {
-    let rules = session::rules::load_rules(rules_path(args, ctx)?.as_deref()).map_err(invalid)?;
+    let rules = rules(args, ctx, report)?;
     let session = open(&args.save)?;
     let ids = match &args.teams {
         Some(text) => parse_teams(text).map_err(|error| invalid(anyhow!("--teams: {error}")))?,
@@ -468,13 +469,18 @@ fn check_aatf(
     Ok(())
 }
 
-/// The rules file `check-aatf` reads: `--rules`, else the `aatf_rules` setting when it names
-/// one, else `None` (the embedded official ruleset). `--rules`, a command-line path, is used
-/// as given; the setting's file resolves as `session::rules::rules_file` resolves it (the
-/// window's Cards left badge uses the same resolution).
-fn rules_path(args: &CheckAatfArgs, ctx: &ToolContext) -> Result<Option<PathBuf>, CliError> {
+/// The ruleset `check-aatf` checks against: `--rules`, a command-line path used as given,
+/// else the `aatf_ruleset` setting resolved as the window resolves it
+/// (`session::rules::resolve`), a choice that is gone reported as a warning line.
+fn rules(
+    args: &CheckAatfArgs,
+    ctx: &ToolContext,
+    report: &mut Report,
+) -> Result<Arc<aatf::Rules>, CliError> {
     if let Some(path) = &args.rules {
-        return Ok(Some(path.clone()));
+        return session::rules::load_file(path)
+            .map(Arc::new)
+            .map_err(invalid);
     }
     // A toml error's text ends with a newline, which would leave a blank line under `error: `.
     let settings = settings::from_table(&ctx.tool_settings(TOOL_ID)).map_err(|error| {
@@ -483,10 +489,15 @@ fn rules_path(args: &CheckAatfArgs, ctx: &ToolContext) -> Result<Option<PathBuf>
             error.to_string().trim_end()
         ))
     })?;
-    Ok(session::rules::rules_file(
-        &settings.aatf_rules,
-        ctx.paths().data_dir.as_deref(),
-    ))
+    let imported = session::rules::imported(ctx.paths().data_dir.as_deref());
+    let choice = session::rules::resolve(&settings.aatf_ruleset, &imported);
+    if choice.notice.is_some() {
+        report.message(aatf_ruleset_gone(
+            &settings.aatf_ruleset,
+            &choice.rules.ruleset().name,
+        ));
+    }
+    Ok(choice.rules)
 }
 
 /// `--teams`' list: comma-separated ids and inclusive ranges (`701,705-710`), sorted with

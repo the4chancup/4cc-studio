@@ -1,7 +1,5 @@
 use super::*;
 
-use std::path::Path;
-
 /// The painted TextShape of `label` inside `bounds`' y range (a button's
 /// own galley, not another label's on the same line).
 fn painted_label<'a>(
@@ -250,13 +248,6 @@ fn grid_band_right(window: &Headless, shapes: &[egui::epaint::ClippedShape]) -> 
     f64::from(list_frame(window, shapes).max.x)
 }
 
-fn quick_action_row_labels(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
-    nodes
-        .iter()
-        .filter(|node| node.role() == Role::Label && node.bounds().is_some_and(|b| b.x0 < 200.0))
-        .collect()
-}
-
 /// The Set stats field: the row's one number control, right of the button.
 fn set_stats_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
     right_of(
@@ -275,28 +266,12 @@ fn type_number(window: &mut Headless, view: &mut SaveView, field: &accesskit::No
             key(egui::Key::A, egui::Modifiers::COMMAND, true),
             egui::Event::Text(text.to_owned()),
         ],
-        |ui| show(ui, view, &|| Vec::new(), None),
+        |ui| show(ui, view, &|| Vec::new()),
     );
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, view, &|| Vec::new(), None),
+        |ui| show(ui, view, &|| Vec::new()),
     );
-}
-
-/// `click` under `rules_file` (the shared helpers draw the official ruleset).
-fn click_with_rules(
-    window: &mut Headless,
-    node: &accesskit::Node,
-    view: &mut SaveView,
-    rules_file: &Path,
-) {
-    let at = centre(node);
-    window.frame(pointer_at(at, true), |ui| {
-        show(ui, view, &|| Vec::new(), Some(rules_file))
-    });
-    window.frame(pointer_at(at, false), |ui| {
-        show(ui, view, &|| Vec::new(), Some(rules_file))
-    });
 }
 
 /// `rules`' `apply_tier` on the roster slot's player of `view`'s save, as the
@@ -321,27 +296,11 @@ fn open_701(test: &str) -> (PathBuf, SaveView, Headless) {
     (path, view, Headless::sized(DEFAULT_PANE.x, 700.0))
 }
 
-/// `name`'s embedded ruleset as a rules file under `dir` (its own custom
-/// checks included), the path returned.
-fn rules_file_under(dir: &Path, name: &str) -> PathBuf {
-    let template = aatf::templates()
-        .into_iter()
-        .find(|template| template.ruleset.name == name)
-        .unwrap_or_else(|| panic!("no {name} template"));
-    let path = dir.join(format!("{}.4ccrules", name.to_lowercase()));
-    std::fs::write(
-        &path,
-        aatf::assemble_file(&template.ruleset, None, template.custom_checks.as_deref()),
-    )
-    .unwrap();
-    path
-}
-
 // The quick actions under the list on either selection (plans "Editing
 // UI", the Quick actions bullet): on a player row they act on him; on a
 // team row every control draws disabled with the reason on hover, and the
 // Player menu's entries the same. There is no "Quick actions" heading and
-// no `AATF…` button (the Panels menu opens the panel).
+// no `AATF…` button (Live AATF is the window's check).
 // SE-GUI-37
 #[test]
 fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
@@ -357,7 +316,7 @@ fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
     }
 
     // A player row: the controls are enabled.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         !nodes
             .iter()
@@ -381,7 +340,7 @@ fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
     // The team row: every control disabled with the tooltip, and the
     // Player menu's entries the same.
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         !draws_tool_name(&nodes),
         "the team view draws no \"Save editor\" either"
@@ -391,7 +350,7 @@ fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
         let button = node_labeled(&nodes, Role::Button, label);
         assert!(button.is_disabled(), "{label} disabled on a team row");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(button), "make buttons", None),
+            tooltip_containing(&mut window, &mut view, centre(button), "make buttons"),
             Some(tip.to_string()),
             "{label}'s tooltip"
         );
@@ -399,7 +358,7 @@ fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
     let field = set_stats_field(&nodes);
     assert!(field.is_disabled(), "the number disabled too");
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(field), "make buttons", None),
+        tooltip_containing(&mut window, &mut view, centre(field), "make buttons"),
         Some(tip.to_string()),
         "the number's tooltip"
     );
@@ -417,13 +376,7 @@ fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
         let item = menu_item(&nodes, label);
         assert!(item.is_disabled(), "{label} disabled on a team row");
         assert_eq!(
-            tooltip_containing(
-                &mut window,
-                &mut view,
-                centre(item),
-                "acts on a player",
-                None
-            ),
+            tooltip_containing(&mut window, &mut view, centre(item), "acts on a player"),
             Some("The Player menu acts on a player: pick a player row".to_string()),
             "{label}'s tooltip"
         );
@@ -436,8 +389,7 @@ fn the_quick_actions_apply_a_tier_as_one_undoable_edit() {
     let (_path, mut view, mut window) = open_701("quick_make_gold");
     let rules = aatf::Rules::official();
 
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     // The medal tiers down the left column in the ruleset's order, the
     // others then Set stats down the right.
     assert_quick_actions(
@@ -485,7 +437,7 @@ fn the_quick_actions_apply_a_tier_as_one_undoable_edit() {
 
     // One Ctrl+Z restores the old entry.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         player_entry(&view, 70101),
@@ -497,14 +449,12 @@ fn the_quick_actions_apply_a_tier_as_one_undoable_edit() {
 
 // SE-GUI-09
 #[test]
-fn the_quick_actions_follow_the_rules_files_tiers() {
-    let (path, mut view, mut window) = open_701("quick_vtl11");
-    let rules_path = rules_file_under(path.parent().unwrap(), "VTL11");
-    let rules = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap()).unwrap();
+fn the_quick_actions_follow_the_rulesets_tiers() {
+    let (_path, mut view, mut window) = open_701("quick_vtl11");
+    let rules = aatf::builtin("vtl11").expect("VTL11 is built in");
+    view.aatf_ruleset = "vtl11".to_owned();
 
-    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
-    });
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     // VTL11's medal tiers are Gold and Silver (no bronze): Regular and
     // Buffed then Set stats down the right column.
     assert_quick_actions(
@@ -519,11 +469,10 @@ fn the_quick_actions_follow_the_rules_files_tiers() {
     let before = player_entry(&view, 70101);
     let expected = tiered(&view, &rules, 701, 0, "silver");
     assert_ne!(expected, before, "premise: Silver changes him");
-    click_with_rules(
+    click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Make Silver"),
         &mut view,
-        &rules_path,
     );
     let after = player_entry(&view, 70101);
     assert_eq!(after, expected, "VTL11's Silver values");
@@ -549,7 +498,7 @@ fn set_stats_writes_every_ability_to_the_number() {
     assert_eq!(before.stats.speed, 60, "premise: the moved stat");
     assert_eq!(view.set_stats, 77, "the number starts at 77");
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Set stats"),
@@ -568,7 +517,7 @@ fn set_stats_writes_every_ability_to_the_number() {
 
     // One Ctrl+Z restores the entry.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         player_entry(&view, 70101),
@@ -577,11 +526,11 @@ fn set_stats_writes_every_ability_to_the_number() {
     );
 
     // A new number typed into the row's field is the value written.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = set_stats_field(&nodes);
     type_number(&mut window, &mut view, field, "85");
     assert_eq!(view.set_stats, 85, "the field holds the typed 85");
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Set stats"),
@@ -597,7 +546,7 @@ fn set_stats_writes_every_ability_to_the_number() {
     }
 
     // The field's 40 to 99 range settles a typed number past its top.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = set_stats_field(&nodes);
     type_number(&mut window, &mut view, field, "120");
     assert_eq!(view.set_stats, 99, "a typed 120 settles at 99");
@@ -607,8 +556,7 @@ fn set_stats_writes_every_ability_to_the_number() {
 // error in the refusal dialog.
 #[test]
 fn a_failed_make_shows_the_refusal_and_changes_nothing() {
-    let (path, mut view, mut window) = open_701("quick_make_fails");
-    let rules_path = path.with_file_name("broken_tier.4ccrules");
+    let (_path, mut view, mut window) = open_701("quick_make_fails");
     // The smallest file whose `tier_values` throws for one tier: the official
     // file assembled, with a `throw` added at the function's head for "silver"
     // alone.
@@ -617,17 +565,14 @@ fn a_failed_make_shows_the_refusal_and_changes_nothing() {
         "fn tier_values(player, tier, team) {\n    if tier == \"silver\" { throw \"a staged failure\"; }",
         1,
     );
-    std::fs::write(&rules_path, text).unwrap();
+    pick_imported(&mut view, "broken_tier.4ccrules", &text);
     let before = player_entry(&view, 70101);
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
-    });
-    click_with_rules(
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Make Silver"),
         &mut view,
-        &rules_path,
     );
     assert_eq!(
         player_entry(&view, 70101),
@@ -638,9 +583,7 @@ fn a_failed_make_shows_the_refusal_and_changes_nothing() {
         !view.session.as_ref().unwrap().can_undo(),
         "nothing on the undo stack"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
-    });
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         nodes
             .iter()
@@ -656,53 +599,31 @@ fn a_failed_make_shows_the_refusal_and_changes_nothing() {
     );
 }
 
+/// The quick actions follow the `aatf_ruleset` setting as the tool reads
+/// it: VTL11's tier buttons while it names `vtl11`, the official ones once
+/// it names `autumn26` again.
 // SE-GUI-32
 #[test]
-fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
+fn the_quick_actions_follow_the_aatf_ruleset_setting() {
     use studio_core::StudioTool;
 
-    let save_path = fixture(PesVersion::Pes21, "settings_rules_row");
+    let save_path = fixture(PesVersion::Pes21, "settings_ruleset_key");
     let dir = save_path.parent().unwrap().to_path_buf();
-    let rules_path = rules_file_under(&dir, "VTL11");
-    let rules_arg = rules_path.display().to_string();
     let mut tool = crate::Tool::new();
     tool.view.open(&save_path);
     let mut settings = studio_core::Settings::default();
     let mut table = tool.default_settings();
-    table.insert("unread_key".to_owned(), toml::Value::Integer(3));
+    table.insert(
+        "aatf_ruleset".to_owned(),
+        toml::Value::String("vtl11".to_owned()),
+    );
     settings.set_tool("save-editor", table);
     let (ctx, _events_rx, _requests_rx) = tool_context(&dir, settings);
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
 
-    // The VTL11 path typed into the row and Enter pressed: the setting holds it,
-    // the tool's other key unchanged, and the next view frame draws VTL11's
-    // buttons.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.settings_view(ui, &ctx));
-    let field = nodes
-        .iter()
-        .find(|node| node.role() == Role::TextInput)
-        .expect("the rules file row's edit");
-    let at = centre(field);
-    window.frame(pointer_at(at, true), |ui| tool.settings_view(ui, &ctx));
-    window.frame(pointer_at(at, false), |ui| tool.settings_view(ui, &ctx));
-    window.frame(vec![egui::Event::Text(rules_arg.clone())], |ui| {
-        tool.settings_view(ui, &ctx)
-    });
-    window.frame(
-        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| tool.settings_view(ui, &ctx),
-    );
-    let table = ctx.tool_settings("save-editor");
-    assert_eq!(
-        table["aatf_rules"].as_str(),
-        Some(rules_arg.as_str()),
-        "the setting holds the typed path"
-    );
-    assert_eq!(
-        table["unread_key"].as_integer(),
-        Some(3),
-        "the tool's other key is unchanged"
-    );
+    // The grid's first frame is the invisible sizing pass: a settle frame
+    // so the cells' measured widths land before asserting.
+    window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     let (_, nodes, shapes) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     assert_quick_actions(
         &window,
@@ -712,33 +633,12 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
         &["Make Regular", "Make Buffed", "Set stats"],
     );
 
-    // The row emptied and committed: the official ruleset's buttons again.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.settings_view(ui, &ctx));
-    let field = nodes
-        .iter()
-        .find(|node| node.role() == Role::TextInput)
-        .expect("the rules file row's edit");
-    let at = centre(field);
-    window.frame(pointer_at(at, true), |ui| tool.settings_view(ui, &ctx));
-    window.frame(pointer_at(at, false), |ui| tool.settings_view(ui, &ctx));
-    window.frame(
-        vec![
-            key(egui::Key::A, egui::Modifiers::COMMAND, true),
-            key(egui::Key::Backspace, egui::Modifiers::NONE, true),
-        ],
-        |ui| tool.settings_view(ui, &ctx),
+    let mut table = ctx.tool_settings("save-editor");
+    table.insert(
+        "aatf_ruleset".to_owned(),
+        toml::Value::String("autumn26".to_owned()),
     );
-    window.frame(
-        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| tool.settings_view(ui, &ctx),
-    );
-    let table = ctx.tool_settings("save-editor");
-    assert_eq!(
-        table["aatf_rules"].as_str(),
-        Some(""),
-        "the emptied row committed"
-    );
-    assert_eq!(table["unread_key"].as_integer(), Some(3));
+    ctx.set_tool_settings("save-editor", table);
     // The grid's column widths are stored per frame — a rules change is
     // one frame stale (the Grid repaints on the next): draw a settle frame.
     window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
@@ -750,159 +650,6 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
         &["Make Gold", "Make Silver", "Make Bronze"],
         &["Make Goalkeeper", "Make Regular", "Set stats"],
     );
-
-    // A file that does not load: Set stats and the red line on the row,
-    // no tier button.
-    let bad = dir.join("broken.4ccrules");
-    std::fs::write(&bad, "let x = ;").unwrap();
-    let mut table = ctx.tool_settings("save-editor");
-    table.insert(
-        "aatf_rules".to_owned(),
-        toml::Value::String(bad.display().to_string()),
-    );
-    ctx.set_tool_settings("save-editor", table);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
-    assert!(
-        quick_action_row_labels(&nodes).iter().any(|node| {
-            node.value()
-                .is_some_and(|value| value.starts_with("The AATF rules file could not be loaded,"))
-        }),
-        "the load error's line on the quick actions row"
-    );
-    assert!(
-        !nodes.iter().any(|node| {
-            node.role() == Role::Button
-                && node.label().is_some_and(|label| label.starts_with("Make "))
-        }),
-        "no Make button"
-    );
-    node_labeled(&nodes, Role::Button, "Set stats");
-}
-
-// A rules file that does not load: its error is a red line in the tier
-// buttons' place, wrapped across the list, whose click opens the error
-// in the refusal dialog.
-#[test]
-fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
-    /// The line the error draws in the tier buttons' place.
-    const LINE: &str = "The AATF rules file could not be loaded, click here for more information.";
-
-    let path = fixture(PesVersion::Pes21, "quick_error_cell");
-    let dir = path.parent().unwrap().to_path_buf();
-    let bad = dir.join("bad.4ccrules");
-    std::fs::write(&bad, "this is no ruleset").unwrap();
-    let mut view = SaveView::new();
-    view.open(&path);
-    view.selected = Some(Selection::Player(701, 0));
-    let mut window = Headless::new();
-
-    // The grid's first frame is the invisible sizing pass: a settle
-    // frame so the cells' measured widths land before asserting.
-    window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
-    });
-    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
-    });
-
-    // The line's own text, in the error colour, inside the side panel.
-    let error_node = quick_action_row_labels(&nodes)
-        .into_iter()
-        .find(|node| node.value() == Some(LINE))
-        .expect("the load error's line");
-    let bounds = error_node.bounds().expect("bounds");
-    let style = window.ctx.style_of(window.ctx.theme());
-    let shape = painted_label(&shapes, LINE, bounds);
-    assert_eq!(
-        galley_color(shape),
-        style.visuals.error_fg_color,
-        "the line is painted in the error colour"
-    );
-
-    // It spans the list's width, two lines at the default 255.
-    let row = nodes
-        .iter()
-        .find(|node| player_row(node))
-        .and_then(accesskit::Node::bounds)
-        .expect("a player row in the list");
-    // The laid-out row's height (the galley's first row), not
-    // `fonts.row_height`'s unrounded one: rows are laid out on whole
-    // pixels, so three of them can exceed three unrounded heights.
-    let body_row = shape.galley.rows[0].rect().height();
-    // The rows stop short of the scroll bar's band the list reserves; the
-    // line, outside the list, may run into it.
-    let band = f64::from(style.spacing.scroll.bar_width);
-    assert!(
-        (bounds.x0 - row.x0).abs() <= 1.0 && bounds.x1 <= row.x1 + band + 1.0,
-        "the line spans the list ({bounds:?} vs {row:?} and its {band}-point band)"
-    );
-    // Not elided, since a label cut to one line hides most of the error,
-    // and wrapped across the list: two body rows at the default 255, as
-    // the draft draws it.
-    assert!(!shape.galley.elided, "the line is not elided");
-    assert!(
-        bounds.y1 - bounds.y0 > f64::from(body_row),
-        "the line spans more than one body row ({bounds:?} vs {body_row})"
-    );
-    assert!(
-        bounds.y1 - bounds.y0 <= f64::from(body_row) * 2.0 + 1.0,
-        "the line is two body rows at most ({bounds:?} vs {body_row})"
-    );
-
-    // No Make button; Set stats sits under the line.
-    assert!(
-        !nodes.iter().any(|node| {
-            node.role() == Role::Button
-                && node.label().is_some_and(|label| label.starts_with("Make "))
-        }),
-        "no tier button"
-    );
-    let set_stats = node_labeled(&nodes, Role::Button, "Set stats")
-        .bounds()
-        .expect("bounds");
-    assert!(
-        set_stats.y0 >= bounds.y1 - 1.0,
-        "Set stats under the line ({set_stats:?} vs {bounds:?})"
-    );
-
-    // The dialog is up only after the click: nothing of it on the frames
-    // before.
-    assert!(
-        !label_value(&nodes, "The AATF rules file could not be loaded"),
-        "no dialog title before the click"
-    );
-    assert!(view.refusal.is_none(), "no refusal before the click");
-
-    // Its click opens the refusal dialog: the title as the heading, the
-    // lib's error as the body, and the full text drawn nowhere in the
-    // list's panel but the dialog's.
-    let expected = view
-        .rules
-        .as_ref()
-        .expect("a ruleset was attempted")
-        .rules
-        .as_ref()
-        .expect_err("the file does not load")
-        .clone();
-    click_with_rules(&mut window, error_node, &mut view, &bad);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
-    });
-    assert!(
-        label_value(&nodes, "The AATF rules file could not be loaded"),
-        "the dialog's title"
-    );
-    assert!(
-        label_value(&nodes, &expected),
-        "the dialog's body is the error itself"
-    );
-    // The error's text is drawn once, in the dialog; the list's panel
-    // holds only the line's own text.
-    let copies = nodes
-        .iter()
-        .filter(|node| node.value() == Some(expected.as_str()))
-        .count();
-    assert_eq!(copies, 1, "the error's text drawn once, in the dialog");
 }
 
 // The view fills its pane: the list and the quick actions run to the
@@ -914,7 +661,7 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
 fn the_quick_actions_reach_the_panes_bottom() {
     let (_path, mut view, _window) = open_701("quick_fills_pane");
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let panel_fill = window.ctx.style_of(window.ctx.theme()).visuals.panel_fill;
     let frame = |shapes: &[egui::epaint::ClippedShape],
                  pick: &dyn Fn(&egui::epaint::RectShape) -> bool| {
@@ -958,14 +705,14 @@ fn the_quick_actions_reach_the_panes_bottom() {
 fn the_buttons_stay_put_when_the_list_scrolls() {
     let (_path, mut view, mut window) = open_701("quick_scrolled_list");
     let make_gold = |window: &mut Headless, view: &mut SaveView| {
-        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
         node_labeled(&nodes, Role::Button, "Make Gold")
             .bounds()
             .expect("bounds")
             .y0
     };
     let top = make_gold(&mut window, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows_before = row_labels(&nodes);
 
     // A wheel down inside the list's scroll (the pointer rests over the
@@ -982,10 +729,10 @@ fn the_buttons_stay_put_when_the_list_scrolls() {
                     modifiers: egui::Modifiers::NONE,
                 },
             ],
-            |ui| show(ui, &mut view, &|| Vec::new(), None),
+            |ui| show(ui, &mut view, &|| Vec::new()),
         );
     }
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_ne!(
         row_labels(&nodes),
         rows_before,
@@ -1010,8 +757,7 @@ fn the_quick_actions_fit_the_lists_width() {
     view.selected = Some(Selection::Player(701, 0));
     let mut window = Headless::new();
 
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     // A player row's AccessKit bounds stand for the list rows' x range.
     let row = nodes
         .iter()
@@ -1058,22 +804,20 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
     let mut ruleset = aatf::Rules::official().ruleset().clone();
     ruleset.tiers[0].label = WIDE_TIER.to_owned();
     let path = fixture(PesVersion::Pes21, "quick_halved_columns");
-    let dir = path.parent().unwrap().to_path_buf();
-    let wide = dir.join("wide.4ccrules");
-    std::fs::write(&wide, aatf::assemble_file(&ruleset, None, None)).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
+    pick_imported(
+        &mut view,
+        "wide.4ccrules",
+        &aatf::assemble_file(&ruleset, None, None),
+    );
     let mut window = Headless::new();
 
     // The grid's column widths are stored per frame: a settle frame so
     // they land before asserting.
-    window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(wide.as_path()))
-    });
-    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(wide.as_path()))
-    });
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     // The cells as the labels alone say they should be: halves, the long
     // label elided in its own.
     let wide_label = format!("Make {WIDE_TIER}");
@@ -1136,13 +880,7 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
     );
     // The elided label's tooltip names the tier.
     assert_eq!(
-        tooltip_containing(
-            &mut window,
-            &mut view,
-            centre(wide_button),
-            "tier's values",
-            Some(wide.as_path())
-        ),
+        tooltip_containing(&mut window, &mut view, centre(wide_button), "tier's values"),
         Some(format!(
             "The {WIDE_TIER} tier's values (the active ruleset)"
         )),

@@ -39,26 +39,26 @@ fn open_comparator(
     window: &mut Headless,
     view: &mut SaveView,
 ) -> Vec<(accesskit::NodeId, accesskit::Node)> {
-    let nodes = draw(window, view, None);
+    let nodes = draw(window, view);
     click(
         window,
         node_labeled(&nodes, Role::Button, &menu_label("Panels")),
         view,
     );
-    let nodes = draw(window, view, None);
+    let nodes = draw(window, view);
     click(
         window,
         node_labeled(&nodes, Role::Button, "Comparator\u{2026}"),
         view,
     );
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     pairs
 }
 
 /// `path` stubbed as the Pick dialog's choice; the "Pick…" button clicked.
 fn pick(window: &mut Headless, view: &mut SaveView, path: PathBuf) {
     view.open_save_dialog = Box::new(move || Some(path.clone()));
-    let nodes = draw(window, view, None);
+    let nodes = draw(window, view);
     click(
         window,
         node_labeled(&nodes, Role::Button, "Pick\u{2026}"),
@@ -76,7 +76,7 @@ fn pick_comparator_team(window: &mut Headless, view: &mut SaveView, name: &str) 
     // only until `name`'s item is drawn — clicking while it is open
     // closes it. Bounded, so a missing item fails rather than hangs.
     for _ in 0..10 {
-        let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
         if let Some((item, _)) = pairs
             .iter()
             .find(|(_, node)| node.role() == Role::Button && node.label() == Some(name))
@@ -104,7 +104,6 @@ fn compared(
     frames_until(
         window,
         view,
-        None,
         |view| {
             let session = view.session.as_ref().expect("an open save");
             let picked = view
@@ -190,7 +189,7 @@ fn scroll_to(
     let at = egui::pos2(400.0, 400.0);
     let mut bounds = None;
     for _ in 0..600 {
-        let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
         let nodes = comparator_nodes(&pairs);
         let node = nodes
             .iter()
@@ -217,7 +216,7 @@ fn scroll_to(
                     modifiers: egui::Modifiers::NONE,
                 },
             ],
-            |ui| show(ui, view, &|| Vec::new(), None),
+            |ui| show(ui, view, &|| Vec::new()),
         );
     }
     panic!("the list never showed {text:?}")
@@ -319,7 +318,7 @@ fn the_scope_toggles_narrow_the_rows() {
     // Gameplay: the height alone; Aesthetics: the boots alone. `compared`
     // waits for the new scope's result before the scroll, or the held
     // previous result's rows would read as the new scope's.
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Gameplay"),
@@ -332,7 +331,7 @@ fn the_scope_toggles_narrow_the_rows() {
         !has(&pairs, "Boots ID 0 \u{2192} 3601"),
         "the aesthetics row narrowed out"
     );
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Aesthetics"),
@@ -363,7 +362,7 @@ fn an_edit_marks_the_held_list_comparing() {
     // the release: a started run could reply before the mark is read.
     let at = egui::pos2(1090.0, 12.0);
     window.frame(pointer_at(at, true), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     // 73401 back to his fixture height: the saves are identical again.
     let mut entry = player_entry(&view, 73401);
@@ -372,8 +371,7 @@ fn an_edit_marks_the_held_list_comparing() {
         .as_mut()
         .expect("the save opened")
         .edit_players(vec![entry]);
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         view.comparator.comparison.pending.is_none(),
         "premise: no run started while the pointer is held"
@@ -392,7 +390,7 @@ fn an_edit_marks_the_held_list_comparing() {
         "the stale row stays while comparing"
     );
     window.frame(pointer_at(at, false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert!(
         view.comparator.comparison.pending.is_some(),
@@ -425,7 +423,7 @@ fn a_save_of_another_version_is_refused_naming_both() {
     let picked = picked_pes21(&dir);
     view.comparator.open = true;
     pick(&mut window, &mut view, picked);
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     assert!(
         lines.iter().any(|line| line
             == "The picked save is a PES 2021 save and the open save a PES 2017 one, but both must be of the same version"),
@@ -531,7 +529,7 @@ fn the_rows_group_per_team_in_the_open_saves_order() {
     let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     pick(&mut window, &mut view, picked);
     compared(&mut window, &mut view);
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     let at = lines
         .iter()
         .position(|line| line == "Team 734 /lit/")
@@ -684,7 +682,7 @@ fn a_refused_pick_clears_the_held_result() {
     let dir = scratch_of(&view);
     let picked = picked_pes21(&dir);
     pick(&mut window, &mut view, picked);
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     assert!(
         lines.iter().any(|line| line
             == "The picked save is a PES 2021 save and the open save a PES 2017 one, but both must be of the same version"),
@@ -736,7 +734,7 @@ fn another_save_keeps_the_pick_and_recompares() {
     });
     view.open(&second);
     compared(&mut window, &mut view);
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     let picked_path = dir.join("picked").display().to_string();
     assert!(
         lines.iter().any(|line| line == &picked_path),
@@ -755,7 +753,7 @@ fn another_save_keeps_the_pick_and_recompares() {
     // pick dropped.
     let pes21 = picked_pes21(&dir);
     view.open(&pes21);
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     assert!(
         lines.iter().any(|line| line == "(none)"),
         "the pick dropped: {lines:?}"
@@ -790,7 +788,7 @@ fn the_team_filter_narrows_the_list_without_recomparing() {
     view.comparator.open = true;
     pick(&mut window, &mut view, picked);
     compared(&mut window, &mut view);
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     assert!(
         lines.iter().any(|line| line == "Team 734 /lit/"),
         "premise: 734's heading under All: {lines:?}"
@@ -814,7 +812,7 @@ fn the_team_filter_narrows_the_list_without_recomparing() {
         TeamChoice::Team(734),
         "734 picked"
     );
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     assert!(
         lines.iter().any(|line| line == "Team 734 /lit/"),
         "734's heading kept: {lines:?}"
@@ -843,7 +841,7 @@ fn the_team_filter_narrows_the_list_without_recomparing() {
 
     pick_comparator_team(&mut window, &mut view, "ALL");
     assert_eq!(view.comparator.filter_team, TeamChoice::All, "ALL again");
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     assert!(
         lines.iter().any(|line| line == "Team 734 /lit/")
             && lines.iter().any(|line| line == "Team 743 /pol/"),
@@ -880,7 +878,7 @@ fn the_team_filter_keeps_an_only_in_section_by_its_roster() {
     view.comparator.open = true;
     pick(&mut window, &mut view, picked);
     compared(&mut window, &mut view);
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     assert!(
         lines.iter().any(|line| line == "Only in the picked save")
             && lines.iter().any(|line| line == "Only in the open save"),
@@ -888,7 +886,7 @@ fn the_team_filter_keeps_an_only_in_section_by_its_roster() {
     );
 
     pick_comparator_team(&mut window, &mut view, "/lit/");
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     assert!(
         lines.iter().any(|line| line == "Only in the open save"),
         "73410's section keeps its heading: {lines:?}"
@@ -905,7 +903,7 @@ fn the_team_filter_keeps_an_only_in_section_by_its_roster() {
     // On 743, each section keeps its 743 player: the picked-only one by
     // the picked save's roster, the open-only one by the open save's.
     pick_comparator_team(&mut window, &mut view, "/pol/");
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     // The combo's popup can still be open, its team names among the lines:
     // the sections' headings and heads alone are compared.
     assert_eq!(
@@ -925,7 +923,7 @@ fn the_team_filter_keeps_an_only_in_section_by_its_roster() {
 
     // A team no line holds.
     pick_comparator_team(&mut window, &mut view, "/pw/");
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     assert!(
         !lines.iter().any(|line| line == "Only in the open save")
             && !lines.iter().any(|line| line == "Only in the picked save"),
@@ -962,7 +960,7 @@ fn export_writes_the_commands_text_whatever_the_team_filter() {
 
     // The scope Gameplay, the team filter on 734: the export still holds
     // the whole save's report (74301's height row included).
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Gameplay"),
@@ -978,7 +976,7 @@ fn export_writes_the_commands_text_whatever_the_team_filter() {
             Some(target.clone())
         }
     });
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Export\u{2026}"),
@@ -993,14 +991,14 @@ fn export_writes_the_commands_text_whatever_the_team_filter() {
     );
 
     // All: the command's stdout with no flag.
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "All"),
         &mut view,
     );
     compared(&mut window, &mut view);
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Export\u{2026}"),
@@ -1020,7 +1018,7 @@ fn an_empty_scopes_export_is_the_commands_empty_text() {
     // holds no row, and the command prints nothing for it.
     let (mut view, mut window, _) = compared_73401("comparator_export_empty");
     let dir = scratch_of(&view);
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Aesthetics"),
@@ -1032,7 +1030,7 @@ fn an_empty_scopes_export_is_the_commands_empty_text() {
         let target = target.clone();
         move |_| Some(target.clone())
     });
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Export\u{2026}"),
@@ -1072,7 +1070,7 @@ fn export_carries_the_unsaved_edits() {
         let target = target.clone();
         move |_| Some(target.clone())
     });
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Export\u{2026}"),
@@ -1095,13 +1093,13 @@ fn export_reports_the_written_path_and_refuses_a_folder_that_is_not() {
         let target = target.clone();
         move |_| Some(target.clone())
     });
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Export\u{2026}"),
         &mut view,
     );
-    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    let lines = window_lines(&mut window, &mut view, "Comparator");
     assert!(
         lines
             .iter()
@@ -1115,7 +1113,7 @@ fn export_reports_the_written_path_and_refuses_a_folder_that_is_not() {
         let missing = missing.clone();
         move |_| Some(missing.clone())
     });
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Export\u{2026}"),
@@ -1124,8 +1122,8 @@ fn export_reports_the_written_path_and_refuses_a_folder_that_is_not() {
     // The refusal lands inside `comparator::show`, after `refusal_dialog`
     // ran that frame, so the modal's first drawn frame is its sizing
     // pass; the second holds the nodes.
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         nodes
             .iter()
@@ -1162,8 +1160,7 @@ fn another_save_resets_the_team_filter() {
         TeamChoice::All,
         "the filter reset"
     );
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         comparator_nodes(&pairs)
             .iter()
@@ -1184,8 +1181,7 @@ fn an_invoked_pick_starts_the_comparison() {
     let picked = picked_save(&dir, "picked", |_| {});
     view.comparator.open = true;
     view.open_save_dialog = Box::new(move || Some(picked.clone()));
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (pick, _) = nodes_in_window(&pairs, "Comparator")
         .into_iter()
         .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Pick\u{2026}"))
@@ -1205,8 +1201,7 @@ fn the_pick_row_keeps_the_buttons_on_one_line_with_a_long_path() {
     let picked = picked_save(&dir, &"picked".repeat(40), |_| {});
     view.comparator.open = true;
     pick(&mut window, &mut view, picked);
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (_, window_node) = pairs
         .iter()
         .find(|(_, node)| {
@@ -1257,8 +1252,8 @@ fn the_pick_row_keeps_the_buttons_on_one_line_with_a_long_path() {
 fn the_panels_title_is_14_points_and_strong() {
     let (mut view, mut window) = open_734_with("comparator_title", &[73401], 183);
     view.comparator.open = true;
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let title = shapes
         .iter()
         .filter_map(|clipped| match &clipped.shape {

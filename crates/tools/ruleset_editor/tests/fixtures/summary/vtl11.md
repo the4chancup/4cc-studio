@@ -1,4 +1,4 @@
-# VTL11
+# /vt/ League 11
 
 Squad of 23. A player's rating is his best of: clearing.
 

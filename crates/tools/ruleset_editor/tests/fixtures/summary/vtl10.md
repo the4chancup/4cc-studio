@@ -1,4 +1,4 @@
-# VTL10
+# /vt/ League 10
 
 Squad of 23. A player's rating is his best of: clearing.
 

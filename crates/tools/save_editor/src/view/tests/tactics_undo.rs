@@ -14,7 +14,7 @@ fn a_slider_drag_on_the_editor_is_one_undo_entry_and_marks_the_team() {
     open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics.presets[0].sliders.clone();
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let slider = widgets_below(&nodes, "Support range", Role::Slider)
         .into_iter()
         .next()
@@ -58,7 +58,7 @@ fn a_bench_player_dragged_onto_a_starter_swaps_them_as_one_undo_entry() {
     let mut window = Headless::sized(DEFAULT_PANE.x, 1400.0);
     open_team_view(&mut window, &mut view, 701);
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let names = lineup_names(&nodes);
     assert_eq!(names.len(), 23, "the eleven and the bench's 12 players");
     drag(&mut window, centre(names[11]), centre(names[8]), &mut view);
@@ -76,7 +76,7 @@ fn a_bench_player_dragged_onto_a_starter_swaps_them_as_one_undo_entry() {
 
     // One undo entry restores both.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let tactics = &team_entry(&view, 701).tactics;
     assert_eq!(tactics.starting_eleven[8], starter_slot, "the eleven back");
@@ -94,10 +94,10 @@ fn a_bench_player_dragged_onto_a_starter_swaps_them_as_one_undo_entry() {
             egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
             true,
         )],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let reopened = EditFile::load(&path).unwrap();
     let tactics = &reopened.team(701).unwrap().tactics;
@@ -126,7 +126,7 @@ fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
     // The popover on an outfield marker a click can reach (a point inside
     // its box no marker drawn after it covers), the X field focused, "55"
     // typed (no Enter: the field keeps the keyboard, the span unsealed).
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let (index, at) = (0..11)
         .filter(|&index| players[index].position != 0)
@@ -134,7 +134,7 @@ fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
         .expect("a marker a click can reach");
     let slot_before = players[index];
     click_at(&mut window, at, &mut view);
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let x_label = ids
         .iter()
         .find(|(_, node)| node.role() == Role::Label && node.value() == Some("X"))
@@ -163,7 +163,7 @@ fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
     let field_id = *fields.first().expect("the X field's id");
     action_focus(&mut window, &mut view, field_id);
     window.frame(vec![egui::Event::Text("55".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
@@ -172,7 +172,7 @@ fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
     );
 
     // A style pair click in the same span.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Possession"),
@@ -187,7 +187,7 @@ fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
 
     // One undo each: the settings click first, then the pitch's X.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let tactics = &team_entry(&view, 701).tactics;
     assert!(
@@ -199,7 +199,7 @@ fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
         "the pitch edit still applied"
     );
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
@@ -229,7 +229,7 @@ fn a_typed_popover_edit_then_make_gk_undo_as_two_entries() {
     // The popover on an outfield marker a click can reach (a point inside
     // its box no marker drawn after it covers), the X field focused, "55"
     // typed (no Enter: the field keeps the keyboard, the span unsealed).
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let (index, at) = (0..11)
         .filter(|&index| players[index].position != 0)
@@ -238,7 +238,7 @@ fn a_typed_popover_edit_then_make_gk_undo_as_two_entries() {
     assert_ne!(index, keeper, "premise: not the keeper's slot");
     let slot_before = players[index];
     click_at(&mut window, at, &mut view);
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let x_label = ids
         .iter()
         .find(|(_, node)| node.role() == Role::Label && node.value() == Some("X"))
@@ -267,7 +267,7 @@ fn a_typed_popover_edit_then_make_gk_undo_as_two_entries() {
     let field_id = *fields.first().expect("the X field's id");
     action_focus(&mut window, &mut view, field_id);
     window.frame(vec![egui::Event::Text("55".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
@@ -276,7 +276,7 @@ fn a_typed_popover_edit_then_make_gk_undo_as_two_entries() {
     );
 
     // Make GK in the same popover: the keeper swap is its own gesture.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Make GK"),
@@ -294,7 +294,7 @@ fn a_typed_popover_edit_then_make_gk_undo_as_two_entries() {
 
     // One Ctrl+Z reverts the keeper swap alone; the X still applied.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let tactics = team_entry(&view, 701).tactics;
     assert_eq!(
@@ -311,7 +311,7 @@ fn a_typed_popover_edit_then_make_gk_undo_as_two_entries() {
     );
     // A second reverts the typed X.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
@@ -332,7 +332,7 @@ fn open_popover_and_focus_x(
     window: &mut Headless,
     view: &mut SaveView,
 ) -> (usize, accesskit::NodeId, accesskit::NodeId) {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let players = team_entry(view, 701).tactics.presets[0].formations[0].players;
     // The popover on an outfield marker a click can reach.
@@ -341,7 +341,7 @@ fn open_popover_and_focus_x(
         .find_map(|index| marker_point(canvas, &players, index).map(|at| (index, at)))
         .expect("a marker a click can reach");
     click_at(window, at, view);
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     let x_label = ids
         .iter()
         .find(|(_, node)| node.role() == Role::Label && node.value() == Some("X"))
@@ -386,7 +386,7 @@ fn a_typed_x_then_a_slider_drag_undo_as_two_entries() {
     let (index, _, _) = open_popover_and_focus_x(&mut window, &mut view);
     let slot_before = before.presets[0].formations[0].players[index];
     window.frame(vec![egui::Event::Text("55".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
@@ -398,7 +398,7 @@ fn a_typed_x_then_a_slider_drag_undo_as_two_entries() {
     // writes on the press frame; two moves and the release follow. The
     // end lands at the rail's far side of the stored value (support
     // range runs 1 to 10).
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let slider = widgets_below(&nodes, "Support range", Role::Slider)
         .into_iter()
         .next()
@@ -420,16 +420,16 @@ fn a_typed_x_then_a_slider_drag_undo_as_two_entries() {
     };
     let mid = egui::pos2((bounds.x0 + bounds.x1) as f32 / 2.0, press.y);
     window.frame(pointer_at(press, true), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(vec![egui::Event::PointerMoved(mid)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(vec![egui::Event::PointerMoved(end)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(pointer_at(end, false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let after = team_entry(&view, 701).tactics;
     assert_ne!(
@@ -444,7 +444,7 @@ fn a_typed_x_then_a_slider_drag_undo_as_two_entries() {
     // One Ctrl+Z restores the slider's stored value entirely — the
     // rail-jump and the moves are one step — and leaves the typed X.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let tactics = team_entry(&view, 701).tactics;
     assert_eq!(
@@ -457,7 +457,7 @@ fn a_typed_x_then_a_slider_drag_undo_as_two_entries() {
     );
     // A second reverts the typed X.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
@@ -485,7 +485,7 @@ fn a_typed_x_then_typing_into_y_undo_as_two_entries() {
     let (index, _x_id, y_id) = open_popover_and_focus_x(&mut window, &mut view);
     let slot_before = before.presets[0].formations[0].players[index];
     window.frame(vec![egui::Event::Text("55".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
@@ -497,7 +497,7 @@ fn a_typed_x_then_typing_into_y_undo_as_two_entries() {
     // the frame).
     window.frame(
         vec![key(egui::Key::Tab, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         window
@@ -507,7 +507,7 @@ fn a_typed_x_then_typing_into_y_undo_as_two_entries() {
         "Tab moved the keyboard to Y"
     );
     window.frame(vec![egui::Event::Text("33".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).tactics.presets[0].formations[0].players[index].y,
@@ -517,7 +517,7 @@ fn a_typed_x_then_typing_into_y_undo_as_two_entries() {
     // Escape: the Y gesture ends — the keyboard lets go of the field.
     window.frame(
         vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         window
@@ -529,7 +529,7 @@ fn a_typed_x_then_typing_into_y_undo_as_two_entries() {
 
     // One Ctrl+Z reverts the Y write alone: X still 55, Y back.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let tactics = team_entry(&view, 701).tactics;
     assert_eq!(
@@ -542,7 +542,7 @@ fn a_typed_x_then_typing_into_y_undo_as_two_entries() {
     );
     // A second reverts the typed X.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
@@ -569,7 +569,7 @@ fn a_value_typed_over_several_frames_is_one_undo_entry() {
     let slot_before = before.presets[0].formations[0].players[index];
     for _ in 0..2 {
         window.frame(vec![egui::Event::Text("5".to_owned())], |ui| {
-            show(ui, &mut view, &|| Vec::new(), None)
+            show(ui, &mut view, &|| Vec::new())
         });
     }
     assert_eq!(
@@ -579,10 +579,10 @@ fn a_value_typed_over_several_frames_is_one_undo_entry() {
     );
     window.frame(
         vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
@@ -614,10 +614,10 @@ fn a_substitution_pick_then_a_slider_drag_undo_as_two_entries() {
     // second AccessKit click (a pointer click does not reach a popup
     // item), then a pointer click on a label closes the popup it
     // leaves open.
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let combo = node_id_right_of(&ids, "Substitution", Role::ComboBox);
     action_click(&mut window, &mut view, combo);
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let combo_bounds = ids
         .iter()
         .find(|(id, _)| *id == combo)
@@ -641,7 +641,7 @@ fn a_substitution_pick_then_a_slider_drag_undo_as_two_entries() {
         "the pick is written"
     );
     // A pointer click on a label closes the popup the pick left open.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let heading = label_bounds(&nodes, "Formation settings");
     click_at(
         &mut window,
@@ -653,7 +653,7 @@ fn a_substitution_pick_then_a_slider_drag_undo_as_two_entries() {
     );
 
     // Press-drag-release the Compactness slider off its handle.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let slider = widgets_below(&nodes, "Compactness", Role::Slider)
         .into_iter()
         .next()
@@ -675,16 +675,16 @@ fn a_substitution_pick_then_a_slider_drag_undo_as_two_entries() {
     };
     let mid = egui::pos2((bounds.x0 + bounds.x1) as f32 / 2.0, press.y);
     window.frame(pointer_at(press, true), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(vec![egui::Event::PointerMoved(mid)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(vec![egui::Event::PointerMoved(end)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(pointer_at(end, false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let after = team_entry(&view, 701).tactics;
     assert_ne!(
@@ -700,7 +700,7 @@ fn a_substitution_pick_then_a_slider_drag_undo_as_two_entries() {
     // One Ctrl+Z restores the slider's stored value entirely — the
     // rail-jump and the moves — and leaves the substitution pick.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let tactics = team_entry(&view, 701).tactics;
     assert_eq!(
@@ -714,7 +714,7 @@ fn a_substitution_pick_then_a_slider_drag_undo_as_two_entries() {
     );
     // A second reverts the pick.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         team_entry(&view, 701)

@@ -28,13 +28,18 @@ use crate::session::Session;
 use crate::session::selection::TeamChoice;
 use crate::view::worker::{Pending, WorkerResult};
 use crate::view::{
-    Refusal, SaveView, aatf_check, aatf_panel, edit_settled, player_list, surrender_focus, terms,
+    Refusal, SaveView, aatf_check, edit_settled, player_list, surrender_focus, terms,
 };
 
 /// The pick's Open dialog (`rfd` in the window, a stub in the tests — a
-/// native dialog cannot be driven headless; `aatf_panel::SaveFileDialog`'s
-/// pattern).
+/// native dialog cannot be driven headless; `SaveFileDialog`'s pattern).
 pub(crate) type OpenSaveDialog = Box<dyn FnMut() -> Option<PathBuf>>;
+
+/// A Save-file dialog: the suggested file name to the picked path
+/// (`rfd` in the window, a stub in the tests — a native dialog cannot be
+/// driven headless; the Ruleset editor's `SaveDialog` pattern). The
+/// Export's.
+pub(crate) type SaveFileDialog = Box<dyn FnMut(&str) -> Option<PathBuf>>;
 
 /// The `rfd` Open dialog (the toolbar's `pick_file` shape).
 #[cfg(not(test))]
@@ -50,11 +55,10 @@ pub(crate) fn default_open_dialog() -> OpenSaveDialog {
     Box::new(|| panic!("a test reached a real file dialog: stub open_dialog or open_save_dialog"))
 }
 
-/// The `rfd` Save dialog for the Export (`aatf_panel`'s
-/// `default_copy_dialog` pattern): the suggested name comes from the
-/// caller.
+/// The `rfd` Save dialog for the Export: the suggested name comes from
+/// the caller.
 #[cfg(not(test))]
-pub(crate) fn default_export_dialog() -> aatf_panel::SaveFileDialog {
+pub(crate) fn default_export_dialog() -> SaveFileDialog {
     Box::new(|name| {
         rfd::FileDialog::new()
             .add_filter("Text", &["txt"])
@@ -66,7 +70,7 @@ pub(crate) fn default_export_dialog() -> aatf_panel::SaveFileDialog {
 /// `default_export_dialog` under `cargo test`: a test reaching a real
 /// file dialog panics; tests stub `view.export_dialog`.
 #[cfg(test)]
-pub(crate) fn default_export_dialog() -> aatf_panel::SaveFileDialog {
+pub(crate) fn default_export_dialog() -> SaveFileDialog {
     Box::new(|_| panic!("a test reached a real file dialog: stub export_dialog"))
 }
 

@@ -25,7 +25,7 @@ fn locked_section(version: PesVersion, test: &str) -> (SaveView, Headless, Vec<a
     view.aesthetics_from_exports = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     (view, window, nodes)
 }
 
@@ -96,8 +96,7 @@ fn the_section_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
     // while his motions are still read, and the controls draw enabled.
     // The switch sits below the fold: its click goes through the
     // AccessKit action.
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (anyway, _) = pairs
         .iter()
         .find(|(_, node)| {
@@ -137,11 +136,11 @@ fn the_section_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
     );
     click(&mut window, chest, &mut view);
     window.frame(vec![egui::Event::Text("5".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         view.session
@@ -164,7 +163,7 @@ fn the_section_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
     fresh.open(&path);
     fresh.aesthetics_from_exports = true;
     open_appearance(&mut window, &mut fresh);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut fresh, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut fresh, &|| Vec::new()));
     assert!(
         right_of_label(&nodes, "Chest", Role::SpinButton)[0].is_disabled(),
         "the next start is locked again"
@@ -172,7 +171,7 @@ fn the_section_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
 
     let other = fixture(PesVersion::Pes21, "appearance_lock_fox_other");
     view.open(&other);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         !right_of_label(&nodes, "Chest", Role::SpinButton)[0].is_disabled(),
         "opening another save keeps it unlocked"
@@ -209,7 +208,7 @@ fn the_section_is_locked_on_a_pre_fox_save_with_the_patch_step() {
     });
     let ownership_hover = right_of_label(&nodes, "Chest", Role::SpinButton)[0];
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(ownership_hover), "The team's export", None),
+        tooltip_containing(&mut window, &mut view, centre(ownership_hover), "The team's export"),
         Some(
             "The team's export owns the aesthetics, so edit its settings.toml and recompile, then apply the patch."
                 .to_string()
@@ -220,8 +219,7 @@ fn the_section_is_locked_on_a_pre_fox_save_with_the_patch_step() {
     // On: the note warns a later patch overwrites hand edits. The switch
     // sits above the fold again after the scroll: its click goes through
     // the AccessKit action.
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (anyway, _) = pairs
         .iter()
         .find(|(_, node)| {
@@ -229,7 +227,7 @@ fn the_section_is_locked_on_a_pre_fox_save_with_the_patch_step() {
         })
         .expect("the Edit aesthetics anyway switch");
     action_click(&mut window, &mut view, *anyway);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         label_value(
             &nodes,
@@ -358,11 +356,11 @@ fn the_cutscenes_group_stays_editable_above_the_ownership_line() {
         .expect("the Star control");
     click(&mut window, star, &mut view);
     window.frame(vec![egui::Event::Text("5".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(star_of(&view), Some(5), "the typed star stores");
     assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
@@ -386,13 +384,13 @@ fn a_stripped_players_section_says_the_look_is_the_tables_and_the_motions_are_re
     open_appearance(&mut window, &mut view);
     // 70101 is the selected player; every other player's id is set while
     // his is -1, so the Strip again window opened too: close it first.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let close = nodes
         .iter()
         .find(|node| node.role() == Role::Button && node.label() == Some("Close"))
         .expect("the Strip again window's Close");
     click(&mut window, close, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         label_value(&nodes, LINE),
         "70101's section marks him stripped"
@@ -400,7 +398,7 @@ fn a_stripped_players_section_says_the_look_is_the_tables_and_the_motions_are_re
 
     // Another player's section does not draw the line.
     view.selected = Some(Selection::Player(701, 1));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         !label_value(&nodes, LINE),
         "70102's section draws no stripped line"
@@ -438,8 +436,7 @@ fn randomize_draws_within_pes21s_measured_tops_one_undo_entry() {
     // The button sits below the fold under the player header: the click
     // goes through its AccessKit action (a pointer click lands only
     // inside the scroll's clip).
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (button, node) = nodes
         .iter()
         .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Randomize"))
@@ -508,8 +505,7 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
         "the dribbling motion's tooltip"
     );
     // Below the fold: the click goes through the AccessKit action.
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (button, _) = nodes
         .iter()
         .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Randomize"))
@@ -549,9 +545,9 @@ fn a_stored_celebration_past_its_top_draws_as_stored_without_marking_the_player(
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
     for _ in 0..5 {
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     }
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let celebration = right_of_label(&nodes, "Goal celebration 1", Role::SpinButton)
         .first()
         .copied()
@@ -604,7 +600,7 @@ fn a_fox_save_with_some_ids_set_lists_them_with_strip_again() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // The window lists exactly the three restored players, by id: the
     // five-digit id labels under the heading (the info strip draws the
@@ -667,7 +663,7 @@ fn a_fox_save_with_some_ids_set_lists_them_with_strip_again() {
         );
     }
     assert!(view.session.as_ref().unwrap().is_dirty());
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         !nodes.iter().any(|node| node.label() == Some("Strip again")),
         "the window closed"
@@ -714,8 +710,7 @@ fn randomize_low_end_stores_zero_for_one_based_and_one_for_celebrations() {
     };
 
     // Below the fold: the click goes through the AccessKit action.
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (button, _) = nodes
         .iter()
         .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Randomize"))
@@ -776,11 +771,11 @@ fn a_physique_field_shows_stored_minus_limit_and_stores_shown_plus_it() {
     assert_eq!(neck.value(), Some("5"), "stored 12 shows 5");
     click(&mut window, neck, &mut view);
     window.frame(vec![egui::Event::Text("3".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(neck_length(&view), 10, "typed 3 stores 3 + 7");
 }
@@ -812,8 +807,7 @@ fn a_swatch_click_stores_its_index() {
     // The swatch sits below the fold under the player header: the click
     // goes through its AccessKit action (a pointer click lands only
     // inside the scroll's clip).
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (swatch, _) = nodes
         .iter()
         .find(|(_, node)| node.role() == Role::ColorWell && node.label() == Some("Skin Brown"))
@@ -852,7 +846,7 @@ fn a_one_based_motion_shows_one_above_stored_within_the_measured_top() {
     };
     let stored = motion_of(&view).free_kick;
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let free = right_of_label(&nodes, "Free kick", Role::SpinButton)
         .first()
         .copied()
@@ -883,20 +877,20 @@ fn a_one_based_motion_shows_one_above_stored_within_the_measured_top() {
         .expect("the Free kick control");
     click(&mut window, free, &mut view);
     window.frame(vec![egui::Event::Text("7".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(motion_of(&view).free_kick, 6, "typed 7 stores 6");
     click(&mut window, free, &mut view);
     window.frame(vec![egui::Event::Text("99".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         motion_of(&view).free_kick,
@@ -936,8 +930,7 @@ fn a_combo_pick_stores_the_options_index_as_one_undo_entry() {
         .copied()
         .expect("the Sleeves combo");
     click(&mut window, combo, &mut view);
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (item, _) = nodes
         .iter()
         .find(|(_, node)| node.label() == Some("Long"))
@@ -977,14 +970,14 @@ fn the_player_gloves_checkbox_draws_the_runs_flag() {
             .expect("the Player gloves checkbox")
     }
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         gloves_box(&nodes).toggled(),
         Some(accesskit::Toggled::True),
         "70101's run flag 1 ticks it"
     );
     view.selected = Some(Selection::Player(701, 1));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         gloves_box(&nodes).toggled(),
         Some(accesskit::Toggled::False),
@@ -1050,7 +1043,7 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let swatches = skin_swatches(&nodes);
     assert_eq!(
         swatches.len(),
@@ -1078,7 +1071,7 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
         .unwrap();
     file.save(&path).unwrap();
     view.open(&path);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let swatches = skin_swatches(&nodes);
     assert!(
         label_on_row(&nodes, swatches[0], "7").is_some(),
@@ -1093,7 +1086,7 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
         .unwrap();
     file.save(&path).unwrap();
     view.open(&path);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let swatches = skin_swatches(&nodes);
     assert!(
         label_on_row(&nodes, swatches[0], "6").is_none(),
@@ -1108,8 +1101,7 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
     view17.edit_aesthetics = true;
     let mut window17 = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window17, &mut view17);
-    let (_, nodes, _) =
-        window17.frame(Vec::new(), |ui| show(ui, &mut view17, &|| Vec::new(), None));
+    let (_, nodes, _) = window17.frame(Vec::new(), |ui| show(ui, &mut view17, &|| Vec::new()));
     let swatches = skin_swatches(&nodes);
     assert_eq!(swatches.len(), 8, "PES 17 draws the whole palette");
     assert!(
@@ -1130,7 +1122,7 @@ fn the_strip_and_motion_grids_break_after_the_drafts_pairs() {
     view.edit_aesthetics = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     open_appearance(&mut window, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let y = |label: &str| control_right_of(&nodes, label).bounds().expect("bounds").y0;
 
     let first = y("Boots ID");
@@ -1171,11 +1163,11 @@ fn the_boots_id_control_takes_the_records_bound() {
         .expect("the Boots ID control");
     click(&mut window, boots, &mut view);
     window.frame(vec![egui::Event::Text("627".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         view.session
@@ -1269,13 +1261,13 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
     assert_eq!(flags_of(&view), before, "the undo restores all eight");
 
     // Ticked again, then unticked: `base_copy` alone clears.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let checkbox = nodes
         .iter()
         .find(|node| node.role() == Role::CheckBox && node.label() == Some("Base copy"))
         .expect("the Base copy flag");
     click(&mut window, checkbox, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let checkbox = nodes
         .iter()
         .find(|node| node.role() == Role::CheckBox && node.label() == Some("Base copy"))
@@ -1300,7 +1292,7 @@ fn the_physique_grid_holds_two_pairs_a_row() {
     view.edit_aesthetics = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_appearance(&mut window, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let first = label_bounds(&nodes, "Neck length").y0;
     assert!(
@@ -1342,7 +1334,7 @@ fn the_strip_groups_hold_the_drafts_rows() {
     assert!(untucked(&view), "premise: the shirt is out (untucked)");
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_appearance(&mut window, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let first = label_bounds(&nodes, "Boots ID").y0;
     for label in ["Gloves ID", "Sleeves", "Inners"] {
@@ -1409,7 +1401,7 @@ fn the_motion_grid_holds_two_pairs_a_row_in_two_columns() {
     view.edit_aesthetics = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_appearance(&mut window, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let labels = [
         "Hunching (dribbling)",
@@ -1473,8 +1465,7 @@ fn the_appearance_section_fits_the_pane_the_shell_leaves() {
         }
         let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
         open_appearance(&mut window, &mut view);
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         for node in &nodes {
             if let Some(bounds) = node.bounds() {
                 assert!(

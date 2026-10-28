@@ -39,13 +39,13 @@ fn player_menu_item(window: &mut Headless, view: &mut SaveView, item: &str) {
 /// `dir` returned by the folder pick stub: Pick clicked, then Write.
 fn pick_and_write(window: &mut Headless, view: &mut SaveView, dir: PathBuf) {
     view.pick_folder_dialog = Box::new(move || Some(dir.clone()));
-    let nodes = draw(window, view, None);
+    let nodes = draw(window, view);
     click(
         window,
         node_labeled(&nodes, Role::Button, "Pick\u{2026}"),
         view,
     );
-    let nodes = draw(window, view, None);
+    let nodes = draw(window, view);
     click(window, node_labeled(&nodes, Role::Button, "Write"), view);
 }
 
@@ -190,13 +190,13 @@ fn an_unparsable_existing_settings_toml_is_the_error() {
         Box::new(move || Some(dir.clone()))
     };
     player_menu_item(&mut window, &mut view, "Generate settings.toml");
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Pick\u{2026}"),
         &mut view,
     );
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     assert!(
         nodes.iter().any(|node| {
             node.value()
@@ -221,7 +221,7 @@ fn a_stripped_players_dialog_skips_him() {
     let name = display_name(&entry.name);
     view.session.as_mut().unwrap().edit_players(vec![entry]);
     player_menu_item(&mut window, &mut view, "Generate settings.toml");
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     assert!(
         label_value(
             &nodes,
@@ -253,7 +253,7 @@ fn write_is_disabled_until_the_folder_is_a_directory() {
     let (mut view, mut window) = open_on(PesVersion::Pes21, "generate_write_gate", 701, 1);
     let dir = crate::test_support::scratch("generate_write_gate");
     player_menu_item(&mut window, &mut view, "Generate settings.toml");
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     assert!(
         node_labeled(&nodes, Role::Button, "Write").is_disabled(),
         "no folder yet"
@@ -269,7 +269,7 @@ fn write_is_disabled_until_the_folder_is_a_directory() {
         &mut view,
         &dir.join("missing").display().to_string(),
     );
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     assert!(
         node_labeled(&nodes, Role::Button, "Write").is_disabled(),
         "a missing folder is still disabled"
@@ -281,7 +281,7 @@ fn write_is_disabled_until_the_folder_is_a_directory() {
         node_labeled(&nodes, Role::Button, "Pick\u{2026}"),
         &mut view,
     );
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     assert!(
         !node_labeled(&nodes, Role::Button, "Write").is_disabled(),
         "an existing folder enables Write"
@@ -298,7 +298,7 @@ fn each_dialog_is_headed_by_its_action() {
         ("Generate in-game face", "Generate in-game face"),
     ] {
         player_menu_item(&mut window, &mut view, item);
-        let nodes = draw(&mut window, &mut view, None);
+        let nodes = draw(&mut window, &mut view);
         assert!(label_value(&nodes, heading), "the heading {heading:?}");
         click(
             &mut window,
@@ -322,13 +322,13 @@ fn an_unreadable_existing_settings_toml_is_the_error() {
         Box::new(move || Some(dir.clone()))
     };
     player_menu_item(&mut window, &mut view, "Generate settings.toml");
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Pick\u{2026}"),
         &mut view,
     );
-    let nodes = draw(&mut window, &mut view, None);
+    let nodes = draw(&mut window, &mut view);
     let shown = dir.join("settings.toml").display().to_string();
     assert!(
         nodes

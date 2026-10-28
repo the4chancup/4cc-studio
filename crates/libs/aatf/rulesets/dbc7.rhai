@@ -1,7 +1,7 @@
 // AATF ruleset, a Rhai script. Open it in the Ruleset editor to change it.
 const RULESET = #{
     schema: 1,
-    name: "DBC7",
+    name: "Divegrass Before Christmas 7",
     squad_size: 23,
 
     stats: #{

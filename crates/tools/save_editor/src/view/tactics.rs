@@ -99,19 +99,15 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let textures = portraits.textures(ui.ctx(), &player_ids);
     // The badges' medal outlines: `player_tier` per roster slot under the
     // active ruleset, once per `MedalKey` (the open save's revision, the
-    // team, the rules file) as the Cards left badge is — not every
-    // frame. A file that does not load keeps a row of `None`s.
+    // team, the ruleset) as the Cards left badge is — not every frame.
     if let Some(active) = rules.as_ref() {
         let key = MedalKey {
             revision: session.revision(),
             team: team_id,
-            rules_file: active.file.clone(),
+            ruleset: active.key.clone(),
         };
         if medals.as_ref().is_none_or(|(held, _)| *held != key) {
-            let marks = match &active.rules {
-                Ok(rules) => slot_medals(rules, session.file(), team_id, team.roster.len()),
-                Err(_) => vec![None; team.roster.len()],
-            };
+            let marks = slot_medals(&active.rules, session.file(), team_id, team.roster.len());
             *medals = Some((key, marks));
         }
     }
@@ -119,7 +115,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // Warning violations of that kind on the slot, while Live AATF
     // holds this team's result (`held_violations`; another team's
     // result or none marks nothing).
-    let held = live_marks::held_violations(*live_aatf, &live.check, rules.as_ref())
+    let held = live_marks::held_violations(*live_aatf, &live.check)
         .filter(|(held_team, _)| *held_team == team_id)
         .map(|(_, violations)| violations)
         .unwrap_or(&[]);

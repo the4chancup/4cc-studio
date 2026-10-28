@@ -1,6 +1,6 @@
 //! `check-aatf`: an AATF ruleset run over the save's cup teams, the violations as finding
-//! lines, and the rules file's selection (`--rules`, the `aatf_rules` setting, the built-in
-//! official ruleset) or refusal when it does not load.
+//! lines, and the ruleset's selection (`--rules`, the `aatf_ruleset` setting, the built-in
+//! official ruleset) or refusal when a `--rules` file does not load.
 
 use std::fs;
 use std::path::Path;
@@ -204,7 +204,7 @@ fn a_rules_file_that_fails_to_load_is_refused_with_its_position() {
 
 // SE-AATF-03
 #[test]
-fn rules_and_the_aatf_rules_setting_pick_the_rules_file() {
+fn rules_and_the_aatf_ruleset_setting_pick_the_rules() {
     let sandbox = Sandbox::new("aatf_vgl27");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
     let rules = sandbox.path("vgl27.4ccrules");
@@ -225,10 +225,9 @@ fn rules_and_the_aatf_rules_setting_pick_the_rules_file() {
         run.messages()
     );
 
-    // A TOML literal string: the Windows path's backslashes need no escaping.
-    let settings = format!("[save-editor]\naatf_rules = '{}'\n", rules.display());
+    // The setting naming the built-in VGL27.
     let run = sandbox.run_with_settings(
-        &settings,
+        "[save-editor]\naatf_ruleset = 'vgl27'\n",
         &["check-aatf", &sandbox.arg("EDIT"), "--teams", "701"],
     );
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
@@ -240,7 +239,7 @@ fn rules_and_the_aatf_rules_setting_pick_the_rules_file() {
         run.messages()
     );
 
-    // No file picked: the default official ruleset runs, its own marker
+    // No ruleset picked: the default official ruleset runs, its own marker
     // the `red` quota VGL27 cannot emit.
     let run = check(&sandbox, "EDIT", &["--teams", "701"]);
     assert!(
@@ -369,19 +368,14 @@ fn a_check_that_fails_on_one_team_does_not_stop_the_rest() {
 
 // SE-AATF-07
 #[test]
-fn rules_wins_over_the_aatf_rules_setting() {
+fn rules_wins_over_the_aatf_ruleset_setting() {
     let sandbox = Sandbox::new("aatf_rules_flag_wins");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
-    fs::write(sandbox.path("vgl27.4ccrules"), rules_file("vgl27")).unwrap();
     fs::write(sandbox.path("official.4ccrules"), rules_file("autumn26")).unwrap();
 
     // The setting names VGL27; --rules names the official file and is the one checked.
-    let settings = format!(
-        "[save-editor]\naatf_rules = '{}'\n",
-        sandbox.path("vgl27.4ccrules").display()
-    );
     let run = sandbox.run_with_settings(
-        &settings,
+        "[save-editor]\naatf_ruleset = 'vgl27'\n",
         &[
             "check-aatf",
             &sandbox.arg("EDIT"),
@@ -451,16 +445,17 @@ fn a_roster_order_break_reports_the_held_and_expected_ids() {
 
 // SE-AATF-04
 #[test]
-fn a_relative_aatf_rules_resolves_in_the_data_directory() {
+fn an_imported_aatf_ruleset_is_read_from_the_data_directorys_rules_folder() {
     let sandbox = Sandbox::new("aatf_rules_relative");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
-    fs::write(sandbox.path("data/vgl27.4ccrules"), rules_file("vgl27")).unwrap();
+    fs::create_dir_all(sandbox.path("data/rules")).unwrap();
+    fs::write(sandbox.path("data/rules/cup.4ccrules"), rules_file("vgl27")).unwrap();
 
     // The sandbox runs the command in-process, so its current directory is the test
-    // process's, which holds no vgl27.4ccrules: the file is found only under the data
-    // directory's resolution.
+    // process's, which holds no cup.4ccrules: the copy is found only in the data
+    // directory's `rules` folder.
     let run = sandbox.run_with_settings(
-        "[save-editor]\naatf_rules = 'vgl27.4ccrules'\n",
+        "[save-editor]\naatf_ruleset = 'cup.4ccrules'\n",
         &["check-aatf", &sandbox.arg("EDIT"), "--teams", "701"],
     );
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
@@ -469,6 +464,65 @@ fn a_relative_aatf_rules_resolves_in_the_data_directory() {
             .iter()
             .any(|line| line == PICKED_FILE_VIOLATION),
         "{:?}",
+        run.messages()
+    );
+}
+
+/// Without `--rules`, a settings file naming the built-in `vtl11` checks against VTL11:
+/// the run prints VTL11's own violation, which the official ruleset does not.
+// SE-GUI-32
+#[test]
+fn the_aatf_ruleset_setting_naming_vtl11_checks_against_vtl11() {
+    /// VTL11's captain rule broken by team 701's captain, a Regular: a special the
+    /// official ruleset does not have.
+    const VTL11_VIOLATION: &str = "Error aatf_violation (team=701, player=70101, rule=Special, label=Regulars cannot be captain, text=Regulars can't be captain)";
+
+    let sandbox = Sandbox::new("aatf_ruleset_vtl11");
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    let run = sandbox.run_with_settings(
+        "[save-editor]\naatf_ruleset = 'vtl11'\n",
+        &["check-aatf", &sandbox.arg("EDIT"), "--teams", "701"],
+    );
+    assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
+    assert!(
+        run.messages().iter().any(|line| line == VTL11_VIOLATION),
+        "VTL11's captain rule: {:?}",
+        run.messages()
+    );
+
+    let official = check(&sandbox, "EDIT", &["--teams", "701"]);
+    assert!(
+        !official
+            .messages()
+            .iter()
+            .any(|line| line == VTL11_VIOLATION),
+        "premise: the official ruleset does not print it"
+    );
+}
+
+/// A setting naming an imported copy that is gone: the check runs under the official
+/// ruleset and the report carries the warning line saying so.
+// SE-GUI-32, SE-AATF-04
+#[test]
+fn a_gone_aatf_ruleset_warns_and_checks_against_the_official_ruleset() {
+    let sandbox = Sandbox::new("aatf_ruleset_gone");
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    let run = sandbox.run_with_settings(
+        "[save-editor]\naatf_ruleset = 'gone.4ccrules'\n",
+        &["check-aatf", &sandbox.arg("EDIT"), "--teams", "701"],
+    );
+    assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
+    assert!(
+        run.messages()
+            .iter()
+            .any(|line| line
+                == "Warning aatf_ruleset_gone (ruleset=gone.4ccrules, used=4cc Autumn 26)"),
+        "the warning line: {:?}",
+        run.messages()
+    );
+    assert!(
+        run.messages().iter().any(|line| line == OFFICIAL_VIOLATION),
+        "the official ruleset's own quota: {:?}",
         run.messages()
     );
 }

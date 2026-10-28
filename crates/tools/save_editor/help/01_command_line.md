@@ -70,8 +70,10 @@ else is printed.
 `check-aatf` checks the save's cup teams against an AATF ruleset: every team whose id is in
 the cup range, 701 to 920, or the ones `--teams` names as a comma-separated list of ids and
 inclusive ranges (`701,705-710`). The ruleset is the file `--rules` names, read from where
-the command runs, else the one the `aatf_rules` setting names (a relative path is read from
-the data folder), else the official ruleset built into Unlimited Tool Works. Each
+the command runs, else the one picked in the dropdown on the window's toolbar (the
+`aatf_ruleset` setting): a built-in ruleset or a copy in the data folder's `rules` folder.
+When that copy is gone, the warning line `aatf_ruleset_gone` says so and the official
+ruleset built into Unlimited Tool Works, 4cc Autumn 26, is used instead. Each
 violation prints as one `aatf_violation` line with the team, the player's id for a player's
 violation, the rule and what it measured, and the teams print in id order. A team whose
 check cannot run is the error line `aatf_check_failed`, and the rest are still checked. An

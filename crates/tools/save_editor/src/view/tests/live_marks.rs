@@ -350,31 +350,19 @@ fn row_mark_counts_the_slots_rows_and_picks_its_glyph() {
     );
 }
 
-/// `held_violations` is the held check only while the toggle is on, the
-/// rules file loaded and the result one team's `Ok` — a failed check,
-/// another shape of result or nothing yet marks nothing (the Live AATF
-/// bullet's last sub-bullet).
+/// `held_violations` is the held check only while the toggle is on and
+/// the result one team's `Ok` — a failed check, another shape of result
+/// or nothing yet marks nothing (the Live AATF bullet's last sub-bullet).
 #[test]
 fn held_violations_is_one_teams_ok_result_while_on() {
-    use std::sync::Arc;
     let mut check = aatf_check::TeamsCheck::new();
     let key = |ids: &[u32]| aatf_check::CheckKey {
         revision: 1,
         ids: ids.to_vec(),
-        rules_file: None,
+        ruleset: "autumn26".to_owned(),
         suggestions: false,
     };
-    let rules = ActiveRules {
-        file: None,
-        rules: Ok(Arc::new(aatf::Rules::official())),
-    };
-    let broken = ActiveRules {
-        file: None,
-        rules: Err("bad".to_owned()),
-    };
-    let held = |check: &_, rules: Option<&_>| {
-        live_marks::held_violations(true, check, rules).map(|(id, v)| (id, v.len()))
-    };
+    let held = |check: &_| live_marks::held_violations(true, check).map(|(id, v)| (id, v.len()));
     check.result = Some((
         key(&[734]),
         vec![Ok(vec![violation(
@@ -383,24 +371,18 @@ fn held_violations_is_one_teams_ok_result_while_on() {
             aatf::ViolationKind::Captain,
         )])],
     ));
-    assert_eq!(held(&check, Some(&rules)), Some((734, 1)));
+    assert_eq!(held(&check), Some((734, 1)));
     assert_eq!(
-        live_marks::held_violations(false, &check, Some(&rules)),
+        live_marks::held_violations(false, &check),
         None,
         "off marks nothing"
     );
-    assert_eq!(
-        held(&check, Some(&broken)),
-        None,
-        "a rules file that does not load marks nothing"
-    );
-    assert_eq!(held(&check, None), None, "no ruleset yet");
     check.result = Some((key(&[734]), vec![Err("boom".to_owned())]));
-    assert_eq!(held(&check, Some(&rules)), None, "a failed check");
+    assert_eq!(held(&check), None, "a failed check");
     check.result = Some((key(&[734, 735]), vec![Ok(vec![]), Ok(vec![])]));
-    assert_eq!(held(&check, Some(&rules)), None, "not one team's");
+    assert_eq!(held(&check), None, "not one team's");
     check.result = None;
-    assert_eq!(held(&check, Some(&rules)), None, "nothing held yet");
+    assert_eq!(held(&check), None, "nothing held yet");
 }
 
 /// The toggle is a framed `▶ Live AATF` button; the list marks the
@@ -416,8 +398,7 @@ fn the_marks_follow_the_held_check() {
 
     // The toolbar's toggle is a framed button: the inactive fill off,
     // the selection fill on.
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let toggle = node_labeled(&nodes, Role::Button, "\u{25b6} Live AATF");
     let bounds = toggle.bounds().expect("the toggle's bounds");
     assert_eq!(
@@ -427,7 +408,7 @@ fn the_marks_follow_the_held_check() {
     );
     click(&mut window, toggle, &mut view);
     assert!(view.live_aatf, "the click turned Live AATF on");
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         fill_at(&shapes, bounds),
         Some(visuals.selection.bg_fill),
@@ -437,8 +418,8 @@ fn the_marks_follow_the_held_check() {
     // The first check returned: `✖` on the broken player's row in the
     // error colour, `✔` on the clean one's in the success colour, at
     // each row's right end, the tooltips the counts.
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     for (name, glyph, color, tip) in [
         ("Muh Spooks", "\u{2716}", visuals.error_fg_color, "1 error"),
         (
@@ -461,7 +442,7 @@ fn the_marks_follow_the_held_check() {
         assert_eq!(galley_color(mark), color, "{name}'s mark's colour");
         let tip_at = egui::pos2(mark.pos.x + 2.0, mark.pos.y + 2.0);
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, tip_at, tip, None).as_deref(),
+            tooltip_containing(&mut window, &mut view, tip_at, tip).as_deref(),
             Some(tip),
             "{name}'s mark's tooltip"
         );
@@ -484,7 +465,7 @@ fn the_marks_follow_the_held_check() {
     assert_left_of_label(cross, label_bounds(&nodes, "Height"), "Height");
     let tip_at = mark_centre(cross);
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, tip_at, "takes no bracket", None).as_deref(),
+        tooltip_containing(&mut window, &mut view, tip_at, "takes no bracket").as_deref(),
         Some("Height: height 183 takes no bracket (185 has room)"),
         "the cross's tooltip is the violation's line"
     );
@@ -492,14 +473,12 @@ fn the_marks_follow_the_held_check() {
     // The Height box's x is the same with Live AATF off, and no mark is
     // drawn anywhere then.
     view.live_aatf = false;
-    let (_, nodes_off, _) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes_off, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let off_box = control_right_of(&nodes_off, "Height")
         .bounds()
         .expect("the Height box's bounds");
     assert_eq!(off_box.x0, height_box.x0, "the box keeps its x");
-    let (_, _, shapes_off) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes_off) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         mark_shapes(&shapes_off, "\u{2716}").is_empty(),
         "no cross with Live AATF off"
@@ -518,8 +497,8 @@ fn the_marks_follow_the_held_check() {
         .as_mut()
         .expect("the save opened")
         .edit_players(vec![entry]);
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     // The players' rows are `✔`, and no field carries a cross any
     // longer (the team row's `✖` stays: the tier counts are the team's
     // own, broken from the start).
@@ -618,8 +597,7 @@ fn the_stats_crosses_line_up_left_of_their_labels() {
         ("ball_control", "Ball Control"),
         ("speed", "Speed"),
     ];
-    let (_, nodes_off, _) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes_off, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     view.live_aatf = true;
     let mut entry = player_entry(&view, 73401);
     for (name, _) in stats {
@@ -638,8 +616,8 @@ fn the_stats_crosses_line_up_left_of_their_labels() {
         .as_mut()
         .expect("the save opened")
         .edit_players(vec![entry]);
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let violations = view.live.check.result.as_ref().unwrap().1[0]
         .as_ref()
         .unwrap();
@@ -773,7 +751,7 @@ fn each_fields_mark_stands_left_of_its_label() {
             aatf_check::CheckKey {
                 revision,
                 ids: vec![734],
-                rules_file: None,
+                ruleset: "autumn26".to_owned(),
                 suggestions: false,
             },
             vec![Ok(vec![violation(Some(0), *severity, kind.clone())])],
@@ -784,8 +762,7 @@ fn each_fields_mark_stands_left_of_its_label() {
         scroll_into_view(&mut window, &mut view, |node| {
             node.value().is_some_and(|value| value.starts_with(label))
         });
-        let (_, nodes, shapes) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         let marks = field_marks(&shapes);
         let [mark] = *marks.as_slice() else {
             panic!(
@@ -811,20 +788,11 @@ fn each_fields_mark_stands_left_of_its_label() {
 fn a_warnings_mark_is_an_orange_warning_sign() {
     let (mut view, mut window) = open_734("live_marks_warning");
     view.live_aatf = true;
-    let dir = view
-        .session
-        .as_ref()
-        .expect("the save opened")
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
-    let rules = dir.join("warn.4ccrules");
-    std::fs::write(
-        &rules,
-        aatf::official_file().replacen("cards: 3,", "stat_warning: 5, cards: 3,", 1),
-    )
-    .unwrap();
+    pick_imported(
+        &mut view,
+        "warn.4ccrules",
+        &aatf::official_file().replacen("cards: 3,", "stat_warning: 5, cards: 3,", 1),
+    );
     let mut entry = player_entry(&view, 73401);
     let prowess = ABILITY_STATS
         .iter()
@@ -835,10 +803,8 @@ fn a_warnings_mark_is_an_orange_warning_sign() {
         .as_mut()
         .expect("the save opened")
         .edit_players(vec![entry]);
-    let nodes = live_checked(&mut window, &mut view, Some(rules.as_path()), &[734]);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules.as_path()))
-    });
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         view.live.check.result.as_ref().is_some_and(|(_, checks)| {
             checks[0].as_ref().is_ok_and(|violations| {
@@ -872,8 +838,8 @@ fn a_warnings_mark_is_an_orange_warning_sign() {
 fn the_teams_own_violations_mark_the_team_row() {
     let (mut view, mut window) = open_734("live_marks_team_row");
     view.live_aatf = true;
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let row = team_row(&nodes, &view, 734);
     let bounds = row.bounds().expect("the team row's bounds");
     let mark = mark_shapes(&shapes, "\u{2716}")
@@ -886,7 +852,7 @@ fn the_teams_own_violations_mark_the_team_row() {
         .expect("a `✖` on the team row");
     let tip_at = egui::pos2(mark.pos.x + 2.0, mark.pos.y + 2.0);
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, tip_at, "3 errors", None).as_deref(),
+        tooltip_containing(&mut window, &mut view, tip_at, "3 errors").as_deref(),
         Some("3 errors"),
         "the team's own count: the three tier counts"
     );
@@ -898,8 +864,8 @@ fn the_teams_own_violations_mark_the_team_row() {
         Headless::sized(DEFAULT_PANE.x, 800.0),
     );
     view.live_aatf = true;
-    let nodes = live_checked(&mut window, &mut view, None, &[714]);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = live_checked(&mut window, &mut view, &[714]);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let row = team_row(&nodes, &view, 714);
     let bounds = row.bounds().expect("the team row's bounds");
     assert!(
@@ -922,8 +888,8 @@ fn the_teams_own_violations_mark_the_team_row() {
 fn the_row_mark_centres_on_its_row() {
     let (mut view, mut window) = open_734("live_marks_centred");
     view.live_aatf = true;
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let player = nodes
         .iter()
         .find(|node| player_row(node))
@@ -949,8 +915,8 @@ fn the_row_mark_centres_on_its_row() {
 fn a_click_on_a_rows_mark_selects_the_row() {
     let (mut view, mut window) = open_734_with("live_marks_mark_click", &[73401], 183);
     view.live_aatf = true;
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = live_checked(&mut window, &mut view, &[734]);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     // Another player selected first: a click that did nothing would
     // satisfy the assertion anyway.
     view.selected = Some(Selection::Player(734, 3));
@@ -1018,7 +984,7 @@ fn a_long_name_truncates_before_the_rows_mark() {
         aatf_check::CheckKey {
             revision,
             ids: vec![701],
-            rules_file: None,
+            ruleset: "autumn26".to_owned(),
             suggestions: false,
         },
         vec![Ok(Vec::new())],
@@ -1032,8 +998,7 @@ fn a_long_name_truncates_before_the_rows_mark() {
             .x,
     );
     let needle = narrow.to_string().repeat(4);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let row = nodes
         .iter()
         .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains(&needle)))
@@ -1114,13 +1079,13 @@ fn no_cross_overlaps_text_and_no_field_moves() {
         aatf_check::CheckKey {
             revision,
             ids: vec![734],
-            rules_file: None,
+            ruleset: "autumn26".to_owned(),
             suggestions: false,
         },
         vec![Ok(violations)],
     ));
     let (_, nodes_mark, shapes_mark) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let crosses: Vec<_> = mark_shapes(&shapes_mark, "\u{2716}")
         .into_iter()
         .filter(|shape| f64::from(shape.pos.x) > 250.0)
@@ -1189,8 +1154,7 @@ fn no_cross_overlaps_text_and_no_field_moves() {
 
     // Every marked field's box or combo keeps its x with Live AATF off.
     view.live_aatf = false;
-    let (_, nodes_off, _) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes_off, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     for label in [
         "Height",
         "Shirt number",
@@ -1232,15 +1196,14 @@ fn no_cross_overlaps_text_and_no_field_moves() {
 #[test]
 fn a_failed_check_marks_nothing() {
     let path = fixture(PesVersion::Pes17, "live_marks_failed");
-    let dir = path.parent().expect("the scratch dir").to_path_buf();
-    let rules = throw19_file(&dir);
     let mut view = SaveView::new();
     view.open(&path);
+    pick_imported(&mut view, "throw19.4ccrules", &throw19());
     view.team = TeamChoice::Team(743);
     view.selected = Some(Selection::Player(743, 0));
     view.live_aatf = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
-    let nodes = live_checked(&mut window, &mut view, Some(rules.as_path()), &[743]);
+    let nodes = live_checked(&mut window, &mut view, &[743]);
     assert!(
         nodes.iter().any(|node| {
             node.value()
@@ -1248,9 +1211,7 @@ fn a_failed_check_marks_nothing() {
         }),
         "premise: the dock reports the failed check"
     );
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules.as_path()))
-    });
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(mark_shapes(&shapes, "\u{2716}").is_empty(), "no cross");
     assert!(mark_shapes(&shapes, "\u{2714}").is_empty(), "no check mark");
 }
@@ -1437,7 +1398,7 @@ fn a_dirty_rows_dot_survives_truncation() {
         aatf_check::CheckKey {
             revision,
             ids: vec![701],
-            rules_file: None,
+            ruleset: "autumn26".to_owned(),
             suggestions: false,
         },
         vec![Ok(Vec::new())],
@@ -1449,8 +1410,7 @@ fn a_dirty_rows_dot_survives_truncation() {
             style.visuals.warn_fg_color,
         )
     };
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let row = nodes
         .iter()
         .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains(&needle)))
@@ -1527,13 +1487,12 @@ fn a_dirty_rows_dot_survives_truncation() {
         aatf_check::CheckKey {
             revision,
             ids: vec![701],
-            rules_file: None,
+            ruleset: "autumn26".to_owned(),
             suggestions: false,
         },
         vec![Ok(Vec::new())],
     ));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let row = team_row(&nodes, &view, 701);
     let bounds = row.bounds().expect("the team row's bounds");
     let name_shape = shapes
@@ -1584,7 +1543,7 @@ fn a_dirty_rows_dot_survives_truncation() {
 fn only_the_checked_teams_rows_are_marked() {
     let (mut view, mut window) = open_734_with("live_marks_other_teams", &[73401], 183);
     view.live_aatf = true;
-    let _nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let _nodes = live_checked(&mut window, &mut view, &[734]);
     view.team = TeamChoice::All;
     // Under ALL his row sits below the fold: the wheel scrolls the list
     // until it shows (bounded, so an unreachable one fails rather than
@@ -1592,8 +1551,7 @@ fn only_the_checked_teams_rows_are_marked() {
     let mut found = false;
     let at = egui::pos2(120.0, 300.0);
     for _ in 0..64 {
-        let (_, nodes, shapes) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         let his_row = nodes.iter().find(|node| {
             player_row(node)
                 && node
@@ -1678,7 +1636,7 @@ fn only_the_checked_teams_rows_are_marked() {
                     modifiers: egui::Modifiers::NONE,
                 },
             ],
-            |ui| show(ui, &mut view, &|| Vec::new(), None),
+            |ui| show(ui, &mut view, &|| Vec::new()),
         );
     }
     assert!(found, "his row never scrolled into view");
@@ -1711,7 +1669,7 @@ fn a_fielded_violation_crosses_the_starters_portrait_on_the_pitch() {
         .edit_team(1, team);
 
     // The check lands: a `FieldedNotA` on him in preset 1.
-    live_checked(&mut window, &mut view, None, &[734]);
+    live_checked(&mut window, &mut view, &[734]);
     let violations = view.live.check.result.as_ref().unwrap().1[0]
         .as_ref()
         .unwrap();
@@ -1737,8 +1695,7 @@ fn a_fielded_violation_crosses_the_starters_portrait_on_the_pitch() {
     // marker's portrait carries an X, corner to corner, its coloured
     // strokes in the error colour over black ones.
     view.selected = Some(Selection::Team(734));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let shown_slot = team_entry(&view, 734).tactics.presets[0].formations[0].players[index];
     let badge =
@@ -1772,7 +1729,7 @@ fn a_fielded_violation_crosses_the_starters_portrait_on_the_pitch() {
 
     // Live AATF off: the pitch carries no cross.
     view.live_aatf = false;
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         pitch_cross_strokes(&shapes).is_empty(),
         "no cross on the pitch with Live AATF off"

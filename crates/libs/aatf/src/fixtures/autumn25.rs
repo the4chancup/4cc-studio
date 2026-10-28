@@ -69,7 +69,7 @@ fn red_legal_records() -> Records {
 #[test]
 fn the_sample_team_breaks_the_two_values_that_differ() {
     let rules = Rules::from_data_block(AUTUMN25).expect("Autumn 25 loads");
-    assert_eq!(rules.ruleset().name, "Autumn 25");
+    assert_eq!(rules.ruleset().name, "4cc Autumn 25");
     let team = TeamView::sample_team();
     let found = problems(&rules, &team);
     for (tier, count, expected) in [("silver", 3, 2), ("regular", 18, 19)] {

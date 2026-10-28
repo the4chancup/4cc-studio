@@ -20,7 +20,7 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
     // Tall enough for a team's row plus all of 701's 23 player rows (the
     // team row eats one row's height).
     let mut window = Headless::sized(DEFAULT_PANE.x, 1100.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // The team selector is the left panel's combo (the detail holds combos of
     // its own now).
@@ -36,7 +36,7 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
 
     // Open it: ALL first, then the save's teams in order.
     click(&mut window, selector, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let mut expected = vec!["ALL".to_string()];
     expected.extend(file.teams().iter().map(|team| team.name.clone()));
     let mut items: Vec<&accesskit::Node> = nodes
@@ -60,14 +60,13 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
 
     // Click 701's entry: the list holds only its players, headed by its
     // own row.
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (item, _) = nodes
         .iter()
         .find(|(_, node)| node.role() == Role::Button && node.label() == Some("/3/"))
         .expect("team 701's entry");
     action_click(&mut window, &mut view, *item);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows: Vec<&accesskit::Node> = nodes.iter().filter(|node| player_row(node)).collect();
     assert_eq!(
         rows.len(),
@@ -87,7 +86,7 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
     // re-select the first player for the info-strip checks below.
     view.team = TeamChoice::All;
     view.selected = Some(Selection::Player(701, 0));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let drawn = nodes.iter().filter(|node| player_row(node)).count();
     assert!(
         drawn >= 20 && drawn < rostered,
@@ -131,7 +130,7 @@ fn a_players_name_paints_in_the_colors_his_codes_set() {
     view.open(&path);
     view.team = TeamChoice::Team(718);
     let mut window = Headless::new();
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let shape = text_shape(&shapes, "01 GK ROADTRIP");
     let painted: Vec<(egui::Color32, String)> = shape
@@ -178,7 +177,7 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
 
     // Click the filter box (its hint is its AccessKit placeholder), then type
     // the name.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let filter_box = nodes
         .iter()
         .find(|node| {
@@ -188,7 +187,7 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
         .expect("the filter box");
     click(&mut window, filter_box, &mut view);
     let (_, nodes, _) = window.frame(vec![egui::Event::Text("quality".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
 
     // 70202 of team 702 is listed under a filter.
@@ -197,7 +196,7 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
         .find(|node| node.role() == Role::Button && node.label() == Some("02 GK QUALITY"))
         .expect("the filtered row");
     click(&mut window, row, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         nodes.iter().any(|node| {
             node.role() == Role::Label
@@ -216,8 +215,7 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
     );
     for typed in ["70202", "anime"] {
         view.filter = typed.to_owned();
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         assert!(
             nodes
                 .iter()
@@ -235,7 +233,7 @@ fn the_selected_row_reports_selected() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows: Vec<&accesskit::Node> = nodes.iter().filter(|node| player_row(node)).collect();
     let (selected, rest): (Vec<&&accesskit::Node>, Vec<&&accesskit::Node>) = rows
         .iter()
@@ -270,7 +268,7 @@ fn a_long_name_truncates_instead_of_wrapping_the_row() {
         .spacing
         .interact_size
         .y;
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows: Vec<&accesskit::Node> = nodes.iter().filter(|node| player_row(node)).collect();
     assert!(!rows.is_empty());
     for row in &rows {
@@ -294,14 +292,14 @@ fn a_long_name_truncates_instead_of_wrapping_the_row() {
     let track = centre(bar);
     window.frame(
         pointer_at(egui::pos2(track.x, track.y - 200.0), true),
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(
         vec![egui::Event::PointerMoved(egui::pos2(track.x, 595.0))],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(pointer_at(egui::pos2(track.x, 595.0), false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let file2 = EditFile::load(&path).unwrap();
     let (index, roster_slot) = file2
@@ -323,7 +321,7 @@ fn a_long_name_truncates_instead_of_wrapping_the_row() {
             [usize::from(player.positions.registered)],
         pes_savefile::model::names::display_name(&player.name)
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     row(&nodes, &label);
 }
 
@@ -369,7 +367,7 @@ fn scrolling_to_the_end_of_all_selects_the_last_player() {
     // Drag the scroll bar's handle to the bottom: a pointer press inside the
     // bar, a move to its last pixels, release. The list's bar is the
     // leftmost (the detail's content scrolls too).
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let bar = nodes
         .iter()
         .filter(|node| node.role() == Role::ScrollBar)
@@ -382,19 +380,19 @@ fn scrolling_to_the_end_of_all_selects_the_last_player() {
     let bottom = window.screen.y - 5.0;
     window.frame(
         pointer_at(egui::pos2(track.x, track.y - 200.0), true),
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(
         vec![egui::Event::PointerMoved(egui::pos2(track.x, bottom))],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(pointer_at(egui::pos2(track.x, bottom), false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let last = row(&nodes, &label);
     click(&mut window, last, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let id = last_id.to_string();
     assert!(
         nodes.iter().any(|node| {
@@ -428,7 +426,7 @@ fn a_row_dragged_above_another_trades_their_records_between_the_ids() {
     view.open(&path);
     view.team = TeamChoice::Team(701);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // Select another row first, so the selection following the dragged
     // record is not vacuous.
@@ -440,14 +438,14 @@ fn a_row_dragged_above_another_trades_their_records_between_the_ids() {
     );
 
     // Drag player 02's row above player 01's.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let from = centre(row(&nodes, "02 CB SECOND"));
     let onto = centre(row(&nodes, "01 CB FIRST"));
     drag(&mut window, from, onto, &mut view);
 
     // The list shows the new order, the moved rows marked unsaved; the
     // selection followed the dragged record to its new slot.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let labels = row_labels(&nodes);
     assert_eq!(&labels[..2], ["01 CB SECOND ●", "02 CB FIRST ●"]);
     assert_eq!(
@@ -459,7 +457,7 @@ fn a_row_dragged_above_another_trades_their_records_between_the_ids() {
     // Save, reopen: slot 01 still holds player 70101, whose record is the
     // one player 02 had, and the other way round; the roster is untouched.
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let reopened = EditFile::load(&path).unwrap();
     let team = reopened.team(701).expect("team 701");
@@ -535,14 +533,14 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     assert_eq!(view.team, TeamChoice::All, "open selects ALL");
     // Tall enough for team 702's block to be drawn under team 701's.
     let mut window = Headless::sized(DEFAULT_PANE.x, 1100.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // A drag onto another team's row: nothing moves.
     let before = row_labels(&nodes);
     let from = centre(row(&nodes, "02 CB SECOND"));
     let other = centre(row(&nodes, &other_label));
     drag(&mut window, from, other, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         row_labels(&nodes),
         before,
@@ -552,11 +550,11 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     assert!(!view.session.as_ref().unwrap().can_undo());
 
     // A drag of the team row itself onto a player row: nothing moves.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let from = centre(team_row(&nodes, &view, 701));
     let onto = centre(row(&nodes, "01 CB FIRST"));
     drag(&mut window, from, onto, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         row_labels(&nodes),
         before,
@@ -569,7 +567,7 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     let from = centre(row(&nodes, "02 CB SECOND"));
     let onto = centre(team_row(&nodes, &view, 701));
     drag(&mut window, from, onto, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         row_labels(&nodes),
         before,
@@ -583,7 +581,7 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     let from = centre(row(&nodes, "02 CB SECOND"));
     let onto = centre(row(&nodes, "01 CB FIRST"));
     drag(&mut window, from, onto, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         &row_labels(&nodes)[..2],
         ["01 CB SECOND ●", "02 CB FIRST ●"],
@@ -611,7 +609,7 @@ fn under_a_filter_a_drag_moves_nothing() {
     view.team = TeamChoice::Team(701);
     view.filter = "qq".to_owned();
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let labels_before = row_labels(&nodes);
     assert_eq!(
         labels_before,
@@ -622,7 +620,7 @@ fn under_a_filter_a_drag_moves_nothing() {
     let from = centre(row(&nodes, "01 CB QQ FIRST"));
     let onto = centre(row(&nodes, "03 CB QQ THIRD"));
     drag(&mut window, from, onto, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         row_labels(&nodes),
         labels_before,
@@ -701,8 +699,7 @@ fn the_team_row_paints_its_parts_over_its_fills() {
         let style = window.ctx.style_of(window.ctx.theme());
         (style.spacing.clone(), style.visuals.clone())
     };
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let row = team_row(&nodes, &view, 701)
         .bounds()
         .expect("the team row's bounds");
@@ -799,7 +796,7 @@ fn the_team_row_paints_its_parts_over_its_fills() {
             ((row.x0 + row.x1) / 2.0) as f32,
             centre_y as f32,
         ))],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert!(
         covers_row(&shapes, row, visuals.widgets.hovered.bg_fill),
@@ -813,11 +810,10 @@ fn the_team_row_paints_its_parts_over_its_fills() {
     // receives `PointerGone` still reports the row hovered), so the
     // selection alone holds the faint fill back.
     window.frame(vec![egui::Event::PointerGone], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     view.selected = Some(Selection::Team(701));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let row = team_row(&nodes, &view, 701)
         .bounds()
         .expect("the team row's bounds");
@@ -833,14 +829,14 @@ fn the_team_row_paints_its_parts_over_its_fills() {
     // Unselected, the pointer still gone, focused by the keyboard: no
     // faint fill either.
     view.selected = None;
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let label = format!("701 {}", display_name(&team_entry(&view, 701).name));
     let (row_id, _) = ids
         .iter()
         .find(|(_, node)| node.role() == Role::Button && node.label() == Some(label.as_str()))
         .expect("the team row's node");
     action_focus(&mut window, &mut view, *row_id);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         !covers_row(&shapes, row, visuals.faint_bg_color),
         "no faint fill under the focused row"
@@ -882,8 +878,7 @@ fn a_team_name_too_long_truncates_inside_the_row() {
             .button_padding
             .x,
     );
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let row = team_row(&nodes, &view, 701)
         .bounds()
         .expect("the team row's bounds");
@@ -910,8 +905,7 @@ fn every_player_row_spans_the_team_rows_width_and_selects_at_its_end() {
     view.selected = Some(Selection::Player(701, 0));
     let mut window = Headless::new();
     let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let team = team_row(&nodes, &view, 701)
         .bounds()
         .expect("team row bounds");
@@ -987,8 +981,7 @@ fn the_team_rows_dot_paints_at_the_rows_right_end() {
         .style_of(window.ctx.theme())
         .visuals
         .warn_fg_color;
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let bounds = team_row(&nodes, &view, 701).bounds().expect("bounds");
     let name = text_in_rect(&shapes, "/3/", bounds);
     let dot = dot_in_row(&shapes, bounds);
@@ -1044,8 +1037,7 @@ fn the_player_rows_dot_paints_at_the_rows_right_end() {
         .visuals
         .warn_fg_color;
 
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let bounds = row(&nodes, "01 CB PLACEHOLDER ●")
         .bounds()
         .expect("the row's bounds");
@@ -1084,12 +1076,11 @@ fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
     // The list's column, from its frame's left edge to the end of the
     // scroll bar's strip (the list scrolls under ALL).
     let column = |window: &mut Headless, view: &mut SaveView| {
-        let (_, nodes, shapes) =
-            window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
         let width = list_scroll_bar(&nodes).x1 - f64::from(list_frame(window, &shapes).min.x);
         (width, pane_frame(&shapes, window.screen).0)
     };
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (width, before) = column(&mut window, &mut view);
     assert!(
         (width - 255.0).abs() <= 0.5,
@@ -1112,7 +1103,7 @@ fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
 /// The team selector's combo (the list panel's leftmost), clicked open;
 /// the popup's `entry` item picked through its AccessKit action.
 fn pick_in_selector(window: &mut Headless, view: &mut SaveView, entry: &str) {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     // The popup stays open after an AccessKit pick; a second call's click
     // would toggle it closed.
     if !nodes
@@ -1129,7 +1120,7 @@ fn pick_in_selector(window: &mut Headless, view: &mut SaveView, entry: &str) {
             .expect("the team selector");
         click(window, selector, view);
     }
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     let (item, _) = pairs
         .iter()
         .find(|(_, node)| node.role() == Role::Button && node.label() == Some(entry))
@@ -1159,7 +1150,7 @@ fn picking_a_team_in_the_selector_selects_its_team_row() {
         Some(Selection::Team(702)),
         "picking /a/ selected its team row"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         nodes
             .iter()
@@ -1189,8 +1180,7 @@ fn the_team_row_hints_click_for_tactics() {
         .style_of(window.ctx.theme())
         .visuals
         .weak_text_color();
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let bounds = team_row(&nodes, &view, 701)
         .bounds()
         .expect("the team row's bounds");
@@ -1228,8 +1218,7 @@ fn the_team_rows_hint_elides_before_the_name() {
     view.open(&path);
     view.team = TeamChoice::Team(701);
     let mut window = Headless::new();
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let bounds = team_row(&nodes, &view, 701)
         .bounds()
         .expect("the team row's bounds");
@@ -1260,8 +1249,7 @@ fn the_team_rows_hint_elides_before_the_name() {
     let mut view = SaveView::new();
     view.open(&path);
     view.team = TeamChoice::Team(701);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let bounds = team_row(&nodes, &view, 701)
         .bounds()
         .expect("the team row's bounds");
@@ -1299,9 +1287,8 @@ fn the_lists_scroll_bar_stands_outside_its_frame() {
         .selection
         .bg_fill;
     // The bar shows from the frame after the list first measured its rows.
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let frame = list_frame(&window, &shapes);
     let content_right = f64::from(frame.max.x);
 
@@ -1367,8 +1354,8 @@ fn the_lists_frame_stands_where_the_drafts_does() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let frame = list_frame(&window, &shapes);
     assert!(
         (frame.min.x - 12.0).abs() <= 0.5 && (frame.max.x - 257.0).abs() <= 0.5,
@@ -1389,9 +1376,8 @@ fn a_filter_leaving_three_rows_keeps_the_bars_strip() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let whole = list_frame(&window, &shapes);
     assert!(
         list_scroll_bar(&nodes).x0 > f64::from(whole.max.x),
@@ -1399,9 +1385,8 @@ fn a_filter_leaving_three_rows_keeps_the_bars_strip() {
     );
 
     view.filter = "qq".to_owned();
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows: Vec<accesskit::Rect> = nodes
         .iter()
         .filter(|node| node.role() == Role::Button && node.bounds().is_some_and(|b| b.x1 < 300.0))
@@ -1465,6 +1450,6 @@ fn a_player_row_numbers_his_place_in_the_roster() {
     view.open(&path);
     view.team = TeamChoice::Team(757);
     let mut window = Headless::sized(DEFAULT_PANE.x, 1100.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(row_labels(&nodes), expected, "the rows read 01 to 23");
 }

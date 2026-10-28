@@ -266,7 +266,7 @@ fn empty_strings_are_refused() {
     for (name, broken, path) in [
         (
             "empty name",
-            edit(AUTUMN26, "name: \"Autumn 26\"", "name: \"\""),
+            edit(AUTUMN26, "name: \"4cc Autumn 26\"", "name: \"\""),
             "name",
         ),
         (

@@ -108,12 +108,12 @@ fn body(
     }
 }
 
-/// A template button's label (the draft's): the two that need a word
-/// about them get it.
+/// A template button's label (the draft's): the official ruleset says
+/// so, the others are their description alone.
 fn button_label(template: &Template) -> String {
-    match template.ruleset.name.as_str() {
-        "Autumn 26" => "Autumn 26 (the official rules)".to_string(),
-        "DBC7" => "DBC7 (Divegrass Before Christmas 7)".to_string(),
-        name => name.to_string(),
+    let name = &template.ruleset.name;
+    match template.stem {
+        "autumn26" => format!("{name} (the official rules)"),
+        _ => name.clone(),
     }
 }
