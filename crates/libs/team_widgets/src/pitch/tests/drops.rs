@@ -5,6 +5,7 @@ use pes_savefile::model::instruction::Instruction;
 use pes_savefile::schema::instruction;
 use pes_version::PesVersion;
 
+use super::paint::badge_rects;
 use super::*;
 use crate::test_support::{Headless, fixture_rows, fixture_tactics, roster_rows};
 
@@ -35,10 +36,12 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     // An off-grid drop, as every real one is: the release lands
     // `+vec2(1.6, -3.5)` past a free grid point — 0.57 and 0.52 of a
     // unit, so the written unit is the rounded (x + 1, y + 1), which a
-    // `.floor()` snap would read (x, y). The release point itself stays
-    // on the canvas and inside no other marker (another's would claim
-    // the drop for a swap).
+    // `.floor()` snap would read (x, y) — plus the press's offset from
+    // his badge centre, since he stands at the pointer less it. The
+    // release point itself stays on the canvas and inside no other
+    // marker (another's would claim the drop for a swap).
     let slot = formation.players[index];
+    let offset = press_offset(canvas, slot, from);
     let (x, y, onto) = (0..=GRID_X)
         .flat_map(|x| (0..=GRID_Y).map(move |y| (x, y)))
         .map(|(x, y)| {
@@ -46,7 +49,8 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
                 x,
                 y,
                 badge_centre(canvas.min, FormationSlot { position: 1, x, y })
-                    + egui::vec2(1.6, -3.5),
+                    + egui::vec2(1.6, -3.5)
+                    + offset,
             )
         })
         .find(|(x, y, point)| {
@@ -84,6 +88,7 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     let centres = centres_of(canvas, &formation.players);
     let from = marker_point(&nodes, &formation.players, index);
     let slot = formation.players[index];
+    let offset = press_offset(canvas, slot, from);
     let (x, y, onto) = (0..GRID_X)
         .flat_map(|x| (0..GRID_Y).map(move |y| (x, y)))
         .map(|(x, y)| {
@@ -91,7 +96,8 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
                 x,
                 y,
                 badge_centre(canvas.min, FormationSlot { position: 1, x, y })
-                    + egui::vec2(0.85, -2.04),
+                    + egui::vec2(0.85, -2.04)
+                    + offset,
             )
         })
         .find(|(x, y, point)| {
@@ -132,6 +138,8 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     // the first two drops wrote, stays.
     view.preset = 1;
     view.formation = 1;
+    // Fluid formation on, so the preset's In-possession can be shown.
+    tactics.presets[1].style.fluid = Some(true);
     let before = tactics.clone();
     let formation = tactics.presets[1].formations[1].clone();
     let slot = formation.players[index];
@@ -143,6 +151,7 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     );
     let centres = centres_of(canvas, &formation.players);
     let from = marker_point(&nodes, &formation.players, index);
+    let offset = press_offset(canvas, slot, from);
     let (x, y, onto) = (0..GRID_X)
         .flat_map(|x| (0..GRID_Y).map(move |y| (x, y)))
         .map(|(x, y)| {
@@ -150,7 +159,8 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
                 x,
                 y,
                 badge_centre(canvas.min, FormationSlot { position: 1, x, y })
-                    + egui::vec2(0.85, -2.04),
+                    + egui::vec2(0.85, -2.04)
+                    + offset,
             )
         })
         .find(|(x, y, point)| {
@@ -230,7 +240,7 @@ fn a_marker_released_on_the_grass_takes_the_rules_position() {
             x: 40,
             y: 20,
         },
-    );
+    ) + press_offset(canvas, players[2], from);
     assert!(
         canvas.contains(onto)
             && centres.iter().enumerate().all(|(other, centre)| {
@@ -273,7 +283,7 @@ fn a_marker_released_on_the_grass_takes_the_rules_position() {
             x: 40,
             y: 12,
         },
-    );
+    ) + press_offset(canvas, players[2], from);
     assert!(
         centres
             .iter()
@@ -331,7 +341,7 @@ fn a_marker_released_on_the_grass_without_overalls_keeps_his_position() {
             x: 40,
             y: 20,
         },
-    );
+    ) + press_offset(canvas, players[2], from);
     assert!(
         centres
             .iter()
@@ -426,6 +436,8 @@ fn a_marker_dropped_on_another_swaps_in_the_shown_preset_and_formation() {
     };
     let rows = fixture_rows(PesVersion::Pes21);
     let roster = roster_rows(&rows);
+    // Fluid formation on, so the preset's In-possession can be shown.
+    tactics.presets[1].style.fluid = Some(true);
     let before = tactics.clone();
     let formation = before.presets[1].formations[1].clone();
     let (from, onto) = (3, 6);
@@ -484,9 +496,13 @@ fn a_marker_released_on_the_keeper_moves_to_the_snapped_point() {
     // the hold in no outfield marker's box but the keeper's.
     let index = (0..11)
         .find(|&index| {
+            let from = marker_point(&nodes, &players, index);
             players[index].position != 0
                 && !marker_rect(centres[index], canvas).contains(over)
-                && snap(over, canvas.min) != (players[index].x, players[index].y)
+                && snap(
+                    over - press_offset(canvas, players[index], from),
+                    canvas.min,
+                ) != (players[index].x, players[index].y)
         })
         .expect("an outfield starter off the keeper's marker");
     assert!(
@@ -530,7 +546,10 @@ fn a_marker_released_on_the_keeper_moves_to_the_snapped_point() {
     );
     assert!(changed, "the drop changed the record");
     let mut expect = before.clone();
-    let (x, y) = snap(over, canvas.min);
+    let (x, y) = snap(
+        over - press_offset(canvas, players[index], from),
+        canvas.min,
+    );
     expect.presets[0].formations[0].players[index].x = x;
     expect.presets[0].formations[0].players[index].y = y;
     assert_eq!(
@@ -690,7 +709,10 @@ fn a_release_past_the_click_distance_is_a_drop_not_a_click() {
     let canvas = canvas_rect(&nodes);
     let (index, press, release) =
         edge_press(canvas, &players, 1.0, 10.0).expect("a marker with grass at its left edge");
-    let (x, y) = snap(release, canvas.min);
+    let (x, y) = snap(
+        release - press_offset(canvas, players[index], press),
+        canvas.min,
+    );
     assert_ne!(
         (x, y),
         (players[index].x, players[index].y),
@@ -901,8 +923,9 @@ fn a_row_released_on_the_grass_beside_a_marker_does_nothing() {
 }
 
 // A starter released on his own marker moves too (the arm's "or on his
-// own marker"): 4 units right still lands inside the marker box, where
-// the drop is his own and the grass arm writes the snapped point.
+// own marker"): the pointer moved 4 units right of the press still lands
+// inside the marker box, where the drop is his own and the grass arm
+// writes the spot 4 units right.
 #[test]
 fn a_marker_released_on_his_own_marker_moves() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -918,20 +941,20 @@ fn a_marker_released_on_his_own_marker_moves() {
     // An outfield slot whose x + 4 stays on the grid and whose drop
     // point covers no marker but his own (another's would claim the
     // release for a swap).
-    let (index, onto) = (0..11)
+    let (index, from, onto) = (0..11)
         .filter(|&index| formation.players[index].position != 0)
         .filter_map(|index| {
             let slot = formation.players[index];
-            let onto = badge_centre(canvas.min, slot) + egui::vec2(4.0 * SPOT_XS, 0.0);
+            let from = marker_point(&nodes, &formation.players, index);
+            let onto = from + egui::vec2(4.0 * SPOT_XS, 0.0);
             (slot.x <= 100
                 && order.iter().all(|&other| {
                     other == index || !marker_rect(centres[other], canvas).contains(onto)
                 }))
-            .then_some((index, onto))
+            .then_some((index, from, onto))
         })
         .next()
         .expect("some outfield slot can move 4 units right");
-    let from = marker_point(&nodes, &formation.players, index);
     let slot = formation.players[index];
     assert!(
         marker_rect(centres[index], canvas).contains(onto),
@@ -1280,4 +1303,448 @@ fn a_swap_repoints_only_targets_of_instructions_that_take_a_player() {
             "a held Tight Marking marks an opponent: it stays ({version:?})"
         );
     }
+}
+
+/// The badge centre of an outfield slot at stored `(x, y)` on `canvas`.
+fn spot_centre(canvas: egui::Rect, x: u8, y: u8) -> egui::Pos2 {
+    badge_centre(canvas.min, FormationSlot { position: 1, x, y })
+}
+
+/// `point` lies inside no marker box of `players` but `index`'s own.
+fn under_no_other_marker(
+    canvas: egui::Rect,
+    players: &[FormationSlot; 11],
+    index: usize,
+    point: egui::Pos2,
+) -> bool {
+    centres_of(canvas, players)
+        .iter()
+        .enumerate()
+        .all(|(other, centre)| other == index || !marker_rect(*centre, canvas).contains(point))
+}
+
+/// The texts painted on `badge`: the text shapes whose galley's centre
+/// lies inside it, in paint order (his position, then his overall).
+fn badge_texts(shapes: &[egui::epaint::ClippedShape], badge: egui::Rect) -> Vec<String> {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) if badge.contains(shape.pos + shape.galley.size() / 2.0) => {
+                Some(shape.galley.job.text.clone())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// The frame's darkening fills: the rects filled black at alpha 153.
+fn dim_fills(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::Rect> {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape) if shape.fill == egui::Color32::from_black_alpha(153) => {
+                Some(shape.rect)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// The area `a` and `b` share, 0 when they only touch or are apart.
+fn overlap(a: egui::Rect, b: egui::Rect) -> f32 {
+    let width = (a.right().min(b.right()) - a.left().max(b.left())).max(0.0);
+    let height = (a.bottom().min(b.bottom()) - a.top().max(b.top())).max(0.0);
+    width * height
+}
+
+// PARTY HARD pressed on his portrait, 15 left of and 40 above his badge
+// centre: the pointer moved 6 to the right from the press takes his
+// marker 2 units right (6 / 2.827 rounds to 2), to (22, 26); 7 leaves him
+// there (2.48 rounds to 2: a whole unit at a time); 8 takes him to (23,
+// 26). The pressed point stays within half a unit of the pointer, and
+// nothing is written while he is held.
+// SE-GUI-42
+#[test]
+fn a_held_marker_moves_by_whole_units_under_the_pressed_point() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    party_hard(&mut tactics, &mut roster);
+    let players = tactics.presets[0].formations[0].players;
+    assert_eq!(
+        (players[8].position, players[8].x, players[8].y),
+        (position_byte("LMF"), 20, 26),
+        "premise: PARTY HARD, the LMF, at (20, 26)"
+    );
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centre = centres_of(canvas, &players)[8];
+    let press = centre + egui::vec2(-15.0, -40.0);
+    assert!(
+        portrait_rect(badge_rect(centre)).contains(press)
+            && under_no_other_marker(canvas, &players, 8, press),
+        "premise: the press is on his portrait, under no other marker"
+    );
+
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(press, true),
+    );
+    // A first move past egui's click distance starts the drag: a
+    // shorter one from the press could still be a click.
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::PointerMoved(press + egui::vec2(0.0, 10.0))],
+    );
+    for (dx, x) in [(6.0, 22), (7.0, 22), (8.0, 23)] {
+        let pointer = press + egui::vec2(dx, 0.0);
+        let (shapes, changed) = window.pitch_shapes(
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+            vec![egui::Event::PointerMoved(pointer)],
+        );
+        assert!(!changed, "{dx} right: a held frame writes nothing");
+        let badge = *badge_rects(&shapes)
+            .last()
+            .expect("the held marker's badge, painted last");
+        near(badge.center(), spot_centre(canvas, x, 26), 0.5);
+        let pressed = badge.center() + (press - centre);
+        assert!(
+            (pointer.x - pressed.x).abs() <= SPOT_XS / 2.0
+                && (pointer.y - pressed.y).abs() <= SPOT_YS / 2.0,
+            "{dx} right: the pressed point {pressed:?} within half a unit of the pointer {pointer:?}"
+        );
+    }
+}
+
+// The rule runs at every step from the position he holds: PARTY HARD
+// held at (30, 26) is offered CMF (the band's default) and AMF (the
+// first free candidate) and holds neither, so his higher overall picks
+// AMF, 85 against 84, and his badge reads AMF 85. Released at (19, 20),
+// he is offered CMF and LMF, holds neither (he holds AMF), and takes
+// LMF, 95 against 84. The held frames write nothing; the release writes
+// his spot and position, one change.
+// SE-GUI-42
+#[test]
+fn a_held_marker_shows_the_rules_position_and_the_release_writes_it() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    party_hard(&mut tactics, &mut roster);
+    let before = tactics.clone();
+    let players = tactics.presets[0].formations[0].players;
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let press = centres_of(canvas, &players)[8];
+    let held = spot_centre(canvas, 30, 26);
+    let release = spot_centre(canvas, 19, 20);
+    for point in [press, held, release] {
+        assert!(
+            under_no_other_marker(canvas, &players, 8, point),
+            "premise: {point:?} is under no other marker"
+        );
+    }
+
+    let (_, changed) = window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(press, true),
+    );
+    assert!(!changed, "the press writes nothing");
+    for frame in 0..2 {
+        let (shapes, changed) = window.pitch_shapes(
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+            vec![egui::Event::PointerMoved(held)],
+        );
+        assert!(!changed, "held frame {frame} writes nothing");
+        let badge = *badge_rects(&shapes)
+            .last()
+            .expect("the held marker's badge, painted last");
+        near(badge.center(), held, 0.5);
+        assert_eq!(
+            badge_texts(&shapes, badge),
+            ["AMF", "85"],
+            "held frame {frame}: his badge reads the position he holds"
+        );
+        assert_eq!(tactics, before, "held frame {frame}: the record stays");
+    }
+    let (_, changed) = window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(release, false),
+    );
+    assert!(changed, "the release writes");
+    let mut expect = before;
+    expect.presets[0].formations[0].players[8] = FormationSlot {
+        position: position_byte("LMF"),
+        x: 19,
+        y: 20,
+    };
+    assert_eq!(tactics, expect, "his slot holds (19, 20) and LMF, alone");
+}
+
+/// Slot `index` of preset 1's Kick-off pressed on his badge centre (no
+/// offset, so he stands at the pointer's spot), held at each stored spot
+/// of `path` for a frame, and released at the last: the position each
+/// held frame's badge shows, and whether the release changed `tactics`.
+/// The pointer rests on him a frame first: a press hit-tests against the
+/// markers the last frame drew.
+fn hold_along(
+    window: &mut Headless,
+    tactics: &mut TeamTactics,
+    view: &mut TacticsView,
+    roster: &[RosterRow<'_>],
+    index: usize,
+    path: &[(u8, u8)],
+) -> (Vec<String>, bool) {
+    let version = PesVersion::Pes17;
+    let players = tactics.presets[0].formations[0].players;
+    let (nodes, _) = window.pitch(version, tactics, view, roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let press = centres_of(canvas, &players)[index];
+    assert!(
+        under_no_other_marker(canvas, &players, index, press),
+        "premise: his badge centre is under no other marker"
+    );
+    window.pitch(
+        version,
+        tactics,
+        view,
+        roster,
+        vec![egui::Event::PointerMoved(press)],
+    );
+    window.pitch(version, tactics, view, roster, pointer_at(press, true));
+    let mut shown = Vec::new();
+    for &(x, y) in path {
+        let (shapes, changed) = window.pitch_shapes(
+            version,
+            tactics,
+            view,
+            roster,
+            vec![egui::Event::PointerMoved(spot_centre(canvas, x, y))],
+        );
+        assert!(!changed, "held at ({x}, {y}): nothing written");
+        let badge = *badge_rects(&shapes)
+            .last()
+            .expect("the held marker's badge, painted last");
+        shown.push(badge_texts(&shapes, badge).swap_remove(0));
+    }
+    let &(x, y) = path.last().expect("a path of one spot or more");
+    let (_, changed) = window.pitch(
+        version,
+        tactics,
+        view,
+        roster,
+        pointer_at(spot_centre(canvas, x, y), false),
+    );
+    (shown, changed)
+}
+
+// SE-GUI-42's PES 17 cases: a held starter is ruled from the position he
+// had when picked up, never from the one shown a step earlier. Team
+// 702's CF COWBOY BEBOP, at (40, 45), is rated SS A and CF A; his
+// overalls are CMF 99, AMF 100, SS 104 and CF 109. Held at (42, 30) he
+// is offered CMF and AMF and has neither, so he shows AMF; at (42, 37),
+// in SS's rows alone, SS; back at (40, 45), offered SS and his own CF,
+// CF again, and a release there leaves him as he was. Released at (42,
+// 30) he is an AMF, and dragged from there to (40, 45), offered SS and
+// CF, he takes CF, rated higher. Released at (42, 30), then at (42, 37)
+// he is an SS, and dragged to (40, 45), where SS is offered, he stays
+// an SS.
+// SE-GUI-42
+#[test]
+fn a_held_starter_is_ruled_from_the_position_he_had_when_picked_up() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let (mut tactics, overalls) = team_702();
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes17);
+    let mut roster = roster_rows(&rows);
+    let cf = 10;
+    roster[usize::from(tactics.starting_eleven[cf])].overalls = Some(overalls);
+    let start = tactics.clone();
+    let players = start.presets[0].formations[0].players;
+    assert_eq!(
+        (players[cf].position, players[cf].x, players[cf].y),
+        (position_byte("CF"), 40, 45),
+        "premise: COWBOY BEBOP, the CF, at (40, 45)"
+    );
+    assert_eq!(
+        [overalls[5], overalls[8], overalls[11], overalls[12]],
+        [99, 100, 104, 109],
+        "premise: his overalls at CMF, AMF, SS and CF"
+    );
+    let (nodes, _) = window.pitch(PesVersion::Pes17, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    for (x, y) in [(42, 30), (42, 37)] {
+        assert!(
+            under_no_other_marker(canvas, &players, cf, spot_centre(canvas, x, y)),
+            "premise: ({x}, {y}) is clear of his teammates' markers"
+        );
+    }
+    let slot = |tactics: &TeamTactics| tactics.presets[0].formations[0].players[cf];
+    let at = |position: &str, x: u8, y: u8| FormationSlot {
+        position: position_byte(position),
+        x,
+        y,
+    };
+
+    let (shown, changed) = hold_along(
+        &mut window,
+        &mut tactics,
+        &mut view,
+        &roster,
+        cf,
+        &[(42, 30), (42, 37), (40, 45)],
+    );
+    assert_eq!(shown, ["AMF", "SS", "CF"], "held down, on and back up");
+    assert!(!changed, "released where he was picked up: no change");
+    assert_eq!(tactics, start, "he is the CF at (40, 45) still");
+
+    let (shown, _) = hold_along(
+        &mut window,
+        &mut tactics,
+        &mut view,
+        &roster,
+        cf,
+        &[(42, 30)],
+    );
+    assert_eq!(shown, ["AMF"], "held at (42, 30)");
+    assert_eq!(slot(&tactics), at("AMF", 42, 30), "released an AMF");
+    let (shown, _) = hold_along(
+        &mut window,
+        &mut tactics,
+        &mut view,
+        &roster,
+        cf,
+        &[(40, 45)],
+    );
+    assert_eq!(shown, ["CF"], "the AMF held at (40, 45)");
+    assert_eq!(slot(&tactics), at("CF", 40, 45), "released a CF");
+
+    tactics = start.clone();
+    for (x, y, position) in [(42, 30, "AMF"), (42, 37, "SS"), (40, 45, "SS")] {
+        let (shown, _) = hold_along(&mut window, &mut tactics, &mut view, &roster, cf, &[(x, y)]);
+        assert_eq!(shown, [position], "held at ({x}, {y})");
+        assert_eq!(slot(&tactics), at(position, x, y), "released at ({x}, {y})");
+    }
+}
+
+// PARTY HARD, rated A at LMF and LWF alone, held: the pitch outside
+// those two areas is darkened by fills that cover the canvas less the
+// rectangle from its left and top edges to x 20.5 and y 15.5 through the
+// spot mapping (LMF's x 5 to 20 and y 16 to 34, LWF's above it to the
+// top), no two of them overlapping, since two alpha fills over one place
+// would read darker. Nothing is darkened before he is held, nor while
+// the keeper, who is never dragged, is pressed and moved.
+// SE-GUI-42
+#[test]
+fn a_held_starter_lights_his_rated_areas_and_darkens_the_rest() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    party_hard(&mut tactics, &mut roster);
+    let players = tactics.presets[0].formations[0].players;
+    let (shapes, _) =
+        window.pitch_shapes(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    assert_eq!(dim_fills(&shapes), [], "nothing held: nothing darkened");
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let press = centres_of(canvas, &players)[8];
+    let held = spot_centre(canvas, 30, 26);
+
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(press, true),
+    );
+    let (shapes, _) = window.pitch_shapes(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::PointerMoved(held)],
+    );
+    let lit = egui::Rect::from_min_max(
+        canvas.min,
+        canvas.min + egui::vec2(SPOT_X0 + SPOT_XS * 20.5, SPOT_Y0 - SPOT_YS * 15.5),
+    );
+    let dims = dim_fills(&shapes);
+    assert!(!dims.is_empty(), "held: the rest is darkened");
+    for (i, dim) in dims.iter().enumerate() {
+        assert!(
+            canvas.expand(0.5).contains_rect(*dim),
+            "fill {dim:?} inside the canvas"
+        );
+        assert!(overlap(*dim, lit) <= 0.5, "fill {dim:?} off the lit area");
+        for other in &dims[i + 1..] {
+            assert!(
+                overlap(*dim, *other) <= 0.5,
+                "fills {dim:?} and {other:?} do not overlap"
+            );
+        }
+    }
+    let darkened: f32 = dims.iter().map(|dim| dim.area()).sum();
+    assert!(
+        (darkened - (canvas.area() - lit.area())).abs() <= 1.0,
+        "the fills cover the canvas less the lit area: {darkened} against {}",
+        canvas.area() - lit.area()
+    );
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(held, false),
+    );
+
+    // The keeper pressed and moved: no drag, nothing darkened.
+    let players = tactics.presets[0].formations[0].players;
+    let keeper = players
+        .iter()
+        .position(|slot| slot.position == 0)
+        .expect("the formation has a keeper slot");
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let point = marker_point(&nodes, &players, keeper);
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(point, true),
+    );
+    let (shapes, _) = window.pitch_shapes(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::PointerMoved(held)],
+    );
+    assert_eq!(
+        dim_fills(&shapes),
+        [],
+        "the keeper pressed: nothing darkened"
+    );
 }

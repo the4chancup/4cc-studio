@@ -15,6 +15,8 @@
 
 use aatf::TeamView;
 use pes_savefile::EditFile;
+use pes_savefile::interchange::team_toml::labels::PLAYABLE_POSITIONS;
+use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::names::display_name;
 use studio_core::widgets::{checkbox, menu_button};
 use team_widgets::pitch::{self, FORMATIONS};
@@ -32,9 +34,41 @@ const COLUMN_GAP: f32 = 10.0;
 const ROW_GAP: f32 = 6.0;
 
 /// One roster slot's row data before the `RosterRow`s borrow it: the
-/// display name, the raw name, the registered position and the
-/// thirteen per-position overalls.
-type RosterSlot = (String, String, Option<u8>, Option<[u8; 13]>);
+/// display name, the raw name, the registered position, the thirteen
+/// per-position overalls and the positions he is rated A or B at.
+type RosterSlot = (String, String, Option<u8>, Option<[u8; 13]>, [bool; 13]);
+
+/// The `RosterSlot` of the roster slot holding `player`: his display name
+/// as the player list shows it, his raw name for the colour-coded rows,
+/// his registered position, the thirteen per-position overalls the
+/// badge's number and the drag's position pick read, and the positions he
+/// is rated A or B at, which a held marker lights. `None`, an empty slot,
+/// gives "", none and nothing rated.
+pub(super) fn roster_slot(player: Option<&PlayerEntry>) -> RosterSlot {
+    let Some(player) = player else {
+        return (String::new(), String::new(), None, None, [false; 13]);
+    };
+    let mut overalls = [0; 13];
+    for (position, overall) in (0u8..).zip(&mut overalls) {
+        *overall = player
+            .overall_at(position)
+            .expect("overall_at is None only past CF");
+    }
+    // `playable` runs CF first, GK last, not in the position byte's
+    // order; a rating of 1 is B, 2 A, and 3, held by no save, counts as
+    // A, as `overall_at` reads it.
+    let mut rated = [false; 13];
+    for (entry, rating) in player.positions.playable.iter().enumerate() {
+        rated[PLAYABLE_POSITIONS[entry]] = *rating >= 1;
+    }
+    (
+        display_name(&player.name),
+        player.name.clone(),
+        Some(player.positions.registered),
+        Some(overalls),
+        rated,
+    )
+}
 
 /// The editor for the selected row's team (a player row's or a team
 /// row's own), under the team view's fields.
@@ -57,33 +91,11 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some(session) = session.as_mut() else {
         return;
     };
-    // The roster as the widgets list it: the display names as the player
-    // list shows them, the raw names for the colour-coded rows, the
-    // registered positions and the thirteen per-position overalls the
-    // badge's number and the grass drop's position pick read, indexed by
-    // roster slot (an empty slot "" and none).
+    // The roster as the widgets list it, indexed by roster slot.
     let rows: Vec<RosterSlot> = team
         .roster
         .iter()
-        .map(|slot| {
-            session.file().player(slot.player_id).map_or_else(
-                || (String::new(), String::new(), None, None),
-                |player| {
-                    let mut overalls = [0; 13];
-                    for (position, overall) in (0u8..).zip(&mut overalls) {
-                        *overall = player
-                            .overall_at(position)
-                            .expect("overall_at is None only past CF");
-                    }
-                    (
-                        display_name(&player.name),
-                        player.name.clone(),
-                        Some(player.positions.registered),
-                        Some(overalls),
-                    )
-                },
-            )
-        })
+        .map(|slot| roster_slot(session.file().player(slot.player_id)))
         .collect();
     // The roster's player ids (`None` an empty slot): the portrait source's ask.
     let player_ids: Vec<Option<u32>> = team
@@ -152,7 +164,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         .zip(textures)
         .enumerate()
         .map(
-            |(index, ((name, raw_name, position, overalls), portrait))| RosterRow {
+            |(index, ((name, raw_name, position, overalls, rated), portrait))| RosterRow {
                 name: name.as_str(),
                 raw_name: raw_name.as_str(),
                 registered_position: *position,
@@ -163,6 +175,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     .copied()
                     .flatten(),
                 overalls: *overalls,
+                rated: *rated,
                 fielded: fielded[index].as_slice(),
             },
         )
@@ -218,7 +231,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         changed[0] = tactics::fluid_formation(&mut preset_ui, &mut edited, tactics);
         copy_swap_preset_menu(&mut preset_ui, session, team_id, tactics.preset);
         let mut formbar_ui = bar(ui, pitch_left, right);
-        pitch::formation_selector(&mut formbar_ui, tactics);
+        pitch::formation_selector(&mut formbar_ui, &edited, tactics);
         copy_swap_formation_menu(&mut formbar_ui, session, team_id, tactics);
         checkbox(&mut formbar_ui, &mut tactics.scroll_names, "Scroll names");
         let row2_top = top_left.y + line + ROW_GAP;

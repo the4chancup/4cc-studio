@@ -2,10 +2,9 @@
 //! panel — the starter's name and roster number, the Position combo
 //! beside Make GK and the X and Y fields.
 
-use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::tactics::TeamTactics;
 
-use super::{GRID_X, GRID_Y, position_label};
+use super::{GRID_X, GRID_Y, drop_rule, overalls_of, position_label};
 use crate::names::append_name;
 use crate::tactics::{RosterRow, TacticsView, raw_name};
 
@@ -16,10 +15,13 @@ use crate::tactics::{RosterRow, TacticsView, raw_name};
 /// arrows stay under the pointer), and a press anywhere outside
 /// it closes it, as Close does. The starter's name and `player
 /// <n>` head it (`(empty roster slot)` an empty roster slot), under it
-/// the unlabeled Position combo of the twelve outfield positions with
-/// Make GK beside it at its own width, the two filling the popover's
-/// width, and the X (0 to 104) and Y (0 to 48) fields and Close. The
-/// keeper's slot shows a
+/// the unlabeled Position combo of the positions his spot offers
+/// (`drop_rule::spot_choices`, as the game's Select Position menu lists
+/// them; his own first when the spot offers neither) with Make GK beside
+/// it at its own width, the two filling the popover's width, and the X
+/// (0 to 104) and Y (0 to 48) fields and Close. A change of X or Y sets
+/// his position by the drop rule at the new spot, as a release there
+/// does. The keeper's slot shows a
 /// disabled "GK", the two fields disabled under "The goalkeeper's spot is
 /// fixed" and Make GK disabled. Make GK exchanges the slot's
 /// `starting_eleven` entry with the keeper slot's — the formation slots
@@ -73,6 +75,7 @@ pub(super) fn slot_popover(
         return;
     }
     let index = open.slot;
+    let overalls = overalls_of(roster, tactics, index);
     let TeamTactics {
         presets,
         starting_eleven,
@@ -141,13 +144,15 @@ pub(super) fn slot_popover(
                             .on_disabled_hover_text("Position");
                     });
                 } else {
+                    let offered = drop_rule::spot_choices(formation, index, slot.x, slot.y);
+                    let own = (!offered.contains(&slot.position)).then_some(slot.position);
                     let mut position = slot.position;
                     egui::ComboBox::from_id_salt("slot position")
                         .width(width)
                         .selected_text(position_label(slot.position))
                         .show_ui(ui, |ui| {
-                            for (value, label) in POSITIONS.iter().enumerate().skip(1) {
-                                ui.selectable_value(&mut position, value as u8, *label);
+                            for value in own.into_iter().chain(offered) {
+                                ui.selectable_value(&mut position, value, position_label(value));
                             }
                         })
                         .response
@@ -193,6 +198,12 @@ pub(super) fn slot_popover(
                 view.popover = None;
             }
         });
+        // A Y typed into another band changes his position with it.
+        let moved = formation.players[index];
+        if (moved.x, moved.y) != (slot.x, slot.y) {
+            formation.players[index].position =
+                drop_rule::dropped_position(formation, index, moved.x, moved.y, overalls);
+        }
     });
 }
 
@@ -502,6 +513,8 @@ mod tests {
     fn the_popover_closes_when_the_formation_changes() {
         let mut window = Headless::sized(600.0, 450.0);
         let mut tactics = fixture_tactics(PesVersion::Pes21);
+        // Fluid formation on, so the preset's In-possession can be shown.
+        tactics.presets[0].style.fluid = Some(true);
         let mut view = TacticsView::default();
         let rows = fixture_rows(PesVersion::Pes21);
         let roster = roster_rows(&rows);

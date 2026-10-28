@@ -61,6 +61,8 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
     for (formation, x) in [(0, 10), (1, 20), (2, 30)] {
         file.team_mut(701).unwrap().tactics.presets[0].formations[formation].players[0].x = x;
     }
+    // Fluid formation on, so the formation bar can show In-possession.
+    file.team_mut(701).unwrap().tactics.presets[0].style.fluid = Some(true);
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
@@ -510,6 +512,8 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
         .tactics
         .starting_eleven
         .swap(6, 10);
+    // Fluid formation on in preset 2, so its In-possession can be shown.
+    file.team_mut(701).unwrap().tactics.presets[1].style.fluid = Some(true);
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
@@ -528,20 +532,25 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     // snapped drop point, undoable. The drop lands off-grid, as every
     // real one does — `+vec2(1.6, -3.5)` past a free grid point, 0.57
     // and 0.52 of a unit, so the written unit is the rounded (x + 1,
-    // y + 1), which a `.floor()` snap would read (x, y); the release
-    // point stays on the canvas and inside no other marker.
+    // y + 1), which a `.floor()` snap would read (x, y) — plus the
+    // press's offset from his badge centre, since a held marker stands
+    // at the pointer less it; the release point stays on the canvas and
+    // inside no other marker.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let players = before.presets[0].formations[0].players;
     let from =
         marker_point(canvas, &players, index).expect("a point on the marker a press can reach");
+    let offset = from - badge_centre(canvas, slot_before);
     let (x, y, onto) = (0..104_u8)
         .flat_map(|x| (0..48_u8).map(move |y| (x, y)))
         .map(|(x, y)| {
             (
                 x,
                 y,
-                badge_centre(canvas, FormationSlot { position: 1, x, y }) + egui::vec2(1.6, -3.5),
+                badge_centre(canvas, FormationSlot { position: 1, x, y })
+                    + egui::vec2(1.6, -3.5)
+                    + offset,
             )
         })
         .find(|(x, y, point)| {
@@ -967,7 +976,8 @@ fn the_pitchs_corner_names_the_shown_formation_as_the_game_does() {
         );
     }
 
-    // /3/: its AMF dragged to another spot keeps `3-3-1-3`; given CMF
+    // /3/: its AMF dragged to another spot in AMF's area (x 21 to 83, y
+    // 26 to 34), which offers CMF and his AMF, keeps `3-3-1-3`; given CMF
     // through his popover's Position combo, `3-4-3`. A team change keeps
     // the shown preset and formation: back to preset 1's Kick-off first.
     view.selected = Some(Selection::Team(701));
@@ -990,9 +1000,11 @@ fn the_pitchs_corner_names_the_shown_formation_as_the_game_does() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let from = marker_point(canvas, &players, amf).expect("a point on the AMF's marker");
-    let onto = (0..104_u8)
-        .flat_map(|x| (0..48_u8).map(move |y| (x, y)))
-        .map(|(x, y)| badge_centre(canvas, FormationSlot { position: 1, x, y }))
+    // A held marker stands at the pointer less the press's offset.
+    let offset = from - badge_centre(canvas, players[amf]);
+    let onto = (21..=83_u8)
+        .flat_map(|x| (26..=34_u8).map(move |y| (x, y)))
+        .map(|(x, y)| badge_centre(canvas, FormationSlot { position: 1, x, y }) + offset)
         .find(|point| {
             point.x >= canvas.x0 as f32
                 && point.x <= canvas.x1 as f32
@@ -2363,5 +2375,44 @@ fn scroll_names_survives_opening_another_save() {
         ctx.tool_settings("save-editor")["scroll_names"].as_bool(),
         Some(false),
         "and the settings table keeps it off"
+    );
+}
+
+// The positions a held marker lights come from the player's playable
+// ratings, B or better, moved from the record's order (CF first, GK last)
+// to the position byte's. The PES 17 save's Housefires (72115, team 721)
+// is rated LB A and LMF B: his row's `rated` is true at LB (2) and LMF (6)
+// alone. An empty roster slot's is all false.
+#[test]
+fn the_tactics_rows_mark_the_positions_a_player_is_rated_a_or_b_at() {
+    let file = EditFile::from_bytes(&fixture_save(PesVersion::Pes17)).unwrap();
+    let team = file.team(721).expect("team 721 is in the fixture");
+    let housefires = file.player(72115).expect("Housefires is in the fixture");
+    assert_eq!(
+        housefires.positions.playable,
+        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 2, 0, 0],
+        "premise: LMF B and LB A, C elsewhere, in the record's order"
+    );
+    assert!(
+        team.roster.iter().any(|slot| slot.player_id == 72115),
+        "premise: he is on team 721's roster"
+    );
+    let mut expected = [false; 13];
+    expected[2] = true;
+    expected[6] = true;
+    assert_eq!(
+        crate::view::tactics::roster_slot(Some(housefires)).4,
+        expected,
+        "LB and LMF alone"
+    );
+    let empty = team
+        .roster
+        .iter()
+        .find(|slot| file.player(slot.player_id).is_none())
+        .expect("team 721 has an empty roster slot");
+    assert_eq!(
+        crate::view::tactics::roster_slot(file.player(empty.player_id)).4,
+        [false; 13],
+        "an empty slot: nothing rated"
     );
 }
