@@ -115,6 +115,11 @@ input[type=range]:focus { outline: none; }
 .window[data-dlg="unsaved-changes"] { max-width: 90%; }
 #unsaved-changes td, #unsaved-changes th { white-space: nowrap; }
 /* A colour's old and new value: a 12-point swatch before the hex. */
+/* A dialog's labels and fields on egui::Grid's two columns (formGrid): the
+   fields start at one x, item spacing 8 x 3 as the theme's. */
+.pform { display: grid; grid-template-columns: auto auto; justify-content: start;
+  align-items: center; gap: 3px 8px; margin: 3px 0; }
+.pform > * { justify-self: start; }
 .chswatch { display: inline-block; width: 12px; height: 12px; border: 1px solid #000;
   border-radius: 2px; box-sizing: border-box; vertical-align: middle; margin-right: 5px; }
 /* The toolbar's unsaved-changes label is a clickable label (egui: a Label
@@ -383,6 +388,8 @@ table.grid.stats-grid td { padding: 2px 6px; }
   background: var(--panel);
   border: 1px solid var(--stroke); border-radius: 6px; padding: 6px 8px;
   z-index: 30; box-shadow: 0 4px 16px #000a; }
+.tpopover .pos-row { flex-wrap: nowrap; }
+.tpopover .pos-row select { width: auto; flex: none; }
 .rolechip { border-radius: 2px; padding: 1px 6px; cursor: default; }
 .rolechip:hover { background: var(--hover); color: #f0f0f0; }
 .rolechip.armed { background: var(--sel-bg); color: var(--sel-fg); }
@@ -3291,8 +3298,7 @@ function teamMenu() {
     // (8.33), bare or with each preset's settings. On the Team menu because
     // it acts on the selected row's team, as the entries above do; two
     // entries, since the native save dialog has no room for the choice.
-    ["Save a picture of the formations\u2026", () => dlgPictureSave(false)],
-    ["Save a picture of the formations with their settings\u2026", () => dlgPictureSave(true)],
+    ["Save a picture of the formations\u2026", dlgPictureSave],
   ]);
 }
 function databaseMenu() {
@@ -4976,12 +4982,15 @@ function slotPopover(t) {
       style: "left:" + pop.x + "px; top:" + pop.y + "px" },
     h("div", { class: "strong" }, ...(p ? nameSpans(p.name) : ["(empty roster slot)"]),
       " ", weak("player " + (roster + 1))),
-    h("div", { class: "row" }, "Position ",
+    // No label: the dropdown's abbreviations name what it holds. It is as
+    // wide as its longest entry (egui's ComboBox width), so Make GK fits on
+    // its row.
+    h("div", { class: "row pos-row" },
       s.position === "GK"
-        ? combo([["GK", "GK"]], "GK", () => {}, { disabled: true })
+        ? combo([["GK", "GK"]], "GK", () => {}, { disabled: true, title: "Position" })
         : combo(POSITIONS.slice(1).map(x => [x, x]), s.position, v => {
-          edit("formation position", () => { s.position = v; }); render(); }),
-      " ", button("Make GK", () => { makeGk(t, i); S.slotPop = null; render(); },
+          edit("formation position", () => { s.position = v; }); render(); }, { title: "Position" }),
+      button("Make GK", () => { makeGk(t, i); S.slotPop = null; render(); },
         { disabled: s.position === "GK", title: "Swaps him into goal; the keeper takes his slot" })),
     h("div", { class: "row" },
       num("X", () => s.x, v => { s.x = v; }, PITCH.xu),
@@ -5317,40 +5326,65 @@ const portraitsReady = t => t.tactics.starting_eleven.every(idx => {
   const uri = D.portraits && p && (PORTRAITS[S.saveKey] || {})[p.id];
   return !uri || portraitOf(p);
 });
-// Team menu, Save a picture of the formations, with or without their
-// settings (8.33): rfd's save-file dialog (the draft's stub edits the folder
-// and the name inline), opening at the folder last used (the tool's
-// `formation_pictures_folder` setting, which the range dialog shares) with
-// the name `<id> <name>.png` filled in, so a member names the picture they
-// share; the native dialog asks before replacing a file. The picture is then
-// written and a notice names it, with an Open folder action. No dialog of
-// ours: the native one is the question, the notice the answer.
-// sample wording: the stub's lines, the notice.
-function dlgPictureSave(settings) {
+// A dialog's label and field pairs on one grid (egui::Grid), so every field
+// starts at one x whatever its label's length; a pair whose label is null
+// is a line across both columns.
+const formGrid = (...pairs) => h("div", { class: "pform" },
+  ...pairs.flatMap(([label, field]) => label === null
+    ? [h("div", { style: "grid-column:1/-1" }, field)] : [h("span", {}, label), field]));
+// Team menu, Save a picture of the formations (8.33): a dialog of the tool's
+// own, not rfd's save-file dialog, since a native dialog has no room for the
+// settings checkbox the range dialog has too. The folder is the one last
+// used (the tool's `formation_pictures_folder` setting, which the range
+// dialog shares), with Browse for rfd's folder picker; the name
+// `<id> <name>.png` is filled in, so a member names the picture they share,
+// and the checkbox adds or removes " settings" before its extension. A name
+// already in the folder asks before it is replaced, as the native dialog
+// did. The picture is then written and a notice names it, with an Open
+// folder action.
+// sample wording: the dialog's labels, the replace question, the notice.
+function dlgPictureSave() {
   const t = selTeam();
-  const folderIn = h("input", { type: "text", id: "pic-folder", style: "width:420px", value: S.picturesFolder });
-  const nameIn = h("input", { type: "text", id: "pic-name", style: "width:420px", value: pictureFileName(t, settings) });
-  dlg(settings ? "picture-save-settings" : "picture-save",
-    "Save a picture of the formations" + (settings ? " with their settings" : ""), h("div", {},
-      h("p", {}, weak("The native save dialog (rfd) opens here, at the folder last used, the name filled in; the draft edits both inline.")),
-      h("div", { class: "row" }, "Folder ", folderIn),
-      h("div", { class: "row" }, "File name ", nameIn)),
+  let settings = false;
+  const folderIn = h("input", { type: "text", id: "pic-folder", style: "width:380px", value: S.picturesFolder });
+  const nameIn = h("input", { type: "text", id: "pic-name", style: "width:380px", value: pictureFileName(t, false) });
+  const toggle = h("input", { type: "checkbox", id: "pic-settings", onchange: e => {
+    settings = e.target.checked;
+    const plain = nameIn.value.replace(/ settings\.png$/i, ".png");
+    nameIn.value = settings ? plain.replace(/\.png$/i, " settings.png") : plain; } });
+  const write = () => {
+    const file = folderIn.value + "\\" + nameIn.value;
+    S.picturesFolder = folderIn.value;
+    S.picturesWritten = (S.picturesWritten || new Set()).add(file);
+    writePicture(t, file, settings);
+    publishNotice("Wrote " + nameIn.value + " to " + folderIn.value,
+      { label: "Open folder", run: openOutputStub }, "success");
+    closeWindow(); render();
+  };
+  dlg("picture-save", "Save a picture of the formations", h("div", {},
+      formGrid(["Folder", h("span", { class: "row" }, folderIn,
+          button("Browse…", () => {}, { title: "The native folder picker (rfd) opens here" }))],
+        ["File name", nameIn]),
+      h("label", { class: "cb" }, toggle, " With each preset's settings beside its row")),
     [button("Save", () => {
-      S.picturesFolder = folderIn.value;
-      writePicture(t, folderIn.value + "\\" + nameIn.value, settings);
-      publishNotice("Wrote " + nameIn.value + " to " + folderIn.value,
-        { label: "Open folder", run: openOutputStub }, "success");
-      closeWindow(); render(); }),
+      // The draft knows only the files it wrote this session; the app asks
+      // the folder.
+      const file = folderIn.value + "\\" + nameIn.value;
+      if (!(S.picturesWritten || new Set()).has(file)) { write(); return; }
+      dlg("picture-replace", "Replace the picture?",
+        h("p", {}, nameIn.value + " is already in " + folderIn.value + ". Replace it?"),
+        [button("Replace", write), button("Cancel", closeWindow)]);
+    }),
      button("Cancel", closeWindow)]);
 }
 // Savefile menu, Save formation pictures for a range of teams (8.34): the
-// ids asked as a range, the folder as above, and the run in the same dialog,
-// which turns into its progress and then its result, so the member sees one
-// window from the question to the folder. Only the save's teams with an id
-// in the range are drawn, so a range past the save's ids, or a huge one,
-// costs nothing beyond the teams it finds; the count line says how many
-// before Save is pressed, and Save is off while it finds none or the first
-// id is past the last. Stop keeps the pictures written so far. The
+// first and last team picked from the save's teams, the folder as above, and
+// the run in the same dialog, which turns into its progress and then its
+// result, so the member sees one window from the question to the folder.
+// The range is every team whose id lies between the two picks' (the save's
+// first and last by default); the count line says how many before Save is
+// pressed, and Save is off while the first comes after the last. Stop keeps
+// the pictures written so far. The
 // pictures with their settings are a checkbox here, not a second menu entry:
 // the dialog already asks how to write the run, and the file-name line shows
 // the choice. The dialog is a drawer (windowDrawer), rebuilt on every render
@@ -5373,23 +5407,33 @@ function drawPicturesRange() {
   if (!run) {
     const teams = picTeamsIn(picRange.from, picRange.to);
     const reversed = picRange.from > picRange.to;
-    const num = key => h("input", { type: "number", id: "pic-" + key, value: picRange[key], style: "width:72px",
-      onchange: e => { const v = parseInt(e.target.value, 10);
-        if (!Number.isNaN(v)) picRange[key] = v; render(); } });
-    const count = reversed ? "The first id is past the last"
-      : teams.length === 0 ? "No team of this save has an id in this range"
-      : teams.length === 1 ? "1 team of this save has an id in this range"
-      : teams.length + " teams of this save have an id in this range";
+    // The two ends picked as the player list's team selector picks a team
+    // (its combo of the save's teams by name), not typed as ids.
+    const pick = key => {
+      const s = combo(curSave().teams.map(t => [String(t.id), t.name]), String(picRange[key]),
+        v => { picRange[key] = Number(v); });
+      s.id = "pic-" + key;
+      return s;
+    };
+    const count = reversed ? "The first team comes after the last"
+      : teams.length === 1 ? "1 team" : teams.length + " teams";
     const folderIn = h("input", { type: "text", id: "pic-folder", style: "width:380px", value: folder,
       onchange: e => { S.picturesFolder = e.target.value; } });
+    // The file-name line in both of the checkbox's states, the other one
+    // hidden in the same cell, so the dialog is as wide as the longer and
+    // keeps its width when the checkbox flips.
+    const example = teams[0] || curSave().teams[0];
+    const nameLine = on => h("p", { style: "grid-area:1/1" + (on === picRange.settings ? "" : "; visibility:hidden"),
+        "aria-hidden": on === picRange.settings ? null : "true" },
+      weak("One picture per team, named by its id and name (" + pictureFileName(example, on) +
+        "), an older one of that name replaced."));
     body = h("div", {},
-      h("div", { class: "row" }, "Team ids from ", num("from"), " to ", num("to")),
-      h("p", { class: reversed || !teams.length ? "warn" : "weak", id: "pic-count" }, count),
-      h("div", { class: "row" }, "Folder ", folderIn,
-        button("Browse…", () => {}, { title: "The native folder picker (rfd) opens here" })),
+      formGrid(["From", pick("from")], ["To", pick("to")],
+        [null, h("span", { class: reversed ? "warn" : "weak", id: "pic-count" }, count)],
+        ["Folder", h("span", { class: "row" }, folderIn,
+          button("Browse…", () => {}, { title: "The native folder picker (rfd) opens here" }))]),
       cb("With each preset's settings beside its row", picRange.settings, v => { picRange.settings = v; }),
-      h("p", {}, weak("One picture per team, named by its id and name (" +
-        pictureFileName(teams[0] || curSave().teams[0], picRange.settings) + "), an older one of that name replaced.")));
+      h("div", { style: "display:grid" }, nameLine(false), nameLine(true)));
     buttons = [button("Save pictures", () => startPicturesRun(teams), { disabled: reversed || !teams.length }),
       button("Cancel", closeWindow)];
   } else if (run.timer != null) {
