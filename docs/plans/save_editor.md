@@ -336,8 +336,8 @@ all side by side.
      so the two read apart. A ruleset with no `tricks` group (VTL's) shows **Free cards**
      there instead: every skill one of its `free_cards` effects names, those free only for a
      tier, a position or the captain included, so a card does not move between panels when a
-     player's tier changes. Neither panel when the ruleset names no such card or its file does
-     not load: every skill then stays under Skills. Under them **COM playing styles**, the 7 in two columns
+     player's tier changes. Neither panel when the ruleset names no such card: every skill then
+     stays under Skills. Under them **COM playing styles**, the 7 in two columns
      whose second starts at the skills' second's x. Every cell is one line of one height, a
      version-gated card's disabled one as tall as an enabled one, so each row of the two
      columns shares one y (the draft's disabled cells were 2 points taller, and its second

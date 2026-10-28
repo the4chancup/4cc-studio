@@ -92,7 +92,7 @@ lib.
 ```
 crates/tools/save_editor/src/
 ├── lib.rs              # Tool (StudioTool impl) — wiring only
-├── settings.rs         # editor settings (aatf_rules, live_aatf, aesthetics_from_exports,
+├── settings.rs         # editor settings (aatf_ruleset, live_aatf, aesthetics_from_exports,
 │                       #   scroll_names)
 ├── cli.rs              # the subcommands of "CLI" below; runs libs/aatf's rules over the
 │                       #   session's teams and maps the results to messages
@@ -201,9 +201,10 @@ The `diff` command is the merge of 4ccEditor's `comparator.cpp` with Midcupping'
 4ccEditor's AATF tool hardcodes both its parameters and its logic in C++; a ruleset change is a
 recompile. This editor checks a **rules file** instead: a ruleset as data plus a
 generic interpreter, specified in the [AATF rules plan](aatf_rules.md) (`libs/aatf`), and
-built without code in the [Ruleset editor](../plans/ruleset_editor.md). The official ruleset ships
-embedded and is the default; the `aatf_rules` setting holds the path of an alternative file (an
-invitational's).
+built without code in the [Ruleset editor](../plans/ruleset_editor.md). Every cup's current
+ruleset ships embedded, the official one the default; the `aatf_ruleset` setting names the one
+in use, an embedded ruleset's file stem (`vgl27`) or the file name of a copy in the data
+folder's `rules/`.
 
 What this editor adds on top of the lib:
 
@@ -282,8 +283,8 @@ The commands:
   players only in one save (human-readable by default, `--json` for
   tooling), replacing the Midcupping compare scripts; `--aesthetics` and `--gameplay` keep one
   scope. Saves of two versions are refused. Differences are its output, not an error: exit 0.
-- `check-aatf` runs the active ruleset (`--rules`, else the setting's file, else the embedded
-  official ruleset) over the cup teams the
+- `check-aatf` runs the active ruleset (`--rules`, else the one the `aatf_ruleset` setting
+  names) over the cup teams the
   save holds (701-920, or `--teams`) and prints each violation with its team and, for a player's,
   the player; an error-severity violation makes the exit code 1, a warning alone leaves it 0. A rules file that fails load-time validation is
   refused with its findings (line or key path), so `check-aatf` doubles as the CLI's rules
@@ -295,10 +296,11 @@ The commands:
   unused allowance is not something to fix. A team whose check fails (a bug in the logic or in a
   custom check) is an `aatf_check_failed` error line and the other teams are still checked.
   `--teams` takes ids and inclusive ranges (`701,705-710`); an id the save lacks is refused
-  (exit 2). The setting is `aatf_rules`, the file's path, empty for the embedded official ruleset;
-  a relative one resolves in the data directory, as `teams_list_path` does (a rules file is user
-  data beside the settings file, not a file beside wherever the command was started);
-  `--rules`, a command-line path, is relative to the current directory.
+  (exit 2). The setting resolves as the window resolves it: an embedded ruleset's stem, else a
+  copy of that file name in the data directory's `rules/` that loads, else the first embedded
+  ruleset, Autumn 26, with the warning line `aatf_ruleset_gone` (a copy deleted or edited
+  until it no longer loads; the check still runs). `--rules`, a command-line path, is relative
+  to the current directory.
 - `strip-and-seed` is "Stripped save"'s operation on a Fox save: it reads `--bins` (the cup's
   `4cc_08_bins.cpk`) and writes the seeded tables into `--bins-out`, then the stripped save into
   `--out`: when `--bins-out` cannot be written, the save is not (exit 3); a `--bins-out` written
@@ -357,6 +359,7 @@ finding that drops something says so with its own code.
 | `teams_list_read_only` | Error | `export-teams-list --yes`: the data directory cannot take the file (`path`, `error`) | nothing is written; exit 1 |
 | `aatf_violation` | the violation's (Error or Warning) | `check-aatf`: one rule the team breaks under the ruleset (`team`; `player` for a player's violation; `rule`, then the rule's own fields) | printed; an error-severity violation makes the exit code 1 |
 | `aatf_check_failed` | Error | `check-aatf`: the ruleset's check itself failed on the team, which the other teams' results do not cover (`team`, `error`) | the other teams are still checked; exit 1 |
+| `aatf_ruleset_gone` | Warning | `check-aatf` without `--rules`: the `aatf_ruleset` setting names a ruleset that is gone from the data folder or no longer loads (`ruleset`, `used`) | the first embedded ruleset, which the line names, is checked instead |
 | `appearance_id_restored` | Error, or Info once re-stripped | `check-stripped`: the player's appearance id is set again while another player's is stripped, so the game shows his save record, not the database rows (`player`, `name`) | exit 1 while he stands listed; reported at Info and exit 0 once `--strip-again` has stripped him |
 | `strip_base_copied_face` | Warning | `strip-and-seed`: the player's record copied another player's face, which the seed rows cannot carry, so once stripped he shows the face his row describes; his export describing his face settles it (`player`, `name`, `copied`) | warns and goes on |
 
@@ -523,15 +526,17 @@ SE-AATF-02 GIVEN the save with error-severity violations in two teams
                 others are refused naming the missing id, with exit code 2, printing nothing
 SE-AATF-03 GIVEN a rules file that fails load-time validation, and the VGL27 ruleset with a save
                 whose team breaks a VGL27 rule the official ruleset does not have
-           WHEN check-aatf --rules is run with each, and with no --rules and the VGL27 file
-                named in the settings
+           WHEN check-aatf --rules is run with each, and with no --rules and the settings'
+                aatf_ruleset naming the embedded vgl27
            THEN the first is refused with its validation findings (line or key path) and exit
                 code 2; the second and the third print that violation, which a run with neither
                 does not
-SE-AATF-04 GIVEN the VGL27 ruleset and save of SE-AATF-03, the ruleset in the data directory,
-                and the command started from another directory
-           WHEN check-aatf is run with aatf_rules naming the file by its bare name
-           THEN it prints SE-AATF-03's VGL27 violation
+SE-AATF-04 GIVEN the VGL27 ruleset and save of SE-AATF-03, a copy of the ruleset in the data
+                directory's rules/, and the command started from another directory
+           WHEN check-aatf is run with aatf_ruleset naming the copy's file name, and again
+                naming a copy that is not there
+           THEN the first prints SE-AATF-03's VGL27 violation; the second prints the warning
+                line aatf_ruleset_gone naming the official ruleset and checks against it
 SE-AATF-05 GIVEN SE-AATF-02's save, with error-severity violations in two cup teams and a team
                 outside 701 to 920 that would break the same rules
            WHEN check-aatf is run without --teams
@@ -542,8 +547,8 @@ SE-AATF-06 GIVEN a rules file that passes load-time validation but whose check f
            WHEN check-aatf is run with it
            THEN the first team is the error line aatf_check_failed, the later team's violation
                 is still printed, and the exit code is 1
-SE-AATF-07 GIVEN SE-AATF-03's VGL27 file named in the settings and the official ruleset written
-                to a file given by --rules
+SE-AATF-07 GIVEN the settings' aatf_ruleset naming the embedded vgl27 and the official ruleset
+                written to a file given by --rules
            WHEN check-aatf is run on SE-AATF-03's save
            THEN the --rules file is the one checked: the VGL27 violation is not printed
 ```

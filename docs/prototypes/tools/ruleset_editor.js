@@ -62,7 +62,7 @@ const SECTIONS = [["general", "General"], ["tiers", "Tiers"], ["heights", "Heigh
 
 // ---- The official file, crates/libs/aatf/rulesets/autumn26.rhai ----
 const AUTUMN26 = {
-  schema: 1, name: "Autumn 26", squad_size: 23,
+  schema: 1, name: "4cc Autumn 26", squad_size: 23,
   stats: {
     rating: ["dribbling", "goalkeeping", "finishing", "low_pass", "lofted_pass", "heading",
       "swerve", "catching", "clearing", "reflexes", "coverage", "body_control",
@@ -148,7 +148,7 @@ const CUSTOM_SAMPLE = `fn custom_checks(team) {
 // ---- The embedded templates: crates/libs/aatf/rulesets/*.rhai, "Embedded rulesets" order ----
 // crates/libs/aatf/rulesets/spring26.rhai
 const SPRING26 = {
-  schema: 1, name: "Spring 26", squad_size: 23,
+  schema: 1, name: "4cc Spring 26", squad_size: 23,
   stats: clone(AUTUMN26.stats),
   tiers: [
     tier("gold", "Gold", 2, 99, 8, 3, { usage: 2, accuracy: 4 }, 5, { tricks: 3, com: 2 }),
@@ -193,7 +193,7 @@ const SPRING26 = {
 
 // crates/libs/aatf/rulesets/vgl27.rhai
 const VGL27 = {
-  schema: 1, name: "VGL27", squad_size: 23,
+  schema: 1, name: "/vg/ League 27", squad_size: 23,
   stats: {
     rating: ["dribbling", "goalkeeping", "low_pass", "lofted_pass", "swerve",
       "catching", "clearing", "reflexes", "coverage", "body_control",
@@ -260,7 +260,7 @@ const VGL27 = {
 
 // crates/libs/aatf/rulesets/vgl26.rhai
 const VGL26 = {
-  schema: 1, name: "VGL26", squad_size: 23,
+  schema: 1, name: "/vg/ League 26", squad_size: 23,
   stats: {
     rating: ["dribbling", "goalkeeping", "low_pass", "lofted_pass", "swerve",
       "catching", "clearing", "reflexes", "coverage", "body_control",
@@ -331,7 +331,7 @@ const VGL26 = {
 
 // crates/libs/aatf/rulesets/vtl11.rhai
 const VTL11 = {
-  schema: 1, name: "VTL11", squad_size: 23,
+  schema: 1, name: "/vt/ League 11", squad_size: 23,
   stats: { rating: ["clearing"], at_most: [] },
   tiers: [
     tier("gold", "Gold", 2, 99, 8, 1, 4, 7, { com: 3 },
@@ -459,7 +459,7 @@ fn custom_checks(team) {
 
 // crates/libs/aatf/rulesets/vtl10.rhai
 const VTL10 = {
-  schema: 1, name: "VTL10", squad_size: 23,
+  schema: 1, name: "/vt/ League 10", squad_size: 23,
   stats: { rating: ["clearing"], at_most: [] },
   tiers: [
     tier("gold", "Gold", 2, 99, 8, 1, 4, 6, { com: 2 },
@@ -577,7 +577,7 @@ fn custom_checks(team) {
 
 // crates/libs/aatf/rulesets/dbc7.rhai
 const DBC7 = {
-  schema: 1, name: "DBC7", squad_size: 23,
+  schema: 1, name: "Divegrass Before Christmas 7", squad_size: 23,
   stats: {
     rating: ["dribbling", "goalkeeping", "finishing", "low_pass", "lofted_pass", "heading",
       "swerve", "catching", "clearing", "reflexes", "coverage", "body_control",
@@ -801,7 +801,7 @@ const TEMPLATES = { autumn26: () => AUTUMN26, spring26: () => SPRING26,
   vgl27: () => VGL27, vgl26: () => VGL26, vtl11: () => VTL11, vtl10: () => VTL10,
   dbc7: () => DBC7, clouds: () => CLOUDS, blank: () => blank(),
   "custom-check": () => Object.assign(clone(AUTUMN26),
-    { name: "Autumn 26 + custom check", custom_checks: CUSTOM_SAMPLE }) };
+    { name: "4cc Autumn 26 + custom check", custom_checks: CUSTOM_SAMPLE }) };
 
 function clone(v) { return JSON.parse(JSON.stringify(v)); }
 function human(id) {
@@ -1384,7 +1384,7 @@ function save() {
       [button("OK", closeWindow)], "not-saved");
   } else {
     saved = JSON.stringify(R);
-    window_("Saved", h("div", {}, `In Studio this writes ${R.name.toLowerCase().replace(/\s+/g, "_")}.rhai: the data block, the current logic, and the custom checks unchanged. This draft writes nothing.`), [button("OK", () => { closeWindow(); render(); })], "saved");
+    window_("Saved", h("div", {}, `In Studio this writes ${R.name.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).join("_")}.4ccrules: the data block, the current logic, and the custom checks unchanged. This draft writes nothing.`), [button("OK", () => { closeWindow(); render(); })], "saved");
   }
   render(); // the link carries the open window's name
 }
@@ -1392,13 +1392,13 @@ function startPage() {
   // The `start` window's name is the link's mark for the start page open.
   window_("4cc Studio: Ruleset editor", h("div", { class: "col" },
     strong("New from template"),
-    button("Autumn 26 (the official rules)", () => loadTemplate("autumn26")),
-    button("Spring 26", () => loadTemplate("spring26")),
-    button("VGL27", () => loadTemplate("vgl27")),
-    button("VGL26", () => loadTemplate("vgl26")),
-    button("VTL11", () => loadTemplate("vtl11")),
-    button("VTL10", () => loadTemplate("vtl10")),
-    button("DBC7 (Divegrass Before Christmas 7)", () => loadTemplate("dbc7")),
+    button("4cc Autumn 26 (the official rules)", () => loadTemplate("autumn26")),
+    button("4cc Spring 26", () => loadTemplate("spring26")),
+    button("/vg/ League 27", () => loadTemplate("vgl27")),
+    button("/vg/ League 26", () => loadTemplate("vgl26")),
+    button("/vt/ League 11", () => loadTemplate("vtl11")),
+    button("/vt/ League 10", () => loadTemplate("vtl10")),
+    button("Divegrass Before Christmas 7", () => loadTemplate("dbc7")),
     button("Clouds' proposal, every item (from VGL26)", () => loadTemplate("clouds")),
     button("Blank: one tier, no brackets, the universal rules on", () => loadTemplate("blank")),
     h("div", { class: "sep" }),

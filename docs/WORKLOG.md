@@ -4453,7 +4453,14 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] ov7 Live AATF replaces the AATF panel (the maintainer, 2026-10-28; DECISIONS "Live AATF
     replaces the AATF panel; the final pass's fourth rulings"; drafts and plan done,
     `plans/save_editor.md` "Configurable AATF rules", SE-GUI-15 and SE-GUI-32 rewritten, their
-    tests rewritten with the code). The app side, one brief:
+    tests rewritten with the code). The app side, three slices: ov7a built (Opus sidekick,
+    brief `.tmp/0_0_1ov/brief_ov7a.md`, merge brief `merge_ov7a.md`, report
+    `.tmp/sidelead/sk_ov7a.report.md`): the built-ins named by their descriptions and
+    `aatf::builtin`, `aatf_ruleset` with `session::rules::resolve` for the window and
+    `check-aatf` (`aatf_ruleset_gone`), the toolbar dropdown (`view/ruleset_picker.rs`)
+    without Import or ×, the panel and the load error gone, the bundle, the Ruleset editor's
+    start page labels and a suggested file name of letters and digits alone (`/vg/` read as
+    folders); spec's CLI side moved. ov7b: Import and ×; ov7c: Multi-team AATF. The list:
     - the toolbar's ruleset dropdown (`save_editor` view): built-ins by `name`, imports under
       a separator with an ×, `Import rules file…` after another, outside the wheel's steps;
       the import (`rfd` on `.4ccrules`, `Rules::load`, the refusal dialog with the findings,
