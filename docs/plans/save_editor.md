@@ -239,6 +239,22 @@ all side by side.
   and a half cuts "Make Goalkeeper" at the default list width. They act on the selected player, so a team row leaves them disabled, their tooltip
   "The make buttons act on a player: pick a player row"; the Player menu's entries are
   disabled too, their tooltip "The Player menu acts on a player: pick a player row".
+- **The toolbar**, in egui's `MenuBar` (0.37), its style left as the toolbar's so the
+  buttons keep their frames: `Open`, `Save`, `Save as`; a separator; `Undo`, `Redo`; a
+  separator; the `Player`, `Team` and `Savefile` menus; a separator; the ruleset dropdown and
+  Live AATF (with `Show suggestions` while it is on), then `• unsaved changes`. With one menu
+  open, the pointer entering another menu's button opens that one instead, as a menu bar
+  does (`MenuBar` switches on hover; a plain button such as `Save` opens nothing). Menus
+  group by what an entry acts on, not by what it opens: the `Savefile` menu holds the whole
+  save's work, the Comparator and Apply aesthetics patch first (each reads another file
+  against the save, a second save or a Team compiler's patch), a separator, Output rosters
+  to TSV, Save formation pictures for a range of teams and Multi-team AATF, a separator, Fix
+  database; the `Team` menu ends with the team's files, Import / export team file (the
+  interchange panel) and Save a picture of the formations. There is no Panels menu: that the
+  Comparator, the patch and the interchange open as floating panels says nothing a member
+  looks for them by. A menu item's shortcut is drawn right of its label in the weak colour
+  (`Button::shortcut_text`): Bump all stats `Ctrl+B`, Toggle FPC settings `Ctrl+I`, Clear
+  visual flags `Ctrl+F`.
 - **No view draws the tool's name** (`core/gui.md` "Window title": the title bar carries it),
   **nor the open save's path**: the tool's `title_detail` gives it to the idle window title,
   in square brackets, and the toolbar keeps `• unsaved changes` alone, which never takes a
@@ -1185,7 +1201,7 @@ What this editor adds on top of the lib:
   `apply_tier` that fails (`CheckError`) leaves the player as he was and shows the error in
   the refusal dialog.
 - **No AATF panel.** Live AATF is the window's check: there is no floating "AATF
-  violations" window, no Panels menu entry for one, no Validate rules and no Save a copy. A
+  violations" window, no menu entry for one, no Validate rules and no Save a copy. A
   member checks the team they are making legal, which Live AATF does after every edit;
   importing validates a rules file; the Ruleset editor writes a ruleset out. An organizer's
   check of several teams or the whole save is the Savefile menu's Multi-team AATF (below), or
@@ -1480,7 +1496,7 @@ SE-GUI-15  GIVEN the PES 17 save open and no ruleset imported
            WHEN the toolbar's ruleset dropdown is opened
            THEN it stands left of the Live AATF toggle, whether Live AATF is on or off, and
                 lists the built-in rulesets by their descriptions, then `Import rules file…`
-                under a separator, and the Panels menu holds no AATF entry; WHEN another
+                under a separator, and no toolbar menu holds an AATF entry; WHEN another
                 ruleset is picked THEN the quick actions, the Cards left badge and Live AATF's
                 list are that ruleset's on the next frame (SE-GUI-32 for the setting it
                 writes); WHEN the wheel turns over the closed dropdown THEN it

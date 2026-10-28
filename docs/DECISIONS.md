@@ -12885,3 +12885,21 @@ grey (the disabled widget's faded text was barely readable).
 Why: the maintainer's ruling; the earlier draft laid both sides' options on one line each, so a
 radio read as the previous option's and the rows' options did not line up.
 Plan: `plans/save_editor.md` "Team operations".
+
+## 2026-10-28 — save_editor — The toolbar's order, no Panels menu, shortcuts right of their labels
+Decision: the toolbar reads Open, Save, Save as | Undo, Redo | Player, Team, Savefile | the
+ruleset dropdown and Live AATF, each `|` a separator, inside egui's `MenuBar` so that, one menu
+open, the pointer entering another menu's button opens that one. The Panels menu is gone: the
+Comparator and Apply aesthetics patch move to the Savefile menu (both act on the whole save),
+Import / export team file to the Team menu (one team). A menu item's shortcut is drawn right
+of its label (`shortcut_text`), Bump all stats' `Ctrl+B` included in the drafts as in the app.
+Lead's choices, applied: the Savefile menu's three groups (what reads another file against
+the save, the reports, the repair); the team-file entry beside the formations picture, the
+Team menu's other file; `MenuBar` with the toolbar's own style, so the buttons keep their
+frames.
+Why: the maintainer's rulings: a member looks for an entry by what it acts on, not by its
+opening as a panel; the maintainer first placed all three on the Team menu and, shown that
+two act on the whole save, chose the Savefile menu for those; the menus switch on hover as a
+menu bar's do.
+Plan: `plans/save_editor.md` "Editing UI" (the toolbar), "Configurable AATF rules" (No AATF
+panel), "Acceptance" (SE-GUI-15).

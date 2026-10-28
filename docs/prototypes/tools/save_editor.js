@@ -15,7 +15,7 @@
 // 4ccEditor lays it out, and a team row shows the team's fields and tactics.
 // The three panels live as floating windows (.panel = egui::Window over the
 // central panel, non-modal, so a member fixes players while the results stay
-// open), opened from the toolbar's Panels menu; the plan's view/panels/ are
+// open), opened from the Savefile and Team menus; the plan's view/panels/ are
 // windows, not modal dialogs.
 // Widget mapping: <select> = ComboBox, <input type=text> = TextEdit,
 // <input type=number> = DragValue, <input type=checkbox> = CheckBox,
@@ -3275,11 +3275,11 @@ const WALK = [
   ["SE-GUI-21", "the save's game running + Save: refused naming the exe (drawn; the scenario itself is manual)"],
   ["SE-GUI-26", "the Open menu: the discovered saves with version (and account folder from 19), the session's recents, then the picker; Save as keeps the replaced file as .bak"],
   ["SE-GUI-28", "PES selector at 2019 with the PES 21 sample open: the warning names both; the save keeps its version"],
-  ["SE-GUI-13", "Panels, Comparator: pick the PES 21 sample (refused), then Autumn24Q; the toggles and the team filter narrow the rows, Export writes their report lines, a row click selects the player"],
+  ["SE-GUI-13", "Savefile, Comparator: pick the PES 21 sample (refused), then Autumn24Q; the toggles and the team filter narrow the rows, Export writes their report lines, a row click selects the player"],
   ["SE-GUI-15", "the toolbar's ruleset dropdown, left of Live AATF: pick Divegrass Before Christmas 7 (the quick actions and the card counts follow); Import rules file...: the broken samples are refused with their errors, autumn26.4ccrules is refused for a built-in's name, autumn25.4ccrules joins the list under a line and becomes the ruleset; import it again: a confirmation replaces it; its × asks, then removes it and falls back to 4cc Autumn 26; reload the page: the choice and the imports stay"],
   ["SE-GUI-30", "PES 17 sample, team 718, the Divegrass Before Christmas 7 ruleset: switch Live AATF on in the toolbar; the bottom panel lists the team's issues, errors first, under 'N issues · Divegrass Before Christmas 7'. Lower a stat over its maximum (a Stat row) to its target: the list dims, marked checking, then the row is gone and N is one less; Undo brings it back. Under the official ruleset on 718, untick the team-rows control and set each Height row's player to 180: '... passes ... with no issues'. Reload the page: Live AATF is still on"],
-  ["SE-GUI-18", "Panels, Apply aesthetics patch: on the PES 21 sample the preview lists the changed players, Apply is one edit; on the PES 17 sample the same patch is refused"],
-  ["SE-GUI-16", "Panels, Team file interchange: Team TOML export writes the team's file; pick 701.toml (PES 21) for the warning list, a 718 or 722 one for the refusals; Apply is one undoable edit"],
+  ["SE-GUI-18", "Savefile, Apply aesthetics patch: on the PES 21 sample the preview lists the changed players, Apply is one edit; on the PES 17 sample the same patch is refused"],
+  ["SE-GUI-16", "Team, Import / export team file: Team TOML export writes the team's file; pick 701.toml (PES 21) for the warning list, a 718 or 722 one for the refusals; Apply is one undoable edit"],
   ["SE-GUI-17", "same panel: the .4ccs files pair records with the rostered players; the .4cct imports tactics; on PES 21 Texport export writes a .ted the picker then reads back; on PES 17 it is disabled"],
   ["SE-GUI-19", "Player menu, Generate settings.toml on a /f/ player: the file's name line is the explicit coded string"],
   ["SE-GUI-33", "Player menu, Generate settings.toml then Generate in-game face on one player: the settings.toml holds no face, hair or iris key; the ingame_face.toml holds his iris_color, [hair] length and every other face and hair key"],
@@ -3321,9 +3321,13 @@ function renderToolbar() {
   redoBtn.id = "redo-btn";
   const saveBtn = button("Save", () => { saveFile(); render(); }, { title: "Ctrl+S" });
   saveBtn.id = "save-btn";
+  // The file's buttons, then Undo and Redo, then the menus, each group after a
+  // separator, and one more before the ruleset picker and Live AATF.
+  const tsep = () => h("span", { class: "tsep" });
   return h("div", { class: "toolbar", "data-panel": "toolbar" },
-    openMenu(), saveBtn, button("Save as", saveAs), playerMenu(), teamMenu(), databaseMenu(),
-    panelsMenu(), undoBtn, redoBtn,
+    openMenu(), saveBtn, button("Save as", saveAs), tsep(),
+    undoBtn, redoBtn, tsep(),
+    playerMenu(), teamMenu(), databaseMenu(), tsep(),
     rulesetPicker(), liveButton(), LIVE.on ? suggestionsToggle() : null,
     // The save's path is in the window title (`titleDetail`): beside the
     // unsaved mark it could wrap the toolbar onto a second row.
@@ -3367,11 +3371,13 @@ document.addEventListener("pointerdown", e => {
     if (pop) pop.remove();
   }
 });
-// The kept shortcuts (Ctrl+S, Ctrl+F, Ctrl+I); the draft binds them on the
-// document. Ctrl+F/Ctrl+I are aesthetics writes: no-ops under the lock.
+// The kept shortcuts (Ctrl+S, Ctrl+F, Ctrl+I, Ctrl+B); the draft binds them on
+// the document. Ctrl+F/Ctrl+I are aesthetics writes: no-ops under the lock;
+// Ctrl+B opens Bump all stats on a player row.
 function onKey(e) {
   if ((e.ctrlKey || e.metaKey) && S.save) {
     if (e.key === "s") { e.preventDefault(); saveFile(); render(); }
+    else if (e.key === "b" && !isTeamSel()) { e.preventDefault(); dlgBumpStats(); }
     else if (e.key === "i" && aesUnlocked()) { e.preventDefault(); fpcToggle(curPlayer()); render(); }
     else if (e.key === "f" && aesUnlocked()) { e.preventDefault(); clearVisualFlags(); }
   }
@@ -3460,8 +3466,8 @@ function playerMenu() {
   const tip = off ? "The Player menu acts on a player: pick a player row" : null;
   return menu("Player", [
     ["Set all stats\u2026", dlgSetStats, off, tip],
-    ["Bump all stats\u2026", dlgBumpStats, off, tip],
-    ["Toggle FPC settings  Ctrl+I", () => { fpcToggle(p); render(); },
+    ["Bump all stats\u2026\tCtrl+B", dlgBumpStats, off, tip],
+    ["Toggle FPC settings\tCtrl+I", () => { fpcToggle(p); render(); },
       off || !aesUnlocked(), tip || ownershipTip()],
     "-",
     ["Copy stats from\u2026", () => dlgCopySwap(p, "copy"), off, tip],
@@ -3480,24 +3486,33 @@ function teamMenu() {
     ["Set player names to positions", () => { edit("Names to positions", () => {
       for (const p of t.players) p.name = POS_LONG[p.positions.registered]; }); render(); }],
     "-",
-    ["Clear visual flags  Ctrl+F", clearVisualFlags, !aesUnlocked(), ownershipTip()],
+    ["Clear visual flags\tCtrl+F", clearVisualFlags, !aesUnlocked(), ownershipTip()],
     ["Set FPC invisibility", () => teamFpc(true), !aesUnlocked(), ownershipTip()],
     ["Remove FPC invisibility", () => teamFpc(false), !aesUnlocked(), ownershipTip()],
     "-",
-    // Not an edit: a picture of the team's tactics written to a file
-    // (8.33), bare or with each preset's settings. On the Team menu because
-    // it acts on the selected row's team, as the entries above do; two
-    // entries, since the native save dialog has no room for the choice.
+    // The team's files: its Team TOML, Texport or legacy squad in and out
+    // (the interchange panel), and a picture of its tactics written to a
+    // file (8.33). On the Team menu because both act on the selected row's
+    // team, as the entries above do.
+    ["Import / export team file\u2026", () => { S.panel = "interchange"; render(); }],
     ["Save a picture of the formations\u2026", dlgPictureSave],
   ]);
 }
+// The whole save's work: first what reads another file against it (a second
+// save, a Team compiler's patch, both floating panels), then the reports it
+// writes out, then the repair. The panels sit here by what they act on, the
+// whole save, not by being panels.
 function databaseMenu() {
   return menu("Savefile", [
+    ["Comparator\u2026", () => { S.panel = "comparator"; render(); }],
+    ["Apply aesthetics patch\u2026", () => { S.panel = "patch"; render(); }],
+    "-",
     ["Output rosters to TSV\u2026", dlgTsv],
     // The whole save's teams, a range of them (8.34): a Savefile action, as
     // the TSV is.
     ["Save formation pictures for a range of teams\u2026", dlgPicturesRange],
     ["Multi-team AATF\u2026", dlgMultiAatf],
+    "-",
     ["Fix database\u2026", dlgFixDb, !aesUnlocked(), ownershipTip()],
   ]);
 }
@@ -6084,17 +6099,6 @@ function panelWindow(id, title, body) {
       button("✕", () => { S.panel = null; render(); }, { frame0: true, title: "Close" })),
     h("div", { class: "pbody" }, body));
   return p;
-}
-// The Panels menu: the whole-save work sits here, beside the file menus.
-// sample wording: the menu and the panel titles.
-function panelsMenu() {
-  return menu("Panels", [
-    ["Comparator\u2026", () => { S.panel = "comparator"; render(); }],
-    "-",
-    ["Apply aesthetics patch\u2026", () => { S.panel = "patch"; render(); }],
-    "-",
-    ["Import / export team file\u2026", () => { S.panel = "interchange"; render(); }],
-  ]);
 }
 
 // ---- Comparator (SE-GUI-13) ----

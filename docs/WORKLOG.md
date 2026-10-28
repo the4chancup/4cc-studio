@@ -4388,7 +4388,11 @@ briefs, review loops, gates and mutation runs as for any step.
       formation pictures' range on one row, `Teams` first `to` last; Set boots and gloves IDs
       for everyone in 4ccEditor's layout (`plans/save_editor.md` "Team operations" table's row,
       DECISIONS "Set boots and gloves IDs takes 4ccEditor's layout"; `view/menus.rs`'s dialog,
-      `help/05_team.md`)
+      `help/05_team.md`); the toolbar in `MenuBar` (hover switches menus) in the order Open,
+      Save, Save as | Undo, Redo | Player, Team, Savefile | ruleset, Live AATF, the Panels
+      menu's entries moved to the Savefile and Team menus (`view/menus.rs`, the tests that open
+      them through `Panels`, `help/02_window.md`; DECISIONS "The toolbar's order, no Panels
+      menu, shortcuts right of their labels")
   - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
     the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/`; the first rulings
     drafted and planned (ov2f; the dock's kind codes kept). The two points left for later (a

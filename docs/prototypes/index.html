@@ -416,6 +416,13 @@
   .menu { position: fixed; background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px; padding: 4px; z-index: 130; box-shadow: 0 4px 16px #000a; display: flex; flex-direction: column; min-width: 160px; }
   .menu button { text-align: left; background: transparent; padding: 2px 8px; }
   .menu button:hover:not(:disabled) { background: var(--hover); }
+  /* A menu item's shortcut (egui's shortcut_text): right-aligned in the weak colour, at least
+     8 after the label (the icon spacing's 4 on each side of the stretch between them). */
+  .menu button { display: flex; align-items: center; }
+  .menu button .shortcut { margin-left: auto; padding-left: 8px; color: #6e6e6e; }
+  /* A separator between toolbar groups (egui's ui.separator() in a row: 6 wide, its line in
+     the middle). */
+  .tsep { flex: none; width: 1px; align-self: stretch; margin: 1px 2.5px; background: var(--stroke); }
   .modal-bg { position: fixed; inset: 0; background: #0008; display: flex; align-items: center; justify-content: center; z-index: 120; }
   .window { background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px; padding: 8px 12px; box-shadow: 0 8px 24px #000c; min-width: 360px; max-width: 640px; }
   .window .title { color: var(--strong); font-size: 14px; margin-bottom: 8px; }
@@ -863,21 +870,36 @@ function collapsing(path, title, body, defaultOpen) {
   if (!isOpen) d.addEventListener("toggle", () => { if (d.open) render(); }, { once: true });
   return d;
 }
+// An item's text may end in a tab and its shortcut ("Clear visual flags\tCtrl+F"):
+// the shortcut is drawn right-aligned in the weak colour, as egui's
+// Button::shortcut_text draws it. While one menu is open, the pointer entering
+// another menu's button opens that one instead (egui's MenuBar, whose menus
+// switch on hover once one is open).
+let openMenuButton = null;
 function menu(label, items, opts = {}) {
-  return h("button", { class: opts.frame0 ? "frame0" : "", title: opts.title, onclick: e => {
-    e.stopPropagation();
+  const open = btn => {
     closeMenus();
-    const r = e.target.getBoundingClientRect();
+    const r = btn.getBoundingClientRect();
     const [left, top] = inWin(r.left, r.top), below = top + r.height + 2;
     const m = h("div", { class: "menu", style: `left:${left}px; top:${below}px` },
-      items.map(([text, fn, disabled, title]) => text === "-" ? h("div", { class: "sep", style: "margin:3px 0" })
-        : h("button", { disabled, title, onclick: ev => { ev.stopPropagation(); closeMenus(); fn(); } }, text)));
+      items.map(([text, fn, disabled, title]) => {
+        if (text === "-") return h("div", { class: "sep", style: "margin:3px 0" });
+        const [name, keys] = text.split("\t");
+        return h("button", { disabled, title, onclick: ev => { ev.stopPropagation(); closeMenus(); fn(); } },
+          name, keys ? h("span", { class: "shortcut" }, keys) : null);
+      }));
     const win = document.getElementById("win");
     win.append(m);
+    openMenuButton = btn;
     if (below + m.offsetHeight > win.clientHeight) m.style.top = Math.max(4, top - m.offsetHeight - 2) + "px";
-  } }, label + " ⏷");
+  };
+  return h("button", { class: opts.frame0 ? "frame0" : "", title: opts.title,
+    onclick: e => { e.stopPropagation(); open(e.currentTarget); },
+    onmouseenter: e => { if (openMenuButton && openMenuButton !== e.currentTarget
+      && openMenuButton.parentElement === e.currentTarget.parentElement
+      && document.querySelector(".menu")) open(e.currentTarget); } }, label + " ⏷");
 }
-function closeMenus() { document.querySelectorAll(".menu").forEach(m => m.remove()); }
+function closeMenus() { document.querySelectorAll(".menu").forEach(m => m.remove()); openMenuButton = null; }
 document.addEventListener("click", closeMenus);
 // windowDrawer rebuilds the open window on every render(), immediate-mode
 // style: a collapsing header's lazy body and a widget's derived state (a
