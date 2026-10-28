@@ -4397,7 +4397,9 @@ briefs, review loops, gates and mutation runs as for any step.
       id"); the team view's name field labelled `Name` (`view/team.rs` `TEAM_LABEL`, which the
       Comparator's and the changes list's rows read too); the lineup lists' position labels in
       the pitch badges' group colours (DECISIONS "The lineup lists' positions in the pitch
-      badges' colours"; `team_widgets` `pitch`'s `position_colour` shared, not copied). Every draft change of ov2b to ov2h
+      badges' colours"; `team_widgets` `pitch`'s `position_colour` shared, not copied); the toolbar's `• unsaved
+      changes` in the link blue (DECISIONS "The unsaved-changes label in the link blue").
+      Every draft change of ov2b to ov2h
       is approved (the maintainer, 2026-10-28: "All approved"); what is left is building them
   - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
     the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/`; the first rulings

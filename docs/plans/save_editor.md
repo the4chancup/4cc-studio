@@ -244,7 +244,10 @@ all side by side.
   shortcut) `studio_core`'s widgets rather than this tool's, so every tool's toolbar takes
   them when it is built (this is the first tool with a finished UI): `Open`, `Save`, `Save as`; a separator; `Undo`, `Redo`; a
   separator; the `Player`, `Team` and `Savefile` menus; a separator; the ruleset dropdown and
-  Live AATF (with `Show suggestions` while it is on), then `• unsaved changes`. With one menu
+  Live AATF (with `Show suggestions` while it is on), then `• unsaved changes`, in the link
+  blue (`Visuals::hyperlink_color`, the blue of Live AATF's suggestion marks), not the weak
+  grey, which hid the one piece saying the save differs from its file among the toolbar's
+  quieter text; the blue also tells it is clickable (the changes list). With one menu
   open, the pointer entering another menu's button opens that one instead, as a menu bar
   does (`MenuBar` switches on hover; a plain button such as `Save` opens nothing). Menus
   group by what an entry acts on, not by what it opens: the `Savefile` menu holds the whole

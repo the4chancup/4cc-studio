@@ -12948,3 +12948,12 @@ Why: the maintainer's ruling: only the Save editor has a finished UI yet, so suc
 global for now, and the other tools' toolbars take them when they are built rather than
 growing their own.
 Plan: `plans/save_editor.md` "Editing UI" (The toolbar).
+
+## 2026-10-28 — save_editor — The unsaved-changes label in the link blue
+Decision: the toolbar's `• unsaved changes` is drawn in the theme's link blue
+(`Visuals::hyperlink_color`, the drafts' `--link`), not the weak grey.
+Why: the maintainer asked for the label in a blue font. The link blue, not the selection's
+pale text blue: it is the blue the suite already gives text that is not a selection (Live
+AATF's suggestion marks), it says the label is clickable (it opens the changes list), and on
+the toolbar's ground it reads at 7.1:1 where the weak grey read at 3.4:1.
+Plan: `plans/save_editor.md` "Editing UI" (The toolbar).
