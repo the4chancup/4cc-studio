@@ -4,109 +4,60 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
 
 ## Cross-version player conversion
 
-The converters' `convertPlayerSaveData` becomes a `convert` module: rewrite a
-player's appearance data from one version's layout to another's, preserving what
-translates and capping what doesn't. Used by the integrated
-[model conversion](../model_conversion/README.md) (when compiling an export against a
-different PES version's savefile) and by the save editor's cross-version team
-import.
-
-What the reference implementations do (19→16 in `convertTeam.py`, 16→21 in
-`convertTeam21.py` — for the latter, mind the ⚠ offset warning in the payload
-section: only its 240-anchored appearance writes are correct, and the Rust port
-re-bases the remaining fields per the schema tables):
-
-- **Copy through**: player name, shirt name, physique bytes, ingame-face block,
-  glasses/sleeves/inners/socks/undershorts/shirttail strip settings.
-- **Rewrite**: boots/gloves IDs (against the models actually present — defaults
-  55/11 hide them, 0 shows defaults), the 4-bit "edited" flags (0x0C with a face
-  model, 0x0F without), base-copy ID and taping fields cleared.
-- **Cap facial features to the target version's valid ranges** (each version
-  raised some maxima; downgrading must clamp): cheek/forehead/facial hair/
-  laughter lines/eyelids/eyebrow/neck line/nose/lip types each have per-version
-  maxima (e.g. facial hair: 12 in 16, 19 in 21; skin color 7 resets to 1). The
-  caps live in a per-version limits table next to the schemas.
-
-Playstyle and skill translation for gameplay data reuses the `menu_lists.cpp`
-conversion maps and truncates/zeroes skills that don't exist in the target
-version (as 4ccEditor's Texport import already does).
+Moving players from one version's save to another's is a Team TOML import whose document was
+written from a save of another version: `TeamToml::from_team` on the source save, then
+`TeamToml::apply` onto the target save, which converts when the document's `pes_version` differs
+from the target's (the rules of `apply` are under "Team TOML", below). The document carries
+canonical values (a playing style by name, a face or motion key as `settings.toml` names it), so
+conversion is a property of the import rather than an operation of its own, and a second
+player-to-player converter would be a second copy of the same rules: the save editor's
+cross-version import is `from_team` and `apply`, one team at a time.
 
 ### What the Rust module is
 
 The converters were also the compiler of their day: half of what they write (boots/gloves IDs
 against the models present, the edit flags, taping and player gloves cleared) is compile policy,
 not layout translation, and in this suite that policy belongs to the Team compiler's
-`PlayerSettings`/`ops::fpc` pass that runs *after* conversion. `convert.rs` therefore does the
-version-dependent half only: **everything that translates one-to-one is copied through; what does
-not translate is capped, dropped or filled from the target, and each such case that depends on
-the player's data is reported as a note**, never silently. What depends on the version pair
-alone is not a note: a gated field the target version lacks, or the hair fields a template keeps
-against a source of the other run layout, is the same for every player of that pair and is the
-caller's to state once (decision entry, 2.17f). The converters' compile-policy rewrites are not in this module (decision
-entry, 2.17f).
+`PlayerSettings`/`ops::fpc` pass. A cross-version `apply` does the version-dependent half only:
+**every key the target can hold is written, what it cannot is capped, dropped or left to the
+target, and each such case is reported as an `ImportNote`**, never silently. What depends on the
+version pair alone and on no key of the document is not a note: a skill the source version lacks
+leaves the target's value, and a PES 15 or 16 target drops the instructions table.
 
-The operation is a rewrite **into a template**, as in the reference: the target entry is a player
-read from a save of the target version, and its bytes stand in for everything the source has no
-counterpart for (gated stats the source version lacks, the hair fields of the ingame-face run
-the source's layout does not have). This is also what settles the run's two layouts
-(`FaceLayout`: PES 15's 46 bytes, PES 16 to 21's 50): within one layout the run is copied whole;
-between them every field both layouts hold is read from the source and written on the target,
-whose own hair fields and unused bits stand as the template holds them, and the nose is re-coded
-(PES 15's 3 × type + angle becomes the type alone, with a `NoseAngleDropped` note for a non-zero
-angle; the reverse writes angle 0). No byte is copied by position between the layouts: PES 15's
-hair variation sits where 16 to 21 keep the hairstyle and cropped style (`spec/pes_savefile/model.md`
-"The ingame-face run"). No byte is invented.
+The import writes **into a template**: the target is the player the roster slot names in the
+target save, and its values stand for every key the document does not carry or the target cannot
+hold. This is also what settles the ingame-face run's two layouts (`FaceLayout`: PES 15's 46
+bytes, PES 16 to 21's 50): the run is written key by key through `settings_toml`'s shared writer,
+a face or hair key the target's layout does not hold is dropped with a `NotInThisVersion` note,
+and the target's own hair fields and unused bits stand. The nose is one type key on every layout
+plus PES 15's angle key (`pes15_nose_angle`), which a PES 16 to 21 target drops with a note, the
+type written alone. No byte is copied by position between the layouts: PES 15's hair variation
+sits where 16 to 21 keep the hairstyle and cropped style (`spec/pes_savefile/model.md` "The
+ingame-face run"). No byte is invented.
 
 ```rust
-/// `convert.rs`. Rewrites `target`, a player read from a `to`-version save, from `source`,
-/// read from a `from`-version save. All-or-nothing: on `Err` the target is unchanged. The
-/// target keeps its own `id` (it is the slot being filled).
-pub fn convert_player(
-    source: &PlayerEntry, from: PesVersion,
-    target: &mut PlayerEntry, to: PesVersion,
-) -> Result<Vec<ConvertNote>, ConvertError>;
-
-/// What could not be carried one-to-one; the conversion still succeeded.
-pub enum ConvertNote {
-    /// A face type above the target's cap was reset to 0 (the converters' default; not clamped).
-    FaceTypeReset { field: IngameFaceField, value: u8 },
-    /// Skin colour 7 (custom skin) reset to 1: `from` or `to` has no custom skin.
-    CustomSkinReset,
-    /// The playing style has no value in `to`; set to `None` (0).
-    PlayingStyleDropped { style: PlayStyle },
-    /// A set skill `to` has no bit for was cleared.
-    SkillDropped { index: u8 },
-    /// The name or shirt name was cut to the target field's length (at a char boundary).
-    TextTruncated { text: PlayerText },
-    /// PES 15's nose angle has no field on PES 16 to 21: a non-zero one was dropped, the nose
-    /// type written alone.
-    NoseAngleDropped { angle: i8 },
-    /// A motion above the target's top was written as the top, which the target's editor
-    /// shows for it anyway.
-    MotionCapped { field: PlayerField, value: u8 },
-}
-
-pub enum ConvertError {
-    /// The source or the target has no ingame-face run (an entry never read from a record).
-    NoIngameFaceRun,
-    /// The source's stored playing style is not a value of `from`'s list
-    /// (`CodecError::UnknownPlayingStyle`).
-    Codec(#[from] CodecError),
+/// `interchange/team_toml/team.rs`. Converts when `self.pes_version` differs from `to`;
+/// all or nothing: on `Err` the team and players are unchanged.
+impl TeamToml {
+    pub fn apply(&self, to: PesVersion, team: &mut TeamEntry, players: &mut [PlayerEntry])
+        -> Result<Vec<ImportNote>, TeamTomlError>;
 }
 ```
 
-Field by field: `name`/`shirt_name` copied, truncated to the target schema's text length with a
-note (the reference cuts at 45/15 silently); `basic`, the non-gated `stats`, `positions` (bar
-the style), `skills.com_styles`, `motion` (capped at the target's top, below), `edit_flags`, the boots/gloves/base-copy IDs, physique
-and strip fields copied; a gated `Option` field is carried only where the target has it
-(`target.x.is_some()`), otherwise the target's `None` stands; `skills.skills` copied then every
-index the target schema has no `Skill(i)` row for cleared (`RecordSchema::has`); the style goes
-through `schema::playstyle::{decode, encode}`; the ingame-face run is copied as above, then the
-eleven face types are capped against `schema::limits::face_type_cap(to, field)` and the skin rule
-applied. Skin 7 is reset only when `fpc::custom_skin_available` is false for `from` or `to`: a
-16 → 17 conversion keeps a partial-hide FPC player's custom skin (both converters reset
-unconditionally, but each of their directions has a no-custom-skin side; the reference editor's
-import resets to 0, the converters to 1, and the converters are the verified path).
+Key by key, on a document from another version: `name`/`shirt_name` longer than the target's
+field are cropped with a `TextCropped` note ("Portable text limits", below); any other player
+key the target version lacks (a `stats` key, an edit flag) is dropped with a `NotInThisVersion`
+note, every other one written; a set skill or COM style the target has no bit for is dropped with
+a `NotInThisVersion` note (`player_field_set`); the playing style goes through
+`schema::playstyle::encode` for the target, a style its list lacks written as `None` with a
+`NotEncodable` note; an appearance key the target lacks (a player field, or a face key of the
+other layout) is dropped with a `NotInThisVersion` note; a motion past the target's top is
+written as the top (below), a face type past `schema::limits::face_type_cap(to, field)` is reset
+to 0, not clamped, and skin 7 is reset to 1 when `fpc::custom_skin_available(to)` is false, each
+with a `Capped` note. A 16 → 17 import therefore keeps a partial-hide FPC player's custom skin
+(both converters reset unconditionally, but each of their directions has a no-custom-skin side;
+the reference editor's import resets to 0, the converters to 1, and the converters are the
+verified path).
 
 The motion ranges narrow from 20/21 to 19 and earlier (corner kick
 1–10 vs 1–6, free kick 1–20 vs 1–16, penalty 1–7 vs 1–4, see the `settings.toml` key table). What
@@ -116,10 +67,10 @@ corner kick of stored 7 (3 bits, 1 to 6) shows "6", a goal celebration of 150 sh
 list's top, with no crash on load or in Edit mode. Saving the team with another row of the same
 screen edited kept the hunching 3 and the celebration 150 but rewrote the corner kick 7 to 0, the
 list's first entry, its own row untouched; PES 16 keeps a stored celebration of 183 the same way.
-Which values a save keeps is per field, so a value past the range is not stable. The conversion
+Which values a save keeps is per field, so a value past the range is not stable. The import
 therefore caps a motion at the target's top instead of copying it through: the top is what the
 game shows for it anyway, and a copied value can turn into the list's first entry on the
-player's next in-game save, a change nobody asked for. The cap is a `MotionCapped` note; each
+player's next in-game save, a change nobody asked for. The cap is a `Capped` note; each
 version's tops are measured (`schema::limits::motion_top`, the table of
 `aesthetics_export/settings_toml.md` "Player settings in exports").
 
@@ -190,7 +141,7 @@ A stored value outside the list (PES 15/16's 16 included) decodes to
 The reference editor fills its PES 15/16 combo box with the 17/18 names (mislabelling the two
 goalkeeper styles by one); the arrays, not the combo box, are the evidence, and the census confirms
 them. The model keeps `PlayerPositions.playing_style: u8` (the stored index): the codec does not
-know the version, and only conversion and the interchange formats need the canonical value.
+know the version, and only the interchange formats need the canonical value.
 
 ---
 

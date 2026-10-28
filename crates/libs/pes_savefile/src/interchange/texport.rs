@@ -180,6 +180,71 @@ fn ids_agree(plaintext: &[u8], layout: &TexportLayout, version: PesVersion) -> b
     id(off.team) == id(off.roster) && id(off.roster) == id(off.tactics)
 }
 
+/// Pairs each filled roster slot below `width` with the next of `players`,
+/// which must be the filled slots' players in roster order: a player whose id
+/// is not the slot's, a slot left without one, or a player left over is
+/// `RosterMismatch`.
+fn slot_players<'a>(
+    team: &TeamEntry,
+    mut players: impl Iterator<Item = &'a PlayerEntry>,
+    width: usize,
+) -> Result<Vec<(usize, &'a PlayerEntry)>, TexportError> {
+    let mut pairs = Vec::new();
+    for (slot, roster) in team.roster.iter().enumerate().take(width) {
+        if roster.player_id == 0 {
+            continue;
+        }
+        let player = players.next().ok_or(TexportError::RosterMismatch {
+            slot,
+            roster: roster.player_id,
+            player: 0,
+        })?;
+        if player.id != roster.player_id {
+            return Err(TexportError::RosterMismatch {
+                slot,
+                roster: roster.player_id,
+                player: player.id,
+            });
+        }
+        pairs.push((slot, player));
+    }
+    if let Some(extra) = players.next() {
+        return Err(TexportError::RosterMismatch {
+            slot: width,
+            roster: 0,
+            player: extra.id,
+        });
+    }
+    Ok(pairs)
+}
+
+/// Each filled roster slot below `width` with its player record, which
+/// `record(slot)` returns: a record whose id is not the slot's is
+/// `RosterMismatch`.
+fn slot_records<'a>(
+    team: &TeamEntry,
+    width: usize,
+    record: impl Fn(usize) -> Result<&'a [u8], TexportError>,
+) -> Result<Vec<(usize, &'a [u8])>, TexportError> {
+    let mut pairs = Vec::new();
+    for (slot, roster) in team.roster.iter().enumerate().take(width) {
+        if roster.player_id == 0 {
+            continue;
+        }
+        let rec = record(slot)?;
+        let id = record_id(rec);
+        if id != roster.player_id {
+            return Err(TexportError::RosterMismatch {
+                slot,
+                roster: roster.player_id,
+                player: id,
+            });
+        }
+        pairs.push((slot, rec));
+    }
+    Ok(pairs)
+}
+
 /// The 18-21 record writer shared by `new` and `to_bytes`: team, the coach
 /// block's id, roster, tactics and each filled roster slot's player record
 /// into `plain`; every other byte is kept as it was. `players` must be the
@@ -208,23 +273,7 @@ fn write_ted<'a>(
         &mut plain[off.tactics..off.tactics + schema.tactic.size],
         schema.tactic,
     )?;
-    let mut players = players;
-    for (slot, roster) in team.roster.iter().enumerate().take(off.width) {
-        if roster.player_id == 0 {
-            continue;
-        }
-        let player = players.next().ok_or(TexportError::RosterMismatch {
-            slot,
-            roster: roster.player_id,
-            player: 0,
-        })?;
-        if player.id != roster.player_id {
-            return Err(TexportError::RosterMismatch {
-                slot,
-                roster: roster.player_id,
-                player: player.id,
-            });
-        }
+    for (slot, player) in slot_players(team, players, off.width)? {
         let at = off.players + slot * schema.player.size;
         // The game's own exports hold each player's own id at the appearance-id slot
         // (every PES 18-21 `.ted` it wrote), whatever the save's entry holds: a stripped
@@ -239,13 +288,6 @@ fn write_ted<'a>(
             &mut plain[at..at + schema.player.size],
             schema.player,
         )?;
-    }
-    if let Some(extra) = players.next() {
-        return Err(TexportError::RosterMismatch {
-            slot: off.width,
-            roster: 0,
-            player: extra.id,
-        });
     }
     Ok(())
 }
@@ -319,23 +361,14 @@ impl Texport {
             &plain[off.tactics..off.tactics + schema.tactic.size],
             schema.tactic,
         )?;
-        let mut players = Vec::new();
-        for (slot, roster) in team.roster.iter().enumerate().take(off.width) {
-            if roster.player_id == 0 {
-                continue;
-            }
+        let records = slot_records(&team, off.width, |slot| {
             let at = off.players + slot * schema.player.size;
-            let record = &plain[at..at + schema.player.size];
-            let id = record_id(record);
-            if id != roster.player_id {
-                return Err(TexportError::RosterMismatch {
-                    slot,
-                    roster: roster.player_id,
-                    player: id,
-                });
-            }
-            players.push(read_player(record, schema.player)?);
-        }
+            Ok(&plain[at..at + schema.player.size])
+        })?;
+        let players = records
+            .into_iter()
+            .map(|(_, record)| read_player(record, schema.player))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(Texport {
             version,
             file: File::Ted(plain),
@@ -392,24 +425,15 @@ impl Texport {
             .appearance
             .as_ref()
             .map_or(schema.player.size, |(_, a)| schema.player.size + a.size);
+        let at = |slot: usize| old.players_at + slot * stride;
+        let records = slot_records(&team, team.roster.len(), |slot| {
+            record(at(slot), schema.player.size)
+        })?;
         let mut players = Vec::new();
-        for (slot, roster) in team.roster.iter().enumerate() {
-            if roster.player_id == 0 {
-                continue;
-            }
-            let at = old.players_at + slot * stride;
-            let rec = record(at, schema.player.size)?;
-            let id = record_id(rec);
-            if id != roster.player_id {
-                return Err(TexportError::RosterMismatch {
-                    slot,
-                    roster: roster.player_id,
-                    player: id,
-                });
-            }
+        for (slot, rec) in records {
             let mut player = read_player(rec, schema.player)?;
             if let Some((_, appearance)) = &schema.appearance {
-                let rec = record(at + schema.player.size, appearance.size)?;
+                let rec = record(at(slot) + schema.player.size, appearance.size)?;
                 read_player_into(&mut player, rec, appearance)?;
             }
             players.push(player);
@@ -534,23 +558,8 @@ impl Texport {
                     .appearance
                     .as_ref()
                     .map_or(schema.player.size, |(_, a)| schema.player.size + a.size);
-                let mut players = self.players.iter();
-                for (slot, roster) in self.team.roster.iter().enumerate() {
-                    if roster.player_id == 0 {
-                        continue;
-                    }
-                    let player = players.next().ok_or(TexportError::RosterMismatch {
-                        slot,
-                        roster: roster.player_id,
-                        player: 0,
-                    })?;
-                    if player.id != roster.player_id {
-                        return Err(TexportError::RosterMismatch {
-                            slot,
-                            roster: roster.player_id,
-                            player: player.id,
-                        });
-                    }
+                let width = self.team.roster.len();
+                for (slot, player) in slot_players(&self.team, self.players.iter(), width)? {
                     let at = old.players_at + slot * stride;
                     // `team_mut` can fill a slot past the records the payload
                     // holds: a bounds refusal, not a slice panic.
@@ -565,13 +574,6 @@ impl Texport {
                     if let Some((_, appearance)) = &schema.appearance {
                         write_player(player, &mut record[schema.player.size..], appearance)?;
                     }
-                }
-                if let Some(extra) = players.next() {
-                    return Err(TexportError::RosterMismatch {
-                        slot: self.team.roster.len(),
-                        roster: 0,
-                        player: extra.id,
-                    });
                 }
                 Ok(container.to_bytes(salt)?)
             }

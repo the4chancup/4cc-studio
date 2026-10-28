@@ -4056,7 +4056,15 @@ briefs, review loops, gates and mutation runs as for any step.
     85 ms, bytes identical, pinned by goldens captured before); three tests' fixtures moved
     into their own crates; `GK_GLOVES_RANGE` and `FpkFile::remove` removed (no users);
     comments and spec sentences brought to the code
-  - [ ] A2 `pes_savefile`'s design items and `aatf`'s bare record (`slice_a2.md`), after A1
+  - [x] A2 `pes_savefile`'s design items and `aatf`'s bare record (`slice_a2.md`): the unused
+    `convert_player` deleted, the spec's cross-version conversion described as `TeamToml::apply`
+    carries it; `write_player`/`write_team` through `write_record`; one
+    `RecordSchema::bit_width`; the Texport roster pairing one function per direction;
+    `TeamTactics::bare` names no roster slot (0xFF), `aatf`'s patches gone
+  - [ ] the loop's `mutants-diff ba7a4b6d`, its survivors triaged into one rework brief with
+    A2's known gaps: no test reaches either Texport reader's `RosterMismatch` or the writers'
+    too-few and left-over refusals, and nothing pins an `arrays`-made player field's width
+    through `widest_bit_width`/`bit_width(version, field)`
   - [ ] after the cut: `aatf`'s nine fixture modules' repeated tests as helpers (b-3)
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's

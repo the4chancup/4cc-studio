@@ -67,7 +67,7 @@ pub enum PlayerField {
     Age,
     /// Registered position, GK 0 to CF 12.
     RegisteredPosition,
-    /// Playing style, a version-specific index (see `convert`).
+    /// Playing style, a version-specific index (see `schema::playstyle`).
     PlayingStyle,
     /// Ball Control.
     BallControl,

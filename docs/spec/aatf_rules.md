@@ -833,7 +833,9 @@ team), of the version its `pes_version` names: the document is applied onto bare
 roster slot per `players` key, with each player's `appearance` table left out, because no
 ruleset reads it and it applies only over a real player's face data. A bare record carries every
 field its version has, at zero (decoded from a zeroed record of the version's layout), so a key
-the document omits reads 0 like any other, never as a field the version lacks: with
+the document omits reads 0 like any other, never as a field the version lacks. The fields that
+name a roster slot (set-piece takers, man marking, the starting eleven, the bench order) are
+0xFF instead, the record's none, so an omitted taker reads as nobody rather than slot 0. With
 `PlayerEntry::default()`'s absent fields, an omitted `catching` would switch its check off while
 an omitted `speed` is reported.
 

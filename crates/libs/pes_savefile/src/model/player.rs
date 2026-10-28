@@ -757,4 +757,32 @@ mod tests {
             );
         }
     }
+
+    /// A bare tactics record names no roster slot: every set-piece taker,
+    /// man-marking byte, starting-eleven and bench entry is 0xFF, the
+    /// record's none, so a document that omits them reads as nobody rather
+    /// than as roster slot 0.
+    #[test]
+    fn bare_tactics_name_no_roster_slot() {
+        use crate::model::tactics::{SetPieceTakers, TeamTactics};
+
+        let none = SetPieceTakers {
+            free_kick_long: 0xFF,
+            free_kick_short: 0xFF,
+            free_kick_second: 0xFF,
+            corner_left: 0xFF,
+            corner_right: 0xFF,
+            penalty: 0xFF,
+            captain: 0xFF,
+        };
+        for version in PesVersion::ALL {
+            let tactics = TeamTactics::bare(version);
+            assert_eq!(tactics.set_pieces, none, "{version:?}");
+            for preset in &tactics.presets {
+                assert_eq!(preset.man_marking, [0xFF; 11], "{version:?}");
+            }
+            assert_eq!(tactics.starting_eleven, [0xFF; 11], "{version:?}");
+            assert_eq!(tactics.bench_order, [0xFF; 21], "{version:?}");
+        }
+    }
 }

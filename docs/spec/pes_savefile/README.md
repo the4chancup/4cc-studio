@@ -96,7 +96,6 @@ crates/libs/pes_savefile/src/
 │       ├── model.rs    #     the completeness invariant, from_player, apply
 │       ├── document.rs #     parse, to_toml, update_toml
 │       └── appearance_row.rs # the row's bytes and the pre-Fox refusal
-├── convert.rs          # cross-version player conversion (bitfield surgery, playstyle/skill maps)
 ├── player_tables.rs    # the three Fox player tables (PlayerAppearance/BootsList/GloveList.bin), one PlayerTable<VALUE>
 ├── ops/                # save-to-save operations
 │   ├── mod.rs          #   the module wiring

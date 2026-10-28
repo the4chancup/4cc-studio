@@ -146,23 +146,7 @@ pub fn write_team(
     record: &mut [u8],
     schema: &RecordSchema<TeamField, TeamText>,
 ) -> Result<(), CodecError> {
-    if record.len() != schema.size {
-        return Err(CodecError::RecordSize {
-            expected: schema.size,
-            got: record.len(),
-        });
-    }
-    for (field, offset, width) in runs(schema) {
-        let value = team.get(field)?;
-        if width < 32 && value >= (1u32 << width) {
-            return Err(CodecError::ValueTooWide {
-                field: format!("{field:?}"),
-                value,
-                width,
-            });
-        }
-        bits::write_bits(record, offset, width, value);
-    }
+    write_record(schema, record, |field| team.get(field))?;
     for spec in schema.texts {
         let bytes = match spec.text {
             TeamText::Name => team.name.as_bytes().to_vec(),

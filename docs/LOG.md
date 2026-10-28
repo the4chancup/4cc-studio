@@ -2746,3 +2746,5 @@ worklog passed 7,000 lines.
   line and evenly spaced, the team view's two panels' spacing, the scroll kept across picks, and a scroll-bar strip so Firefox draws the app's widths.
 - **2026-10-28** — 8.29b: the shell's text reread (35 lines: tooltips, the first-run dialog, the CLI's errors and help, two help chapters),
   the drafts following; a settings row's tooltip is the row's own tip, not the field's doc comment.
+- **2026-10-28** — Library audit, slice A2: `pes_savefile`'s unused cross-version converter deleted (`TeamToml::apply` is the conversion),
+  the record writers and roster pairings shared, one schema width lookup; a bare tactics record names no roster slot.

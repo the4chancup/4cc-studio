@@ -448,9 +448,10 @@ through `IngameFace::get`/`set`, so no byte has two owners and the schema overla
 that way. `read_player_into` copies the run out of the record; `write_player` copies it back and
 rejects a run of the wrong length (`CodecError::RunSize`). The generator emits the `ingame_face`
 entry and omits the four fields; the round-trip tests over every real payload are unchanged and
-still prove byte identity. Cross-version conversion (`convert.rs`) is where the 46-byte PES 15
-run meets the 50-byte one: the rule there is a copy of the run whole within one layout and field
-by field between the two (`operations.md` "Cross-version player conversion").
+still prove byte identity. Cross-version conversion (a Team TOML import from another version) is
+where the 46-byte PES 15 run meets the 50-byte one: the run is written key by key, a key the
+target's layout does not hold dropped with a note (`operations.md` "Cross-version player
+conversion").
 
 Every field is a `settings.toml` key (the key table, ranges and defaults in
 `aesthetics_export/settings_toml.md`), so `[appearance.unknown]` is gone from `settings.toml`

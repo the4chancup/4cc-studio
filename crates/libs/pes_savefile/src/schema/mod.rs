@@ -96,28 +96,29 @@ pub struct RecordSchema<F: 'static, T: 'static> {
 }
 
 impl<F: PartialEq + Copy, T> RecordSchema<F, T> {
-    /// Whether the schema stores `field`: a `fields` row names it or an
-    /// `arrays` element's `make(i)` produces it.
-    pub fn has(&self, field: F) -> bool {
-        self.fields.iter().any(|spec| spec.field == field)
-            || self
-                .arrays
-                .iter()
-                .any(|array| (0..array.count).any(|i| (array.make)(i) == field))
-    }
-
-    /// The biggest value the record stores in `field` (`2^width - 1`, the codec's
-    /// `ValueTooWide` bound), from its `fields` row or the `arrays` run that makes it;
-    /// `None` for a field the record does not store.
-    pub fn max_value(&self, field: F) -> Option<u64> {
+    /// The bit width the record stores `field` at, from its `fields` row or
+    /// the `arrays` run whose `make(i)` produces it; `None` for a field the
+    /// record does not store.
+    pub(crate) fn bit_width(&self, field: F) -> Option<u32> {
         if let Some(spec) = self.fields.iter().find(|spec| spec.field == field) {
-            return Some((1u64 << spec.bit_width) - 1);
+            return Some(spec.bit_width);
         }
         self.arrays.iter().find_map(|array| {
             (0..array.count)
                 .any(|i| (array.make)(i) == field)
-                .then_some((1u64 << array.bit_width) - 1)
+                .then_some(array.bit_width)
         })
+    }
+
+    /// Whether the schema stores `field`.
+    pub fn has(&self, field: F) -> bool {
+        self.bit_width(field).is_some()
+    }
+
+    /// The biggest value the record stores in `field` (`2^width - 1`, the codec's
+    /// `ValueTooWide` bound); `None` for a field the record does not store.
+    pub fn max_value(&self, field: F) -> Option<u64> {
+        self.bit_width(field).map(|width| (1u64 << width) - 1)
     }
 }
 
@@ -313,39 +314,15 @@ pub(crate) fn row_offset(version: PesVersion) -> Option<usize> {
 }
 
 /// The widest bit width `field` is stored at in any version's player or
-/// appearance record — the bound a stored-range integer is held to (the
-/// 2026-09-21 Team TOML ruling). 0 for a field no version stores.
+/// appearance record: the bound Team TOML's stored-ranges mode holds a value
+/// to, so one document parses for every version. 0 for a field no version
+/// stores.
 pub(crate) fn widest_bit_width(field: PlayerField) -> u32 {
-    static WIDTHS: std::sync::LazyLock<std::collections::HashMap<PlayerField, u32>> =
-        std::sync::LazyLock::new(|| {
-            let mut widths: std::collections::HashMap<PlayerField, u32> =
-                std::collections::HashMap::new();
-            let mut visit = |schema: &RecordSchema<PlayerField, PlayerText>| {
-                for spec in schema.fields {
-                    widths
-                        .entry(spec.field)
-                        .and_modify(|w| *w = (*w).max(spec.bit_width))
-                        .or_insert(spec.bit_width);
-                }
-                for array in schema.arrays {
-                    for i in 0..array.count {
-                        widths
-                            .entry((array.make)(i))
-                            .and_modify(|w| *w = (*w).max(array.bit_width))
-                            .or_insert(array.bit_width);
-                    }
-                }
-            };
-            for version in PesVersion::ALL {
-                let schema = schema_for(version);
-                visit(schema.player);
-                if let Some((_, appearance)) = schema.appearance {
-                    visit(appearance);
-                }
-            }
-            widths
-        });
-    *WIDTHS.get(&field).unwrap_or(&0)
+    PesVersion::ALL
+        .into_iter()
+        .filter_map(|version| bit_width(version, field))
+        .max()
+        .unwrap_or(0)
 }
 
 /// The biggest value `version`'s player or appearance record stores in
@@ -361,25 +338,12 @@ pub fn player_max_value(version: PesVersion, field: PlayerField) -> Option<u64> 
 /// cannot refuse it afterwards. `None` where the version does not store the
 /// field.
 pub(crate) fn bit_width(version: PesVersion, field: PlayerField) -> Option<u32> {
-    fn in_record(
-        record: &RecordSchema<PlayerField, PlayerText>,
-        field: PlayerField,
-    ) -> Option<u32> {
-        if let Some(spec) = record.fields.iter().find(|s| s.field == field) {
-            return Some(spec.bit_width);
-        }
-        record.arrays.iter().find_map(|array| {
-            (0..array.count)
-                .any(|i| (array.make)(i) == field)
-                .then_some(array.bit_width)
-        })
-    }
     let schema = schema_for(version);
-    in_record(schema.player, field).or_else(|| {
+    schema.player.bit_width(field).or_else(|| {
         schema
             .appearance
             .as_ref()
-            .and_then(|(_, appearance)| in_record(appearance, field))
+            .and_then(|(_, appearance)| appearance.bit_width(field))
     })
 }
 

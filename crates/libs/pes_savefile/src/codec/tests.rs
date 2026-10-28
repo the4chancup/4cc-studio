@@ -745,9 +745,8 @@ fn a_value_too_wide_for_its_run_is_refused() {
     ));
 }
 
-/// `write_run`'s width check covers the writers that go through it
-/// (`write_roster`, `write_tactics`): a roster number above the 8-bit run is
-/// `ValueTooWide`.
+/// `write_run`'s width check covers the roster writer too: a roster number
+/// above the 8-bit run is `ValueTooWide`.
 #[test]
 fn a_roster_number_too_wide_for_its_run_is_refused() {
     let payload = payload(PesVersion::Pes17);
@@ -786,7 +785,7 @@ fn a_roster_longer_than_the_schema_is_refused() {
     write_roster(&team, &mut rec, schema.roster).expect("the full roster writes");
 }
 
-/// The same check inline in `write_team`: a colour channel above its 6-bit
+/// The same check through `write_team`: a colour channel above its 6-bit
 /// run is `ValueTooWide`.
 #[test]
 fn a_team_colour_too_wide_for_its_run_is_refused() {

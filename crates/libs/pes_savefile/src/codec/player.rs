@@ -1,6 +1,6 @@
 //! The player record codec: `read_player`/`read_player_into`/`write_player`.
 
-use super::{CodecError, bits, runs, single_byte, text_bytes, write_text};
+use super::{CodecError, bits, runs, single_byte, text_bytes, write_record, write_text};
 use crate::model::ingame_face::IngameFace;
 use crate::model::player::PlayerEntry;
 use crate::schema::RecordSchema;
@@ -63,23 +63,7 @@ pub fn write_player(
     record: &mut [u8],
     schema: &RecordSchema<PlayerField, PlayerText>,
 ) -> Result<(), CodecError> {
-    if record.len() != schema.size {
-        return Err(CodecError::RecordSize {
-            expected: schema.size,
-            got: record.len(),
-        });
-    }
-    for (field, offset, width) in runs(schema) {
-        let value = player.get(field)?;
-        if width < 32 && value >= (1u32 << width) {
-            return Err(CodecError::ValueTooWide {
-                field: format!("{field:?}"),
-                value,
-                width,
-            });
-        }
-        bits::write_bits(record, offset, width, value);
-    }
+    write_record(schema, record, |field| player.get(field))?;
     for spec in schema.texts {
         let bytes = match spec.text {
             PlayerText::Name => player.name.as_bytes().to_vec(),

@@ -8,7 +8,7 @@ use pes_savefile::interchange::team_toml::{ImportNote, TeamToml};
 use pes_savefile::model::names::name_color;
 use pes_savefile::model::player::PlayerEntry;
 use pes_savefile::model::playstyle::PlayStyle as SavePlayStyle;
-use pes_savefile::model::tactics::{Formation, SetPieceTakers, TeamTactics};
+use pes_savefile::model::tactics::{Formation, TeamTactics};
 use pes_savefile::model::team::RosterSlot;
 use pes_savefile::model::team::TeamEntry;
 use pes_savefile::schema::playstyle;
@@ -314,32 +314,13 @@ pub(crate) fn records_from_team_toml(
     // Bare records: one roster slot per index up to the highest
     // `players` key, `i + 1` where the key is present, and one bare
     // `PlayerEntry` per present slot. The bare records carry every
-    // field the version has at zero, so a key the document omits reads
-    // 0 like any other field, never as a field the version lacks.
+    // field the version has at zero (a field naming a roster slot at
+    // 0xFF, none), so a key the document omits reads 0 like any other
+    // field, never as a field the version lacks.
     let mut team = TeamEntry {
         tactics: TeamTactics::bare(version),
         ..TeamEntry::default()
     };
-    // 0xFF is the record's none, so an absent `[tactics.set_pieces]`
-    // key reads as no taker, not as roster slot 0.
-    team.tactics.set_pieces = SetPieceTakers {
-        free_kick_long: 0xFF,
-        free_kick_short: 0xFF,
-        free_kick_second: 0xFF,
-        corner_left: 0xFF,
-        corner_right: 0xFF,
-        penalty: 0xFF,
-        captain: 0xFF,
-    };
-    // The man-marking bytes too: an absent `man_marking` key reads as no
-    // assignment, not a marking of opponent slot 0. And the starting
-    // eleven and bench order: an absent `[tactics]` reads as nobody
-    // fielded, not eleven copies of roster slot 0.
-    for preset in &mut team.tactics.presets {
-        preset.man_marking = [0xFF; 11];
-    }
-    team.tactics.starting_eleven = [0xFF; 11];
-    team.tactics.bench_order = [0xFF; 21];
     let highest = document.players.keys().max().copied().unwrap_or(0);
     team.roster = (1..=highest)
         .map(|slot| RosterSlot {

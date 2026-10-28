@@ -137,14 +137,31 @@ impl TeamTactics {
     /// key the document omits reads 0 like any other field, never as a
     /// field the version lacks. Decoded from a zeroed record of the
     /// version's tactics layout, so the schema alone decides what is
-    /// present.
+    /// present. The fields that name a roster slot (set-piece takers, man
+    /// marking, starting eleven, bench order) are 0xFF instead, the record's
+    /// none: at 0 they would all name roster slot 0.
     pub fn bare(version: PesVersion) -> TeamTactics {
         let schema = schema_for(version).tactic;
         let record = vec![0; schema.size];
         let mut team = TeamEntry::default();
         codec::read_tactics_into(&mut team, &record, schema)
             .expect("every field of the version's tactics record accepts 0");
-        team.tactics
+        let mut tactics = team.tactics;
+        tactics.set_pieces = SetPieceTakers {
+            free_kick_long: 0xFF,
+            free_kick_short: 0xFF,
+            free_kick_second: 0xFF,
+            corner_left: 0xFF,
+            corner_right: 0xFF,
+            penalty: 0xFF,
+            captain: 0xFF,
+        };
+        for preset in &mut tactics.presets {
+            preset.man_marking = [0xFF; 11];
+        }
+        tactics.starting_eleven = [0xFF; 11];
+        tactics.bench_order = [0xFF; 21];
+        tactics
     }
 }
 
