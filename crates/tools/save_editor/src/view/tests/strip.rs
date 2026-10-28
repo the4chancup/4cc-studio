@@ -556,16 +556,20 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         Some(tint),
         "the shirt field is tinted"
     );
-    // Inside the limit both runs read the normal text colour; past it the
-    // label stays normal and the count warns.
+    // The label reads the normal text colour; the count the disabled card
+    // labels' grey under its limit, the error colour past it.
     let text_color = visuals.text_color();
-    for run in [0, 1] {
-        assert_eq!(
-            run_color(&shapes, "Name (12/61)", run),
-            text_color,
-            "the name label's run {run} inside the limit"
-        );
-    }
+    let grey = egui::Color32::from_rgb(0x5a, 0x5a, 0x5a);
+    assert_eq!(
+        run_color(&shapes, "Name (12/61)", 0),
+        text_color,
+        "the name's label run"
+    );
+    assert_eq!(
+        run_color(&shapes, "Name (12/61)", 1),
+        grey,
+        "the name count under the limit is grey"
+    );
     assert_eq!(
         run_color(&shapes, "Shirt (20/18)", 0),
         text_color,
@@ -573,8 +577,8 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     );
     assert_eq!(
         run_color(&shapes, "Shirt (20/18)", 1),
-        visuals.warn_fg_color,
-        "the shirt count is drawn in the warning colour"
+        visuals.error_fg_color,
+        "the shirt count past the limit is drawn in the error colour"
     );
     // The field's hover names the portable limit; the counted label
     // carries the same one, since the field and its count carry one
@@ -617,7 +621,12 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     );
     assert_eq!(
         run_color(&shapes, "Shirt (19/18)", 1),
-        visuals.warn_fg_color,
+        visuals.error_fg_color,
+        "still past the limit"
+    );
+    assert_eq!(
+        fill_at(&shapes, shirt_field(&nodes).bounds().expect("bounds")),
+        Some(tint),
         "still tinted"
     );
 
@@ -639,6 +648,33 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         "the refused letter was not pushed"
     );
 
+    // Another deleted: "(18/18)" on the limit, in the warning colour, the
+    // field untinted; at "(17/18)" the count is grey.
+    for (count, colour, what) in [
+        ("Shirt (18/18)", visuals.warn_fg_color, "on the limit"),
+        ("Shirt (17/18)", grey, "under the limit"),
+    ] {
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+        click(&mut window, shirt_field(&nodes), &mut view);
+        window.frame(
+            vec![
+                key(egui::Key::End, egui::Modifiers::NONE, true),
+                key(egui::Key::End, egui::Modifiers::NONE, false),
+                key(egui::Key::Backspace, egui::Modifiers::NONE, true),
+                key(egui::Key::Backspace, egui::Modifiers::NONE, false),
+            ],
+            |ui| show(ui, &mut view, &|| Vec::new()),
+        );
+        let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+        assert!(label_value(&nodes, count), "the count reads {count}");
+        assert_eq!(run_color(&shapes, count, 1), colour, "{count} {what}");
+        assert_ne!(
+            fill_at(&shapes, shirt_field(&nodes).bounds().expect("bounds")),
+            Some(tint),
+            "{count}: the field untinted"
+        );
+    }
+
     // 47 bytes as the name: "Name (47/61)", tinted, the crop hover.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = name_field(&nodes);
@@ -659,8 +695,8 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     );
     assert_eq!(
         run_color(&shapes, "Name (47/61)", 1),
-        visuals.warn_fg_color,
-        "the name count is drawn in the warning colour"
+        visuals.error_fg_color,
+        "past the portable 46 the name count is drawn in the error colour"
     );
     let tooltip = tooltip_after_hover(&mut window, &mut view, centre(field));
     assert_eq!(

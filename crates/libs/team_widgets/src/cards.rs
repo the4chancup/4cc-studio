@@ -9,6 +9,7 @@ use pes_savefile::interchange::team_toml::labels::{self, title_case};
 use pes_savefile::model::playstyle::PlayStyle;
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::schema::{playstyle, schema_for};
+use studio_core::widgets::checkbox;
 
 /// A skills or COM styles column's width (the draft's `.skcols` 158px):
 /// the host sizes the panels that hold the two columns from it.
@@ -68,16 +69,14 @@ pub fn card_columns(
                     let field = field(index);
                     let index = usize::from(index);
                     if fields.contains(&field) {
-                        changed |= ui
-                            .checkbox(&mut cards[index], title_case(names[index]))
-                            .changed();
+                        changed |=
+                            checkbox(ui, &mut cards[index], title_case(names[index])).changed();
                     } else {
                         // A card the version cannot store stays, disabled,
                         // its tooltip naming the first version that has it.
-                        ui.add_enabled(
-                            false,
-                            egui::Checkbox::new(&mut cards[index], title_case(names[index])),
-                        )
+                        ui.add_enabled(false, |ui: &mut egui::Ui| {
+                            checkbox(ui, &mut cards[index], title_case(names[index]))
+                        })
                         .on_disabled_hover_text(format!("PES {}+", first_with(field).number()));
                     }
                 }
@@ -89,18 +88,17 @@ pub fn card_columns(
 
 /// The Cards left label and `badge`'s text, drawn inline in the caller's
 /// row (the draft's `cardBadges`): `Cards left for` then the tier's
-/// `label: left of limit cards`, its part in the error color when
-/// overdrawn; `Cards left:` then `No tier matches`, weak, when no tier's
+/// `label: left of limit` (no `cards` after the count, which the label
+/// before it says), its part in the error color when overdrawn;
+/// `Cards left:` then `No tier matches`, weak, when no tier's
 /// condition holds for him.
 pub fn cards_left(ui: &mut egui::Ui, badge: &CardsBadge<'_>) {
     match badge {
         CardsBadge::Tier(tier) => {
             ui.weak("Cards left for");
             let left = i32::from(tier.limits.limit) - i32::from(tier.limits.paid);
-            let mut text = egui::RichText::new(format!(
-                "{}: {} of {} cards",
-                tier.label, left, tier.limits.limit
-            ));
+            let mut text =
+                egui::RichText::new(format!("{}: {} of {}", tier.label, left, tier.limits.limit));
             if left < 0 {
                 text = text.color(ui.visuals().error_fg_color);
             }
@@ -834,7 +832,8 @@ mod tests {
     }
 
     // The Cards left badge, the draft's `cardBadges`: "Cards left for" then
-    // the one badge, the player's own tier's `label: left of limit cards`,
+    // the one badge, the player's own tier's `label: left of limit` (no
+    // `cards` after the count: the label before it says so),
     // in the error colour when overdrawn. `NoTier` draws "Cards left:" then
     // the weak stand-in. A colour is no AccessKit property, so it is read back
     // from the frame's painted shapes: the badge's `TextShape` carries
@@ -850,35 +849,26 @@ mod tests {
             limits: &under,
         }));
         text_entry(&nodes, "Cards left for");
-        text_entry(&nodes, "Gold: 2 of 5 cards");
+        text_entry(&nodes, "Gold: 2 of 5");
         let text_color = window.ctx.style_of(window.ctx.theme()).visuals.text_color();
         let error_color = window
             .ctx
             .style_of(window.ctx.theme())
             .visuals
             .error_fg_color;
-        assert_eq!(
-            painted_text_color(&shapes, "Gold: 2 of 5 cards"),
-            text_color
-        );
+        assert_eq!(painted_text_color(&shapes, "Gold: 2 of 5"), text_color);
         // Overdrawn paints the error colour.
         let (_, shapes) = window.badge(CardsBadge::Tier(TierCards {
             label: "Silver",
             limits: &over,
         }));
-        assert_eq!(
-            painted_text_color(&shapes, "Silver: -3 of 4 cards"),
-            error_color
-        );
+        assert_eq!(painted_text_color(&shapes, "Silver: -3 of 4"), error_color);
         // No card left is not overdrawn.
         let (_, shapes) = window.badge(CardsBadge::Tier(TierCards {
             label: "Bronze",
             limits: &spent,
         }));
-        assert_eq!(
-            painted_text_color(&shapes, "Bronze: 0 of 4 cards"),
-            text_color
-        );
+        assert_eq!(painted_text_color(&shapes, "Bronze: 0 of 4"), text_color);
         // No tier matching draws the weak stand-in.
         let (nodes, _) = window.badge(CardsBadge::NoTier);
         text_entry(&nodes, "Cards left:");

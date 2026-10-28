@@ -25,7 +25,10 @@ pub struct Violation {
 pub enum ViolationKind {
     /// The registered position is not rated A (under
     /// `registered_position_a`).
-    RegisteredNotA,
+    RegisteredNotA {
+        /// Every position the player is rated A at.
+        rated_a: Vec<Position>,
+    },
     /// Fielded at `position` in preset `preset`, which it is not rated A
     /// at (under `fielded_at_a`).
     FieldedNotA {
@@ -33,11 +36,19 @@ pub enum ViolationKind {
         preset: u8,
         /// The position.
         position: Position,
+        /// Every position the player is rated A at.
+        rated_a: Vec<Position>,
     },
     /// A B rating where `no_b_ratings` refuses one.
-    BRating,
+    BRating {
+        /// Every position the player is rated B at.
+        rated_b: Vec<Position>,
+    },
     /// A second A rating that is GK's (under `gk_not_second_a`).
-    GkSecondA,
+    GkSecondA {
+        /// The positions other than GK the player is rated A at.
+        rated_a: Vec<Position>,
+    },
     /// Age outside `universal.age`.
     Age {
         /// The player's age.
@@ -63,7 +74,12 @@ pub enum ViolationKind {
     PlayingStyleRange,
     /// No tier's `when` held (the player gets no tier and no further
     /// per-player check).
-    NoTier,
+    NoTier {
+        /// The heights the tiers' `when`s name (`height_min`/`height_max`, an `any` list's entries
+        /// included), each an inclusive range; empty when the player's height is among them, the
+        /// cause then being another condition.
+        heights: Vec<(u8, u8)>,
+    },
     /// An ability stat off its target (over it, for an `at_most`
     /// target).
     Stat {
@@ -165,11 +181,20 @@ pub enum ViolationKind {
         count: u8,
         /// The allowance.
         max: u8,
+        /// Every position the player is rated A at.
+        rated_a: Vec<Position>,
     },
     /// A height no bracket of the team's system takes.
     Height {
         /// The player's height in cm.
         height: u8,
+        /// The heights the player could take, each an inclusive range, his height allowance
+        /// added: the ranges of the team's height system's brackets whose quota is not met
+        /// yet; when none has room, of every bracket whose quota is above 0; under an
+        /// `extra_height` system, one range from the lowest quota bracket to `max`.
+        fits: Vec<(u8, u8)>,
+        /// Whether `fits` are brackets with room (false when none has, and under a pool).
+        room: bool,
     },
     /// A tier's count off its expected one (`counts_as` folded in).
     TierCount {
@@ -218,6 +243,8 @@ pub enum ViolationKind {
         label: String,
         /// Which setting fails (`man_marking`, an auto flag).
         setting: String,
+        /// The value the entry sets for the setting.
+        wanted: bool,
     },
     /// A formation matching a `forbidden_shapes` shape.
     FormationShape {
@@ -273,16 +300,28 @@ impl ViolationKind {
     /// One arm per kind, so a new one does not compile past this match.
     pub fn rule(&self) -> (&'static str, Vec<(&'static str, String)>) {
         match self {
-            ViolationKind::RegisteredNotA => ("RegisteredNotA", vec![]),
-            ViolationKind::FieldedNotA { preset, position } => (
+            ViolationKind::RegisteredNotA { rated_a } => (
+                "RegisteredNotA",
+                vec![("rated_a", positions_field(rated_a))],
+            ),
+            ViolationKind::FieldedNotA {
+                preset,
+                position,
+                rated_a,
+            } => (
                 "FieldedNotA",
                 vec![
                     ("preset", preset.to_string()),
                     ("position", position.label().to_owned()),
+                    ("rated_a", positions_field(rated_a)),
                 ],
             ),
-            ViolationKind::BRating => ("BRating", vec![]),
-            ViolationKind::GkSecondA => ("GkSecondA", vec![]),
+            ViolationKind::BRating { rated_b } => {
+                ("BRating", vec![("rated_b", positions_field(rated_b))])
+            }
+            ViolationKind::GkSecondA { rated_a } => {
+                ("GkSecondA", vec![("rated_a", positions_field(rated_a))])
+            }
             ViolationKind::Age { age, min, max } => (
                 "Age",
                 vec![
@@ -301,7 +340,9 @@ impl ViolationKind {
             ),
             ViolationKind::PositionRange => ("PositionRange", vec![]),
             ViolationKind::PlayingStyleRange => ("PlayingStyleRange", vec![]),
-            ViolationKind::NoTier => ("NoTier", vec![]),
+            ViolationKind::NoTier { heights } => {
+                ("NoTier", vec![("heights", ranges_field(heights))])
+            }
             ViolationKind::Stat {
                 stat,
                 value,
@@ -367,11 +408,26 @@ impl ViolationKind {
             ViolationKind::RequiredCard { card } => {
                 ("RequiredCard", vec![("card", card.label().to_owned())])
             }
-            ViolationKind::APositions { count, max } => (
+            ViolationKind::APositions {
+                count,
+                max,
+                rated_a,
+            } => (
                 "APositions",
-                vec![("count", count.to_string()), ("max", max.to_string())],
+                vec![
+                    ("count", count.to_string()),
+                    ("max", max.to_string()),
+                    ("rated_a", positions_field(rated_a)),
+                ],
             ),
-            ViolationKind::Height { height } => ("Height", vec![("height", height.to_string())]),
+            ViolationKind::Height { height, fits, room } => (
+                "Height",
+                vec![
+                    ("height", height.to_string()),
+                    ("fits", ranges_field(fits)),
+                    ("room", room.to_string()),
+                ],
+            ),
             ViolationKind::TierCount {
                 tier,
                 count,
@@ -411,9 +467,17 @@ impl ViolationKind {
                 "Goalkeepers",
                 vec![("count", count.to_string()), ("min", min.to_string())],
             ),
-            ViolationKind::TeamSetting { label, setting } => (
+            ViolationKind::TeamSetting {
+                label,
+                setting,
+                wanted,
+            } => (
                 "TeamSetting",
-                vec![("label", label.clone()), ("setting", setting.clone())],
+                vec![
+                    ("label", label.clone()),
+                    ("setting", setting.clone()),
+                    ("wanted", wanted.to_string()),
+                ],
             ),
             ViolationKind::FormationShape {
                 preset,
@@ -452,6 +516,21 @@ impl ViolationKind {
             }
         }
     }
+}
+
+/// A list of positions as `rule` prints it: `[CF, SS]`, `[]` when empty.
+fn positions_field(positions: &[Position]) -> String {
+    let labels: Vec<&str> = positions.iter().map(|position| position.label()).collect();
+    format!("[{}]", labels.join(", "))
+}
+
+/// A list of inclusive height ranges as `rule` prints it: `[0-175, 180-180]`, `[]` when empty.
+fn ranges_field(ranges: &[(u8, u8)]) -> String {
+    let spans: Vec<String> = ranges
+        .iter()
+        .map(|(low, high)| format!("{low}-{high}"))
+        .collect();
+    format!("[{}]", spans.join(", "))
 }
 
 /// Why a check could not produce its violations.
@@ -555,12 +634,8 @@ pub(crate) fn violations(list: Dynamic) -> Result<Vec<Violation>, CheckError> {
         // here — a unit variant takes `kind` alone. Every variant placed
         // on purpose: a new one lands in a match arm, not a `_`.
         match kind {
-            ViolationKind::RegisteredNotA
-            | ViolationKind::BRating
-            | ViolationKind::GkSecondA
-            | ViolationKind::PositionRange
+            ViolationKind::PositionRange
             | ViolationKind::PlayingStyleRange
-            | ViolationKind::NoTier
             | ViolationKind::Captain => {
                 if let Some(extra) = map.keys().find(|key| key.as_str() != "kind") {
                     return Err(CheckError::Violation {
@@ -569,9 +644,13 @@ pub(crate) fn violations(list: Dynamic) -> Result<Vec<Violation>, CheckError> {
                     });
                 }
             }
-            ViolationKind::FieldedNotA { .. }
+            ViolationKind::RegisteredNotA { .. }
+            | ViolationKind::FieldedNotA { .. }
+            | ViolationKind::BRating { .. }
+            | ViolationKind::GkSecondA { .. }
             | ViolationKind::Age { .. }
             | ViolationKind::Weight { .. }
+            | ViolationKind::NoTier { .. }
             | ViolationKind::Stat { .. }
             | ViolationKind::StatTotal { .. }
             | ViolationKind::Form { .. }
@@ -636,31 +715,36 @@ mod tests {
     fn every_kind_converts() {
         let cases: &[(&str, Option<u8>, Severity, ViolationKind)] = &[
             (
-                "#{ kind: \"RegisteredNotA\" }",
+                "#{ kind: \"RegisteredNotA\", rated_a: [\"CF\", \"SS\"] }",
                 None,
                 Severity::Error,
-                ViolationKind::RegisteredNotA,
+                ViolationKind::RegisteredNotA {
+                    rated_a: vec![Position(12), Position(11)],
+                },
             ),
             (
-                "#{ kind: \"FieldedNotA\", preset: 1, position: \"CB\", slot: 5, severity: \"warning\" }",
+                "#{ kind: \"FieldedNotA\", preset: 1, position: \"CB\", rated_a: [\"DMF\"], slot: 5, severity: \"warning\" }",
                 Some(5),
                 Severity::Warning,
                 ViolationKind::FieldedNotA {
                     preset: 1,
                     position: Position(1),
+                    rated_a: vec![Position(4)],
                 },
             ),
             (
-                "#{ kind: \"BRating\" }",
+                "#{ kind: \"BRating\", rated_b: [\"LB\", \"RB\"] }",
                 None,
                 Severity::Error,
-                ViolationKind::BRating,
+                ViolationKind::BRating {
+                    rated_b: vec![Position(2), Position(3)],
+                },
             ),
             (
-                "#{ kind: \"GkSecondA\" }",
+                "#{ kind: \"GkSecondA\", rated_a: [] }",
                 None,
                 Severity::Error,
-                ViolationKind::GkSecondA,
+                ViolationKind::GkSecondA { rated_a: vec![] },
             ),
             (
                 "#{ kind: \"Age\", age: 15, min: 16, max: 40 }",
@@ -695,10 +779,12 @@ mod tests {
                 ViolationKind::PlayingStyleRange,
             ),
             (
-                "#{ kind: \"NoTier\" }",
+                "#{ kind: \"NoTier\", heights: [[180, 180], [185, 255]] }",
                 None,
                 Severity::Error,
-                ViolationKind::NoTier,
+                ViolationKind::NoTier {
+                    heights: vec![(180, 180), (185, 255)],
+                },
             ),
             (
                 "#{ kind: \"Stat\", stat: \"speed\", value: 80, target: 92, at_most: true }",
@@ -789,16 +875,24 @@ mod tests {
                 },
             ),
             (
-                "#{ kind: \"APositions\", count: 3, max: 2 }",
+                "#{ kind: \"APositions\", count: 3, max: 2, rated_a: [\"CF\", \"SS\", \"AMF\"] }",
                 None,
                 Severity::Error,
-                ViolationKind::APositions { count: 3, max: 2 },
+                ViolationKind::APositions {
+                    count: 3,
+                    max: 2,
+                    rated_a: vec![Position(12), Position(11), Position(8)],
+                },
             ),
             (
-                "#{ kind: \"Height\", height: 191 }",
+                "#{ kind: \"Height\", height: 191, fits: [[0, 175], [180, 180]], room: true }",
                 None,
                 Severity::Error,
-                ViolationKind::Height { height: 191 },
+                ViolationKind::Height {
+                    height: 191,
+                    fits: vec![(0, 175), (180, 180)],
+                    room: true,
+                },
             ),
             (
                 "#{ kind: \"TierCount\", tier: \"gold\", count: 0, expected: 1 }",
@@ -856,12 +950,13 @@ mod tests {
                 ViolationKind::Goalkeepers { count: 0, min: 1 },
             ),
             (
-                "#{ kind: \"TeamSetting\", label: \"no offside trap\", setting: \"offside_trap\" }",
+                "#{ kind: \"TeamSetting\", label: \"no offside trap\", setting: \"offside_trap\", wanted: false }",
                 None,
                 Severity::Error,
                 ViolationKind::TeamSetting {
                     label: "no offside trap".to_string(),
                     setting: "offside_trap".to_string(),
+                    wanted: false,
                 },
             ),
             (
@@ -973,6 +1068,11 @@ mod tests {
             "extra",
         );
         bad_entry("#{ kind: \"Captain\", extra: 1 }", "extra");
+        // The hints' fields are required, and a range is a pair.
+        bad_entry("#{ kind: \"Height\", height: 183, room: true }", "fits");
+        bad_entry("#{ kind: \"NoTier\" }", "heights");
+        bad_entry("#{ kind: \"NoTier\", heights: [[180, 180, 185]] }", "2");
+        bad_entry("#{ kind: \"BRating\", rated_b: [\"XX\"] }", "XX");
         bad_entry("#{ kind: \"Age\", age: 300, min: 16, max: 40 }", "u8");
         bad_entry("#{ kind: \"Age\", age: -1, min: 16, max: 40 }", "u8");
         bad_entry(
@@ -999,13 +1099,40 @@ mod tests {
         assert_eq!(
             ViolationKind::FieldedNotA {
                 preset: 2,
-                position: Position(12)
+                position: Position(12),
+                rated_a: vec![Position(12), Position(11)],
             }
             .rule(),
             (
                 "FieldedNotA",
-                vec![("preset", "2".to_string()), ("position", "CF".to_string())]
+                vec![
+                    ("preset", "2".to_string()),
+                    ("position", "CF".to_string()),
+                    ("rated_a", "[CF, SS]".to_string())
+                ]
             )
+        );
+        // A list of ranges as `low-high`, an empty list as `[]`, a bool as
+        // `true`/`false`.
+        assert_eq!(
+            ViolationKind::Height {
+                height: 183,
+                fits: vec![(0, 175), (180, 180), (185, 185)],
+                room: false,
+            }
+            .rule(),
+            (
+                "Height",
+                vec![
+                    ("height", "183".to_string()),
+                    ("fits", "[0-175, 180-180, 185-185]".to_string()),
+                    ("room", "false".to_string())
+                ]
+            )
+        );
+        assert_eq!(
+            ViolationKind::NoTier { heights: vec![] }.rule(),
+            ("NoTier", vec![("heights", "[]".to_string())])
         );
         // An `Option` field prints only when `Some`.
         assert_eq!(

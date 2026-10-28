@@ -619,6 +619,44 @@ fn pane_frame(shapes: &[egui::epaint::ClippedShape], screen: egui::Vec2) -> (f64
         .expect("the detail pane's frame rect")
 }
 
+/// The player list's frame: the rect filled in `extreme_bg_color` under
+/// the rows, left of the pane and taller than half the screen (the list's
+/// scroll bar's track and the filter box share the fill, but neither is
+/// that wide and tall).
+fn list_frame(window: &Headless, shapes: &[egui::epaint::ClippedShape]) -> egui::Rect {
+    let extreme = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .extreme_bg_color;
+    let screen = window.screen;
+    shapes
+        .iter()
+        .find_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape)
+                if shape.fill == extreme
+                    && shape.rect.max.x < 300.0
+                    && shape.rect.width() > 100.0
+                    && shape.rect.height() > screen.y * 0.5 =>
+            {
+                Some(shape.rect)
+            }
+            _ => None,
+        })
+        .expect("the player list's frame rect")
+}
+
+/// The player list's scroll bar: the leftmost `ScrollBar` node (the
+/// detail pane scrolls too).
+fn list_scroll_bar(nodes: &[accesskit::Node]) -> accesskit::Rect {
+    nodes
+        .iter()
+        .filter(|node| node.role() == Role::ScrollBar)
+        .filter_map(accesskit::Node::bounds)
+        .min_by(|a, b| a.x0.total_cmp(&b.x0))
+        .expect("the list's scroll bar")
+}
+
 /// Whether `node` sits on `anchor`'s row (same top within 4 points) and
 /// right of it.
 fn on_row_right_of(anchor: accesskit::Rect, node: &accesskit::Node) -> bool {
@@ -1187,9 +1225,9 @@ fn frames_until(
 }
 
 /// Frames until the Live AATF dock's check lands: `pending` empty and the
-/// result keyed to the session's current revision, `ids` and the active
-/// ruleset (bounded, so a worker that never replies fails rather than
-/// hangs).
+/// result keyed to the session's current revision, `ids`, the active
+/// ruleset and the Show suggestions checkbox (bounded, so a worker that
+/// never replies fails rather than hangs).
 fn live_checked(window: &mut Headless, view: &mut SaveView, ids: &[u32]) -> Vec<accesskit::Node> {
     frames_until(
         window,
@@ -1204,7 +1242,10 @@ fn live_checked(window: &mut Headless, view: &mut SaveView, ids: &[u32]) -> Vec<
             let check = &view.live.check;
             check.pending.is_none()
                 && check.result.as_ref().is_some_and(|(key, _)| {
-                    key.revision == revision && key.ids == ids && key.ruleset == *ruleset
+                    key.revision == revision
+                        && key.ids == ids
+                        && key.ruleset == *ruleset
+                        && key.suggestions == view.live_suggestions
                 })
         },
         "the AATF check never returned",
@@ -1260,7 +1301,7 @@ fn height_row_below<'a>(nodes: &'a [accesskit::Node], header: &str) -> &'a acces
         .iter()
         .filter(|node| {
             node.role() == Role::Button
-                && node.label() == Some("Height: height 183 takes no bracket")
+                && node.label() == Some("Height: height 183 takes no bracket (185 has room)")
         })
         .filter(|node| node.bounds().is_some_and(|b| b.y0 > top))
         .min_by(|a, b| {
@@ -1276,7 +1317,7 @@ fn height_rows(nodes: &[accesskit::Node]) -> usize {
         .iter()
         .filter(|node| {
             node.role() == Role::Button
-                && node.label() == Some("Height: height 183 takes no bracket")
+                && node.label() == Some("Height: height 183 takes no bracket (185 has room)")
         })
         .count()
 }

@@ -446,12 +446,20 @@ fn the_rating_rules_fire() {
     let (cb, rb, gk) = (position("CB"), position("RB"), position("GK"));
     assert_eq!(
         problems(&rules, &edited(3, |p| p.ratings[usize::from(cb.0)] = 1)),
-        vec![error(Some(3), ViolationKind::BRating)]
+        vec![error(
+            Some(3),
+            // The B just given at CB.
+            ViolationKind::BRating { rated_b: vec![cb] }
+        )]
     );
     assert_eq!(player(&legal_team(), 3).position, Some(rb));
     assert_eq!(
         problems(&rules, &edited(3, |p| p.ratings[usize::from(rb.0)] = 0)),
-        vec![error(Some(3), ViolationKind::RegisteredNotA)]
+        vec![error(
+            Some(3),
+            // RB was his one A position.
+            ViolationKind::RegisteredNotA { rated_a: vec![] }
+        )]
     );
     let team = edited(12, |p| {
         assert_eq!(p.cards.len(), 3);
@@ -460,7 +468,13 @@ fn the_rating_rules_fire() {
     });
     assert_eq!(
         problems(&rules, &team),
-        vec![error(Some(12), ViolationKind::GkSecondA)]
+        vec![error(
+            Some(12),
+            // Slot 12 is rated A at CMF alone in the sample; GK is left out.
+            ViolationKind::GkSecondA {
+                rated_a: vec![position("CMF")]
+            }
+        )]
     );
 }
 

@@ -13,7 +13,6 @@ use pes_version::PesVersion;
 
 use crate::names::append_name;
 use crate::tactics::{Assign, FieldedMark, OpenSlot, RosterRow, TacticsView, name_at, raw_name_at};
-use crate::violations::{CROSS, MARK_GAP};
 
 /// The position a marker released on the grass takes.
 mod drop_rule;
@@ -105,6 +104,13 @@ const ABOVE_CENTRE: f32 = 57.0;
 const BELOW_CENTRE: f32 = 20.0;
 /// The name's centre under the badge centre's.
 const NAME_DY: f32 = 13.0;
+
+/// Live AATF's pitch cross: its ends' inset from the portrait's edges,
+/// its coloured strokes' width and the black outline's width beside
+/// them (the draft's `PITCH_CROSS`).
+const CROSS_INSET: f32 = 6.0;
+const CROSS_WIDTH: f32 = 5.0;
+const CROSS_OUTLINE: f32 = 1.0;
 
 /// The turf texture's size: the game texture's own, drawn into the
 /// smaller canvas.
@@ -438,11 +444,11 @@ pub fn pitch(
         }
         // Live AATF's `FieldedNotA` crosses, painted after every marker
         // and the swap mark: markers overlap, and a mark that asks for a
-        // fix must not hide under a later marker's portrait. Each is the
-        // `✖` right-aligned `MARK_GAP` left of the starter's badge,
-        // centred on it, in the marks' highest severity's colour, its
-        // tooltip their lines. Only while the shown formation is one the
-        // shown preset fields.
+        // fix must not hide under a later marker's portrait. Each is an X
+        // over the starter's portrait (`paint_portrait_cross`) in the
+        // marks' highest severity's colour, its tooltip their lines over
+        // the portrait. Only while the shown formation is one the shown
+        // preset fields.
         if tactics.presets[view.preset.min(2)]
             .fielded_formations()
             .contains(&view.formation.min(2))
@@ -468,24 +474,15 @@ pub fn pitch(
                 } else {
                     centres[index]
                 };
-                let badge = badge_rect(centre);
+                let portrait = portrait_rect(badge_rect(centre));
                 let color = if marks.iter().any(|mark| mark.error) {
                     ui.visuals().error_fg_color
                 } else {
                     ui.visuals().warn_fg_color
                 };
-                let galley = painter.layout_no_wrap(
-                    CROSS.to_string(),
-                    egui::TextStyle::Body.resolve(ui.style()),
-                    color,
-                );
-                let pos = egui::pos2(
-                    badge.left() - MARK_GAP - galley.size().x,
-                    badge.center().y - galley.size().y / 2.0,
-                );
-                painter.galley(pos, galley.clone(), color);
+                paint_portrait_cross(&painter, portrait, color);
                 ui.interact(
-                    egui::Rect::from_min_size(pos, galley.size()),
+                    portrait,
                     ui.scope_id().with(("live aatf pitch cross", index)),
                     egui::Sense::hover(),
                 )
@@ -604,6 +601,31 @@ fn portrait_rect(badge: egui::Rect) -> egui::Rect {
         egui::pos2(badge.left(), badge.top() - PORTRAIT_H),
         egui::vec2(BADGE_W, PORTRAIT_H),
     )
+}
+
+/// Live AATF's pitch cross (the draft's `pitchCross`): an X over the
+/// whole `portrait`, `CROSS_INSET` in from its edges, its two strokes
+/// `CROSS_WIDTH` wide in `color` over the same strokes in black and
+/// `CROSS_OUTLINE` wider each side, so it stays seen over a red portrait.
+/// A disc at each stroke's end rounds it, as the draft's round caps do.
+fn paint_portrait_cross(painter: &egui::Painter, portrait: egui::Rect, color: egui::Color32) {
+    let r = portrait.width() / 2.0 - CROSS_INSET;
+    let centre = portrait.center();
+    let strokes = [
+        [centre + egui::vec2(-r, -r), centre + egui::vec2(r, r)],
+        [centre + egui::vec2(r, -r), centre + egui::vec2(-r, r)],
+    ];
+    for (layer_color, width) in [
+        (egui::Color32::BLACK, CROSS_WIDTH + 2.0 * CROSS_OUTLINE),
+        (color, CROSS_WIDTH),
+    ] {
+        for points in strokes {
+            painter.line_segment(points, egui::Stroke::new(width, layer_color));
+            for end in points {
+                painter.circle_filled(end, width / 2.0, layer_color);
+            }
+        }
+    }
 }
 
 /// The screen's corner brackets around `rect` (the draft's `corners`):

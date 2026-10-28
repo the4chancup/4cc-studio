@@ -19,7 +19,7 @@ use crate::help::{HelpSection, HelpTarget};
 use crate::settings::Settings;
 use crate::status::ToolActivity;
 use crate::tool::{AppPaths, CliError, PlannedTool, StudioTool, ToolContext};
-use crate::widgets::{LogLine, LogPanel, PathKind, path_row};
+use crate::widgets::{LogLine, LogPanel, PathKind, checkbox_without_text, path_row};
 
 /// What `activity()` reports while a stub works: `(tool_label, progress, elapsed)`.
 pub(super) type Activity = (&'static str, Option<(usize, usize)>, Duration);
@@ -189,27 +189,27 @@ impl StudioTool for StubTool {
     }
     fn settings_view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
         ui.label(format!("{} settings body", self.label));
-        // The `file_row` knob draws the Save editor's settings section: its
-        // file path row and its long-labelled checkbox row, in their own grid,
-        // so the section is wider than the menu's 660 points, as the real one is.
+        // The `file_row` knob draws a tool's settings section: a file path
+        // row and a long-labelled checkbox row, in their own grid, so the
+        // section is wider than the menu's 660 points.
         if let Some(current) = self.calls.file_row.lock().unwrap().as_mut() {
             egui::Grid::new(("stub-file-row", self.id))
                 .num_columns(2)
                 .show(ui, |ui| {
                     path_row(
                         ui,
-                        "AATF rules file",
-                        "aatf_rules",
-                        "The AATF rules file; empty: the official ruleset, built in.",
+                        "A tool's file",
+                        "tool_file",
+                        "A tool's file path row.",
                         &mut self.file_buffer,
                         current,
                         PathKind::File {
-                            filter: "AATF rules",
-                            extensions: &["4ccrules"],
+                            filter: "Tool files",
+                            extensions: &["txt"],
                         },
                     );
                     ui.label("Aesthetics from exports");
-                    ui.add(egui::Checkbox::without_text(&mut false));
+                    checkbox_without_text(ui, &mut false);
                     ui.end_row();
                 });
         }

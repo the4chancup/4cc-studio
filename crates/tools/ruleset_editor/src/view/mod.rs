@@ -194,13 +194,17 @@ fn default_save_dialog() -> SaveDialog {
     Box::new(|_, _| panic!("{REAL_DIALOG_PANIC}"))
 }
 
-/// `name` as the suggested file name (the draft's `save()` slug:
-/// lowercase, each whitespace run as `_`), then `.4ccrules`.
+/// `name` as the suggested file name: lowercase, its alphanumeric runs
+/// joined by `_`, then `.4ccrules`. Every other character is dropped,
+/// not only whitespace, since a name's slash or colon would be read as a
+/// folder or refused by the Save dialog (`/vg/ League 27` suggests
+/// `vg_league_27.4ccrules`).
 fn suggested_name(name: &str) -> String {
     format!(
         "{}.{}",
         name.to_lowercase()
-            .split_whitespace()
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|piece| !piece.is_empty())
             .collect::<Vec<_>>()
             .join("_"),
         aatf::RULES_FILE_EXTENSION

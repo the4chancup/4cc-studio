@@ -326,7 +326,9 @@ fn a_player_over_the_max_is_a_height_violation() {
     assert_eq!(
         problems(&rules, &team),
         vec![
-            error(Some(2), ViolationKind::Height { height: 211 }),
+            // GigaHeight's one range: its lowest quota bracket (manlet, 175)
+            // to the pool's `max` (210).
+            error(Some(2), no_bracket(211, &[(175, 210)], false)),
             quota("giga", "tall", 6, 7),
         ]
     );
@@ -341,7 +343,7 @@ fn a_player_below_the_brackets_is_a_height_violation() {
     assert_eq!(
         problems(&rules, &team),
         vec![
-            error(Some(3), ViolationKind::Height { height: 174 }),
+            error(Some(3), no_bracket(174, &[(175, 210)], false)),
             quota("giga", "manlet", 5, 6),
         ]
     );
@@ -605,7 +607,11 @@ fn a_keeper_at_189_holds_no_second_a() {
         problems(&rules, &team),
         vec![error(
             Some(0),
-            ViolationKind::APositions { count: 2, max: 1 }
+            ViolationKind::APositions {
+                count: 2,
+                max: 1,
+                rated_a: vec![position("GK"), position("CB")]
+            }
         )]
     );
     // Rated A at CB alone: within the one-position cap, and the registered

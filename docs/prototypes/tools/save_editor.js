@@ -144,7 +144,9 @@ input[type=range]:focus { outline: none; }
    again or an edit). Shifted left when it would pass the window's right
    edge, as egui keeps an Area on screen. */
 .chfield { position: relative; display: inline-block; }
-.chfield .unsaved { cursor: pointer; }
+/* The label in the link blue (egui's hyperlink_color), as Live AATF's
+   suggestion marks: the weak grey hid it among the toolbar's quieter text. */
+.chfield .unsaved { cursor: pointer; color: var(--link); }
 .chpop { position: absolute; top: 100%; left: 0; margin-top: 3px; z-index: 30;
   width: max-content; min-width: 460px; max-width: 640px;
   background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px;
@@ -3343,7 +3345,7 @@ function renderToolbar() {
 // sample wording: the tooltip.
 function unsavedLabel() {
   return h("span", { class: "chfield" },
-    h("span", { class: "weak unsaved", id: "unsaved-label",
+    h("span", { class: "unsaved", id: "unsaved-label",
       title: "Lists the changes since the save was opened or last saved",
       onclick: () => { S.changesPop = !S.changesPop; render(); } }, "• unsaved changes"),
     S.changesPop ? changesPopup() : null);
@@ -6198,7 +6200,7 @@ function comparatorPanel() {
 // The CLI reports the code and fields only; the sentences per rule kind are
 // the draft's own, from messages.rs's ViolationKind arms.
 // sample wording: every sentence below, one per kind.
-// A hint names a valid value where the sentence would not (plans/aatf_rules.md
+// A hint names a valid value where the sentence would not (spec/aatf_rules.md
 // "The interpreter", Hints at a valid value): a list joined "a, b and c",
 // heights as inclusive ranges ("180", "up to 175", "175 to 210").
 function violationSentence(rule, kv, sev) {

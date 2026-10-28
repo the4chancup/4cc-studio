@@ -1911,24 +1911,52 @@ fn fielded(preset: usize, position: u8, error: bool, line: &str) -> FieldedMark 
     }
 }
 
-/// The frame's `✖` text shapes, in paint order.
-fn crosses(shapes: &[egui::epaint::ClippedShape]) -> Vec<&egui::epaint::TextShape> {
+/// The frame's line segments 5 or more wide, in paint order, with their
+/// index in `shapes`: the pitch crosses' strokes (the pitch's lines and
+/// corners are 2 wide), four a cross, its two black outlines then its two
+/// coloured strokes.
+fn cross_strokes(
+    shapes: &[egui::epaint::ClippedShape],
+) -> Vec<(usize, [egui::Pos2; 2], egui::Stroke)> {
     shapes
         .iter()
-        .filter_map(|clipped| match &clipped.shape {
-            egui::Shape::Text(shape) if shape.galley.job.text == CROSS.to_string() => Some(shape),
+        .enumerate()
+        .filter_map(|(index, clipped)| match &clipped.shape {
+            egui::Shape::LineSegment { points, stroke } if stroke.width >= 5.0 => {
+                Some((index, *points, *stroke))
+            }
             _ => None,
         })
         .collect()
 }
 
+/// The frame's pitch crosses: their coloured strokes' colour, one entry
+/// a cross.
+fn crosses(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::Color32> {
+    cross_strokes(shapes)
+        .chunks(4)
+        .map(|cross| cross[3].2.color)
+        .collect()
+}
+
+/// The portrait box above the badge centred at `centre`: 50 square, its
+/// bottom on the badge's top.
+fn portrait_at(centre: egui::Pos2) -> egui::Rect {
+    let badge = egui::Rect::from_center_size(centre, egui::vec2(50.0, 14.0));
+    egui::Rect::from_min_max(
+        egui::pos2(badge.left(), badge.top() - 50.0),
+        egui::pos2(badge.right(), badge.top()),
+    )
+}
+
 // Live AATF's `FieldedNotA` cross: a starter whose row's `fielded` marks
-// his spot on the shown formation carries one `✖` `MARK_GAP` left of his
-// badge, centred on it, in the error colour when one mark there is an
-// Error. It is painted after every marker, so a marker drawn later
-// cannot cover it.
+// his spot on the shown formation carries an X over his whole portrait,
+// corner to corner 6 in, its two 5-wide strokes in the error colour when
+// one mark there is an Error over the same strokes in black 7 wide. It is
+// painted after every marker, so a marker drawn later cannot cover it,
+// and no `✖` glyph is drawn.
 #[test]
-fn a_fielded_mark_paints_a_cross_left_of_the_starters_badge() {
+fn a_fielded_mark_paints_an_x_over_the_starters_portrait() {
     let mut window = Headless::sized(600.0, 450.0);
     let mut tactics = fixture_tactics(PesVersion::Pes21);
     assert_eq!(
@@ -1961,46 +1989,52 @@ fn a_fielded_mark_paints_a_cross_left_of_the_starters_badge() {
 
     let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let canvas = canvas_rect(&nodes);
-    let badge =
-        egui::Rect::from_center_size(centres_of(canvas, &players)[index], egui::vec2(50.0, 14.0));
-    let found = crosses(&shapes);
-    let [cross] = found.as_slice() else {
-        panic!("expected one cross, got {}", found.len())
+    let portrait = portrait_at(centres_of(canvas, &players)[index]);
+    let strokes = cross_strokes(&shapes);
+    let [black_a, black_b, red_a, red_b] = strokes.as_slice() else {
+        panic!("expected one cross's four strokes, got {}", strokes.len())
     };
-    assert_eq!(
-        painted_color(cross),
-        window
-            .ctx
-            .style_of(window.ctx.theme())
-            .visuals
-            .error_fg_color,
-        "the error colour"
-    );
-    // The right edge is the glyph's advance, not its ink: the draft
-    // right-aligns the cross's text at the badge minus the gap, and the
-    // ink stops short of the advance by the glyph's side bearing. The gap
-    // is the draft's 2 points, written out so a changed `MARK_GAP` fails.
-    let advance_right = cross.pos.x + cross.galley.rect.max.x;
+    let error = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .error_fg_color;
+    // The two diagonals, corner to corner of the portrait 6 in.
+    let inner = portrait.shrink(6.0);
+    let diagonals = [
+        [inner.left_top(), inner.right_bottom()],
+        [inner.right_top(), inner.left_bottom()],
+    ];
+    for ((_, points, stroke), (color, width)) in [black_a, black_b, red_a, red_b].into_iter().zip([
+        (egui::Color32::BLACK, 7.0),
+        (egui::Color32::BLACK, 7.0),
+        (error, 5.0),
+        (error, 5.0),
+    ]) {
+        assert_eq!(
+            (stroke.color, stroke.width),
+            (color, width),
+            "black under, the coloured strokes over"
+        );
+        assert!(
+            diagonals.iter().any(|diagonal| diagonal
+                .iter()
+                .zip(points)
+                .all(|(want, got)| (*want - *got).length() <= 0.01)),
+            "a stroke from {points:?} is no diagonal of the portrait {portrait:?} 6 in"
+        );
+    }
     assert!(
-        (advance_right - (badge.left() - 2.0)).abs() <= 0.5,
-        "the right edge 2 points left of the badge, at {advance_right} against {}",
-        badge.left()
-    );
-    let rect = cross.visual_bounding_rect();
-    assert!(
-        (rect.center().y - badge.center().y).abs() <= 0.5,
-        "centred on the badge"
+        !shapes.iter().any(|clipped| {
+            matches!(&clipped.shape, egui::Shape::Text(shape) if shape.galley.job.text == CROSS.to_string())
+        }),
+        "no `✖` glyph"
     );
 
-    // The cross's shape comes after every marker's shapes in the
+    // The cross's shapes come after every marker's shapes in the
     // frame's list (every marker paints a badge, so after the last
     // badge is after every marker).
-    let cross_index = shapes
-        .iter()
-        .position(|clipped| {
-            matches!(&clipped.shape, egui::Shape::Text(shape) if shape.galley.job.text == CROSS.to_string())
-        })
-        .expect("the cross shape");
+    let cross_index = black_a.0;
     let last_badge = shapes
         .iter()
         .rposition(|clipped| {
@@ -2110,11 +2144,11 @@ fn a_warning_only_mark_paints_the_warn_colour() {
 
     let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let found = crosses(&shapes);
-    let [cross] = found.as_slice() else {
+    let [color] = found.as_slice() else {
         panic!("expected one cross, got {}", found.len())
     };
     assert_eq!(
-        painted_color(cross),
+        *color,
         window
             .ctx
             .style_of(window.ctx.theme())
@@ -2124,8 +2158,9 @@ fn a_warning_only_mark_paints_the_warn_colour() {
     );
 }
 
-// The glyph's own hover rect shows the marks' `line`s, one per line, as
-// a field cross's tooltip shows the violations' lines.
+// The hover over the crossed portrait shows the marks' `line`s, one per
+// line, as a field mark's tooltip shows the violations' lines; a press on
+// it still takes the marker (the tooltip senses hover alone).
 #[test]
 fn the_crosss_hover_shows_the_marks_lines() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -2143,10 +2178,14 @@ fn the_crosss_hover_shows_the_marks_lines() {
     ];
     roster[slot].fielded = &marks;
 
-    let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
-    let cross = crosses(&shapes).into_iter().next().expect("the cross");
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    assert_eq!(crosses(&shapes).len(), 1, "premise: the cross is drawn");
+    let players = tactics.presets[0].formations[0].players;
+    // Off the strokes' crossing, still on the portrait.
+    let on_portrait = portrait_at(centres_of(canvas_rect(&nodes), &players)[index]).center()
+        + egui::vec2(0.0, 12.0);
     let tip = window.pitch_tooltip(
-        cross.visual_bounding_rect().center(),
+        on_portrait,
         "FieldedNotA",
         PesVersion::Pes21,
         &mut tactics,
@@ -2157,6 +2196,19 @@ fn the_crosss_hover_shows_the_marks_lines() {
         tip.as_deref(),
         Some(format!("{line}\n{line}").as_str()),
         "the marks' lines, one per line"
+    );
+    assert_eq!(view.popover, None, "premise: no popover open");
+    window.click_pitch(
+        on_portrait,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert_eq!(
+        view.popover.map(|open| open.slot),
+        Some(index),
+        "a press on the crossed portrait takes his marker"
     );
 }
 

@@ -32,6 +32,9 @@ pub(super) struct CheckKey {
     pub(super) ids: Vec<u32>,
     /// The ruleset the check ran under (`ActiveRules::key`).
     pub(super) ruleset: String,
+    /// Whether the check asks for the suggestions: unasked, the reply
+    /// holds none.
+    pub(super) suggestions: bool,
 }
 
 /// A check in flight: the key it runs for and its reply channel (the
@@ -152,14 +155,15 @@ pub(super) fn team_name(file: &EditFile, id: u32) -> &str {
 
 /// The check's results: one error-coloured line per team whose check
 /// failed (as `check-aatf` reports it), then the `violations_list` itself,
-/// suggestions left out (an unused allowance is nothing to fix). Returns
-/// the player whose row was clicked this frame.
+/// its suggestions listed when `show_suggestions` says so. Returns the
+/// player whose row was clicked this frame.
 pub(super) fn results(
     ui: &mut egui::Ui,
     file: &EditFile,
     id_salt: impl egui::AsIdSalt,
     key: &CheckKey,
     checks: &[TeamCheck],
+    show_suggestions: bool,
 ) -> Option<SelectedPlayer> {
     // Player ids are stable inside an open file: one map serves the
     // whole roster scan, as `selection::rows` builds its own (its
@@ -197,7 +201,7 @@ pub(super) fn results(
             }),
         }
     }
-    violations_list(ui, id_salt, &teams, false)
+    violations_list(ui, id_salt, &teams, show_suggestions)
 }
 
 /// Team `id`'s rostered players as the list's `ListedPlayer`s, in slot
@@ -241,7 +245,14 @@ fn spawn_check(
     let ctx = ctx.clone();
     let reply_key = key.clone();
     std::thread::spawn(move || {
-        let checks = rules::check_teams(&rules, &views);
+        let mut checks = rules::check_teams(&rules, &views);
+        // Unasked, suggestions would tint the whole list blue: most
+        // players of a cup team leave some allowance unused.
+        if !reply_key.suggestions {
+            for violations in checks.iter_mut().flatten() {
+                violations.retain(|violation| violation.severity != aatf::Severity::Suggestion);
+            }
+        }
         // A newer check can replace the receiver mid-flight; that send's
         // failure is the superseded thread ending, not an error.
         if sender.send((reply_key, checks)).is_err() {

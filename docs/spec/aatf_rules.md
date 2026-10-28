@@ -761,15 +761,21 @@ pub struct Violation {
 }
 
 pub enum ViolationKind {
-    RegisteredNotA,
-    FieldedNotA { preset: u8, position: Position },
-    BRating,
-    GkSecondA,
+    /// `rated_a`, here and below: every position the player is rated A at.
+    RegisteredNotA { rated_a: Vec<Position> },
+    FieldedNotA { preset: u8, position: Position, rated_a: Vec<Position> },
+    /// Every position the player is rated B at.
+    BRating { rated_b: Vec<Position> },
+    /// The positions other than GK the player is rated A at.
+    GkSecondA { rated_a: Vec<Position> },
     Age { age: u8, min: u8, max: u8 },
     Weight { weight: u8, min: u8, max: u8 },
     PositionRange,
     PlayingStyleRange,
-    NoTier,
+    /// The heights the tiers' `when`s name (`height_min`/`height_max`, an `any` list's
+    /// entries included), each an inclusive range; empty when the player's height is among
+    /// them, the cause then being another condition.
+    NoTier { heights: Vec<(u8, u8)> },
     Stat { stat: Stat, value: u8, target: u8, at_most: bool },
     Form { value: u8, target: u8 },
     InjuryResistance { value: u8, max: u8 },
@@ -784,13 +790,19 @@ pub enum ViolationKind {
     SkillCardCap { count: u8, max: u8 },
     ComStyleCap { count: u8, max: u8 },
     RequiredCard { card: Card },
-    APositions { count: u8, max: u8 },
-    Height { height: u8 },
+    APositions { count: u8, max: u8, rated_a: Vec<Position> },
+    /// `fits`: the heights the player could take, each an inclusive range, his height
+    /// allowance added: the brackets of the team's height system whose quota is not met yet
+    /// (`room: true`); when none has room, every bracket whose quota is above 0 (a quota of
+    /// 0 takes no player); under an `extra_height` system, one range from the lowest quota
+    /// bracket to `max` (`room: false` both).
+    Height { height: u8, fits: Vec<(u8, u8)>, room: bool },
     TierCount { tier: TierId, count: u8, expected: u8 },
     BracketQuota { system: SystemId, bracket: BracketId, count: u8, quota: u8 },
     Captain,
     Goalkeepers { count: u8, min: u8 },
-    TeamSetting { label: String, setting: String },
+    /// `wanted`: the value the entry sets for the setting.
+    TeamSetting { label: String, setting: String, wanted: bool },
     FormationShape { preset: u8, formation: u8, shape: [u8; 3] },
     Special { label: String, text: String },
     Custom { text: String },
@@ -803,6 +815,31 @@ pub enum ViolationKind {
 
 These are findings (`AGENTS.md` "Fundamental concepts"): each tool maps a kind to its message
 catalog; only `Special` and `Custom` carry text, the ruleset author's.
+
+**Hints at a valid value.** A violation whose sentence would not otherwise name a value to
+reach carries one, computed by the logic so every surface (Live AATF's rows, the marks'
+tooltips, Multi-team AATF's copy, `check-aatf`'s fields) shows the same: most kinds already
+name theirs (a range, a target, a limit, a count); `Height`, `NoTier`, `RegisteredNotA`,
+`FieldedNotA`, `APositions`, `GkSecondA`, `BRating` and `TeamSetting` carry the fields above.
+Each hint reads what the check has already read, never a search for a value that passes every
+rule (each candidate height run through the whole check would be the expensive part); a
+special can therefore still forbid a height the hint names (Autumn 26's goalkeepers between
+181 and 188 must be 189). `check_team` reads every player before checking any, so the
+brackets' room is counted once and handed to the per-player checks; `card_summary`, which
+walks every position's rating, collects the A and B lists. The sentences (`team_widgets`'
+`violations.rs` and the drafts' `violationSentence`): `height 183 takes no bracket (180 or 185
+have room)`, `(up to 175, 180 or 185)` without room, `(175 to 210)` under a pool; `fits no
+tier (the tiers take 180, 185, 190 or 195)`; `the registered position is not rated A (rated A
+at CF and SS)`, `(no position rated A)` when none; the same list after FieldedNotA's and
+APositions' sentences; `a second A rating at GK (also A at CB)`; `a B rating where the ruleset
+refuses one (B at LB and RB)`; `team setting No man marking: man marking should be off`, the
+setting in words. A range of one height prints once, one from the bottom `up to` its top. No
+hint for PositionRange and PlayingStyleRange (the editor's controls offer only valid values),
+Captain, FormationShape (any other shape is valid), Special and Custom (the ruleset author's
+words) and UnusedChoice (naming a choice's options would need a sentence for every kind of
+effect). `check-aatf` prints a list field as it prints `MedalSystem`'s systems, `[a, b]`, a
+height range as `low-high` (`fits=[0-175, 180-180]`, 0 being an `up to` range's bottom), so
+its line keeps one comma-separated field per key and a script reading it needs no second rule.
 
 The map names the variant in `kind` (`"Stat"`) and carries its fields under their names: closed
 sets as the labels the file uses (`stat: "speed"`, `position: "CB"`, `card: "malicia"`), ids as

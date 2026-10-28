@@ -4,7 +4,9 @@
 //! after every settled edit so the list shrinks as the member fixes them;
 //! a row's click selects the player. The toolbar's toggle is the
 //! `live_aatf` setting (`view.live_aatf`); off, nothing is drawn and no
-//! check starts.
+//! check starts. Its Show suggestions checkbox is `live_suggestions`: on,
+//! the check asks for the suggestions too, listed under `Suggestions`
+//! after the violations.
 
 use studio_core::widgets::BottomDock;
 
@@ -42,6 +44,7 @@ impl LiveAatf {
 pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let SaveView {
         live,
+        live_suggestions,
         session,
         team,
         filter,
@@ -63,6 +66,7 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         revision: session.revision(),
         ids: team_id.into_iter().collect(),
         ruleset: active.key.clone(),
+        suggestions: *live_suggestions,
     };
     let checking =
         aatf_check::update_check(&mut live.check, ui.ctx(), file, &active.rules, key, settled);
@@ -114,7 +118,14 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     if team_id.is_none() {
                         ui.weak("No team is open.");
                     } else if let Some((result_key, checks)) = &live.check.result {
-                        clicked = aatf_check::results(ui, file, "aatf_live", result_key, checks);
+                        clicked = aatf_check::results(
+                            ui,
+                            file,
+                            "aatf_live",
+                            result_key,
+                            checks,
+                            result_key.suggestions,
+                        );
                     }
                     clicked
                 })

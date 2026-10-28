@@ -150,11 +150,11 @@ fn teams_limits_the_check_to_the_named_teams_in_id_order() {
         .unwrap();
     assert!(last_704 < first_718, "704's lines come first: {messages:?}");
     // SE-AATF-01's player field on an error line: 704's goalkeeper,
-    // fielded in goal in preset 1 without an A there.
+    // fielded in goal in preset 1 without an A there (rated A nowhere).
     assert!(
         messages.iter().any(|line| line
             == "Error aatf_violation (team=704, player=70401, rule=FieldedNotA, preset=1, \
-                position=GK)"),
+                position=GK, rated_a=[])"),
         "{messages:?}"
     );
 }
@@ -502,7 +502,7 @@ fn the_aatf_ruleset_setting_naming_vtl11_checks_against_vtl11() {
 
 /// A setting naming an imported copy that is gone: the check runs under the official
 /// ruleset and the report carries the warning line saying so.
-// SE-GUI-32
+// SE-GUI-32, SE-AATF-04
 #[test]
 fn a_gone_aatf_ruleset_warns_and_checks_against_the_official_ruleset() {
     let sandbox = Sandbox::new("aatf_ruleset_gone");

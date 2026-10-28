@@ -1,9 +1,10 @@
 //! Live AATF's marks on the editor itself, so a manager sees what to fix
 //! where they fix it (the draft's `rowMark`, `violationField` and
 //! `fieldMark`). While the toggle is on and the dock's check holds one
-//! team's result, the list's rows carry a `✖` or `✔` and the selected player's field a
-//! violation is about carries a `✖`. `held_violations` is the one read
-//! of the held check every mark goes through.
+//! team's result, the list's rows carry a `✖` or `✔` and the selected
+//! player's fields a row is about carry a `✖`, `⚠` or `ⓘ` left of their
+//! labels. `held_violations` is the one read of the held check every mark
+//! goes through.
 
 use team_widgets::violations::violation_line;
 pub(super) use team_widgets::violations::{CROSS, MARK_GAP};
@@ -14,6 +15,18 @@ use crate::view::aatf_check::TeamsCheck;
 /// egui's bundled emoji fonts hold them, and the theme keeps those fonts
 /// in the fallback chain. The icon font's subset holds neither.
 const TICK: char = '\u{2714}';
+
+/// A field's mark for a Warning, the warning sign (`⚠`, U+26A0).
+const WARNING_SIGN: char = '\u{26a0}';
+
+/// A field's mark for suggestions alone, the circled i (`ⓘ`, U+24D8): a
+/// plain `i` was too slight to see.
+const CIRCLED_I: char = '\u{24d8}';
+
+/// A field mark's box width: the widest of its glyphs' (the warning sign,
+/// 10.6 at the body size), each glyph centred in it, so a column's marks
+/// line up by their centres whatever their glyphs.
+const MARK_BOX: f32 = 11.0;
 
 /// The violations the marks draw: `check`'s held result while `live`
 /// (the `live_aatf` toggle) is on, when the result is one team's
@@ -34,7 +47,7 @@ pub(super) fn held_violations(live: bool, check: &TeamsCheck) -> Option<(u32, &[
     Some((*team_id, violations))
 }
 
-/// The field a violation's cross sits beside: `marked_field` maps a kind
+/// The field a violation's mark stands before: `marked_field` maps a kind
 /// to one, `None` for the kinds about no single field and the team's own.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) enum MarkedField {
@@ -66,20 +79,23 @@ pub(super) enum MarkedField {
     Pitch,
     /// The Playing style combo (`PlayingStyleRange`).
     PlayingStyle,
-    /// The Skills checkboxes (`SkillCardCap`, a required skill card).
+    /// The Skills header: the skills (`SkillCardCap`, a required skill
+    /// card) and the card budget its Cards left badge counts (`Cards`,
+    /// `MinCards`), in one mark, since a mark of its own before the badge
+    /// would shift the badge whenever it showed.
     Skills,
     /// The COM playing styles (`ComStyleCap`, a required COM style).
     ComStyles,
-    /// The Skills header's Cards left badge (`Cards`, `MinCards`).
-    CardsLeft,
+    /// The Tricks or Free cards panel's header (a suggestion of its
+    /// cards).
+    AsideCards,
 }
 
-/// The field `kind`'s violation is about — the Live AATF bullet's
-/// field-a-violation-is-about sub-bullet's mapping, one arm per kind so
-/// a new kind does not compile past it. `None` for the kinds about no
-/// single field (`NoTier`, `StatTotal`, `Special`, `Custom`,
-/// `RosterOrder`, the suggestions), which mark the player's row alone,
-/// and the team's own kinds, which mark the team's.
+/// The field `kind`'s row is about, one arm per kind so a new kind does
+/// not compile past it. `None` for the kinds about no single field
+/// (`NoTier`, `StatTotal`, `Special`, `Custom`, `RosterOrder`,
+/// `UnusedChoice`), which mark the player's row alone, and the team's own
+/// kinds, which mark the team's.
 pub(super) fn marked_field(kind: &aatf::ViolationKind) -> Option<MarkedField> {
     use aatf::ViolationKind as K;
     match kind {
@@ -92,23 +108,24 @@ pub(super) fn marked_field(kind: &aatf::ViolationKind) -> Option<MarkedField> {
         K::WeakFootAccuracy { .. } => Some(MarkedField::WeakFootAccuracy),
         K::Stat { stat, .. } => Some(MarkedField::Stat(*stat)),
         K::NameColor { .. } => Some(MarkedField::Name),
-        K::RegisteredNotA | K::PositionRange => Some(MarkedField::RegisteredPosition),
-        K::BRating | K::GkSecondA | K::APositions { .. } => Some(MarkedField::PlayablePositions),
+        K::RegisteredNotA { .. } | K::PositionRange => Some(MarkedField::RegisteredPosition),
+        K::BRating { .. } | K::GkSecondA { .. } | K::APositions { .. } => {
+            Some(MarkedField::PlayablePositions)
+        }
         K::FieldedNotA { .. } => Some(MarkedField::Pitch),
         K::PlayingStyleRange => Some(MarkedField::PlayingStyle),
-        K::SkillCardCap { .. } => Some(MarkedField::Skills),
+        K::SkillCardCap { .. } | K::Cards { .. } | K::MinCards { .. } => Some(MarkedField::Skills),
         K::ComStyleCap { .. } => Some(MarkedField::ComStyles),
         K::RequiredCard { card } => Some(match card {
             aatf::Card::Skill(_) => MarkedField::Skills,
             aatf::Card::ComStyle(_) => MarkedField::ComStyles,
         }),
-        K::Cards { .. } | K::MinCards { .. } => Some(MarkedField::CardsLeft),
-        K::NoTier
+        K::Unused { allowance, .. } => Some(unused_field(allowance)),
+        K::NoTier { .. }
         | K::StatTotal { .. }
         | K::Special { .. }
         | K::Custom { .. }
         | K::RosterOrder { .. }
-        | K::Unused { .. }
         | K::UnusedChoice { .. }
         | K::TierCount { .. }
         | K::BracketQuota { .. }
@@ -121,7 +138,46 @@ pub(super) fn marked_field(kind: &aatf::ViolationKind) -> Option<MarkedField> {
     }
 }
 
-/// What a field's cross draws from: the held team's violations and the
+/// The field an `Unused` suggestion's allowance is about: a `suggestions`
+/// word's own field, a card group's panel (`com` the COM styles, `tricks`
+/// the Tricks panel), the skills for any other group.
+fn unused_field(allowance: &str) -> MarkedField {
+    match allowance {
+        "cards" => MarkedField::Skills,
+        "a_positions" => MarkedField::PlayablePositions,
+        // Usage and Accuracy share one label, Usage's row.
+        "weak_foot" => MarkedField::WeakFootUsage,
+        "injury_resistance" => MarkedField::InjuryResistance,
+        "height" => MarkedField::Height,
+        "com" => MarkedField::ComStyles,
+        "free_cards" | "tricks" => MarkedField::AsideCards,
+        _ => MarkedField::Skills,
+    }
+}
+
+/// The highest of `severities`: an Error over a Warning over a
+/// Suggestion; `None` for none.
+fn highest(severities: impl IntoIterator<Item = aatf::Severity>) -> Option<aatf::Severity> {
+    severities
+        .into_iter()
+        .max_by_key(|severity| match severity {
+            aatf::Severity::Error => 2,
+            aatf::Severity::Warning => 1,
+            aatf::Severity::Suggestion => 0,
+        })
+}
+
+/// A severity's colour, the list's and the fields' marks alike: the error
+/// red, the warning orange, the link blue for a suggestion.
+fn severity_color(severity: aatf::Severity, visuals: &egui::Visuals) -> egui::Color32 {
+    match severity {
+        aatf::Severity::Error => visuals.error_fg_color,
+        aatf::Severity::Warning => visuals.warn_fg_color,
+        aatf::Severity::Suggestion => visuals.hyperlink_color,
+    }
+}
+
+/// What a field's mark draws from: the held team's violations and the
 /// selected player's slot and team (`violation_line`'s team id), bundled
 /// so the view's field sites take one parameter. `None` at a site while
 /// `held_violations` names another team or no result — the view's
@@ -137,47 +193,70 @@ pub(super) struct Marks<'a> {
 }
 
 impl Marks<'_> {
-    /// `field_cross` on the bundle's parts.
-    pub(super) fn cross(&self, ui: &mut egui::Ui, field: MarkedField) {
-        field_cross(ui, self.violations, self.slot, self.team_id, field);
-    }
-
-    /// `paint_field_cross` on the bundle's parts.
+    /// The mark of `field`'s rows on the selected player, painted before
+    /// `label` (the field's label or its panel's header, its text drawn
+    /// from the rect's left edge): a `MARK_BOX`-wide box ending
+    /// `MARK_GAP` before the text, its glyph centred in it and on the
+    /// label's height, its tooltip the rows' lines. Painted over the
+    /// margin before the label, so no label moves or wraps and a column
+    /// of labels has its marks on one centre whatever the labels' lengths.
+    /// Draws nothing, and returns `None`, when no row of the slot is about
+    /// `field`.
     pub(super) fn paint(
         &self,
         ui: &mut egui::Ui,
-        rect: egui::Rect,
+        label: egui::Rect,
         field: MarkedField,
     ) -> Option<egui::Response> {
-        paint_field_cross(ui, rect, self.violations, self.slot, self.team_id, field)
+        let mark = field_mark(self.violations, self.slot, self.team_id, field)?;
+        let (glyph, color) = mark.glyph(ui.visuals());
+        let galley = ui.painter().layout_no_wrap(
+            glyph.to_string(),
+            egui::TextStyle::Body.resolve(ui.style()),
+            color,
+        );
+        let mark_box = egui::Rect::from_center_size(
+            egui::pos2(label.min.x - MARK_GAP - MARK_BOX / 2.0, label.center().y),
+            egui::vec2(MARK_BOX, galley.size().y),
+        );
+        let pos = mark_box.center() - galley.size() / 2.0;
+        ui.painter().galley(pos, galley, color);
+        Some(
+            ui.interact(
+                mark_box,
+                ui.scope_id().with(("live aatf field mark", field)),
+                egui::Sense::hover(),
+            )
+            .on_hover_text(mark.tooltip),
+        )
     }
 }
 
-/// What a field's cross draws (from `field_mark`): the colour's key and
-/// the tooltip.
+/// What a field's mark draws (from `field_mark`): the highest severity
+/// among its rows and the tooltip.
 struct FieldMark {
-    /// An Error-severity violation is among them (the cross is
-    /// `error_fg_color`; else `warn_fg_color`).
-    error: bool,
-    /// The violations' `violation_line`s, one per line, in the check's
-    /// order.
+    /// The highest severity among the rows.
+    severity: aatf::Severity,
+    /// The rows' `violation_line`s, one per line, in the check's order.
     tooltip: String,
 }
 
 impl FieldMark {
-    /// The cross's colour: the highest severity's among the violations.
-    fn color(&self, visuals: &egui::Visuals) -> egui::Color32 {
-        if self.error {
-            visuals.error_fg_color
-        } else {
-            visuals.warn_fg_color
-        }
+    /// The glyph and its colour: a `✖` for an Error, a `⚠` for a
+    /// Warning, a `ⓘ` for suggestions alone. Not the list's check mark:
+    /// on a field it would read as "this field passes".
+    fn glyph(&self, visuals: &egui::Visuals) -> (char, egui::Color32) {
+        let glyph = match self.severity {
+            aatf::Severity::Error => CROSS,
+            aatf::Severity::Warning => WARNING_SIGN,
+            aatf::Severity::Suggestion => CIRCLED_I,
+        };
+        (glyph, severity_color(self.severity, visuals))
     }
 }
 
-/// The Error and Warning violations on `slot` whose kind maps to `field`
-/// as the cross beside it draws them (`None`: nothing is drawn — a
-/// suggestion alone marks no field).
+/// The rows on `slot` whose kind maps to `field`, as the mark before it
+/// draws them (`None`: no row, nothing is drawn).
 fn field_mark(
     violations: &[aatf::Violation],
     slot: u8,
@@ -187,18 +266,11 @@ fn field_mark(
     let marked: Vec<&aatf::Violation> = violations
         .iter()
         .filter(|violation| {
-            violation.slot == Some(slot)
-                && violation.severity != aatf::Severity::Suggestion
-                && marked_field(&violation.kind) == Some(field)
+            violation.slot == Some(slot) && marked_field(&violation.kind) == Some(field)
         })
         .collect();
-    if marked.is_empty() {
-        return None;
-    }
     Some(FieldMark {
-        error: marked
-            .iter()
-            .any(|violation| violation.severity == aatf::Severity::Error),
+        severity: highest(marked.iter().map(|violation| violation.severity))?,
         tooltip: marked
             .iter()
             .map(|violation| violation_line(violation, team_id))
@@ -207,111 +279,33 @@ fn field_mark(
     })
 }
 
-/// The `✖` beside a field a violation is about, added to the layout (the
-/// panel titles, whose next item is nothing the cross pushes, and the
-/// Skills header, where the Cards left badge follows and moves with it):
-/// one label, `error_fg_color` when one of them is an Error else
-/// `warn_fg_color`, its tooltip their `violation_line`s, one per line.
-/// Draws nothing when no Error or Warning violation on `slot` maps to
-/// `field`. The sites laying the cross into the space between a label
-/// and its field use `paint_field_cross` instead.
-fn field_cross(
-    ui: &mut egui::Ui,
-    violations: &[aatf::Violation],
-    slot: u8,
-    team_id: u32,
-    field: MarkedField,
-) {
-    let Some(mark) = field_mark(violations, slot, team_id, field) else {
-        return;
-    };
-    // The cross stands MARK_GAP after the item before it: `add_space`
-    // moves the cursor back by the negative amount (a row's spacing is
-    // wider), and the item after keeps the row's spacing.
-    ui.add_space(MARK_GAP - ui.spacing().item_spacing.x);
-    ui.add(egui::Label::new(
-        egui::RichText::new(CROSS.to_string()).color(mark.color(ui.visuals())),
-    ))
-    .on_hover_text(mark.tooltip);
-}
-
-/// `field_cross` painted inside `rect` (left edge, vertically centred),
-/// for the sites where the cross sits in reserved space — a label
-/// column's tail, a counted label's, the gap before a box — so no
-/// control's x moves. The glyph's own hover rect shows the tooltip;
-/// its response returned for a caller suppressing an overlap's own
-/// hover (the counted label's).
-fn paint_field_cross(
-    ui: &mut egui::Ui,
-    rect: egui::Rect,
-    violations: &[aatf::Violation],
-    slot: u8,
-    team_id: u32,
-    field: MarkedField,
-) -> Option<egui::Response> {
-    let mark = field_mark(violations, slot, team_id, field)?;
-    let color = mark.color(ui.visuals());
-    let galley = ui.painter().layout_no_wrap(
-        CROSS.to_string(),
-        egui::TextStyle::Body.resolve(ui.style()),
-        color,
-    );
-    let pos = egui::pos2(rect.min.x, rect.center().y - galley.size().y / 2.0);
-    let glyph = egui::Rect::from_min_size(pos, galley.size());
-    ui.painter().galley(pos, galley, color);
-    Some(
-        ui.interact(
-            glyph,
-            ui.scope_id().with(("live aatf field cross", field)),
-            egui::Sense::hover(),
-        )
-        .on_hover_text(mark.tooltip),
-    )
-}
-
-/// `glyph`'s galley width at the body font (`cross_width` and
-/// `RowMark::width` read one through it).
-fn glyph_width(ui: &egui::Ui, glyph: char) -> f32 {
-    ui.painter()
-        .layout_no_wrap(
-            glyph.to_string(),
-            egui::TextStyle::Body.resolve(ui.style()),
-            egui::Color32::WHITE,
-        )
-        .size()
-        .x
-}
-
-/// The `✖`'s galley width at the body font, what `paint_field_cross`
-/// takes: a caller leaving it room in a gap reads it first.
-pub(super) fn cross_width(ui: &egui::Ui) -> f32 {
-    glyph_width(ui, CROSS)
-}
-
-/// What `row_mark` computes for a list row: failing or passing, and the
-/// tooltip's counts.
+/// What `row_mark` computes for a list row: the highest severity among
+/// its rows and the tooltip's counts.
 pub(super) struct RowMark {
-    /// An Error-severity violation is on the row (warnings and
-    /// suggestions are not failures, as `check-aatf`'s exit code counts
-    /// them).
-    pub(super) failing: bool,
-    /// `N error(s), M warning(s)` — a zero count left out, `No errors`
-    /// when there are neither.
+    /// The highest severity among the row's violations; `None` when it
+    /// has none.
+    severity: Option<aatf::Severity>,
+    /// `N error(s), M warning(s), K suggestion(s)` — a zero count left
+    /// out, `No errors` when there are none.
     pub(super) tooltip: String,
 }
 
 impl RowMark {
-    /// The glyph and its colour: `✖` in `error_fg_color` when failing,
-    /// `✔` in the theme's success green for text (`notice_color` keeps
-    /// it readable on both themes) when passing.
+    /// The glyph and its colour: `✖` in `error_fg_color` on an Error,
+    /// else `✔` (warnings and suggestions are not failures, as
+    /// `check-aatf`'s exit code counts them) in the highest severity's
+    /// colour, or in the theme's success green for text (`notice_color`
+    /// keeps it readable on both themes) when there is none.
     pub(super) fn glyph(&self, visuals: &egui::Visuals) -> (char, egui::Color32) {
-        if self.failing {
-            (CROSS, visuals.error_fg_color)
-        } else {
-            (
+        match self.severity {
+            Some(aatf::Severity::Error) => (CROSS, visuals.error_fg_color),
+            Some(severity @ (aatf::Severity::Warning | aatf::Severity::Suggestion)) => {
+                (TICK, severity_color(severity, visuals))
+            }
+            None => (
                 TICK,
                 studio_core::theme::notice_color(studio_core::NoticeKind::Success, visuals),
-            )
+            ),
         }
     }
 
@@ -319,27 +313,32 @@ impl RowMark {
     /// at its right end before truncating its text.
     pub(super) fn width(&self, ui: &egui::Ui) -> f32 {
         let (glyph, _) = self.glyph(ui.visuals());
-        glyph_width(ui, glyph)
+        ui.painter()
+            .layout_no_wrap(
+                glyph.to_string(),
+                egui::TextStyle::Body.resolve(ui.style()),
+                egui::Color32::WHITE,
+            )
+            .size()
+            .x
     }
 }
 
 /// A list row's mark over the violations on `slot` (`None`: the team's
-/// own): failing when one is an Error, else passing.
+/// own).
 pub(super) fn row_mark(violations: &[aatf::Violation], slot: Option<u8>) -> RowMark {
-    let mut errors = 0usize;
-    let mut warnings = 0usize;
-    for violation in violations {
-        if violation.slot != slot {
-            continue;
-        }
-        match violation.severity {
-            aatf::Severity::Error => errors += 1,
-            aatf::Severity::Warning => warnings += 1,
-            aatf::Severity::Suggestion => {}
-        }
-    }
+    let on_slot: Vec<aatf::Severity> = violations
+        .iter()
+        .filter(|violation| violation.slot == slot)
+        .map(|violation| violation.severity)
+        .collect();
     let mut parts = Vec::new();
-    for (count, word) in [(errors, "error"), (warnings, "warning")] {
+    for (severity, word) in [
+        (aatf::Severity::Error, "error"),
+        (aatf::Severity::Warning, "warning"),
+        (aatf::Severity::Suggestion, "suggestion"),
+    ] {
+        let count = on_slot.iter().filter(|held| **held == severity).count();
         if count > 0 {
             parts.push(format!(
                 "{count} {word}{}",
@@ -348,7 +347,7 @@ pub(super) fn row_mark(violations: &[aatf::Violation], slot: Option<u8>) -> RowM
         }
     }
     RowMark {
-        failing: errors > 0,
+        severity: highest(on_slot),
         tooltip: if parts.is_empty() {
             "No errors".to_owned()
         } else {

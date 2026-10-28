@@ -179,7 +179,8 @@ all side by side.
   included. Picking a team selects its team row, so the detail shows that team's view, its
   tactics with it: a manager who picks a team usually wants its tactics next. Picking ALL keeps
   the selection.
-- **Player list**, 255 points wide and not resizable: under the design width the window scales
+- **Player list**, 255 points wide (its rows' frame and the scroll bar's strip; egui's panel
+  margins and separator come on top) and not resizable: under the design width the window scales
   instead of narrowing (`spec/core/gui.md` "Shell layout", the paragraph "Scaling with the width"), so the view always has the
   room the 1280-point layout gives it, and a list dragged wider would only take that room back.
   Its scroll bar stands outside the list's frame, egui's solid bar (4 points from the
@@ -244,7 +245,10 @@ all side by side.
   shortcut) `studio_core`'s widgets rather than this tool's, so every tool's toolbar takes
   them when it is built (this is the first tool with a finished UI): `Open`, `Save`, `Save as`; a separator; `Undo`, `Redo`; a
   separator; the `Player`, `Team` and `Savefile` menus; a separator; the ruleset dropdown and
-  Live AATF (with `Show suggestions` while it is on), then `• unsaved changes`. With one menu
+  Live AATF (with `Show suggestions` while it is on), then `• unsaved changes`, in the link
+  blue (`Visuals::hyperlink_color`, the blue of Live AATF's suggestion marks), not the weak
+  grey, which hid the one piece saying the save differs from its file among the toolbar's
+  quieter text; the blue also tells it is clickable (the changes list). With one menu
   open, the pointer entering another menu's button opens that one instead, as a menu bar
   does (`MenuBar` switches on hover; a plain button such as `Save` opens nothing). Menus
   group by what an entry acts on, not by what it opens: the `Savefile` menu holds the whole
@@ -883,7 +887,9 @@ violations list are not this tool's alone: the [Team creator](team_creator.md) s
 formation, cards and instructions to a new manager over a team that does not exist in any save
 yet. Tool crates never depend on tool crates (core plan, guardrail 1), so the widgets live in a
 lib — `libs/team_widgets`, an egui widget crate in the class the core plan already allows for
-`color_tools` and `model_viewport`: egui-dependent, `wasm32`-clean, and nothing else.
+`color_tools` and `model_viewport`: egui-dependent, `wasm32`-clean, and nothing else but
+`studio_core`'s shared widgets (the checkbox every view draws), so its controls look as the
+host's do.
 
 Contract, the same one the color picker has: a widget takes `&mut` model (`TeamEntry`,
 `TacticsPreset`, `PlayerEntry` — `pes_savefile`'s types), the version's schema for gating, and the
@@ -1322,7 +1328,8 @@ What this editor adds on top of the lib:
     paid skills and the extra A positions; and for a suggestion (`Unused`), the field of its
     allowance: the Skills header for the cards, the positions grid for the A positions,
     the `Weak foot: Usage` label for the weak foot (the pair's shared label), the Injury
-    resistance field, the COM styles for `com`, the Tricks or Free cards panel for the tricks
+    resistance field, the Height field for the height (a player below his `up_to`
+    bracket's top could be taller), the COM styles for `com`, the Tricks or Free cards panel for the tricks
     and the free cards, and the skills for any other card group. A field several rows are
     about carries one mark, its tooltip their lines as the dock shows them, one per
     line. One function maps a kind to its field, a match with an arm per kind (a new kind does

@@ -102,7 +102,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         cutscenes(ui, session, player_id, &player.stats);
         if setting {
             ownership_line(ui, version);
-            ui.checkbox(edit_aesthetics, "Edit aesthetics anyway");
+            studio_core::widgets::checkbox(ui, edit_aesthetics, "Edit aesthetics anyway");
             if *edit_aesthetics {
                 ui.weak(match version.engine() {
                     Engine::PreFox => "A later patch overwrites whatever is edited by hand.",
@@ -366,8 +366,10 @@ fn edit_flags(
             }
         }),
         None => {
-            ui.add_enabled(false, egui::Checkbox::new(&mut false, BASE_COPY_LABEL))
-                .on_disabled_hover_text("PES 15 to 18 only");
+            ui.add_enabled(false, |ui: &mut egui::Ui| {
+                studio_core::widgets::checkbox(ui, &mut false, BASE_COPY_LABEL)
+            })
+            .on_disabled_hover_text("PES 15 to 18 only");
         }
     }
     number(
@@ -783,7 +785,7 @@ fn checkbox(
     set: impl FnOnce(&mut PlayerEntry, bool),
 ) {
     let mut value = held;
-    let response = ui.checkbox(&mut value, label);
+    let response = studio_core::widgets::checkbox(ui, &mut value, label);
     if response.changed() {
         edit_player(session, player_id, response.id.value(), |player| {
             set(player, value);

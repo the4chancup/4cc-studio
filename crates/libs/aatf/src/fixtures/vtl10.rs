@@ -179,7 +179,8 @@ fn silver_and_gold_at_194_differ_only_in_swerve() {
     assert_eq!(
         problems(&rules, &team),
         vec![
-            error(Some(5), ViolationKind::NoTier),
+            // 194 is the medals' own height: the cause is the swerve.
+            error(Some(5), ViolationKind::NoTier { heights: vec![] }),
             error(
                 None,
                 ViolationKind::TierCount {
@@ -376,12 +377,15 @@ fn no_b_rating_anywhere() {
     let cb = position("CB");
     assert_eq!(
         problems(&rules, &edited(3, |p| p.ratings[usize::from(cb.0)] = 1)),
-        vec![error(Some(3), ViolationKind::BRating)]
+        vec![error(Some(3), ViolationKind::BRating { rated_b: vec![cb] })]
     );
     let dmf = position("DMF");
     assert_eq!(
         problems(&rules, &edited(14, |p| p.ratings[usize::from(dmf.0)] = 1)),
-        vec![error(Some(14), ViolationKind::BRating)]
+        vec![error(
+            Some(14),
+            ViolationKind::BRating { rated_b: vec![dmf] }
+        )]
     );
 }
 
@@ -657,6 +661,7 @@ fn the_pes16_team_settings() {
             ViolationKind::TeamSetting {
                 label: label.to_string(),
                 setting: name.to_string(),
+                wanted: false,
             },
         )
     };

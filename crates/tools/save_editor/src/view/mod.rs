@@ -121,6 +121,10 @@ pub(crate) struct SaveView {
     /// from the `live_aatf` setting and writes the setting back when the
     /// toggle changes it; off in the tests' view-only frames.
     pub(crate) live_aatf: bool,
+    /// The Show suggestions checkbox beside the toggle, refreshed from and
+    /// written back to the `live_suggestions` setting as `live_aatf` is:
+    /// on, Live AATF's check asks for the suggestions too.
+    pub(crate) live_suggestions: bool,
     /// The Live AATF dock's state (the Live AATF bullet's docked panel);
     /// drawn while `live_aatf` and a save is open.
     live: live_aatf::LiveAatf,
@@ -311,6 +315,7 @@ impl SaveView {
             pick_folder_dialog: generate::default_pick_folder(),
             notice: None,
             live_aatf: false,
+            live_suggestions: false,
             live: live_aatf::LiveAatf::new(),
             export_dialog: comparator::default_export_dialog(),
             cards: None,
@@ -435,6 +440,10 @@ impl SaveView {
     }
 }
 
+/// The player list's column, the draft's `.plist`: the rows' frame and
+/// the scroll bar's strip beside it, the panel's margins not included.
+const LIST_WIDTH: f32 = 255.0;
+
 /// Shows the window for one frame. `running` is the running-PES probe,
 /// called only when Save runs (a process snapshot is not a frame's cost).
 /// The ruleset is resolved from `view.aatf_ruleset` on the first frame and
@@ -471,25 +480,31 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() ->
         if view.live_aatf {
             live_aatf::show(ui, view);
         }
+        // 4 points before the list and 3 after it: with the shell's
+        // 8-point margin before the panel, and its 1-point separator line
+        // and the detail's own 8-point margin after it, the list stands 12
+        // from the pane's edge and the detail 12 after the list's scroll
+        // bar, the draft's gaps. No bottom margin: the quick actions' band
+        // is the panel's content's last item and runs to the pane's
+        // bottom, so the pane gets no scroll bar of its own.
+        let margin = egui::Margin {
+            left: 4,
+            right: 3,
+            top: 2,
+            bottom: 0,
+        };
+        let separator = ui.visuals().widgets.noninteractive.bg_stroke.width.round();
         let list_panel = egui::Panel::left("save_editor_players")
-            // The draft's `.plist` width: 255 points, not resizable. Under
-            // the design width the window scales instead of narrowing, and
-            // a list dragged wider would only take the views' room. No
-            // bottom margin: the quick actions' band is the panel's
-            // content's last item and runs to the pane's bottom, so the
-            // pane gets no scroll bar of its own.
+            // The draft's `.plist`: a 255-point column (the rows' frame and
+            // the scroll bar's strip), not resizable. egui's panel size
+            // counts its margins and its separator line too. Under the
+            // design width the window scales instead of narrowing, and a
+            // list dragged wider would only take the views' room.
             .resizable(false)
-            .default_size(255.0)
-            .frame(
-                egui::Frame::side_top_panel(ui.style()).inner_margin(egui::Margin {
-                    left: 8,
-                    right: 8,
-                    top: 2,
-                    bottom: 0,
-                }),
-            )
+            .default_size(LIST_WIDTH + margin.sum().x + separator)
+            .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(margin))
             .show(ui, |ui| player_list::show(ui, view));
-        let list_right = list_panel.response.rect.max.x;
+        let frame_right = list_panel.inner;
         egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
@@ -497,24 +512,31 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() ->
                     Some(Selection::Team(_)) => team::show(ui, view),
                     Some(Selection::Player(..)) | None => {
                         // The player view: the title, the three columns,
-                        // then the Appearance section, closed by default —
-                        // the whole centred between the player list's right
-                        // edge and the window's (`columns_width` is the last
-                        // pass's measured width; `abilities::show` discards
-                        // a pass that measures others). The pad is the
-                        // even share less the panel border already between
-                        // the list's edge and the pane's content.
-                        let width = abilities::columns_width(ui);
+                        // then the Appearance section, closed by default.
+                        // The room the three fixed columns leave between
+                        // the player list's frame and the window's right
+                        // edge is split into four equal gaps: before the
+                        // first column, between the columns and after the
+                        // last. The eye reads the first gap from the list's
+                        // last ink and the last to the window's edge, so
+                        // the pane's own margins count in neither: centred
+                        // in the pane, the gap after the list read wider
+                        // than those between the columns. `columns_width`
+                        // is the last pass's measured width;
+                        // `abilities::show` discards a pass that measures
+                        // others.
+                        let columns = abilities::columns_width(ui);
                         let window_right = ui.ctx().content_rect().max.x;
-                        let gap = ((window_right - list_right - width) / 2.0).max(0.0);
-                        let pad = (gap - (ui.cursor().min.x - list_right)).max(0.0);
+                        let gap = ((window_right - frame_right - columns) / 4.0).max(0.0);
+                        let pad = (frame_right + gap - ui.cursor().min.x).max(0.0);
                         ui.horizontal(|ui| {
                             ui.add_space(pad);
                             ui.vertical(|ui| {
-                                // The columns' stored total.
-                                ui.set_width(width);
+                                // The columns' stored total and the two
+                                // gaps between them.
+                                ui.set_width(columns + 2.0 * gap);
                                 info_strip::show(ui, view);
-                                abilities::show(ui, view);
+                                abilities::show(ui, view, gap);
                                 egui::CollapsingHeader::new("Appearance")
                                     .id_salt("appearance")
                                     // The section's content keeps the
@@ -681,6 +703,13 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
             .clicked()
         {
             view.live_aatf = !view.live_aatf;
+        }
+        // What the check asks for, so only while it runs.
+        if view.live_aatf {
+            studio_core::widgets::checkbox(ui, &mut view.live_suggestions, "Show suggestions")
+                .on_hover_text(
+                    "Also list each player's unused allowances (cards, free tricks, weak foot...)",
+                );
         }
         // The save's path is in the window title (`title_detail`): beside the
         // unsaved mark it could wrap the toolbar onto a second row.

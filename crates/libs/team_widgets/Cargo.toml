@@ -12,13 +12,14 @@ aatf.workspace = true
 egui.workspace = true
 pes_savefile.workspace = true
 pes_version.workspace = true
+# The suite's checkbox (`widgets::checkbox`), drawn the same in every view; the
+# tests also draw with the window's fonts and style (`theme::install`).
+studio_core.workspace = true
 
 [dev-dependencies]
 # The fixture saves as whole encrypted files (`fixture_save`), for the
 # headless tests' real players.
 pes_savefile = { workspace = true, features = ["test-support"] }
-# The tests draw with the window's fonts and style (`theme::install`).
-studio_core.workspace = true
 
 [lints]
 workspace = true

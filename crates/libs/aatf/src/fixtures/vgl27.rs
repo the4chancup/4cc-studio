@@ -291,7 +291,8 @@ fn a_goalkeeper_at_189_counts_as_tall() {
     assert_eq!(
         problems(&rules, &edited(12, |p| p.height = 189)),
         vec![
-            error(Some(12), ViolationKind::Height { height: 189 }),
+            // Purple's mid quota (7) one short.
+            error(Some(12), no_bracket(189, &[(180, 180)], true)),
             quota("purple", "mid", 6, 7),
         ]
     );
@@ -329,7 +330,7 @@ fn a_height_no_bracket_takes_is_illegal() {
     assert_eq!(
         problems(&rules, &edited(12, |p| p.height = 183)),
         vec![
-            error(Some(12), ViolationKind::Height { height: 183 }),
+            error(Some(12), no_bracket(183, &[(180, 180)], true)),
             quota("purple", "mid", 6, 7),
         ]
     );
@@ -400,7 +401,8 @@ fn a_starter_is_fielded_only_at_his_a_positions_in_preset_1() {
             Some(9),
             ViolationKind::FieldedNotA {
                 preset: 1,
-                position: amf
+                position: amf,
+                rated_a: vec![ss]
             }
         )]
     );
@@ -441,7 +443,8 @@ fn a_fluid_preset_fields_every_formation_under_the_a_rule() {
             Some(9),
             ViolationKind::FieldedNotA {
                 preset: 1,
-                position: amf
+                position: amf,
+                rated_a: vec![ss]
             }
         )]
     );
@@ -587,7 +590,8 @@ fn man_marking_and_the_support_settings_are_checked() {
             None,
             ViolationKind::TeamSetting {
                 label: "No man marking".to_string(),
-                setting: "man_marking".to_string()
+                setting: "man_marking".to_string(),
+                wanted: false
             }
         )]
     );
@@ -599,7 +603,8 @@ fn man_marking_and_the_support_settings_are_checked() {
             None,
             ViolationKind::TeamSetting {
                 label: "Support settings".to_string(),
-                setting: "auto_substitution".to_string()
+                setting: "auto_substitution".to_string(),
+                wanted: false
             }
         )]
     );
@@ -611,7 +616,8 @@ fn man_marking_and_the_support_settings_are_checked() {
             None,
             ViolationKind::TeamSetting {
                 label: "Support settings".to_string(),
-                setting: "auto_preset_change".to_string()
+                setting: "auto_preset_change".to_string(),
+                wanted: false
             }
         )]
     );
@@ -623,7 +629,8 @@ fn man_marking_and_the_support_settings_are_checked() {
             None,
             ViolationKind::TeamSetting {
                 label: "Support settings".to_string(),
-                setting: "auto_offside_trap".to_string()
+                setting: "auto_offside_trap".to_string(),
+                wanted: false
             }
         )]
     );

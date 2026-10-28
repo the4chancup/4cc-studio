@@ -8,10 +8,8 @@
 /// font's subset does not hold it.
 pub const CROSS: char = '\u{2716}';
 
-/// The gap between a cross and what it sits beside (a field's box, a
-/// label's text, a pitch badge): one figure so every mark's spacing
-/// agrees. Not wider: the Registered position label, the General info
-/// column's longest, leaves its cross no more room before the combo.
+/// The gap between a Live AATF field mark's box and the label's text it
+/// stands before: one figure so every mark's spacing agrees.
 pub const MARK_GAP: f32 = 2.0;
 
 /// A rostered player as the list's group header shows him.
@@ -164,11 +162,11 @@ pub fn violation_line(violation: &aatf::Violation, team_id: u32) -> String {
 }
 
 /// One group's header: `Player {id}  {number} {name}` for a rostered player,
-/// `Slot {slot}` for one the host lists no player for, `the team` for the
-/// team's own rows.
+/// `Slot {slot}` for one the host lists no player for, `Team-wide issues`
+/// for the team's own rows.
 fn group_header(ui: &mut egui::Ui, team: &TeamViolations<'_>, slot: Option<u8>) {
     let text = match slot {
-        None => "the team".to_string(),
+        None => "Team-wide issues".to_string(),
         Some(slot) => match team.players.iter().find(|p| p.slot == slot) {
             Some(player) => player_head(player.id, player.number, player.name),
             None => format!("Slot {slot}"),
@@ -240,7 +238,10 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
         },
     );
     let label = violation_line(violation, team_id);
-    let fielded = if let aatf::ViolationKind::FieldedNotA { preset, position } = violation.kind {
+    let fielded = if let aatf::ViolationKind::FieldedNotA {
+        preset, position, ..
+    } = violation.kind
+    {
         Some(FieldedAt { preset, position })
     } else {
         None
@@ -327,24 +328,107 @@ fn bound(label: &str, value: u8, bound: u8) -> String {
     }
 }
 
+/// `items` as a sentence lists them: `a`, `a and b`, `a, b and c`, with
+/// `last` (`and` or `or`) before the final one.
+fn joined(items: &[String], last: &str) -> String {
+    match items.split_last() {
+        Some((final_item, rest)) if !rest.is_empty() => {
+            format!("{} {last} {final_item}", rest.join(", "))
+        }
+        _ => items.join(""),
+    }
+}
+
+/// Positions as a sentence lists them, joined with `and`.
+fn positions_text(positions: &[aatf::Position]) -> String {
+    let labels: Vec<String> = positions
+        .iter()
+        .map(|position| position.label().to_string())
+        .collect();
+    joined(&labels, "and")
+}
+
+/// Inclusive height ranges as a sentence lists them, joined with `or`:
+/// a range of one height as `180`, one from 0 as `up to 175`, any other
+/// as `175 to 210`.
+fn heights_text(ranges: &[(u8, u8)]) -> String {
+    let spans: Vec<String> = ranges
+        .iter()
+        .map(|&(low, high)| {
+            if low == high {
+                low.to_string()
+            } else if low == 0 {
+                format!("up to {high}")
+            } else {
+                format!("{low} to {high}")
+            }
+        })
+        .collect();
+    joined(&spans, "or")
+}
+
+/// The parenthesis naming a player's A positions after `prefix`, or
+/// saying he has none.
+fn rated_a_text(prefix: &str, rated_a: &[aatf::Position]) -> String {
+    if rated_a.is_empty() {
+        " (no position rated A)".to_string()
+    } else {
+        format!(" ({prefix}{})", positions_text(rated_a))
+    }
+}
+
+/// A team setting's id in words; an id the list does not know prints as
+/// itself.
+fn setting_words(setting: &str) -> &str {
+    match setting {
+        "man_marking" => "man marking",
+        "auto_substitution" => "automatic substitutions",
+        "auto_offside_trap" => "the automatic offside trap",
+        "auto_preset_change" => "automatic preset changes",
+        "auto_attack_defence_levels" => "automatic attack and defence levels",
+        other => other,
+    }
+}
+
 /// What is wrong with `violation`, in the draft's `violationSentence` wording:
 /// one arm per `ViolationKind`. `team_id` is the team's, for the rules whose
 /// expected value it sets (the roster order's `team id x 100 + slot + 1`).
 fn sentence(violation: &aatf::Violation, team_id: u32) -> String {
     use aatf::ViolationKind as K;
     match &violation.kind {
-        K::RegisteredNotA => "the registered position is not rated A".to_string(),
-        K::FieldedNotA { preset, position } => format!(
-            "fielded at {} in preset {preset} without an A rating",
-            position.label()
+        K::RegisteredNotA { rated_a } => format!(
+            "the registered position is not rated A{}",
+            rated_a_text("rated A at ", rated_a)
         ),
-        K::BRating => "a B rating where the ruleset refuses one".to_string(),
-        K::GkSecondA => "a second A rating at GK".to_string(),
+        K::FieldedNotA {
+            preset,
+            position,
+            rated_a,
+        } => format!(
+            "fielded at {} in preset {preset} without an A rating{}",
+            position.label(),
+            rated_a_text("rated A at ", rated_a)
+        ),
+        K::BRating { rated_b } if rated_b.is_empty() => {
+            "a B rating where the ruleset refuses one".to_string()
+        }
+        K::BRating { rated_b } => format!(
+            "a B rating where the ruleset refuses one (B at {})",
+            positions_text(rated_b)
+        ),
+        K::GkSecondA { rated_a } if rated_a.is_empty() => "a second A rating at GK".to_string(),
+        K::GkSecondA { rated_a } => format!(
+            "a second A rating at GK (also A at {})",
+            positions_text(rated_a)
+        ),
         K::Age { age, min, max } => format!("age {age} outside {min} to {max}"),
         K::Weight { weight, min, max } => format!("weight {weight} outside {min} to {max}"),
         K::PositionRange => "a registered position past the version's positions".to_string(),
         K::PlayingStyleRange => "a playing style the version does not allow".to_string(),
-        K::NoTier => "fits no tier".to_string(),
+        K::NoTier { heights } if heights.is_empty() => "fits no tier".to_string(),
+        K::NoTier { heights } => {
+            format!("fits no tier (the tiers take {})", heights_text(heights))
+        }
         K::Stat {
             stat,
             value,
@@ -388,10 +472,28 @@ fn sentence(violation: &aatf::Violation, team_id: u32) -> String {
         }
         K::ComStyleCap { count, max } => format!("{count} COM styles over the cap of {max}"),
         K::RequiredCard { card } => format!("the required card {} is not held", card.label()),
-        K::APositions { count, max } => {
-            format!("{count} A positions over the allowance of {max}")
+        K::APositions {
+            count,
+            max,
+            rated_a,
+        } => format!(
+            "{count} A positions over the allowance of {max}{}",
+            rated_a_text("", rated_a)
+        ),
+        K::Height { height, fits, .. } if fits.is_empty() => {
+            format!("height {height} takes no bracket")
         }
-        K::Height { height } => format!("height {height} takes no bracket"),
+        K::Height { height, fits, room } => {
+            let room = match (room, fits.len()) {
+                (false, _) => "",
+                (true, 1) => " has room",
+                (true, _) => " have room",
+            };
+            format!(
+                "height {height} takes no bracket ({}{room})",
+                heights_text(fits)
+            )
+        }
         K::TierCount {
             tier,
             count,
@@ -414,9 +516,15 @@ fn sentence(violation: &aatf::Violation, team_id: u32) -> String {
         K::Goalkeepers { count, min } => {
             format!("{count} goalkeepers, the minimum is {min}")
         }
-        K::TeamSetting { label, setting } => {
-            format!("team setting {label}: {setting} does not hold")
-        }
+        K::TeamSetting {
+            label,
+            setting,
+            wanted,
+        } => format!(
+            "team setting {label}: {} should be {}",
+            setting_words(setting),
+            if *wanted { "on" } else { "off" }
+        ),
         K::FormationShape {
             preset,
             formation,
@@ -612,10 +720,10 @@ mod tests {
             [
                 "Team 734 /lit/",
                 "Player 73401  49 Muh Spooks",
-                "Height: height 183 takes no bracket",
+                "Height: height 183 takes no bracket (185 has room)",
                 "Player 73404  45 Yuki-kun ^~^",
-                "Height: height 183 takes no bracket",
-                "the team",
+                "Height: height 183 takes no bracket (185 has room)",
+                "Team-wide issues",
                 "TierCount: 2 gold players, expected 1",
                 "TierCount: 0 bronze players, expected 2",
                 "TierCount: 19 regular players, expected 18",
@@ -650,7 +758,11 @@ mod tests {
             violation(
                 Some(5),
                 aatf::Severity::Error,
-                aatf::ViolationKind::Height { height: 185 },
+                aatf::ViolationKind::Height {
+                    height: 185,
+                    fits: vec![],
+                    room: false,
+                },
             ),
         ];
         let players = [listed(5, 1, 9, "X")];
@@ -714,7 +826,11 @@ mod tests {
             violation(
                 Some(3),
                 aatf::Severity::Error,
-                aatf::ViolationKind::Height { height: 185 },
+                aatf::ViolationKind::Height {
+                    height: 185,
+                    fits: vec![],
+                    room: false,
+                },
             ),
             violation(None, aatf::Severity::Error, aatf::ViolationKind::Captain),
         ];
@@ -824,10 +940,11 @@ mod tests {
                 Error,
                 K::FieldedNotA {
                     preset: 1,
-                    position: position("CB")
+                    position: position("CB"),
+                    rated_a: vec![position("DMF")]
                 }
             )),
-            "fielded at CB in preset 1 without an A rating"
+            "fielded at CB in preset 1 without an A rating (rated A at DMF)"
         );
         assert_eq!(
             sent(&player(
@@ -955,6 +1072,136 @@ mod tests {
         );
     }
 
+    // A hint names a valid value in the draft's `violationSentence` words:
+    // a list joined with "and" or "or", a range of one height as itself,
+    // one from 0 as "up to 175", any other as "175 to 210". An empty list adds no
+    // parenthesis, except the A positions', which says there are none.
+    #[test]
+    fn the_hints_word_a_valid_value() {
+        use aatf::ViolationKind as K;
+        let sent = |kind: K| sentence(&violation(Some(1), aatf::Severity::Error, kind), 701);
+        let positions = |names: &[&str]| names.iter().map(|name| position(name)).collect();
+        let height = |fits: &[(u8, u8)], room| K::Height {
+            height: 183,
+            fits: fits.to_vec(),
+            room,
+        };
+        for (kind, expected) in [
+            (
+                height(&[(180, 180), (185, 185)], true),
+                "height 183 takes no bracket (180 or 185 have room)",
+            ),
+            (
+                height(&[(185, 185)], true),
+                "height 183 takes no bracket (185 has room)",
+            ),
+            (
+                height(&[(0, 175), (180, 180), (185, 185)], false),
+                "height 183 takes no bracket (up to 175, 180 or 185)",
+            ),
+            (
+                height(&[(175, 210)], false),
+                "height 183 takes no bracket (175 to 210)",
+            ),
+            (height(&[], false), "height 183 takes no bracket"),
+            (
+                K::NoTier {
+                    heights: vec![(180, 180), (185, 185), (190, 190), (195, 195)],
+                },
+                "fits no tier (the tiers take 180, 185, 190 or 195)",
+            ),
+            (K::NoTier { heights: vec![] }, "fits no tier"),
+            (
+                K::RegisteredNotA {
+                    rated_a: positions(&["CF", "SS"]),
+                },
+                "the registered position is not rated A (rated A at CF and SS)",
+            ),
+            (
+                K::RegisteredNotA { rated_a: vec![] },
+                "the registered position is not rated A (no position rated A)",
+            ),
+            (
+                K::FieldedNotA {
+                    preset: 1,
+                    position: position("CB"),
+                    rated_a: positions(&["DMF"]),
+                },
+                "fielded at CB in preset 1 without an A rating (rated A at DMF)",
+            ),
+            (
+                K::APositions {
+                    count: 3,
+                    max: 2,
+                    rated_a: positions(&["CF", "SS", "AMF"]),
+                },
+                "3 A positions over the allowance of 2 (CF, SS and AMF)",
+            ),
+            (
+                K::GkSecondA {
+                    rated_a: positions(&["CB"]),
+                },
+                "a second A rating at GK (also A at CB)",
+            ),
+            (K::GkSecondA { rated_a: vec![] }, "a second A rating at GK"),
+            (
+                K::BRating {
+                    rated_b: positions(&["LB", "RB"]),
+                },
+                "a B rating where the ruleset refuses one (B at LB and RB)",
+            ),
+            (
+                K::BRating { rated_b: vec![] },
+                "a B rating where the ruleset refuses one",
+            ),
+        ] {
+            assert_eq!(sent(kind.clone()), expected, "{kind:?}");
+        }
+        // Each setting in words, the value the entry wants as on or off; an
+        // id outside the list prints as itself.
+        for (setting, wanted, expected) in [
+            (
+                "man_marking",
+                false,
+                "team setting No man marking: man marking should be off",
+            ),
+            (
+                "auto_substitution",
+                true,
+                "team setting No man marking: automatic substitutions should be on",
+            ),
+            (
+                "auto_offside_trap",
+                false,
+                "team setting No man marking: the automatic offside trap should be off",
+            ),
+            (
+                "auto_preset_change",
+                false,
+                "team setting No man marking: automatic preset changes should be off",
+            ),
+            (
+                "auto_attack_defence_levels",
+                false,
+                "team setting No man marking: automatic attack and defence levels should be off",
+            ),
+            (
+                "new_flag",
+                true,
+                "team setting No man marking: new_flag should be on",
+            ),
+        ] {
+            assert_eq!(
+                sent(K::TeamSetting {
+                    label: "No man marking".to_string(),
+                    setting: setting.to_string(),
+                    wanted,
+                }),
+                expected
+            );
+        }
+    }
+
     // A team the check found nothing wrong with gets no header of its own.
     #[test]
     fn a_team_with_no_violations_draws_no_header() {
@@ -967,7 +1214,11 @@ mod tests {
         let violations = [violation(
             Some(2),
             aatf::Severity::Error,
-            aatf::ViolationKind::Height { height: 185 },
+            aatf::ViolationKind::Height {
+                height: 185,
+                fits: vec![],
+                room: false,
+            },
         )];
         let players = [listed(2, 70202, 2, "GUILTY")];
         let guilty = TeamViolations {
@@ -1005,7 +1256,11 @@ mod tests {
         let violations = [violation(
             Some(0),
             aatf::Severity::Error,
-            aatf::ViolationKind::Height { height: 185 },
+            aatf::ViolationKind::Height {
+                height: 185,
+                fits: vec![],
+                room: false,
+            },
         )];
         let players = [listed(0, 71801, 50, raw)];
         let teams = [TeamViolations {
@@ -1040,7 +1295,11 @@ mod tests {
             violation(
                 Some(3),
                 aatf::Severity::Error,
-                aatf::ViolationKind::Height { height: 185 },
+                aatf::ViolationKind::Height {
+                    height: 185,
+                    fits: vec![],
+                    room: false,
+                },
             ),
             violation(
                 Some(3),
@@ -1123,7 +1382,11 @@ mod tests {
         let violations = [violation(
             Some(2),
             aatf::Severity::Error,
-            aatf::ViolationKind::Height { height: 185 },
+            aatf::ViolationKind::Height {
+                height: 185,
+                fits: vec![],
+                room: false,
+            },
         )];
         let players = [listed(2, 70202, 2, "NAME")];
         let teams = [TeamViolations {
@@ -1153,12 +1416,17 @@ mod tests {
                 aatf::ViolationKind::FieldedNotA {
                     preset: 1,
                     position: position("AMF"),
+                    rated_a: vec![position("SS")],
                 },
             ),
             violation(
                 Some(3),
                 aatf::Severity::Error,
-                aatf::ViolationKind::Height { height: 185 },
+                aatf::ViolationKind::Height {
+                    height: 185,
+                    fits: vec![],
+                    room: false,
+                },
             ),
         ];
         let players = [listed(3, 70103, 3, "NAME")];
@@ -1175,7 +1443,10 @@ mod tests {
             .find(|node| {
                 node.role() == Role::Button
                     && node.label()
-                        == Some("FieldedNotA: fielded at AMF in preset 1 without an A rating")
+                        == Some(
+                            "FieldedNotA: fielded at AMF in preset 1 without an A rating \
+                             (rated A at SS)",
+                        )
             })
             .expect("the FieldedNotA row");
         let (_, _, selected) = window.click_list(centre(fielded_row), &teams, false);

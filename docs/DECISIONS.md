@@ -12948,3 +12948,35 @@ Why: the maintainer's ruling: only the Save editor has a finished UI yet, so suc
 global for now, and the other tools' toolbars take them when they are built rather than
 growing their own.
 Plan: `plans/save_editor.md` "Editing UI" (The toolbar).
+
+## 2026-10-28 — save_editor — The unsaved-changes label in the link blue
+Decision: the toolbar's `• unsaved changes` is drawn in the theme's link blue
+(`Visuals::hyperlink_color`, the drafts' `--link`), not the weak grey.
+Why: the maintainer asked for the label in a blue font. The link blue, not the selection's
+pale text blue: it is the blue the suite already gives text that is not a selection (Live
+AATF's suggestion marks), it says the label is clickable (it opens the changes list), and on
+the toolbar's ground it reads at 7.1:1 where the weak grey read at 3.4:1.
+Plan: `plans/save_editor.md` "Editing UI" (The toolbar).
+
+## 2026-10-28 — team_widgets — team_widgets draws the suite's checkbox from studio_core
+Decision: `team_widgets` depends on `studio_core` (it was a test-only dependency) to draw its
+checkboxes (the cards, Fluid formation, the auto flags) with `studio_core::widgets::checkbox`.
+Why: a checked box is blue in every view, and the blue is painted by that widget; left on
+egui's own, the tactics and cards would be the one place a choice made stays grey. No
+guardrail forbids the edge (`spec/core/architecture.md` "Workspace guardrails"): `studio_core`
+is `wasm32`-checked too, does not depend on `team_widgets`, and the crate's consumers (the
+Save editor, the Team creator) depend on it anyway. A copy of the widget in `team_widgets`
+would let the two drift, and a crate of its own for four functions is the over-splitting
+guardrail 3 warns of.
+Plan: `plans/save_editor.md` "`libs/team_widgets`".
+
+## 2026-10-28 — workspace lints — egui's own checkbox and radio button are disallowed
+Decision: `clippy.toml` lists egui's `Ui::checkbox`, `Ui::radio`, `Ui::radio_value`,
+`Checkbox::new`, `Checkbox::without_text` and `RadioButton::new` under `disallowed-methods`;
+`studio_core::widgets`' `choice.rs`, which builds the suite's widgets on them, carries the one
+`#[expect(clippy::disallowed_methods, reason = …)]` per call (and its test comparing against
+egui's layout).
+Why: the maintainer's yes (a clippy opt-out waits on it). A view calling egui's own widget
+would draw a checked box grey again, which no test of that view checks; the lint makes the gate
+catch it, where review alone would have to notice.
+Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row.

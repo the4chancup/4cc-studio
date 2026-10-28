@@ -41,6 +41,14 @@ const CHOICE_TEXT_SIZE: f32 = 15.0;
 /// The space between a choice's button and its hint.
 #[cfg(not(target_arch = "wasm32"))]
 const HINT_GAP: f32 = 4.0;
+/// The space between the title and the choices' row (the draft's `.firstrun`
+/// top margin).
+#[cfg(not(target_arch = "wasm32"))]
+const ROW_TOP_GAP: f32 = 2.0;
+/// The space between the choices' row and the footer line (the draft's
+/// `.firstrun` bottom margin).
+#[cfg(not(target_arch = "wasm32"))]
+const ROW_BOTTOM_GAP: f32 = 8.0;
 
 #[cfg(not(target_arch = "wasm32"))]
 impl FirstRun {
@@ -65,6 +73,11 @@ impl FirstRun {
     pub(super) fn show(&mut self, egui_ctx: &egui::Context, ctx: &mut ToolContext) {
         let mut choice = None;
         egui::Modal::new(egui::Id::unique("first-run-data-location")).show(egui_ctx, |ui| {
+            // egui puts a widget's item spacing after it, so the gap under the
+            // title and the one under the row are set before each is drawn; the
+            // footer and the error line keep egui's own.
+            let item_spacing = ui.spacing().item_spacing.y;
+            ui.spacing_mut().item_spacing.y = ROW_TOP_GAP;
             crate::theme::window_title(
                 ui,
                 format!(
@@ -72,6 +85,7 @@ impl FirstRun {
                     crate::APP_NAME
                 ),
             );
+            ui.spacing_mut().item_spacing.y = ROW_BOTTOM_GAP;
             ui.horizontal_top(|ui| {
                 ui.spacing_mut().item_spacing.x = CHOICE_GAP;
                 if choice_column(
@@ -92,6 +106,7 @@ impl FirstRun {
                     }
                 }
             });
+            ui.spacing_mut().item_spacing.y = item_spacing;
             ui.weak("You can move the data later by moving the folder.");
             if let Some(error) = &self.error {
                 ui.colored_label(ui.visuals().error_fg_color, error);
@@ -299,6 +314,51 @@ mod tests {
         assert!(
             (gap - 16.0).abs() <= 0.5,
             "the columns stand 16 apart, not {gap}"
+        );
+    }
+
+    // The draft's `.firstrun { margin: 2px 0 8px }`, box to box: the choices'
+    // row starts 2 points under the title's line, and the footer line 8 points
+    // under the row's lowest hint.
+    #[test]
+    fn the_choices_row_sits_2_under_the_title_and_8_above_the_footer() {
+        let dir = TestDir::new("studio_core_first_run_margins");
+        let config = PathBuf::from(r"C:\Users\you\AppData\Roaming\4cc-studio");
+        let Shell { mut app, .. } = first_run_shell(
+            test_settings(dir.path()),
+            dir.path().join("exe"),
+            Some(config),
+        );
+        let egui_ctx = test_context();
+
+        let nodes = idle(&egui_ctx, &mut app, 2).nodes;
+        let bounds_of = |needle: &str| {
+            nodes
+                .iter()
+                .find(|node| node.value().is_some_and(|text| text.contains(needle)))
+                .unwrap_or_else(|| panic!("no text containing {needle:?}"))
+                .bounds()
+                .expect("a drawn node has bounds")
+        };
+        let title = bounds_of(TITLE);
+        let row_top = entry(&nodes, "Next to the program")
+            .bounds()
+            .expect("a drawn button has bounds")
+            .y0;
+        let row_bottom = bounds_of("portable data folder beside the program")
+            .y1
+            .max(bounds_of("which survives replacing or moving the program folder").y1);
+        let footer = bounds_of("You can move the data later by moving the folder.");
+
+        let above = row_top - title.y1;
+        assert!(
+            (above - 2.0).abs() <= 0.5,
+            "the row starts 2 under the title, not {above}"
+        );
+        let below = footer.y0 - row_bottom;
+        assert!(
+            (below - 8.0).abs() <= 0.5,
+            "the footer starts 8 under the row, not {below}"
         );
     }
 

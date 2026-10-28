@@ -1157,7 +1157,7 @@ fn every_path_edit_shows_steams_pes_2019_folder_whole() {
         "PES folder",
         "PES 2019 folder",
         "Exports folder",
-        "AATF rules file",
+        "A tool's file",
     ] {
         let edit = widget_on_row(&nodes, label, Role::TextInput)
             .bounds()
@@ -1198,15 +1198,14 @@ fn every_path_edit_shows_steams_pes_2019_folder_whole() {
             right - left
         );
     }
-    // The premise of the "AATF rules file" check above: like the Save editor's
-    // real section, the tool section's row reaches past the menu's width, so
-    // its edit is measured where the section, not the common grid, sets the
-    // menu's width.
+    // The premise of the "A tool's file" check above: the tool section's row
+    // reaches past the menu's width, so its edit is measured where the
+    // section, not the common grid, sets the menu's width.
     let menu_left = text_node(&nodes, "PES folder")
         .bounds()
         .expect("the label has bounds")
         .x0;
-    let section_right = widget_on_row(&nodes, "AATF rules file", Role::Button)
+    let section_right = widget_on_row(&nodes, "A tool's file", Role::Button)
         .bounds()
         .expect("Browse has bounds")
         .x1;

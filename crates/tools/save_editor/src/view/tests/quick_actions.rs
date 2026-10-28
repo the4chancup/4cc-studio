@@ -97,7 +97,12 @@ fn assert_quick_actions(
     // its label eliding only when it cannot fit. The band runs past the
     // rows to the list's scroll bar.
     let style = window.ctx.global_style();
-    let columns = expected_columns(window, left, right, grid_band_right(nodes) - row.x0);
+    let columns = expected_columns(
+        window,
+        left,
+        right,
+        grid_band_right(window, shapes) - row.x0,
+    );
     let ctx = &window.ctx;
     let mut column_xs = Vec::new();
     for (labels, cell) in [(left, columns[0]), (right, columns[1])] {
@@ -194,7 +199,7 @@ fn assert_quick_actions(
         "the first column starts at the rows' left edge ({column_xs:?} vs {row:?})"
     );
     // Every cell inside the grid's band.
-    let band_right = grid_band_right(nodes);
+    let band_right = grid_band_right(window, shapes);
     for label in left.iter().chain(right.iter()) {
         let bounds = node_labeled(nodes, Role::Button, label)
             .bounds()
@@ -237,17 +242,10 @@ fn assert_quick_actions(
 /// Label nodes inside the side panel (left of the detail pane's edge):
 /// the quick actions' band's load error standing in for the Make buttons.
 /// The detail view's own labels sit at its x and never pass.
-/// The quick actions grid's right edge: the player list's scroll bar's
-/// (the leftmost bar of the frame). The grid spans the panel's width, while
-/// the rows stop short of the band the list reserves for its bar.
-fn grid_band_right(nodes: &[accesskit::Node]) -> f64 {
-    nodes
-        .iter()
-        .filter(|node| node.role() == Role::ScrollBar)
-        .filter_map(|node| node.bounds())
-        .min_by(|a, b| a.x0.total_cmp(&b.x0))
-        .map(|bounds| bounds.x1)
-        .expect("the list's scroll bar marks the band's right")
+/// The quick actions grid's right edge: the player list's frame's. The
+/// grid ends where the list's rows do, not at the scroll bar beside them.
+fn grid_band_right(window: &Headless, shapes: &[egui::epaint::ClippedShape]) -> f64 {
+    f64::from(list_frame(window, shapes).max.x)
 }
 
 /// The Set stats field: the row's one number control, right of the button.
@@ -830,7 +828,7 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
         .find(|node| player_row(node))
         .and_then(accesskit::Node::bounds)
         .expect("a player row in the list");
-    let band_right = grid_band_right(&nodes);
+    let band_right = grid_band_right(&window, &shapes);
     let natural = expected_columns(&window, &left, &right, f64::INFINITY);
     assert!(
         natural[0] + 6.0 + natural[1] > band_right - row.x0,
@@ -865,6 +863,13 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
             (right - bounds.x0 - half).abs() <= 1.0,
             "{label}'s cell a half of the band ({bounds:?} vs {half})"
         );
+        // The right column's cells end at the list's frame, not at its bar.
+        if ["Make Goalkeeper", "Make Regular", "Set stats"].contains(&label) {
+            assert!(
+                (right - band_right).abs() <= 0.5,
+                "{label} ends at the list's frame ({right} vs {band_right})"
+            );
+        }
     }
     let label = format!("Make {WIDE_TIER}");
     let wide_button = node_labeled(&nodes, Role::Button, &label);

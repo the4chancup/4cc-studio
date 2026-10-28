@@ -67,7 +67,11 @@ fn registered_position_not_a() {
     let team = edited(3, |p| p.ratings[usize::from(rb.0)] = 0);
     assert_eq!(
         problems(&rules, &team),
-        vec![error(Some(3), ViolationKind::RegisteredNotA)]
+        vec![error(
+            Some(3),
+            // RB was his one A position.
+            ViolationKind::RegisteredNotA { rated_a: vec![] }
+        )]
     );
 }
 
@@ -78,7 +82,11 @@ fn b_rating() {
     let team = edited(3, |p| p.ratings[usize::from(cb.0)] = 1);
     assert_eq!(
         problems(&Rules::official(), &team),
-        vec![error(Some(3), ViolationKind::BRating)]
+        vec![error(
+            Some(3),
+            // The B just given at CB.
+            ViolationKind::BRating { rated_b: vec![cb] }
+        )]
     );
 }
 
@@ -99,7 +107,13 @@ fn gk_second_a() {
     player_mut(&mut team, 12).ratings[usize::from(gk.0)] = 2;
     assert_eq!(
         problems(&rules, &team),
-        vec![error(Some(12), ViolationKind::GkSecondA)]
+        vec![error(
+            Some(12),
+            // Slot 12 is rated A at CMF alone in the sample; GK is left out.
+            ViolationKind::GkSecondA {
+                rated_a: vec![position("CMF")]
+            }
+        )]
     );
 }
 
@@ -139,7 +153,8 @@ fn a_starter_is_fielded_only_at_his_a_positions_in_preset_1() {
             Some(9),
             ViolationKind::FieldedNotA {
                 preset: 1,
-                position: amf
+                position: amf,
+                rated_a: vec![ss]
             }
         )]
     );
@@ -413,7 +428,7 @@ fn a_height_in_no_bracket() {
     assert_eq!(
         problems(&Rules::official(), &edited(12, |p| p.height = 182)),
         vec![
-            error(Some(12), ViolationKind::Height { height: 182 }),
+            error(Some(12), no_bracket(182, &[(180, 180)], true)),
             error(
                 None,
                 ViolationKind::BracketQuota {
@@ -437,7 +452,7 @@ fn a_height_between_manlet_and_mid_is_in_no_bracket() {
     assert_eq!(
         problems(&rules, &edited(12, |p| p.height = 178)),
         vec![
-            error(Some(12), ViolationKind::Height { height: 178 }),
+            error(Some(12), no_bracket(178, &[(180, 180)], true)),
             quota("green", "mid", 4, 5),
         ]
     );
@@ -445,9 +460,116 @@ fn a_height_between_manlet_and_mid_is_in_no_bracket() {
     assert_eq!(
         problems(&rules, &red_edited(12, |p| p.height = 178)),
         vec![
-            error(Some(12), ViolationKind::Height { height: 178 }),
+            error(Some(12), no_bracket(178, &[(180, 180)], true)),
             quota("red", "mid", 6, 7),
         ]
+    );
+}
+
+/// The `Height` violations of `team` under `rules`, alone.
+fn height_violations(rules: &Rules, team: &TeamView) -> Vec<Violation> {
+    problems(rules, team)
+        .into_iter()
+        .filter(|violation| matches!(violation.kind, ViolationKind::Height { .. }))
+        .collect()
+}
+
+/// A mid (slot 12, 180) and a tall gold (slot 2, 185) both at 183: the
+/// hint names both brackets left with room, Green's mid (180, quota 5)
+/// and tall (185, quota 6), on each of them.
+#[test]
+fn the_height_hint_names_every_bracket_with_room() {
+    let rules = Rules::official();
+    let mut team = legal_team();
+    assert_eq!(player(&team, 2).height, 185);
+    assert_eq!(player(&team, 12).height, 180);
+    for slot in [2, 12] {
+        player_mut(&mut team, slot).height = 183;
+    }
+    let fits = [(180, 180), (185, 185)];
+    assert_eq!(
+        problems(&rules, &team),
+        vec![
+            error(Some(2), no_bracket(183, &fits, true)),
+            error(Some(12), no_bracket(183, &fits, true)),
+            quota("green", "mid", 4, 5),
+            quota("green", "tall", 5, 6),
+        ]
+    );
+}
+
+/// Every Green quota met (the legal team's 23) and a 24th player, a copy
+/// of the mid in slot 12, at 183 in slot 23: no bracket has room, so the
+/// hint names every bracket with a quota, in the ruleset's order: manlet
+/// (up to 175), mid (180), tall (185) and giant (194). Giga's quota is 0:
+/// no player may take it, so the hint leaves it out.
+#[test]
+fn with_every_quota_met_the_height_hint_names_every_quota_bracket() {
+    let rules = Rules::official();
+    let mut team = legal_team();
+    let mut extra = player(&team, 12).clone();
+    assert!(team.players.iter().all(|p| p.slot != 23));
+    extra.slot = 23;
+    extra.height = 183;
+    team.players.push(extra);
+    assert_eq!(
+        height_violations(&rules, &team),
+        vec![error(
+            Some(23),
+            no_bracket(183, &[(0, 175), (180, 180), (185, 185), (194, 194)], false)
+        )]
+    );
+}
+
+/// The hint adds the player's height allowance to each range but the
+/// manlet bracket's bottom. Autumn 26's goalkeepers at 189 take a 4 cm
+/// allowance into tall (185), so no allowance ever leaves a player in no
+/// bracket: the goalkeepers' allowance is lowered to 3 here, so both
+/// keepers (slots 0 and 11, 189) read as 186. A manlet (slot 3, 175) at
+/// 176 opens the manlet bracket too. The keepers' tall reads 185 + 3 and
+/// the manlet range runs from the bottom to 175 + 3; slot 3, without an
+/// allowance, reads the brackets as written.
+#[test]
+fn the_height_hint_adds_the_allowance() {
+    let rules = Rules::from_data_block(&crate::rules::AUTUMN26.replace(
+        "when: #{ positions: [\"GK\"], height_min: 189, height_max: 189 },\n           then: #{ height_allowance: 4 }",
+        "when: #{ positions: [\"GK\"], height_min: 189, height_max: 189 },\n           then: #{ height_allowance: 3 }",
+    ))
+    .expect("the edited Autumn 26 loads");
+    let mut team = legal_team();
+    assert_eq!(player(&team, 0).height, 189);
+    assert_eq!(player(&team, 11).height, 189);
+    assert_eq!(player(&team, 3).height, 175);
+    player_mut(&mut team, 3).height = 176;
+    let keeper = no_bracket(189, &[(0, 178), (188, 188)], true);
+    assert_eq!(
+        height_violations(&rules, &team),
+        vec![
+            error(Some(0), keeper.clone()),
+            error(Some(3), no_bracket(176, &[(0, 175), (185, 185)], true)),
+            error(Some(11), keeper),
+        ]
+    );
+}
+
+/// Slot 1 (registered SS, rated A at AMF and SS) registered at CF, which
+/// he is rated C at: the violation names his two A positions.
+#[test]
+fn registered_position_not_a_names_the_a_positions() {
+    let (amf, ss, cf) = (position("AMF"), position("SS"), position("CF"));
+    let team = edited(1, |p| {
+        assert_eq!(p.position, Some(ss));
+        assert_eq!(p.ratings[usize::from(cf.0)], 0);
+        p.position = Some(cf);
+    });
+    assert_eq!(
+        problems(&Rules::official(), &team),
+        vec![error(
+            Some(1),
+            ViolationKind::RegisteredNotA {
+                rated_a: vec![amf, ss]
+            }
+        )]
     );
 }
 
@@ -650,7 +772,8 @@ fn medals_cannot_be_goalkeepers() {
                 Some(9),
                 ViolationKind::FieldedNotA {
                     preset: 1,
-                    position: ss
+                    position: ss,
+                    rated_a: vec![gk]
                 }
             ),
             error(
@@ -681,7 +804,7 @@ fn goalkeepers_at_189_count_as_tall_and_181_to_188_is_forbidden() {
     assert_eq!(
         problems(&rules, &edited(0, |p| p.height = 184)),
         vec![
-            error(Some(0), ViolationKind::Height { height: 184 }),
+            error(Some(0), no_bracket(184, &[(185, 185)], true)),
             error(
                 Some(0),
                 special(
@@ -890,7 +1013,7 @@ fn red_cbs_at_189_count_as_tall() {
     assert_eq!(
         problems(&rules, &red_edited(14, |p| p.height = 187)),
         vec![
-            error(Some(14), ViolationKind::Height { height: 187 }),
+            error(Some(14), no_bracket(187, &[(185, 185)], true)),
             quota("red", "tall", 9, 10),
         ]
     );
@@ -900,7 +1023,7 @@ fn red_cbs_at_189_count_as_tall() {
     assert_eq!(
         problems(&rules, &red_edited(12, |p| p.height = 189)),
         vec![
-            error(Some(12), ViolationKind::Height { height: 189 }),
+            error(Some(12), no_bracket(189, &[(180, 180)], true)),
             quota("red", "mid", 6, 7),
         ]
     );
@@ -911,7 +1034,7 @@ fn red_cbs_at_189_count_as_tall() {
     assert_eq!(
         problems(&rules, &red_edited(20, |p| p.height = 189)),
         vec![
-            error(Some(20), ViolationKind::Height { height: 189 }),
+            error(Some(20), no_bracket(189, &[(185, 185)], true)),
             quota("red", "tall", 9, 10),
         ]
     );
@@ -923,7 +1046,7 @@ fn red_cbs_at_189_count_as_tall() {
     assert_eq!(
         problems(&rules, &green),
         vec![
-            error(Some(8), ViolationKind::Height { height: 189 }),
+            error(Some(8), no_bracket(189, &[(194, 194)], true)),
             quota("green", "giant", 5, 6),
         ]
     );
@@ -950,7 +1073,8 @@ fn red_cbs_at_189_count_as_tall() {
             Some(17),
             ViolationKind::FieldedNotA {
                 preset: 1,
-                position: rb
+                position: rb,
+                rated_a: vec![cb]
             }
         )]
     );

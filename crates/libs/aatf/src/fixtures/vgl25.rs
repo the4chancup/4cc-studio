@@ -261,7 +261,8 @@ fn goalkeepers_at_189_count_as_tall_and_186_is_forbidden() {
     assert_eq!(
         problems(&rules, &edited(0, |p| p.height = 186)),
         vec![
-            error(Some(0), ViolationKind::Height { height: 186 }),
+            // Purple's tall quota (5) one short; at 186 he has no allowance.
+            error(Some(0), no_bracket(186, &[(185, 185)], true)),
             error(
                 Some(0),
                 special(

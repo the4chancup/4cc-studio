@@ -193,6 +193,16 @@ fn quota(system: &str, bracket: &str, count: u8, quota: u8) -> Violation {
     )
 }
 
+/// A `Height` violation's kind: `height` in no bracket, `fits` the
+/// heights it could take, `room` whether they are the brackets with room.
+fn no_bracket(height: u8, fits: &[(u8, u8)], room: bool) -> ViolationKind {
+    ViolationKind::Height {
+        height,
+        fits: fits.to_vec(),
+        room,
+    }
+}
+
 /// A `Custom` violation on roster `slot` (`None`: the team).
 fn custom(slot: Option<u8>, text: &str) -> Violation {
     error(
@@ -304,7 +314,7 @@ fn player_tier_is_none_exactly_where_check_team_reports_no_tier() {
                 .unwrap_or_else(|e| panic!("{name} {version:?}: {e}"))
                 .iter()
                 .filter_map(|v| {
-                    if matches!(v.kind, ViolationKind::NoTier) {
+                    if matches!(v.kind, ViolationKind::NoTier { .. }) {
                         v.slot
                     } else {
                         None

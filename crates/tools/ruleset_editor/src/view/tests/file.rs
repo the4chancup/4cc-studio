@@ -263,6 +263,24 @@ fn save_as_suggests_the_rulesets_name_slugged() {
     );
 }
 
+// A name's slash, colon or other punctuation never reaches the suggested
+// name: the Save dialog would read a slash as a folder.
+#[test]
+fn save_as_suggests_no_punctuation_from_the_name() {
+    assert_eq!(
+        crate::view::suggested_name("/vg/ League 27"),
+        "vg_league_27.4ccrules"
+    );
+    assert_eq!(
+        crate::view::suggested_name("4cc Autumn 26"),
+        "4cc_autumn_26.4ccrules"
+    );
+    assert_eq!(
+        crate::view::suggested_name("Divegrass Before Christmas 7"),
+        "divegrass_before_christmas_7.4ccrules"
+    );
+}
+
 // A second document gets a fresh widget-state salt (egui state never
 // crosses into it).
 #[test]
