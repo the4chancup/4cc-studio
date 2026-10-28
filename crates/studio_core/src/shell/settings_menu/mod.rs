@@ -188,7 +188,7 @@ impl SettingsMenu {
                         let key = format!("pes_folders.{}", version.number());
                         let tip = format!(
                             "PES {}'s own folder. When it is filled, it is used as \
-                             written instead of the PES folder above; when it is \
+                             written instead of the PES folder above, and when it is \
                              empty, the PES folder above is used.",
                             version.year()
                         );
@@ -232,8 +232,8 @@ impl SettingsMenu {
                     ui,
                     "Threads",
                     "thread_count",
-                    "Worker threads for pipelines; 0 means automatic (logical cores \
-                     minus one).",
+                    "The number of worker threads a tool's run uses, where 0 means \
+                     automatic (the logical cores minus one).",
                 );
                 let max = available_parallelism()
                     .map(|count| count.get())
@@ -261,8 +261,8 @@ impl SettingsMenu {
                     ui,
                     "Memory cap",
                     "memory_cap_percent",
-                    "Memory budget cap for pipelines, as a percentage of physical \
-                     memory.",
+                    "The most memory a tool's run may budget for, as a percentage \
+                     of physical memory.",
                 );
                 let mut memory_cap = common.memory_cap_percent;
                 if ui
@@ -284,8 +284,8 @@ impl SettingsMenu {
                     ui,
                     "FPC hide boots ID",
                     "fpc_hide_boots_id",
-                    "The boots ID Hide body and an fpc_on marker write: an ID the \
-                     game has no boots for. 4cc uses 55.",
+                    "The boots ID that Hide body and an fpc_on marker write. The \
+                     game has no boots with this ID, and 4cc uses 55.",
                 );
                 let mut hide_boots_id = common.fpc_hide_boots_id;
                 if ui
@@ -306,8 +306,8 @@ impl SettingsMenu {
                     ui,
                     "FPC hide gloves ID",
                     "fpc_hide_gloves_id",
-                    "The gloves ID Hide body and an fpc_on marker write: an ID the \
-                     game has no gloves for. 4cc uses 11.",
+                    "The gloves ID that Hide body and an fpc_on marker write. The \
+                     game has no gloves with this ID, and 4cc uses 11.",
                 );
                 let mut hide_gloves_id = common.fpc_hide_gloves_id;
                 if ui
@@ -324,7 +324,7 @@ impl SettingsMenu {
                 }
                 ui.end_row();
 
-                let theme = row_label(ui, "Theme", "theme", "GUI color theme.");
+                let theme = row_label(ui, "Theme", "theme", "The window's color theme.");
                 let mut picked = common.theme;
                 egui::ComboBox::from_id_salt("settings-theme")
                     .selected_text(theme_label(picked))
@@ -366,7 +366,8 @@ fn version_row(
         ui,
         "PES version",
         "pes_version",
-        "The PES version the suite targets; the sidebar selector.",
+        "The PES version every tool works with, the same setting the sidebar's selector \
+         changes.",
     );
     let blocker = version_blocker(tools);
     let mut picked = common.pes_version;

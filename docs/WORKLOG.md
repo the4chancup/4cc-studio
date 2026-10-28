@@ -2203,8 +2203,18 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         as they are. The help's running-game sentences follow 8.9l2 and l5. Table
         `.tmp/8_29/a3_table.md`. Files: `save_editor/help/0{1..8}_*.md`,
         `docs/prototypes/tools/save_editor.js`, `docs/plans/save_editor.md` (SE-GUI-11)
-    - [ ] b the shell (`studio_core`: sidebar, status bar, settings menu, help window, the
-      launch and title texts) and the drafts host `docs/prototypes/index.html`
+    - [x] b the shell (`studio_core`: sidebar, status bar, settings menu, help window, the
+      launch and title texts) and the drafts host `docs/prototypes/index.html` (Opus, in the
+      worktree `wt-829b`, brief `.tmp/8_29/brief_8_29b.md`): 35 lines rewritten (table
+      `.tmp/8_29/b_table.md`; the lead retouched one, `--gui`'s "not available yet, because it
+      arrives in a later version" now "`--gui` comes in a later version"), the CLI's error
+      details in parentheses as a2's, the two core help chapters' colon stacks as sentences;
+      the drafts take the rewrites word for word. The sidekick's contradictions, both
+      accepted: a settings row's tooltip is the key then the row's own tip, written for the
+      member, not the field's doc comment (`settings_row.rs`, the test's message and the
+      draft's comments say so now); "the GUI phase" became "a later version". Files: 14
+      `studio_core`/`studio` sources and tests, `help/core/{data_location,install}.md`,
+      `docs/prototypes/index.html`
     - [ ] c the Team compiler and the Export upgrader: their message catalogs, help chapters,
       CLI output and the comments injected into `settings.toml`/`config.toml`/`materials.toml`
       (side-lead U, branch `side/text`), in six slices, the last outside its locks:
@@ -4601,6 +4611,14 @@ points there.
   reporting PES 2019, and CONTRIBUTING's "A test never reaches the developer's own files"
   names the running games. A sandbox default reporting PES 2021 fails 18 tests
 
+- open 2026-10-28 — `studio_core`'s first-run tests depend on the portable hint's width
+  (8.29b): a hint of about 100 characters made three of them fail as if a click were lost
+  (`the_first_run_dialog_writes_the_settings_file_to_the_user_folder`,
+  `the_portable_choice_writes_next_to_the_program`,
+  `a_failed_write_keeps_the_dialog_open_with_the_error`), with the old hint back they passed;
+  78 characters pass. The dialog's layout moves with the text and the tests' two-frame settle
+  no longer finds the button. Fix when next touched: settle until the layout stops moving
+  (bounded), or click the button by its id, so a rewording cannot pass for a broken click
 - open — Studio Web (phase 18): `theme::install_fonts` is native-only, so on wasm the named
   families the views draw in, `icons` (the sidebar) and `label` (the Tactics pitch's formation
   name, 0.0.1x4), are unbound, and epaint warns and draws no glyph for them (read in epaint

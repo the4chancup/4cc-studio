@@ -785,8 +785,8 @@ fn a_notice_with_open_settings_opens_the_menu_on_the_active_tool() {
     assert!(!has_text(&nodes, "A settings body"));
 }
 
-// A row label's tooltip leads with the settings key, then the field's doc
-// comment first sentence (the draft's `sRow`).
+// A row label's tooltip leads with the settings key, then the row's tip (the
+// draft's `sRow`).
 #[test]
 fn a_row_labels_tooltip_leads_with_the_settings_key() {
     let (a, calls_a) = stub("a", "A", None);
@@ -825,10 +825,10 @@ fn a_row_labels_tooltip_leads_with_the_settings_key() {
     assert!(
         has_text(
             &nodes,
-            "thread_count: Worker threads for pipelines; 0 means automatic \
-             (logical cores minus one)."
+            "thread_count: The number of worker threads a tool's run uses, where 0 \
+             means automatic (the logical cores minus one)."
         ),
-        "the tooltip is the settings key, then the doc comment's first sentence"
+        "the tooltip is the settings key, then the row's tip"
     );
 }
 

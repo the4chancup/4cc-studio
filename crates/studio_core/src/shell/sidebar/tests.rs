@@ -802,7 +802,7 @@ fn the_selector_is_colored_by_the_exe_found_in_the_pes_folder() {
     );
     assert_eq!(color_of(&app), Some(visuals.error_fg_color), "red");
     let nodes = hover_selector(&mut app);
-    let expected = format!("Found PES2019.exe in {}", dir.display());
+    let expected = format!("{} holds PES2019.exe", dir.display());
     assert!(
         has_text(&nodes, &expected),
         "the tooltip names the exe found"
@@ -822,7 +822,7 @@ fn the_selector_is_colored_by_the_exe_found_in_the_pes_folder() {
     let nodes = hover_selector(&mut app);
     assert!(has_text(
         &nodes,
-        &format!("No PES exe in {}", dir.display())
+        &format!("There is no PES exe in {}", dir.display())
     ));
     fs::remove_dir_all(&dir).unwrap();
 
@@ -1173,7 +1173,7 @@ fn a_cli_only_tool_is_a_planned_entry_never_active_and_still_registered() {
     assert!(
         has_text(
             &nodes,
-            "C has no window in this version: it runs from the command line."
+            "C has no window in this version, so it runs from the command line."
         ),
         "the tooltip is the CLI-only one"
     );

@@ -64,14 +64,14 @@ pub fn run_help(
     let out_error = |error: std::io::Error| {
         CliError::new(
             3,
-            anyhow::anyhow!("the help output could not be written: {error}"),
+            anyhow::anyhow!("the help output could not be written ({error})"),
         )
     };
     if let Some(dir) = export {
         std::fs::create_dir_all(dir).map_err(|error| {
             CliError::new(
                 3,
-                anyhow::anyhow!("cannot create {}: {error}", dir.display()),
+                anyhow::anyhow!("cannot create {} ({error})", dir.display()),
             )
         })?;
         for (id, section) in &chapters {
@@ -79,7 +79,7 @@ pub fn run_help(
             std::fs::write(&path, chapter_markdown(section)).map_err(|error| {
                 CliError::new(
                     3,
-                    anyhow::anyhow!("cannot write {}: {error}", path.display()),
+                    anyhow::anyhow!("cannot write {} ({error})", path.display()),
                 )
             })?;
         }
@@ -105,7 +105,10 @@ pub fn run_help(
             let ids: Vec<&str> = chapters.iter().map(|(id, _)| *id).collect();
             CliError::new(
                 2,
-                anyhow::anyhow!("no help chapter `{id}`; chapters: {}", ids.join(", ")),
+                anyhow::anyhow!(
+                    "there is no help chapter `{id}` (the chapters are {})",
+                    ids.join(", ")
+                ),
             )
         })?;
     let markdown = match topic {
@@ -113,7 +116,10 @@ pub fn run_help(
         Some(slug) => topic_markdown(section, slug).ok_or_else(|| {
             CliError::new(
                 2,
-                anyhow::anyhow!("no help topic `{slug}`; topics: {}", slugs_of(section)),
+                anyhow::anyhow!(
+                    "the chapter has no help topic `{slug}` (its topics are {})",
+                    slugs_of(section)
+                ),
             )
         })?,
     };
@@ -325,17 +331,20 @@ mod tests {
         assert_eq!(error.exit_code, 2);
         assert_eq!(
             error.to_string(),
-            "no help chapter `nope`; chapters: setting-up, first-run, alpha, beta"
+            "there is no help chapter `nope` (the chapters are setting-up, first-run, alpha, beta)"
         );
         let error = run_help(&tools, Some("alpha"), Some("nope"), None, &mut out).unwrap_err();
         assert_eq!(error.exit_code, 2);
         assert_eq!(
             error.to_string(),
-            "no help topic `nope`; topics: topic-a, messages"
+            "the chapter has no help topic `nope` (its topics are topic-a, messages)"
         );
         let error = run_help(&tools, Some("beta"), Some("messages"), None, &mut out).unwrap_err();
         assert_eq!(error.exit_code, 2);
-        assert_eq!(error.to_string(), "no help topic `messages`; topics: ");
+        assert_eq!(
+            error.to_string(),
+            "the chapter has no help topic `messages` (its topics are )"
+        );
     }
 
     #[test]

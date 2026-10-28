@@ -23,9 +23,10 @@ pub enum PathKind {
     },
 }
 
-/// A row's left cell: the plain label, its tooltip the settings key then the field's
-/// doc comment first sentence (the draft's `sRow`), so a member who edits
-/// `settings.toml` by hand still finds it.
+/// A row's left cell: the plain label, its tooltip the settings key then `tip`, the row's
+/// own sentence for a member (the draft's `sRow`), so a member who edits `settings.toml`
+/// by hand still finds it. The tip is written for the member, not copied from the field's
+/// doc comment, which is written for the developer.
 pub(crate) fn row_label(ui: &mut egui::Ui, label: &str, key: &str, tip: &str) -> egui::Response {
     ui.label(label).on_hover_text(format!("{key}: {tip}"))
 }

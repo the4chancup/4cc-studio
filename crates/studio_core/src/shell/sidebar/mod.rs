@@ -394,7 +394,7 @@ impl Sidebar {
                     // version (ST-SIDE-08).
                     let tooltip = if cli_only.contains(&entry.id) {
                         format!(
-                            "{} has no window in this version: it runs from the command line.",
+                            "{} has no window in this version, so it runs from the command line.",
                             entry.label
                         )
                     } else {
@@ -774,13 +774,16 @@ pub(super) fn version_blocker(tools: &[Box<dyn StudioTool>]) -> Option<(&'static
 /// row carries the same one (the draft's `pesSelectorTip`).
 pub(super) fn exe_tooltip(check: ExeCheck, folder: &Path) -> String {
     match check {
-        ExeCheck::Found => format!("{}\nThe PES version every tool targets", folder.display()),
-        ExeCheck::OtherVersion(found) => format!(
-            "Found PES{}.exe in {}: a different version than the selection",
-            found.year(),
+        ExeCheck::Found => format!(
+            "{}\nThe PES version every tool works with",
             folder.display()
         ),
-        ExeCheck::NoExe => format!("No PES exe in {}", folder.display()),
+        ExeCheck::OtherVersion(found) => format!(
+            "{} holds PES{}.exe, which is a different version from the one selected",
+            folder.display(),
+            found.year()
+        ),
+        ExeCheck::NoExe => format!("There is no PES exe in {}", folder.display()),
         ExeCheck::NoFolder => format!("{} does not exist", folder.display()),
     }
 }

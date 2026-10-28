@@ -284,7 +284,7 @@ fn crash_text(message: &str, log: Option<&Path>) -> String {
     );
     match log {
         Some(path) => format!(
-            "{what}\n\nPlease post this file where you report problems: {}. It holds what the program was doing; your home folder is written in it as ~.",
+            "{what}\n\nPlease post this file where you report problems: {}. It holds what the program was doing, and your home folder is written in it as ~.",
             path.display()
         ),
         None => format!("{what}\n\nPlease post this message where you report problems."),

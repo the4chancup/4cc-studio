@@ -91,20 +91,26 @@ fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
             Arg::new("gui")
                 .long("gui")
                 .action(ArgAction::SetTrue)
-                .help("Open the GUI on the tool and run the command inside it"),
+                .help("Open the tool's window and run the command inside it"),
         )
         .arg(
             Arg::new("verbose")
                 .short('v')
                 .action(ArgAction::Count)
                 .global(true)
-                .help("Diagnostic output: -v info, -vv debug, -vvv trace"),
+                .help("More diagnostic output with each v: -v for info, -vv for debug, -vvv for trace"),
         )
         .subcommand(
             Command::new("help")
                 .about("Print a help chapter, or export them all as Markdown")
-                .arg(Arg::new("chapter").help("The chapter's id; absent, the chapters are listed"))
-                .arg(Arg::new("topic").help("A topic slug within the chapter"))
+                .arg(
+                    Arg::new("chapter")
+                        .help("The chapter's id. Without it, the chapters are listed."),
+                )
+                .arg(
+                    Arg::new("topic")
+                        .help("A topic within the chapter, named as the chapter list shows it"),
+                )
                 .arg(
                     Arg::new("export")
                         .long("export")
@@ -170,7 +176,12 @@ pub fn run_cli(
     let tool = tools
         .iter()
         .find(|tool| tool.id() == tool_id)
-        .ok_or_else(|| CliError::new(2, anyhow::anyhow!("no tool with id `{tool_id}`")))?;
+        .ok_or_else(|| {
+            CliError::new(
+                2,
+                anyhow::anyhow!("there is no tool with the id `{tool_id}`"),
+            )
+        })?;
     tool.cli_run(matches, ctx)
 }
 
@@ -363,7 +374,7 @@ mod tests {
         let (ctx, _requests_rx) = test_context();
         let error = run_cli(&tools, "missing", &matches, &ctx).unwrap_err();
         assert_eq!(error.exit_code, 2);
-        assert_eq!(error.to_string(), "no tool with id `missing`");
+        assert_eq!(error.to_string(), "there is no tool with the id `missing`");
     }
 
     #[test]

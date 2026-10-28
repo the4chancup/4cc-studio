@@ -585,7 +585,7 @@ pub fn run_gui(mut app: StudioApp) -> anyhow::Result<()> {
             Ok(Box::new(app))
         }),
     )
-    .map_err(|error| anyhow::anyhow!("cannot open the window: {error}"))
+    .map_err(|error| anyhow::anyhow!("cannot open the window ({error})"))
 }
 
 #[cfg(test)]

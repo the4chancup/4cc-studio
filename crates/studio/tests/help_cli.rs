@@ -252,7 +252,7 @@ fn an_unknown_chapter_is_refused_with_exit_2() {
     let output = studio(&["help", "nope"]);
     assert_eq!(output.status.code(), Some(2), "stderr: {}", stderr(&output));
     assert!(
-        stderr(&output).starts_with("error: no help chapter"),
+        stderr(&output).starts_with("error: there is no help chapter"),
         "{}",
         stderr(&output)
     );

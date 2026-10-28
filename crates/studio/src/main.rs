@@ -240,7 +240,7 @@ fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches)
     if !matches!(printer.join(), Ok(Ok(()))) || !matches!(notices.join(), Ok(Ok(()))) {
         // Findings were lost, so the tool's verdict cannot be reported as it stands: 3 is the
         // code of a run that did not finish as reported.
-        eprintln!("error: the console printer stopped unexpectedly");
+        eprintln!("error: the output to the console stopped unexpectedly");
         return ExitCode::from(3);
     }
     match result {
@@ -398,7 +398,7 @@ fn main() -> ExitCode {
         LaunchMode::Gui => run_gui_mode(tools, false),
         LaunchMode::GuiAutorun { .. } => {
             eprintln!(
-                "`--gui` is not available yet; it arrives with the GUI phase. Run the command without it, or `{EXE_NAME}` alone for the window."
+                "`--gui` comes in a later version. Run the command without it, or run `{EXE_NAME}` alone to open the window."
             );
             ExitCode::from(2)
         }

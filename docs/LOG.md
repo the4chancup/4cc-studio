@@ -2744,3 +2744,5 @@ worklog passed 7,000 lines.
   open (closes the worklog's two issues on the process list).
 - **2026-10-28** — The maintainer's draft review: a Tricks panel under Skills (the ruleset's `tricks` group), the player view's titles on one
   line and evenly spaced, the team view's two panels' spacing, the scroll kept across picks, and a scroll-bar strip so Firefox draws the app's widths.
+- **2026-10-28** — 8.29b: the shell's text reread (35 lines: tooltips, the first-run dialog, the CLI's errors and help, two help chapters),
+  the drafts following; a settings row's tooltip is the row's own tip, not the field's doc comment.

@@ -746,7 +746,8 @@ mod tests {
         assert!(
             has_text(
                 &nodes,
-                "Settings and the teams list cannot be saved; changes last for this session"
+                "Settings and the teams list cannot be saved, so changes last for this \
+                 session only"
             ),
             "the entry's tooltip explains the session-only setting"
         );

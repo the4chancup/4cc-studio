@@ -44,7 +44,8 @@ impl ShellCondition {
     pub(crate) fn tooltip(&self) -> String {
         match self {
             ShellCondition::DataDirReadOnly => {
-                "Settings and the teams list cannot be saved; changes last for this session"
+                "Settings and the teams list cannot be saved, so changes last for this session \
+                 only"
                     .to_owned()
             }
             ShellCondition::UpdateAvailable { .. } => "A newer release is out".to_owned(),

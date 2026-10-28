@@ -43,7 +43,7 @@ pub enum SettingsError {
     #[error("cannot read the settings file")]
     Io(#[from] io::Error),
     /// The file is not valid TOML, or a section has the wrong shape.
-    #[error("cannot parse the settings file")]
+    #[error("cannot understand the settings file")]
     Parse(#[from] toml::de::Error),
     /// A top-level key other than `common` is not a table (`foo = 1` at the root).
     #[error("settings key `{0}` is not a section")]

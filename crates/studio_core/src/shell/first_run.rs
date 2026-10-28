@@ -59,8 +59,8 @@ impl FirstRun {
                         choice = Some(ctx.paths().exe_dir.join("data"));
                     }
                     ui.weak(
-                        "A data folder beside the program: portable, moves and deletes \
-                         with it",
+                        "A portable data folder beside the program, which moves and is \
+                         deleted with it",
                     );
                 });
                 if let Some(config_dir) = &self.config_dir {
@@ -69,7 +69,7 @@ impl FirstRun {
                             choice = Some(config_dir.clone());
                         }
                         ui.weak(format!(
-                            "{}: survives replacing or moving the program folder",
+                            "{}, which survives replacing or moving the program folder",
                             config_dir.display()
                         ));
                     });
@@ -98,7 +98,7 @@ impl FirstRun {
             Ok(()) => ctx.set_data_dir(dir),
             Err(error) => {
                 self.error = Some(format!(
-                    "Cannot write {}: {error}. Choose the other location.",
+                    "Cannot write {} ({error}). Choose the other location.",
                     path.display()
                 ));
             }
@@ -177,7 +177,10 @@ mod tests {
         );
         entry(&nodes, "Next to the program");
         entry(&nodes, "In my user folder");
-        assert!(has_text(&nodes, "portable, moves and deletes with it"));
+        assert!(has_text(
+            &nodes,
+            "portable data folder beside the program, which moves and is deleted with it"
+        ));
         assert!(has_text(
             &nodes,
             "survives replacing or moving the program folder"
