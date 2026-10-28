@@ -755,4 +755,45 @@ mod tests {
         assert_eq!(portable_text_max(PlayerText::Name), 46);
         assert_eq!(portable_text_max(PlayerText::ShirtName), 18);
     }
+
+    /// `bit_width` reads the `arrays` runs' own widths, not only the
+    /// `fields` rows': the positions are 2-bit elements and the com styles
+    /// 1-bit, `None` past each version's array, and `widest_bit_width`
+    /// takes the widest over the versions.
+    #[test]
+    fn array_fields_have_their_array_width() {
+        // Every version's player schema holds thirteen positions (an `arrays`
+        // run on 15-17, thirteen `fields` rows on 18-21) and seven com
+        // styles (an `arrays` run on every version).
+        let (positions, styles) = (13, 7);
+        for version in PesVersion::ALL {
+            for i in 0..positions {
+                assert_eq!(
+                    bit_width(version, PlayerField::PlayablePosition(i)),
+                    Some(2),
+                    "{version:?} PlayablePosition({i})"
+                );
+            }
+            assert_eq!(
+                bit_width(version, PlayerField::PlayablePosition(positions)),
+                None,
+                "{version:?} holds only {positions} positions"
+            );
+            for i in 0..styles {
+                assert_eq!(
+                    bit_width(version, PlayerField::ComStyle(i)),
+                    Some(1),
+                    "{version:?} ComStyle({i})"
+                );
+            }
+            assert_eq!(
+                bit_width(version, PlayerField::ComStyle(styles)),
+                None,
+                "{version:?} holds only {styles} com styles"
+            );
+        }
+        assert_eq!(widest_bit_width(PlayerField::PlayablePosition(0)), 2);
+        // Seven com styles per version: index 6 is the last any holds.
+        assert_eq!(widest_bit_width(PlayerField::ComStyle(6)), 1);
+    }
 }

@@ -4123,10 +4123,13 @@ briefs, review loops, gates and mutation runs as for any step.
     carries it; `write_player`/`write_team` through `write_record`; one
     `RecordSchema::bit_width`; the Texport roster pairing one function per direction;
     `TeamTactics::bare` names no roster slot (0xFF), `aatf`'s patches gone
-  - [ ] the loop's `mutants-diff ba7a4b6d`, its survivors triaged into one rework brief with
-    A2's known gaps: no test reaches either Texport reader's `RosterMismatch` or the writers'
-    too-few and left-over refusals, and nothing pins an `arrays`-made player field's width
-    through `widest_bit_width`/`bit_width(version, field)`
+  - [x] the loop's `mutants-diff ba7a4b6d` (2026-10-28, 158 mutants over 13 crates): 3
+    survivors, all equivalent, excluded with their equivalences (`883eb9ad`); A2's known gaps
+    tested (SWE-2, brief `.tmp/lib_audit/brief_a2_gaps.md`): both Texport readers'
+    `RosterMismatch` through `from_bytes` on files whose records trade places, the writers'
+    too-few and left-over refusals through `new` and `to_bytes`, the `arrays`-made fields'
+    widths through `bit_width`/`widest_bit_width`; each shown to fail under a perturbation
+    (`texport.rs`, `schema/mod.rs` tests)
   - [ ] after the cut: `aatf`'s nine fixture modules' repeated tests as helpers (b-3)
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's

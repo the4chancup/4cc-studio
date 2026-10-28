@@ -733,6 +733,221 @@ mod tests {
         );
     }
 
+    /// `slot_records` refuses a roster slot whose record holds another
+    /// id: here the first two filled slots' player records trade places
+    /// in the file itself, so `from_bytes` is the one refusing — on the
+    /// 18-21 path (the `.ted` plaintext's record space) and on the 15-17
+    /// one (the container's payload).
+    #[test]
+    fn slot_records_refuses_a_record_of_another_player() {
+        for (version, bytes) in TEDS {
+            let fixture = Texport::from_bytes(bytes, None).expect("opens");
+            let layout = texport_layout(version).expect("a layout");
+            let off = Offsets::of(layout, schema_for(version));
+            let filled: Vec<usize> = fixture
+                .team()
+                .roster
+                .iter()
+                .enumerate()
+                .filter(|(_, slot)| slot.player_id != 0)
+                .map(|(i, _)| i)
+                .collect();
+            let (s0, s1) = (filled[0], filled[1]);
+            let mut plain = crypt(bytes, layout);
+            let size = schema_for(version).player.size;
+            let (a, b) = (off.players + s0 * size, off.players + s1 * size);
+            let (first, second) = (record_id(&plain[a..]), record_id(&plain[b..]));
+            assert_eq!(first, fixture.team().roster[s0].player_id, "{version:?}");
+            assert_eq!(second, fixture.team().roster[s1].player_id, "{version:?}");
+            assert_ne!(first, second, "{version:?}: a real swap");
+            let tmp = plain[a..a + size].to_vec();
+            plain.copy_within(b..b + size, a);
+            plain[b..b + size].copy_from_slice(&tmp);
+            let corrupt = crypt(&plain, layout);
+            let err = Texport::from_bytes(&corrupt, None).expect_err("refused");
+            assert!(
+                matches!(
+                    err,
+                    TexportError::RosterMismatch {
+                        slot,
+                        roster,
+                        player
+                    } if slot == s0 && roster == first && player == second
+                ),
+                "{version:?}: {err:?}"
+            );
+        }
+
+        // The 15-17 reader: the same check, the records read out of the
+        // container's payload a stride apart.
+        let bytes = crate::interchange::texport_golden::pes17_texport_bytes();
+        let fixture = Texport::from_bytes(&bytes, None).expect("opens");
+        let mut container = SaveContainer::decrypt(&bytes).expect("decrypts");
+        let schema = schema_for(PesVersion::Pes17);
+        let old = texport_old(PesVersion::Pes17).expect("a 15-17 layout");
+        let stride = schema
+            .appearance
+            .as_ref()
+            .map_or(schema.player.size, |(_, a)| schema.player.size + a.size);
+        let filled: Vec<usize> = fixture
+            .team()
+            .roster
+            .iter()
+            .enumerate()
+            .filter(|(_, slot)| slot.player_id != 0)
+            .map(|(i, _)| i)
+            .collect();
+        let (s0, s1) = (filled[0], filled[1]);
+        let (a, b) = (old.players_at + s0 * stride, old.players_at + s1 * stride);
+        let (first, second) = (
+            record_id(&container.payload[a..]),
+            record_id(&container.payload[b..]),
+        );
+        assert_eq!(first, fixture.team().roster[s0].player_id);
+        assert_eq!(second, fixture.team().roster[s1].player_id);
+        assert_ne!(first, second, "a real swap");
+        let tmp = container.payload[a..a + stride].to_vec();
+        container.payload.copy_within(b..b + stride, a);
+        container.payload[b..b + stride].copy_from_slice(&tmp);
+        let corrupt = container.to_bytes(&test_salt()).expect("encodes");
+        let err = Texport::from_bytes(&corrupt, None).expect_err("refused");
+        assert!(
+            matches!(
+                err,
+                TexportError::RosterMismatch {
+                    slot,
+                    roster,
+                    player
+                } if slot == s0 && roster == first && player == second
+            ),
+            "{err:?}"
+        );
+    }
+
+    /// A filled roster slot with no player to pair is refused: the
+    /// fixture's players less the last leaves its slot unmatched.
+    #[test]
+    fn new_refuses_a_missing_player() {
+        for (version, bytes) in TEDS {
+            let fixture = Texport::from_bytes(bytes, None).expect("opens");
+            let slot = fixture
+                .team()
+                .roster
+                .iter()
+                .rposition(|slot| slot.player_id != 0)
+                .expect("a filled slot");
+            let roster = fixture.team().roster[slot].player_id;
+            let players: Vec<&PlayerEntry> = fixture.players().iter().collect();
+            assert_eq!(players.last().expect("nonempty").id, roster, "{version:?}");
+            let err = Texport::new(
+                version,
+                fixture.team(),
+                &players[..players.len() - 1],
+                &test_salt(),
+            )
+            .expect_err("a filled slot keeps its player");
+            assert!(
+                matches!(
+                    err,
+                    TexportError::RosterMismatch {
+                        slot: s,
+                        roster: r,
+                        player: 0
+                    } if s == slot && r == roster
+                ),
+                "{version:?}: {err:?}"
+            );
+        }
+    }
+
+    /// A player no filled slot pairs with is refused: the fixture's
+    /// players plus the first again leaves one over at `width`.
+    #[test]
+    fn new_refuses_a_left_over_player() {
+        for (version, bytes) in TEDS {
+            let fixture = Texport::from_bytes(bytes, None).expect("opens");
+            let mut players: Vec<&PlayerEntry> = fixture.players().iter().collect();
+            players.push(players[0]);
+            let err = Texport::new(version, fixture.team(), &players, &test_salt())
+                .expect_err("a player has no slot");
+            // `new` derives the roster width from the layout the same
+            // way: the left-over refusal reports it as the slot.
+            let off = Offsets::of(
+                texport_layout(version).expect("a layout"),
+                schema_for(version),
+            );
+            assert!(
+                matches!(
+                    err,
+                    TexportError::RosterMismatch {
+                        slot,
+                        roster: 0,
+                        player
+                    } if slot == off.width && player == fixture.players()[0].id
+                ),
+                "{version:?}: {err:?}"
+            );
+        }
+    }
+
+    /// The 15-17 write path pairs the same way: an opened texport whose
+    /// players lose the last is refused at his slot. (`players_mut` hands
+    /// out a slice, which cannot shrink; the field edit is the same one
+    /// the borrow would make.)
+    #[test]
+    fn to_bytes_refuses_a_missing_player() {
+        let bytes = crate::interchange::texport_golden::pes17_texport_bytes();
+        let mut texport = Texport::from_bytes(&bytes, None).expect("opens");
+        let slot = texport
+            .team()
+            .roster
+            .iter()
+            .rposition(|slot| slot.player_id != 0)
+            .expect("a filled slot");
+        let roster = texport.team().roster[slot].player_id;
+        assert_eq!(texport.players().last().expect("nonempty").id, roster);
+        texport.players.pop();
+        let err = texport
+            .to_bytes(&test_salt())
+            .expect_err("a filled slot keeps its player");
+        assert!(
+            matches!(
+                err,
+                TexportError::RosterMismatch {
+                    slot: s,
+                    roster: r,
+                    player: 0
+                } if s == slot && r == roster
+            ),
+            "{err:?}"
+        );
+    }
+
+    /// And a player more than the roster's filled slots is refused at the
+    /// roster width.
+    #[test]
+    fn to_bytes_refuses_a_left_over_player() {
+        let bytes = crate::interchange::texport_golden::pes17_texport_bytes();
+        let mut texport = Texport::from_bytes(&bytes, None).expect("opens");
+        let extra = texport.players()[0].clone();
+        let width = texport.team().roster.len();
+        texport.players.push(extra.clone());
+        let err = texport
+            .to_bytes(&test_salt())
+            .expect_err("a player has no slot");
+        assert!(
+            matches!(
+                err,
+                TexportError::RosterMismatch {
+                    slot,
+                    roster: 0,
+                    player
+                } if slot == width && player == extra.id
+            ),
+            "{err:?}"
+        );
+    }
+
     #[test]
     fn new_has_no_template_for_15_to_17() {
         let (_, bytes) = TEDS[1];
