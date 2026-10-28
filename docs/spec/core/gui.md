@@ -13,17 +13,18 @@ rail) takes `.resizable(false)` beside its `exact_size`: egui's `Panel::left` an
 `Panel::right` start resizable and a pinned size does not turn that off, so the edge showed
 the resize cursor while a drag did nothing.
 
-**The window's size.** Studio opens at 1280 × 800 points, centered, not maximized.
+**The window's size.** Studio opens at 1280 × 780 points, centered, not maximized: the size of
+its client area, the title bar and borders outside it, as every window size here is.
 Points are egui's logical units, so the system's display scaling applies: at 150% the window
 covers 1920 × 1200 pixels and looks the same size it does at 100%. A fixed size, not a share of
 the monitor, because a share makes the window as wide as an ultrawide monitor is. On a monitor
-whose logical height cannot hold it with room for the taskbar and the title bar (800 points is
+whose logical height cannot hold it with room for the taskbar and the title bar (780 points is
 over 90% of its logical height: a 1366 × 768 laptop), only the height is fitted, to 90% of the
 monitor's logical height rounded to whole points (1280 × 691 at 1366 × 768); the width stays
 1280 wherever the window, its borders included, fits the monitor's width. A monitor narrower
 than that (1280 × 720 logical: a 1080p one at 150%, rare today) gets the width that fits, and
 the views draw scaled down (below). The monitor's size is known only once the window exists
-(`ViewportInfo::monitor_size`, in points), so the window is created at 1280 × 800 and the shell
+(`ViewportInfo::monitor_size`, in points), so the window is created at 1280 × 780 and the shell
 fits and centers it on the first frame that reports the monitor's size
 (`ViewportCommand::InnerSize`, then `OuterPosition` centering the outer rectangle, title bar
 included), and never again, so a member's own resize or move holds. A window reopening at a
@@ -173,10 +174,10 @@ moved here, with the scope and harness they share, are in `plans/core/gui.md` "A
 **Window**
 
 ```
-ST-WIN-01   GIVEN a monitor of 1920 × 1080 points and the window created at 1280 × 800 inside an
+ST-WIN-01   GIVEN a monitor of 1920 × 1080 points and the window created at 1280 × 780 inside an
                  outer rectangle 16 points wider and 39 taller (its borders and title bar)
             WHEN the GUI's first frame runs
-            THEN it asks for a 1280 × 800 inner size and moves the window to (312, 120.5), its
+            THEN it asks for a 1280 × 780 inner size and moves the window to (312, 130.5), its
                  outer rectangle centered on the monitor; GIVEN 1366 × 768 THEN 1280 × 691 at
                  (35, 19); GIVEN a monitor of 1280 × 720 points THEN 1264 × 648 at (0, 16.5);
                  and no later frame sends either; GIVEN the first frame reporting no monitor

@@ -30,7 +30,7 @@ pub(super) const RAIL_WIDTH: f32 = 56.0;
 /// the rail alone tells the tools apart.
 const ICON_SIZE: f32 = 24.0;
 /// One entry row: the 24-point icon and its padding. With the default 4-point item
-/// spacing, fourteen rows take 476 points of the 776-point rail at the default window,
+/// spacing, fourteen rows take 476 points of the 756-point rail at the default window,
 /// leaving the logo, the version dropdown, the help and the gear their room.
 const ENTRY_HEIGHT: f32 = 30.0;
 /// Seconds the pointer rests on the rail before the overlay opens: a short delay.

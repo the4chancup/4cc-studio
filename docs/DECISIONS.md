@@ -12678,3 +12678,15 @@ a note inside `RUNBOOK.md`; the note is gone from there and recorded here.
 Why: a stalled run can leave a half-done edit or a hand perturbation in the tree, which a kill
 would leave unexplained.
 Plan: `RUNBOOK.md` "Agents and harness".
+
+## 2026-10-28 — gui — The window's default client area is 1280 × 780, in the app and the drafts
+Decision: Studio's main window opens with a client area of 1280 × 780 points (was 1280 × 800),
+and every window size in the drafts is the client area's too, the drawn title bar and border
+outside it (the drafts had drawn 1280 × 800 outside, a client area of 1278 × 775).
+Why: the drafts are the specification, and their client area was 25 points shorter than the
+app's, so a layout that fitted the draft had room to spare in the app and the two never
+overlaid; 1280 × 780 is within 5 points of what every view was drawn and reviewed in, so no view
+needs reviewing again, where making the drafts 1280 × 800 would have meant growing views to fill
+the new room. Found when the built windows were first laid over their drafts (0.0.1ov).
+Plan: `spec/core/gui.md` "Shell layout", "The window's size"; `plans/core/gui.md` "Prototypes
+before implementation", the Size bullet.

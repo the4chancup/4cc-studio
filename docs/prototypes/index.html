@@ -250,12 +250,15 @@
      layout"), on a desktop-colored page, so the draft shows what fits at that size. The
      harness, not the UI, like the draft controls. Its transform makes the fixed-position
      menus, dialogs and the help window place themselves inside it, as egui's do. */
-  /* The window is drawn wider than its size by --sbw, the browser's scroll-bar width (0
-     where scroll bars overlay the content): a strip on its right where the scrolling panes
-     put their bars, so the content gets the width the app gives it, whose scroll bars float
-     over the content and take none (the browsers' bars differ, 15 points in Chromium and wider
-     in Firefox, where the player view's third column wrapped under the first). */
-  .win { flex: none; margin: 8px 16px 12px; width: calc(var(--win-w, 50vw) + var(--sbw, 0px)); height: var(--win-h, 50vh);
+  /* --win-w and --win-h are the client area's size, as the app's window sizes are: the drawn
+     title bar (--tb-h) and the 1px border lie outside it. The window is also drawn wider by
+     --sbw, the browser's scroll-bar width (0 where scroll bars overlay the content): a strip
+     on its right where the scrolling panes put their bars, so the content gets the width the
+     app gives it, whose scroll bars float over the content and take none (the browsers' bars
+     differ, 15 points in Chromium and wider in Firefox, where the player view's third column
+     wrapped under the first). */
+  .win { flex: none; margin: 8px 16px 12px; width: calc(var(--win-w, 50vw) + var(--sbw, 0px) + 2px);
+    height: calc(var(--win-h, 50vh) + var(--tb-h, 23px) + 2px);
     display: flex; flex-direction: column; overflow: hidden; position: relative;
     transform: translateZ(0); background: var(--panel);
     border: 1px solid #000; box-shadow: 0 8px 32px #000c; }
@@ -597,7 +600,7 @@ const WIN_SIZES = [
 ];
 function fitted(monitorW, monitorH) {
   const BORDERS = 16;
-  return [Math.min(1280, monitorW - BORDERS), Math.min(800, Math.round(0.9 * monitorH))];
+  return [Math.min(1280, monitorW - BORDERS), Math.min(780, Math.round(0.9 * monitorH))];
 }
 // A view is laid out for its window's design width, 1280 points for every
 // draft today (the main tools; gui.md "Scaling with the width"): narrower
@@ -607,10 +610,8 @@ function fitted(monitorW, monitorH) {
 // (offsetWidth reads the point size, getBoundingClientRect the drawn one,
 // and the fixed-position panels inside are contained by the transformed box
 // in points), while the menus and dialogs outside #win-body keep their own
-// coordinates. The scale reads the window's own width, the size bar's (its
-// 1px border the OS frame's stand-in), so the plan's sizes scale exactly: 1
-// at 1280, 0.75 at 960; under the design width the layout is exactly 1280
-// and its drawn right edge runs the border's 2px under the frame.
+// coordinates. The scale reads the client area's width, as the app's zoom
+// does, so the plan's sizes scale exactly: 1 at 1280, 0.75 at 960.
 const DESIGN_W = 1280;
 // The browser's scroll-bar width, the strip the window is drawn wider by (the .win rule):
 // measured once as the gutter a box keeps for its bar, which is what the scrolling panes
@@ -626,8 +627,11 @@ const SBW = (() => {
   return width;
 })();
 document.documentElement.style.setProperty("--sbw", SBW + "px");
-// The window's width without that strip: the size the app's window has.
-const winWidth = () => document.getElementById("win").offsetWidth - SBW;
+// The client area's width, without the border and that strip: the size the app's window has.
+const winWidth = () => document.getElementById("win").clientWidth - SBW;
+// The client area's height, below the drawn title bar.
+const winHeight = () => document.getElementById("win").clientHeight
+  - document.getElementById("titlebar").offsetHeight;
 const winScale = () => Math.min(1, winWidth() / DESIGN_W);
 // The drawn scale's layout box: the design width and the window's height in
 // points (the height never scales: a shorter window just shows fewer points).
@@ -684,13 +688,18 @@ function sizeWindow(which) {
 function sizeLabel() {
   const win = document.getElementById("win"), label = document.getElementById("win-size-label");
   if (!label) return;
-  const w = winWidth(), hgt = win.offsetHeight, s = winScale();
+  const w = winWidth(), hgt = winHeight(), s = winScale();
   label.textContent = "Window " + w + " × " + hgt + ", " + Math.round(100 * w / screen.width) + "% × "
     + Math.round(100 * hgt / screen.height) + "% of the monitor (" + screen.width + " × " + screen.height + ")"
     + (s < 1 ? ", scale " + Math.round(s * 100) + "%" : "")
     + (win.classList.contains("max") ? ", maximized" : "; drag its bottom-right corner to resize");
 }
-const winSizer = new ResizeObserver(() => { applyScale(); sizeLabel(); showReset(); });
+// The title bar's height is read live: it is drawn after the first size is set, and the client
+// area the sizes name lies below it.
+const winSizer = new ResizeObserver(() => {
+  document.getElementById("win").style.setProperty("--tb-h", document.getElementById("titlebar").offsetHeight + "px");
+  applyScale(); sizeLabel(); showReset();
+});
 winSizer.observe(document.getElementById("win"));
 winSizer.observe(document.getElementById("titlebar"));
 applyScale();

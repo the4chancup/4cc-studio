@@ -441,14 +441,14 @@ mod tests {
         assert!(
             !draws_reset(
                 &mut app,
-                placed_input(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0), fhd, false)
+                placed_input(egui::Pos2::ZERO, egui::vec2(1280.0, 780.0), fhd, false)
             ),
-            "1280 x 800 on a 1920 x 1080 monitor: the fitted design size"
+            "1280 x 780 on a 1920 x 1080 monitor: the fitted design size"
         );
         assert!(
             draws_reset(
                 &mut app,
-                placed_input(egui::Pos2::ZERO, egui::vec2(1100.0, 800.0), fhd, false)
+                placed_input(egui::Pos2::ZERO, egui::vec2(1100.0, 780.0), fhd, false)
             ),
             "resized narrower than the design size"
         );
@@ -464,7 +464,7 @@ mod tests {
                 &mut app,
                 placed_input(
                     egui::pos2(400.0, 200.0),
-                    egui::vec2(1280.0, 800.0),
+                    egui::vec2(1280.0, 780.0),
                     fhd,
                     false
                 )
@@ -472,14 +472,14 @@ mod tests {
             "moved at the design size: the position does not count"
         );
         // A monitor too narrow for the decorated design width fits the window
-        // to 1184 x 800, under the design width so at zoom < 1: at that fit
+        // to 1184 x 780, under the design width so at zoom < 1: at that fit
         // the button is not drawn either.
         assert!(
             !draws_reset(
                 &mut app,
                 placed_input(
                     egui::Pos2::ZERO,
-                    egui::vec2(1184.0, 800.0),
+                    egui::vec2(1184.0, 780.0),
                     egui::vec2(1200.0, 2000.0),
                     false
                 )
@@ -492,7 +492,7 @@ mod tests {
         // off the fit at every zoom; the narrow-monitor fit is its size at
         // zoom 1, drawn or not by the same rule.
         let egui_ctx = test_context();
-        land_zoom(&egui_ctx, &mut app, egui::vec2(1100.0, 800.0), fhd, false);
+        land_zoom(&egui_ctx, &mut app, egui::vec2(1100.0, 780.0), fhd, false);
         assert!(
             has_label(
                 &run_frame(
@@ -500,7 +500,7 @@ mod tests {
                     &mut app,
                     placed_input_zoomed(
                         egui::Pos2::ZERO,
-                        egui::vec2(1100.0, 800.0),
+                        egui::vec2(1100.0, 780.0),
                         fhd,
                         false,
                         1100.0 / 1280.0,
@@ -515,7 +515,7 @@ mod tests {
         land_zoom(
             &egui_ctx,
             &mut app,
-            egui::vec2(1184.0, 800.0),
+            egui::vec2(1184.0, 780.0),
             egui::vec2(1200.0, 2000.0),
             false,
         );
@@ -526,7 +526,7 @@ mod tests {
                     &mut app,
                     placed_input_zoomed(
                         egui::Pos2::ZERO,
-                        egui::vec2(1184.0, 800.0),
+                        egui::vec2(1184.0, 780.0),
                         egui::vec2(1200.0, 2000.0),
                         false,
                         1184.0 / 1280.0,
@@ -585,8 +585,8 @@ mod tests {
             place_commands(&out),
             [
                 egui::ViewportCommand::Maximized(false),
-                egui::ViewportCommand::InnerSize(egui::vec2(1280.0, 800.0)),
-                egui::ViewportCommand::OuterPosition(egui::pos2(312.0, 120.5)),
+                egui::ViewportCommand::InnerSize(egui::vec2(1280.0, 780.0)),
+                egui::ViewportCommand::OuterPosition(egui::pos2(312.0, 130.5)),
             ],
             "restored first, then the fit centring the window on its monitor"
         );
@@ -598,7 +598,7 @@ mod tests {
         let Shell { mut app, _dir, .. } = shell();
         let egui_ctx = test_context();
         let monitor = egui::vec2(1920.0, 1080.0);
-        let size = egui::vec2(1100.0, 800.0);
+        let size = egui::vec2(1100.0, 780.0);
         let zoom = size.x / crate::shell::window_size::DEFAULT_SIZE.x;
         let input = |events: Vec<egui::Event>| {
             let mut input = placed_input_zoomed(egui::Pos2::ZERO, size, monitor, false, zoom);
@@ -612,11 +612,11 @@ mod tests {
         run_frame(&egui_ctx, &mut app, input(pointer(button, true)));
         let out = run_frame(&egui_ctx, &mut app, input(pointer(button, false)));
 
-        // The fit worked at zoom 1: 1280 x 800 centred on the 1920 x 1080
+        // The fit worked at zoom 1: 1280 x 780 centred on the 1920 x 1080
         // monitor less the (16, 39) decorations; the commands take the
         // zoom's points, so each is the zoom-1 answer over it.
-        let expected_size = egui::vec2(1280.0, 800.0) / zoom;
-        let expected_position = egui::pos2(312.0, 120.5) / zoom;
+        let expected_size = egui::vec2(1280.0, 780.0) / zoom;
+        let expected_position = egui::pos2(312.0, 130.5) / zoom;
         let commands = place_commands(&out);
         assert!(
             commands

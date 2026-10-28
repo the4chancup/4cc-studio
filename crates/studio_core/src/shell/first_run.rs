@@ -26,6 +26,22 @@ pub(super) struct FirstRun {
 #[cfg(target_arch = "wasm32")]
 pub(super) struct FirstRun;
 
+/// The width of each choice's column, its button as wide (the draft's `.firstrun .choice`).
+#[cfg(not(target_arch = "wasm32"))]
+const CHOICE_WIDTH: f32 = 299.0;
+/// The space between the two choices' columns.
+#[cfg(not(target_arch = "wasm32"))]
+const CHOICE_GAP: f32 = 16.0;
+/// The height of a choice's button.
+#[cfg(not(target_arch = "wasm32"))]
+const CHOICE_BUTTON_HEIGHT: f32 = 38.0;
+/// The size of a choice button's text, larger than the body's.
+#[cfg(not(target_arch = "wasm32"))]
+const CHOICE_TEXT_SIZE: f32 = 15.0;
+/// The space between a choice's button and its hint.
+#[cfg(not(target_arch = "wasm32"))]
+const HINT_GAP: f32 = 4.0;
+
 #[cfg(not(target_arch = "wasm32"))]
 impl FirstRun {
     /// The state at startup; `config_dir` is the folder "In my user folder" offers.
@@ -56,26 +72,24 @@ impl FirstRun {
                     crate::APP_NAME
                 ),
             );
-            ui.horizontal(|ui| {
-                ui.vertical(|ui| {
-                    if ui.button("Next to the program").clicked() {
-                        choice = Some(ctx.paths().exe_dir.join("data"));
-                    }
-                    ui.weak(
-                        "A portable data folder beside the program, which moves and is \
-                         deleted with it",
-                    );
-                });
+            ui.horizontal_top(|ui| {
+                ui.spacing_mut().item_spacing.x = CHOICE_GAP;
+                if choice_column(
+                    ui,
+                    "Next to the program",
+                    "A portable data folder beside the program, which moves and is deleted \
+                     with it",
+                ) {
+                    choice = Some(ctx.paths().exe_dir.join("data"));
+                }
                 if let Some(config_dir) = &self.config_dir {
-                    ui.vertical(|ui| {
-                        if ui.button("In my user folder").clicked() {
-                            choice = Some(config_dir.clone());
-                        }
-                        ui.weak(format!(
-                            "{}, which survives replacing or moving the program folder",
-                            config_dir.display()
-                        ));
-                    });
+                    let hint = format!(
+                        "{}, which survives replacing or moving the program folder",
+                        config_dir.display()
+                    );
+                    if choice_column(ui, "In my user folder", &hint) {
+                        choice = Some(config_dir.clone());
+                    }
                 }
             });
             ui.weak("You can move the data later by moving the folder.");
@@ -107,6 +121,23 @@ impl FirstRun {
             }
         }
     }
+}
+
+/// One choice's column, `CHOICE_WIDTH` wide: the button labelled `label` filling it, then
+/// `hint` in the weak colour, wrapped inside the column. Returns whether the button was
+/// clicked.
+#[cfg(not(target_arch = "wasm32"))]
+fn choice_column(ui: &mut egui::Ui, label: &str, hint: &str) -> bool {
+    ui.vertical(|ui| {
+        ui.set_width(CHOICE_WIDTH);
+        ui.spacing_mut().item_spacing.y = HINT_GAP;
+        let button = egui::Button::new(egui::RichText::new(label).size(CHOICE_TEXT_SIZE))
+            .min_size(egui::vec2(CHOICE_WIDTH, CHOICE_BUTTON_HEIGHT));
+        let clicked = ui.add(button).clicked();
+        ui.weak(hint);
+        clicked
+    })
+    .inner
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -211,6 +242,64 @@ mod tests {
             "the dialog is gone once the file exists"
         );
         assert_eq!(calls[0].views(), 1, "the active tool's view runs now");
+    }
+
+    // The draft's `.firstrun` row: two columns 299 points wide and 16 apart, each a
+    // button as wide as its column and 38 tall, then its hint wrapped inside the
+    // column on two lines at most. The user folder is the draft's own sample path: a
+    // user name a few letters longer pushes that hint to a third line.
+    #[test]
+    fn the_two_choices_are_equal_columns_with_full_width_buttons_and_wrapped_hints() {
+        let dir = TestDir::new("studio_core_first_run_layout");
+        let config = PathBuf::from(r"C:\Users\you\AppData\Roaming\4cc-studio");
+        let Shell { mut app, .. } = first_run_shell(
+            test_settings(dir.path()),
+            dir.path().join("exe"),
+            Some(config),
+        );
+        let egui_ctx = test_context();
+
+        let nodes = idle(&egui_ctx, &mut app, 2).nodes;
+        let bounds = |node: &egui::accesskit::Node| node.bounds().expect("a drawn node has bounds");
+        let hint = |needle: &str| {
+            bounds(
+                nodes
+                    .iter()
+                    .find(|node| node.value().is_some_and(|text| text.contains(needle)))
+                    .unwrap_or_else(|| panic!("no hint containing {needle:?}")),
+            )
+        };
+        let buttons = [
+            bounds(entry(&nodes, "Next to the program")),
+            bounds(entry(&nodes, "In my user folder")),
+        ];
+        let hints = [
+            hint("portable data folder beside the program"),
+            hint("which survives replacing or moving the program folder"),
+        ];
+        // A body text row as a label lays it out: 15 points, where the 12.5-point
+        // font's own row height is 14.66.
+        let row_height = 15.0;
+
+        for (button, hint) in buttons.iter().zip(&hints) {
+            assert!(
+                (button.width() - 299.0).abs() <= 0.5 && (button.height() - 38.0).abs() <= 0.5,
+                "a button fills its 299-point column and is 38 tall: {button:?}"
+            );
+            assert!(
+                hint.width() <= 299.5 && (hint.x0 - button.x0).abs() <= 0.5,
+                "a hint wraps inside its column {button:?}: {hint:?}"
+            );
+            assert!(
+                hint.height() <= 2.0 * row_height + 0.5,
+                "a hint takes at most two lines of {row_height}: {hint:?}"
+            );
+        }
+        let gap = buttons[1].x0 - buttons[0].x1;
+        assert!(
+            (gap - 16.0).abs() <= 0.5,
+            "the columns stand 16 apart, not {gap}"
+        );
     }
 
     // ST-RUN-01

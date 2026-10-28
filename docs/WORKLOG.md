@@ -2088,7 +2088,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       panel share a note
     - [ ] 8.19c longest values, briefed: `.tmp/8_19/brief_8_19c.md`
   - [ ] 8.20 the host's overlay and draft shots (`core/gui.md` "The host's other review aids";
-    after 8.19, whose links it walks): the Overlay control and the capture naming, the
+    after 8.19, whose links it walks; the overlay moved into 0.0.1 as 0.0.1ov): the Overlay control and the capture naming, the
     Save editor's first captures from the built window; `scripts/draft_shots.py` → verify: the
     overlay of the built Tactics tab on its draft at 1280 × 800, looked at; a one-line host
     stylesheet edit lists every tool's changed screens, reverted by hand, then lists none.
@@ -4313,6 +4313,36 @@ briefs, review loops, gates and mutation runs as for any step.
     widths through `bit_width`/`widest_bit_width`; each shown to fail under a perturbation
     (`texport.rs`, `schema/mod.rs` tests)
   - [ ] after the cut: `aatf`'s nine fixture modules' repeated tests as helpers (b-3)
+- [ ] 0.0.1ov every built window laid over its draft before the final pass (the maintainer,
+  2026-10-28: the final pass's first look found the first-run prompt unlike its draft, unequal
+  columns with no gap, small buttons, a hint wrapped mid-path; the overlay of 8.20, planned in
+  `plans/core/gui.md` "The host's other review aids", had never been built)
+  - [ ] ov1 the comparison (lead): every screen both have (the first-run prompt, the empty
+    Save editor, About, Settings, Help, the player and team views, the comparator, the AATF
+    panel, the unsaved prompt) captured from the built window (PrintWindow, 1280 × 800) and
+    from the draft at the same size (1280 × 780 since ov2a), laid over each other at half opacity, beside each other,
+    and as a difference image; every mismatch listed for the maintainer → verify: the first-run
+    prompt's mismatch shows in its overlay
+  - [ ] ov2 the fixes (sidekick, one brief): the mismatches the maintainer confirms, each with
+    a layout test of the draft's measures (the first-run prompt: two columns of equal width 16
+    apart, buttons as wide as their column, 15-point text)
+    - [x] ov2a the default client area 1280 × 780 in the app (the maintainer, 2026-10-28: the
+      drafts drew 1280 × 800 outside, a 1278 × 775 client area; both now 1280 × 780, the drafts
+      done by the lead, DECISIONS "The window's default client area is 1280 × 780") and the
+      first-run prompt as drafted (Opus sidekick, brief `.tmp/0_0_1ov/brief_ov2a.md`, report
+      `.tmp/sidelead/sk_ov2a.report.md`): `window_size::DEFAULT_SIZE` 1280 × 780 (ST-WIN-01
+      at (312, 130.5), ST-BAR-05/06), `save_editor`'s `DEFAULT_PANE` 1224 × 756 (every fit
+      test passed there unchanged); the prompt's two 299-point columns 16 apart, 38-tall
+      buttons at 15 points, hints wrapped in their column
+      (`the_two_choices_are_equal_columns_with_full_width_buttons_and_wrapped_hints`, red on
+      the old layout, each tolerance perturbed). A real user folder's hint takes three lines
+      at 299, egui breaking at the space after the path, never inside it. Open: the draft's
+      `.firstrun` bottom margin of 8 (egui's item spacing there), for ov2's batch
+  - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
+    widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
+  - [ ] ov4 8.20's host control (lead, drafts): the captures in
+    `docs/prototypes/assets/captures/`, the Overlay control over the draft (8.20's brief,
+    `.tmp/8_20/brief_8_20.md`, written for a worktree since gone: rebase it on main)
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming

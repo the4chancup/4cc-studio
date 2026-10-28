@@ -240,7 +240,7 @@ all side by side.
 - **The player view**: three columns side by side, 36 points apart, then the Appearance
   section, the whole centred between the player list and the window's right edge, so the gap
   after the list equals the margin after Ability stats (the room the fixed columns leave, split
-  evenly rather than all at the right). At the 1280 × 800 window it fits the pane with no
+  evenly rather than all at the right). At the 1280 × 780 window it fits the pane with no
   scrolling (the draft's check), and the pane is never narrower: a narrower window scales the
   whole UI down (`spec/core/gui.md` "Scaling with the width") and the player list keeps its 255
   points, so the columns sit side by side at every size, each panel in its design's columns,
@@ -1585,7 +1585,7 @@ SE-GUI-37  GIVEN the PES 17 save open on team 701
                 and none of its players does; WHEN the team row is dragged onto a player row
                 THEN nothing moves; WHEN a player row is clicked THEN the player view shows,
                 its first line his id then his name, under it General info, Skills and
-                Ability stats side by side left to right at the 1280 × 800 window, their tops
+                Ability stats side by side left to right at the 1280 × 780 window, their tops
                 level, and Appearance closed below them; and no view draws "Save editor"
 SE-GUI-38  GIVEN the save, player 70101's name set to the colour code `\x11cff0000ff` then `AB`,
                 and his shirt name to 20 letters, before it is opened

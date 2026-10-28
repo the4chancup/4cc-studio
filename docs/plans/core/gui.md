@@ -56,7 +56,7 @@ reopens at the largest monitor's size: eframe's creation clamp
 monitors reopens no wider than the largest monitor once one is unplugged (it may still stand
 partly past that monitor's edge; the title-bar check below keeps it within reach). A class never used
 opens at its design size
-(1280 × 800 for the main class, a special tool's declared size), fitted and centered as a
+(1280 × 780 for the main class, a special tool's declared size), fitted and centered as a
 first start is (`spec/core/gui.md` "The window's size"). A remembered place whose title bar lies on no monitor now (a second monitor
 unplugged) is dropped for the fit, so the window is never opened out of reach. `monitor_size`
 names only the window's own monitor, without its origin, and eframe 0.37 reaches winit's list
@@ -450,7 +450,7 @@ More rules that keep it worth the row:
 - **Empty state is static, not blank**: `v1.2.0` in small text — the one always-visible version
   number, the line a user pastes into a bug report (see `distribution.md` "Changelog and version display"),
   then a frameless **Reset window** button in the same small weak text, and nothing else.
-  Reset window puts the window back to its class's design size (1280 × 800 for the main
+  Reset window puts the window back to its class's design size (1280 × 780 for the main
   class, a special tool's declared size), fitted to its monitor and centered on it as a first
   start is, a maximized window restored first: one click back from a window dragged half off
   a monitor or stretched over two, where finding the edges to drag is the chore. It changes
@@ -668,8 +668,9 @@ to the table first (a new dependency, asked for first):
   draws in the app too and which the script knows by its characters, and the simulated
   window's title bar, the OS's in the app, whose maximize box is drawn rather than typed.
 - **Size:** the UI is drawn inside a simulated window of the window's default size ("Shell
-  layout": 1280 × 800, fitted to 90% of the browser's `screen` size as Studio fits the
-  monitor; CSS pixels are logical pixels, as egui's points are), on a desktop-colored page,
+  layout": 1280 × 780, fitted to 90% of the browser's `screen` size as Studio fits the
+  monitor; CSS pixels are logical pixels, as egui's points are; every size is the client
+  area's, as the app's are, the drawn title bar and border outside it), on a desktop-colored page,
   with the draft controls in one column on its left, in sections: the window (a size choice:
   the default, the smallest default of 1264 × 648, the minimum of 960 × 600, the whole
   monitor), the shell's controls grouped by surface, then the active tool's. A column rather
@@ -1024,14 +1025,14 @@ ST-BAR-01   GIVEN no condition, no background activity and no notice, the window
             WHEN the status bar is drawn
             THEN it shows the version number in small text and the Reset window button and
                  nothing else, at its fixed height
-ST-BAR-06   GIVEN a main tool active, the window at 1280 × 800 on a 1920 × 1080 monitor
+ST-BAR-06   GIVEN a main tool active, the window at 1280 × 780 on a 1920 × 1080 monitor
             WHEN the status bar is drawn
-            THEN it draws no Reset window button; GIVEN the window resized to 1100 × 800,
+            THEN it draws no Reset window button; GIVEN the window resized to 1100 × 780,
                  or maximized, THEN the button is drawn; GIVEN a special tool declaring
                  480 × 640 active, its window at 480 × 640 and moved, THEN no button
 ST-BAR-05   GIVEN a main tool active, the window maximized on a 1920 × 1080 monitor
             WHEN Reset window is clicked
-            THEN the window is restored and asked for 1280 × 800, centered on that monitor;
+            THEN the window is restored and asked for 1280 × 780, centered on that monitor;
                  GIVEN a special tool declaring 480 × 640 active and its window moved and
                  resized THEN it is asked for 480 × 640, centered
 ST-BAR-02   GIVEN the first tool active and the second reporting a ToolActivity

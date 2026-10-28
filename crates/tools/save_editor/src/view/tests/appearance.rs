@@ -1290,7 +1290,7 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
 }
 
 // The Appearance section lays out the draft's two physique pairs a row
-// at the default pane (1224 x 776) — Neck length and Neck size share a
+// at the default pane (1224 x 756) — Neck length and Neck size share a
 // row's top, Shoulder height opens the next, and the seven left-column
 // labels share one x0.
 #[test]
@@ -1327,7 +1327,7 @@ fn the_physique_grid_holds_two_pairs_a_row() {
     }
 }
 
-// The draft's strip table at the default pane (1224 x 776): four pairs
+// The draft's strip table at the default pane (1224 x 756): four pairs
 // a row — Boots ID, Gloves ID, Sleeves, Inners on one row, Socks,
 // Undershorts and the two checkboxes on the next, the checkboxes a label
 // cell and a bare box (the header's Captain shape); the wrist-taping,
@@ -1397,7 +1397,7 @@ fn the_strip_groups_hold_the_drafts_rows() {
     assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
 }
 
-// The draft's motion rows at the default pane (1224 x 776, two pairs a
+// The draft's motion rows at the default pane (1224 x 756, two pairs a
 // row — `COL_PANELS` `[2, 194, 14]`): the labels take two x positions,
 // the hunching pair the first row, the arm pair the second, the kicks
 // the third, the penalty and dribbling motions the fourth, the
@@ -1453,7 +1453,7 @@ fn the_motion_grid_holds_two_pairs_a_row_in_two_columns() {
 
 // The same pane rule as the player view's
 // (`spec/core/gui.md` "Shell layout"): on the pane the shell leaves at
-// the 1280 x 800 window, the narrowest a member sees, since a narrower
+// the 1280 x 780 window, the narrowest a member sees, since a narrower
 // window scales the UI down, every drawn node ends inside it — on PES 17
 // unlocked, and on PES 21 with the switch on.
 #[test]

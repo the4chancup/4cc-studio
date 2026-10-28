@@ -261,7 +261,7 @@ fn a_long_name_truncates_instead_of_wrapping_the_row() {
     let mut view = SaveView::new();
     view.open(&path);
     view.team = TeamChoice::Team(701);
-    // 600 high: at the default pane's 776, 701's roster fits and the list
+    // 600 high: at the default pane's 756, 701's roster fits and the list
     // does not scroll.
     let mut window = Headless::sized(DEFAULT_PANE.x, 600.0);
     let row_height = window

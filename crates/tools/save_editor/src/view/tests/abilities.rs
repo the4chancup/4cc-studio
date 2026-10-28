@@ -1992,7 +1992,7 @@ fn a_players_first_frame_draws_where_every_later_one_does() {
 
 // SE-GUI-37's player-view clause: General info, Skills and Ability stats
 // side by side left to right on the pane the shell leaves at the 1280 x
-// 800 window (`DEFAULT_PANE`), their tops level, Appearance closed below
+// 780 window (`DEFAULT_PANE`), their tops level, Appearance closed below
 // them inside the pane's height, every first-half box on its half's right
 // edge and the second half's on its label column, every combo on the
 // column's, and nothing past the pane's right edge.

@@ -418,7 +418,7 @@ fn the_default_size_holds_a_monitor_that_fits_it_and_fits_each_side_on_a_smaller
         fitted_size(egui::vec2(1366.0, 768.0), DECORATIONS),
         egui::vec2(1280.0, 691.0)
     );
-    // A 1080p monitor at 125% scaling: 864 points tall, so 800 is within
+    // A 1080p monitor at 125% scaling: 864 points tall, so 780 is within
     // the monitor yet past 90% of it.
     assert_eq!(
         fitted_size(egui::vec2(1536.0, 864.0), DECORATIONS),
@@ -432,7 +432,7 @@ fn the_default_size_holds_a_monitor_that_fits_it_and_fits_each_side_on_a_smaller
     // the monitor, so the width is what is left over them.
     assert_eq!(
         fitted_size(egui::vec2(1200.0, 2000.0), DECORATIONS),
-        egui::vec2(1184.0, 800.0)
+        egui::vec2(1184.0, 780.0)
     );
 }
 
@@ -526,8 +526,8 @@ fn the_first_frame_with_a_monitor_size_fits_and_centers_the_window_once() {
     for (monitor, size, pos) in [
         (
             egui::vec2(1920.0, 1080.0),
-            egui::vec2(1280.0, 800.0),
-            egui::pos2(312.0, 120.5),
+            egui::vec2(1280.0, 780.0),
+            egui::pos2(312.0, 130.5),
         ),
         (
             egui::vec2(1366.0, 768.0),
@@ -567,8 +567,8 @@ fn the_first_frame_with_a_monitor_size_fits_and_centers_the_window_once() {
     assert_eq!(
         fitting(&out),
         [
-            ViewportCommand::InnerSize(egui::vec2(1280.0, 800.0)),
-            ViewportCommand::OuterPosition(egui::pos2(312.0, 120.5)),
+            ViewportCommand::InnerSize(egui::vec2(1280.0, 780.0)),
+            ViewportCommand::OuterPosition(egui::pos2(312.0, 130.5)),
         ],
         "the fit waited for a frame reporting the monitor"
     );
@@ -704,8 +704,8 @@ fn a_place_on_no_monitor_opens_fitted_and_an_empty_list_trusts_it() {
     assert_eq!(
         fitting(&out),
         [
-            ViewportCommand::InnerSize(egui::vec2(1280.0, 800.0)),
-            ViewportCommand::OuterPosition(egui::pos2(312.0, 120.5)),
+            ViewportCommand::InnerSize(egui::vec2(1280.0, 780.0)),
+            ViewportCommand::OuterPosition(egui::pos2(312.0, 130.5)),
         ],
     );
 
@@ -771,8 +771,8 @@ fn a_maximized_place_on_no_monitor_is_unmaximized_before_the_fit() {
         fitting(&out),
         [
             ViewportCommand::Maximized(false),
-            ViewportCommand::InnerSize(egui::vec2(1280.0, 800.0)),
-            ViewportCommand::OuterPosition(egui::pos2(312.0, 120.5)),
+            ViewportCommand::InnerSize(egui::vec2(1280.0, 780.0)),
+            ViewportCommand::OuterPosition(egui::pos2(312.0, 130.5)),
         ],
         "the unmaximize first, then ST-WIN-01's fit"
     );

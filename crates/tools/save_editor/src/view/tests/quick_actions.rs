@@ -909,7 +909,7 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
 
 // The view fills its pane: the list and the quick actions run to the
 // pane's bottom — the actions' band's painted bottom is the pane's own
-// painted bottom at the 1280 x 800 window, no dead strip under it (the
+// painted bottom at the 1280 x 780 window, no dead strip under it (the
 // bottom panel takes its height off the list's scroll, whose floating
 // bar reserves no strip of its own).
 #[test]

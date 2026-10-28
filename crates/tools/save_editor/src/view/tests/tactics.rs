@@ -1089,7 +1089,7 @@ fn box_at(rects: &[egui::Rect], left: f64, tol: f64) -> egui::Rect {
 }
 
 // The editor's grid, the draft's `.tacgrid`: at the default pane (1224
-// x 776) the editor is one grid of three columns and three rows, so
+// x 756) the editor is one grid of three columns and three rows, so
 // every panel lines up with its neighbours — the settings panels' boxes
 // at the column's 422 width, the pitch's border 10 points past them, the
 // Player assignments box 10 past the pitch's right and out to the pane's
@@ -1249,7 +1249,7 @@ fn the_tactics_editor_is_one_grid_at_the_default_pane() {
 // The grid's second row, the draft's `.tacgrid` stretching its cells:
 // the Formation settings' and Player assignments' frames are exactly as
 // tall as the pitch with its border — tops and bottoms level at the 1280
-// x 800 default pane.
+// x 780 default pane.
 #[test]
 fn the_two_panels_frames_are_level_with_the_pitchs() {
     let path = fixture(PesVersion::Pes21, "tactics_panel_frames");
@@ -1283,7 +1283,7 @@ fn the_two_panels_frames_are_level_with_the_pitchs() {
 }
 
 // The grid's third row, the draft's `#tac-auto { flex: 1 }` and
-// `.tacauto`'s `align-content: center`: at the 1280 x 800 default pane
+// `.tacauto`'s `align-content: center`: at the 1280 x 780 default pane
 // the Automatic settings' frame reaches the lineup lists' bottom, its
 // two rows centred in it.
 #[test]
@@ -2007,8 +2007,8 @@ fn every_view_fits_the_pane_the_minimum_window_leaves() {
         Role::Label,
         Role::Unknown,
     ];
-    // The pane the minimum window leaves: 960 × 600 at zoom 0.75 is the
-    // 1280 × 800 design window.
+    // The pane the minimum window leaves: 960 × 600 at zoom 0.75 lays out
+    // at the design window's 1280 width, the one edge this test measures.
     let pane = DEFAULT_PANE;
     let edge = f64::from(pane.x - PANEL_MARGIN);
     // The player view (the Appearance section closed as it opens, then

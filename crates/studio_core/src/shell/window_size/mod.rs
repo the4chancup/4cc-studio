@@ -9,10 +9,10 @@
 use crate::settings::WindowPlace;
 
 /// The size the window is created at and opens at on any monitor that holds it:
-/// 1280 × 800 points, where "holds" means the height within 90% of the
+/// 1280 × 780 points, where "holds" means the height within 90% of the
 /// monitor's logical height (room for the taskbar and the title bar) and the
 /// width, decorations included, within the monitor's logical width.
-pub(super) const DEFAULT_SIZE: egui::Vec2 = egui::vec2(1280.0, 800.0);
+pub(super) const DEFAULT_SIZE: egui::Vec2 = egui::vec2(1280.0, 780.0);
 
 /// The smallest window a member's resize can reach: 960 × 600 points, under
 /// the smallest default the fit produces on a monitor of at least 1280 × 720

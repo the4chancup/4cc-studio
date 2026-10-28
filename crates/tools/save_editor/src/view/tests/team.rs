@@ -418,7 +418,7 @@ fn the_title_is_the_teams_name_in_the_bodys_strong_weight() {
     );
 }
 
-// At the 1280 x 800 default pane the team view's fields, the ids and the
+// At the 1280 x 780 default pane the team view's fields, the ids and the
 // `Kit slots…` button share one row, the name box is the draft's 140
 // points and the colours are labelled `Col. 1`/`Col. 2`.
 #[test]
