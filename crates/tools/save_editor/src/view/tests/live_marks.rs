@@ -2,7 +2,7 @@
 //! framed toggle, the list rows' `✖`/`✔`, and the selected player's field
 //! crosses.
 
-use pes_savefile::interchange::team_toml::labels::{ABILITY_STATS, PLAYABLE_POSITIONS};
+use pes_savefile::interchange::team_toml::labels::ABILITY_STATS;
 
 use crate::view::live_marks;
 
@@ -164,8 +164,8 @@ fn marked_field_maps_every_kind() {
             },
             Some(F::Name),
         ),
-        (K::Cards { paid: 4, limit: 3 }, Some(F::CardsLeft)),
-        (K::MinCards { paid: 1, min: 3 }, Some(F::CardsLeft)),
+        (K::Cards { paid: 4, limit: 3 }, Some(F::Skills)),
+        (K::MinCards { paid: 1, min: 3 }, Some(F::Skills)),
         (K::SkillCardCap { count: 11, max: 10 }, Some(F::Skills)),
         (K::ComStyleCap { count: 3, max: 2 }, Some(F::ComStyles)),
         (
@@ -252,14 +252,6 @@ fn marked_field_maps_every_kind() {
             None,
         ),
         (
-            K::Unused {
-                allowance: "cards".to_owned(),
-                used: 1,
-                allowed: 2,
-            },
-            None,
-        ),
-        (
             K::UnusedChoice {
                 special: "x".to_owned(),
             },
@@ -270,43 +262,92 @@ fn marked_field_maps_every_kind() {
     for (kind, field) in cases {
         assert_eq!(live_marks::marked_field(kind), *field, "{kind:?}");
     }
+    // A suggestion marks the field of its allowance: each `suggestions`
+    // word, then the card groups `com`, `tricks` and any other (`choices`
+    // raises `UnusedChoice`, above).
+    let unused = |allowance: &str| K::Unused {
+        allowance: allowance.to_owned(),
+        used: 1,
+        allowed: 2,
+    };
+    for (allowance, field) in [
+        ("cards", F::Skills),
+        ("a_positions", F::PlayablePositions),
+        ("weak_foot", F::WeakFootUsage),
+        ("injury_resistance", F::InjuryResistance),
+        ("height", F::Height),
+        ("free_cards", F::AsideCards),
+        ("com", F::ComStyles),
+        ("tricks", F::AsideCards),
+        ("dribbling", F::Skills),
+    ] {
+        assert_eq!(
+            live_marks::marked_field(&unused(allowance)),
+            Some(field),
+            "Unused {allowance}"
+        );
+    }
 }
 
-/// `row_mark` counts the slot's errors and warnings — a zero count left
-/// out, suggestions and the other slots' rows counted nowhere — and a
-/// row with no Error passes (the draft's `rowMark`).
+/// `row_mark` counts the slot's errors, warnings and suggestions — a zero
+/// count left out, the other slots' rows counted nowhere — and draws a
+/// `✖` in the error colour on an Error, else a `✔`: orange on a Warning,
+/// blue on suggestions alone, green on none (the draft's `rowMark`).
 #[test]
-fn row_mark_counts_the_slots_errors_and_warnings() {
+fn row_mark_counts_the_slots_rows_and_picks_its_glyph() {
     use aatf::Severity::*;
+    let visuals = egui::Visuals::dark();
+    let success = studio_core::theme::notice_color(studio_core::NoticeKind::Success, &visuals);
     let v = |slot, severity| violation(slot, severity, aatf::ViolationKind::Captain);
-    let cases: &[(&[aatf::Violation], &str, bool)] = &[
-        (&[v(Some(1), Error)], "1 error", true),
+    let cases: &[(&[aatf::Violation], &str, char, egui::Color32)] = &[
+        (&[v(Some(1), Error)], "1 error", '✖', visuals.error_fg_color),
         (
             &[v(Some(1), Error), v(Some(1), Error), v(Some(1), Warning)],
             "2 errors, 1 warning",
-            true,
+            '✖',
+            visuals.error_fg_color,
         ),
-        (&[v(Some(1), Warning)], "1 warning", false),
-        (&[v(Some(1), Suggestion)], "No errors", false),
-        (&[], "No errors", false),
+        (
+            &[v(Some(1), Warning), v(Some(1), Suggestion)],
+            "1 warning, 1 suggestion",
+            '✔',
+            visuals.warn_fg_color,
+        ),
+        (
+            &[v(Some(1), Suggestion)],
+            "1 suggestion",
+            '✔',
+            visuals.hyperlink_color,
+        ),
+        (&[], "No errors", '✔', success),
     ];
-    for (violations, tooltip, failing) in cases {
+    for (violations, tooltip, glyph, color) in cases {
         let mark = live_marks::row_mark(violations, Some(1));
         assert_eq!(
-            (mark.tooltip.as_str(), mark.failing),
-            (*tooltip, *failing),
+            (mark.tooltip.as_str(), mark.glyph(&visuals)),
+            (*tooltip, (*glyph, *color)),
             "{violations:?}"
         );
     }
+    assert_ne!(
+        visuals.hyperlink_color, success,
+        "premise: the blue and the green differ"
+    );
     // The team's own violations (`slot: None`) mark the team row alone,
     // and a player's his alone.
     let mark = live_marks::row_mark(&[v(Some(1), Error), v(None, Warning)], None);
-    assert_eq!((mark.tooltip.as_str(), mark.failing), ("1 warning", false));
+    assert_eq!(
+        (mark.tooltip.as_str(), mark.glyph(&visuals)),
+        ("1 warning", ('✔', visuals.warn_fg_color))
+    );
     let mark = live_marks::row_mark(
         &[v(None, Error), v(None, Warning), v(Some(1), Error)],
         Some(1),
     );
-    assert_eq!((mark.tooltip.as_str(), mark.failing), ("1 error", true));
+    assert_eq!(
+        (mark.tooltip.as_str(), mark.glyph(&visuals)),
+        ("1 error", ('✖', visuals.error_fg_color))
+    );
 }
 
 /// `held_violations` is the held check only while the toggle is on, the
@@ -321,6 +362,7 @@ fn held_violations_is_one_teams_ok_result_while_on() {
         revision: 1,
         ids: ids.to_vec(),
         rules_file: None,
+        suggestions: false,
     };
     let rules = ActiveRules {
         file: None,
@@ -425,35 +467,22 @@ fn the_marks_follow_the_held_check() {
         );
     }
 
-    // The broken player selected: one `✖` in the view, left of the
-    // Height box and inside the General info column (the list's marks
-    // sit left of it at x < 260); its tooltip the violation's own line.
+    // The broken player selected: one `✖` in the view (the list's marks
+    // sit left of x 250), left of the Height label; its tooltip the
+    // violation's own line.
     let height_box = control_right_of(&nodes, "Height")
         .bounds()
         .expect("the Height box's bounds");
-    let skills = label_bounds(&nodes, "Skills");
-    let crosses: Vec<_> = mark_shapes(&shapes, "\u{2716}")
-        .into_iter()
-        .filter(|shape| f64::from(shape.pos.x) > 260.0)
-        .collect();
+    let crosses = field_marks(&shapes);
     let [cross] = crosses.as_slice() else {
         panic!(
             "expected one field cross in the view, got {}",
             crosses.len()
         )
     };
-    assert!(
-        ((f64::from(cross.pos.x + cross.galley.rect.width()) + f64::from(live_marks::MARK_GAP))
-            - height_box.x0)
-            .abs()
-            < 0.5,
-        "the cross stands MARK_GAP left of the Height box"
-    );
-    assert!(
-        f64::from(cross.pos.x) < skills.x0,
-        "the cross is inside the General info column"
-    );
-    let tip_at = egui::pos2(cross.pos.x + 2.0, cross.pos.y + 2.0);
+    assert_eq!(cross.galley.job.text, "\u{2716}", "a cross");
+    assert_left_of_label(cross, label_bounds(&nodes, "Height"), "Height");
+    let tip_at = mark_centre(cross);
     assert_eq!(
         tooltip_containing(&mut window, &mut view, tip_at, "takes no bracket", None).as_deref(),
         Some("Height: height 183 takes no bracket (185 has room)"),
@@ -514,532 +543,272 @@ fn the_marks_follow_the_held_check() {
     }
 }
 
-/// A `Stat` violation's cross stands just left of the stat's box in the
-/// Ability stats column (the Live AATF bullet: a stat for `Stat`).
-#[test]
-fn a_stats_cross_stands_left_of_its_box() {
-    let (mut view, mut window) = open_734("live_marks_stat");
-    view.live_aatf = true;
-    let mut entry = player_entry(&view, 73401);
-    let speed = ABILITY_STATS
-        .iter()
-        .position(|name| *name == "speed")
-        .expect("speed is an ability stat");
-    // One over the regulars' 77 target (still regular: a medal's
-    // recognition threshold is higher): a `Stat` error on speed alone.
-    entry.stats.set_ability(speed, 78);
-    view.session
-        .as_mut()
-        .expect("the save opened")
-        .edit_players(vec![entry]);
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let speed_box = control_right_of(&nodes, "Speed")
-        .bounds()
-        .expect("Speed's box");
-    let cross = mark_shapes(&shapes, "\u{2716}")
+/// The view's field marks (`✖`, `⚠`, `ⓘ`) painted right of x 250 (the
+/// player list's own marks stand left of it).
+fn field_marks(shapes: &[egui::epaint::ClippedShape]) -> Vec<&egui::epaint::TextShape> {
+    ["\u{2716}", "\u{26a0}", "\u{24d8}"]
         .into_iter()
-        .find(|shape| {
-            let right = f64::from(shape.pos.x + shape.galley.rect.width());
-            ((right + f64::from(live_marks::MARK_GAP)) - speed_box.x0).abs() < 0.5
-                && f64::from(shape.pos.y) >= speed_box.y0 - 2.0
-                && f64::from(shape.pos.y) <= speed_box.y1 + 2.0
+        .flat_map(|text| mark_shapes(shapes, text))
+        .filter(|shape| shape.pos.x > 250.0)
+        .collect()
+}
+
+/// A field mark's centre: its glyph's galley's, the centre of the
+/// 11-point box it is drawn in.
+fn mark_centre(mark: &egui::epaint::TextShape) -> egui::Pos2 {
+    mark.pos + mark.galley.rect.size() / 2.0
+}
+
+/// The one field mark whose centre lies on `label`'s row.
+fn mark_on_row<'a>(
+    marks: &[&'a egui::epaint::TextShape],
+    label: accesskit::Rect,
+    what: &str,
+) -> &'a egui::epaint::TextShape {
+    let on_row: Vec<_> = marks
+        .iter()
+        .filter(|mark| {
+            let y = f64::from(mark_centre(mark).y);
+            y >= label.y0 - 1.0 && y <= label.y1 + 1.0
         })
-        .expect("a cross MARK_GAP left of Speed's box");
-    assert_eq!(
-        galley_color(cross),
-        window
-            .ctx
-            .style_of(window.ctx.theme())
-            .visuals
-            .error_fg_color,
-        "the error colour"
+        .collect();
+    let [mark] = on_row.as_slice() else {
+        panic!(
+            "{what}: expected one mark on its label's row, got {}",
+            on_row.len()
+        )
+    };
+    mark
+}
+
+/// Asserts `mark`'s 11-point box ends 2 points (± 0.5) before `label`'s
+/// text. Both figures are written out, so a changed constant fails.
+fn assert_left_of_label(mark: &egui::epaint::TextShape, label: accesskit::Rect, what: &str) {
+    let box_right = f64::from(mark_centre(mark).x) + 5.5;
+    assert!(
+        (label.x0 - box_right - 2.0).abs() <= 0.5,
+        "{what}: the mark's box ends at {box_right}, 2 points before the label at {}",
+        label.x0
     );
 }
 
-/// A `BRating` violation's cross stands after the Playable positions
-/// header (the grid for `BRating`, `GkSecondA` and `APositions`).
-#[test]
-fn a_positions_violation_marks_the_grid_header() {
-    let (mut view, mut window) = open_734("live_marks_positions");
-    view.live_aatf = true;
-    let mut entry = player_entry(&view, 73401);
-    let unrated = entry
-        .positions
-        .playable
-        .iter()
-        .position(|rating| *rating == 0)
-        .expect("a C-rated position");
-    entry.positions.playable[unrated] = 1;
-    view.session
-        .as_mut()
-        .expect("the save opened")
-        .edit_players(vec![entry]);
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let header = label_bounds(&nodes, "Playable positions");
-    mark_shapes(&shapes, "\u{2716}")
-        .into_iter()
-        .find(|shape| {
-            f64::from(shape.pos.x) >= header.x1
-                && f64::from(shape.pos.x) <= header.x1 + 30.0
-                && f64::from(shape.pos.y) >= header.y0 - 4.0
-                && f64::from(shape.pos.y) <= header.y1 + 4.0
-        })
-        .expect("a cross after the Playable positions header");
-    let cross_node = nodes
+/// The Label node whose value starts with `prefix` (a counted label's
+/// value carries its count).
+fn label_starting(nodes: &[accesskit::Node], prefix: &str) -> accesskit::Rect {
+    nodes
         .iter()
         .find(|node| {
             node.role() == Role::Label
-                && node.value() == Some("\u{2716}")
-                && node
-                    .bounds()
-                    .is_some_and(|b| (b.x0 - header.x1) <= 30.0 && (b.y0 - header.y0).abs() < 4.0)
-        })
-        .expect("the cross's node");
-    let gap = cross_node.bounds().expect("the cross's bounds").x0 - header.x1;
-    assert!(
-        (gap - f64::from(live_marks::MARK_GAP)).abs() < 0.5,
-        "the cross stands MARK_GAP after the header ({gap})"
-    );
-}
-
-/// Eleven skills break the tier's cap and its card budget alike, so the
-/// header holds two crosses: one `✖` right of "Skills" and left of the
-/// Cards left badge, one right of the badge (a `SkillCardCap` and a
-/// `Cards` violation, one cross each).
-#[test]
-fn a_skills_violation_marks_the_header() {
-    let (mut view, mut window) = open_734("live_marks_skills");
-    view.live_aatf = true;
-    let mut entry = player_entry(&view, 73401);
-    entry
-        .skills
-        .skills
-        .iter_mut()
-        .take(11)
-        .for_each(|held| *held = true);
-    view.session
-        .as_mut()
-        .expect("the save opened")
-        .edit_players(vec![entry]);
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    // The premise: the check holds both kinds on him.
-    let violations = &view.live.check.result.as_ref().unwrap().1[0]
-        .as_ref()
-        .unwrap();
-    for name in ["SkillCardCap", "Cards"] {
-        assert!(
-            violations
-                .iter()
-                .any(|violation| violation.kind.rule().0 == name),
-            "premise: a {name} violation"
-        );
-    }
-    // A `✖` node right of "Skills" and left of the "Cards left" badge,
-    // and one right of the badge.
-    let header = nodes
-        .iter()
-        .find(|node| node.role() == Role::Label && node.value() == Some("Skills"))
-        .expect("the Skills header");
-    let skills_cross = first_right_of(&nodes, header, |node| {
-        node.role() == Role::Label && node.value() == Some("\u{2716}")
-    })
-    .expect("a cross after the Skills header");
-    let badge = nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Label && node.value().is_some_and(|v| v.starts_with("Cards left"))
+                && node.value().is_some_and(|value| value.starts_with(prefix))
         })
         .and_then(accesskit::Node::bounds)
-        .expect("the Cards left badge");
-    assert!(
-        skills_cross
-            .bounds()
-            .is_some_and(|bounds| bounds.x1 <= badge.x0 + 0.5),
-        "the Skills cross stands before the badge"
-    );
-    assert!(
-        nodes.iter().any(|node| {
-            node.role() == Role::Label
-                && node.value() == Some("\u{2716}")
-                && node
-                    .bounds()
-                    .is_some_and(|bounds| bounds.x0 >= badge.x1 - 0.5)
-        }),
-        "a cross after the Cards left badge"
-    );
+        .unwrap_or_else(|| panic!("no label starting {prefix:?}"))
 }
 
-/// A `RegisteredNotA` violation's cross stands after the Registered
-/// position label, before its combo (a registered position he is not
-/// rated A at).
+/// Three ability stats one over the regulars' 77 target (still regular:
+/// a medal's recognition threshold is higher) raise a `Stat` error each:
+/// each stat's cross stands left of its label, its box 2 points from the
+/// text, the three crosses on one centre x, and no label moved from the
+/// run with Live AATF off.
 #[test]
-fn a_registered_violation_marks_the_combo_label() {
-    let (mut view, mut window) = open_734("live_marks_registered");
+fn the_stats_crosses_line_up_left_of_their_labels() {
+    let (mut view, mut window) = open_734("live_marks_stat");
+    let stats = [
+        ("attacking_prowess", "Attacking Prowess"),
+        ("ball_control", "Ball Control"),
+        ("speed", "Speed"),
+    ];
+    let (_, nodes_off, _) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     view.live_aatf = true;
     let mut entry = player_entry(&view, 73401);
-    let unrated = entry
-        .positions
-        .playable
-        .iter()
-        .position(|rating| *rating == 0)
-        .expect("a C-rated position");
-    entry.positions.registered =
-        u8::try_from(PLAYABLE_POSITIONS[unrated]).expect("a position fits u8");
+    for (name, _) in stats {
+        let index = ABILITY_STATS
+            .iter()
+            .position(|stat| *stat == name)
+            .expect("an ability stat");
+        assert_ne!(
+            entry.stats.abilities()[index],
+            Some(78),
+            "premise: {name} is not 78 yet"
+        );
+        entry.stats.set_ability(index, 78);
+    }
     view.session
         .as_mut()
         .expect("the save opened")
         .edit_players(vec![entry]);
     let nodes = live_checked(&mut window, &mut view, None, &[734]);
     let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let label = label_bounds(&nodes, "Registered position");
-    let combo = control_right_of(&nodes, "Registered position")
-        .bounds()
-        .expect("the combo's bounds");
-    assert!(
-        mark_shapes(&shapes, "\u{2716}").into_iter().any(|shape| {
-            f64::from(shape.pos.x) >= label.x1 - 4.0
-                && f64::from(shape.pos.x + shape.galley.rect.width()) <= combo.x0 + 1.0
-                && f64::from(shape.pos.y) >= label.y0 - 4.0
-                && f64::from(shape.pos.y) <= label.y1 + 4.0
-        }),
-        "a cross after the Registered position label, before its combo"
-    );
-}
-
-/// A second-half field's cross stands at its label column's right end —
-/// the `Form` box's (a `Half::Second` pair, the column being
-/// `label_width("Shirt number")` wide), so the box keeps its x.
-#[test]
-fn a_second_half_fields_cross_stands_at_its_label_columns_end() {
-    use aatf::ViolationKind as K;
-    let (mut view, mut window) = open_734("live_marks_second_half");
-    view.live_aatf = true;
-    let violations = vec![violation(
-        Some(0),
-        aatf::Severity::Error,
-        K::Form {
-            value: 2,
-            target: 4,
-        },
-    )];
-    let revision = view.session.as_ref().expect("the save opened").revision();
-    view.live.check.result = Some((
-        aatf_check::CheckKey {
-            revision,
-            ids: vec![734],
-            rules_file: None,
-        },
-        vec![Ok(violations)],
-    ));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let form = label_bounds(&nodes, "Form");
-    // `label_width` is private: the same galley width measured here.
-    let column = f64::from(body_text_width(&mut window, info_strip::NUMBER_LABEL));
-    let cross = mark_shapes(&shapes, "\u{2716}")
-        .into_iter()
-        .find(|shape| {
-            f64::from(shape.pos.y) >= form.y0 - 4.0 && f64::from(shape.pos.y) <= form.y1 + 4.0
-        })
-        .expect("a cross on the Form row");
-    assert!(
-        (f64::from(cross.pos.x + cross.galley.rect.width()) - (form.x0 + column)).abs() <= 0.5,
-        "the cross's right edge at the label column's end ({} vs {})",
-        cross.pos.x + cross.galley.rect.width(),
-        form.x0 + column
-    );
-}
-
-/// One violation alone on the selected player: exactly one `✖` painted
-/// in the view (right of the list), its vertical centre on the named
-/// control's row — SE-GUI-36's "the cross beside the field the
-/// violation is about" for every field a kind reaches but `Pitch` and
-/// `Stat` (tested elsewhere). Every cross is also pinned on x, ending
-/// before its control and starting after its label where one precedes
-/// it, so a control handed a neighbour's field on the same row fails.
-#[test]
-fn each_fields_cross_stands_beside_its_control() {
-    use aatf::ViolationKind as K;
-    /// How the row's cross is pinned on x: its y is checked against the
-    /// labelled row's bounds either way.
-    enum Limit {
-        /// Its right edge stays left of the named control's left edge
-        /// (`control_right_of`): a first-half pair, a combo's row.
-        LeftOfControl,
-        /// Its left edge is past the label's end and its right edge is
-        /// left of its control's left edge: a second-half pair.
-        AfterLabelLeftOfControl,
-        /// The Name field: the counted label carries the counts, so the
-        /// row and the bound come from its input.
-        LeftOfNameField,
-        /// Its left edge is past the label's end: a panel header, the
-        /// Cards left badge (the cross after the whole badge).
-        AfterLabel,
-        /// Past the label's end and left of the next label's start: the
-        /// Skills header, whose row the Cards left badge shares, so a
-        /// cross handed the badge's field lands past it.
-        AfterLabelBefore(&'static str),
+    let violations = view.live.check.result.as_ref().unwrap().1[0]
+        .as_ref()
+        .unwrap();
+    let error = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .error_fg_color;
+    let marks = field_marks(&shapes);
+    let mut centres = Vec::new();
+    for (name, label) in stats {
+        assert!(
+            violations.iter().any(|violation| matches!(
+                &violation.kind,
+                aatf::ViolationKind::Stat { stat, .. } if *stat == aatf::Stat::try_from(name.to_owned()).unwrap()
+            ) && violation.severity == aatf::Severity::Error),
+            "premise: a Stat error on {name}"
+        );
+        let bounds = label_bounds(&nodes, label);
+        let mark = mark_on_row(&marks, bounds, label);
+        assert_eq!(mark.galley.job.text, "\u{2716}", "{label}: a cross");
+        assert_eq!(galley_color(mark), error, "{label}: the error colour");
+        assert_left_of_label(mark, bounds, label);
+        assert_eq!(
+            bounds,
+            label_bounds(&nodes_off, label),
+            "{label}'s label did not move"
+        );
+        centres.push(mark_centre(mark).x);
     }
-    let cases: &[(K, &str, Limit)] = &[
+    assert!(
+        centres.iter().all(|x| (x - centres[0]).abs() <= 0.01),
+        "the column's crosses share one centre x: {centres:?}"
+    );
+}
+
+/// One row alone on the selected player: exactly one mark painted in the
+/// view, on its field's label's row, its 11-point box ending 2 points
+/// before the label's text — SE-GUI-36's "the cross beside the field the
+/// violation is about" for every field a kind reaches but `Pitch` and
+/// `Stat` (tested elsewhere): General info's and Other stats' labels and
+/// the panels' headers, the card budget on the Skills header and a
+/// suggestion on its allowance's field.
+#[test]
+fn each_fields_mark_stands_left_of_its_label() {
+    use aatf::Severity::{Error, Suggestion};
+    use aatf::ViolationKind as K;
+    let unused = |allowance: &str| K::Unused {
+        allowance: allowance.to_owned(),
+        used: 1,
+        allowed: 2,
+    };
+    let cases: Vec<(aatf::Severity, K, &str)> = vec![
         (
+            Error,
             K::Height {
                 height: 183,
                 fits: vec![],
                 room: false,
             },
             "Height",
-            Limit::LeftOfControl,
         ),
         (
+            Error,
             K::Age {
                 age: 30,
                 min: 15,
                 max: 50,
             },
             "Age",
-            Limit::LeftOfControl,
         ),
         (
+            Error,
             K::Weight {
                 weight: 80,
                 min: 30,
                 max: 100,
             },
             "Weight",
-            Limit::LeftOfControl,
         ),
         (
+            Error,
             K::InjuryResistance { value: 2, max: 1 },
             "Injury resistance",
-            Limit::LeftOfControl,
         ),
         (
+            Error,
             K::WeakFootUsage { value: 3, max: 2 },
             "Weak foot: Usage",
-            Limit::LeftOfControl,
         ),
         (
+            Error,
             K::Form {
                 value: 2,
                 target: 4,
             },
             "Form",
-            Limit::AfterLabelLeftOfControl,
         ),
+        (Error, K::WeakFootAccuracy { value: 3, max: 2 }, "Accuracy"),
         (
-            K::WeakFootAccuracy { value: 3, max: 2 },
-            "Accuracy",
-            Limit::AfterLabelLeftOfControl,
-        ),
-        (
+            Error,
             K::NameColor {
                 color: Some("cc9900ff".to_owned()),
                 expected: None,
             },
-            "Name",
-            Limit::LeftOfNameField,
+            "Name (",
         ),
         (
+            Error,
             K::RegisteredNotA { rated_a: vec![] },
             "Registered position",
-            Limit::LeftOfControl,
         ),
-        (K::PlayingStyleRange, "Playing style", Limit::LeftOfControl),
+        (Error, K::PlayingStyleRange, "Playing style"),
+        (Error, K::BRating { rated_b: vec![] }, "Playable positions"),
+        (Error, K::SkillCardCap { count: 11, max: 10 }, "Skills"),
+        (Error, K::Cards { paid: 4, limit: 3 }, "Skills"),
         (
-            K::BRating { rated_b: vec![] },
-            "Playable positions",
-            Limit::AfterLabel,
-        ),
-        (
-            K::SkillCardCap { count: 11, max: 10 },
-            "Skills",
-            Limit::AfterLabelBefore("Cards left for"),
-        ),
-        (
+            Error,
             K::ComStyleCap { count: 3, max: 2 },
             "COM playing styles",
-            Limit::AfterLabel,
         ),
-        (
-            K::Cards { paid: 4, limit: 3 },
-            "Cards left for",
-            Limit::AfterLabel,
-        ),
+        (Suggestion, unused("tricks"), "Tricks"),
+        (Suggestion, unused("cards"), "Skills"),
+        (Suggestion, unused("weak_foot"), "Weak foot: Usage"),
     ];
     let (mut view, mut window) = open_734("live_marks_each_field");
     view.live_aatf = true;
     let revision = view.session.as_ref().expect("the save opened").revision();
-    for (kind, label, limit) in cases {
+    for (severity, kind, label) in &cases {
         view.live.check.result = Some((
             aatf_check::CheckKey {
                 revision,
                 ids: vec![734],
                 rules_file: None,
+                suggestions: false,
             },
-            vec![Ok(vec![violation(
-                Some(0),
-                aatf::Severity::Error,
-                kind.clone(),
-            )])],
+            vec![Ok(vec![violation(Some(0), *severity, kind.clone())])],
         ));
         // The dock's bottom panel can clip a low control (the COM header
         // at ~582 sits below it at 800 tall): scroll the label into
         // view, a no-op when it already shows.
         scroll_into_view(&mut window, &mut view, |node| {
-            node.value().is_some_and(|value| {
-                if matches!(limit, Limit::LeftOfNameField) {
-                    value.starts_with("Name (")
-                } else {
-                    value == *label
-                }
-            })
+            node.value().is_some_and(|value| value.starts_with(label))
         });
         let (_, nodes, shapes) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-        let crosses: Vec<_> = mark_shapes(&shapes, "\u{2716}")
-            .into_iter()
-            .filter(|shape| f64::from(shape.pos.x) > 250.0)
-            .collect();
-        let [cross] = *crosses.as_slice() else {
+        let marks = field_marks(&shapes);
+        let [mark] = *marks.as_slice() else {
             panic!(
-                "{kind:?}: expected one `✖` in the view, got {}",
-                crosses.len()
+                "{kind:?}: expected one mark in the view, got {}",
+                marks.len()
             )
         };
-        // The glyph's own extent: in a wrapping row (the Skills header's)
-        // egui lays a label out from the row's start, its one glyph
-        // offset inside the galley by the row's leading space, so the
-        // galley's `pos` alone is not where the cross is drawn.
-        let glyph_x = cross.galley.rows[0].glyphs[0].pos.x;
-        let glyph = egui::Rect::from_min_max(
-            egui::pos2(cross.pos.x + glyph_x, cross.pos.y),
-            cross.pos + cross.galley.rect.max.to_vec2(),
+        let bounds = label_starting(&nodes, label);
+        assert_eq!(
+            mark_on_row(&marks, bounds, label).pos,
+            mark.pos,
+            "{kind:?}: the mark is on {label:?}'s row"
         );
-        let centre_y = f64::from(glyph.center().y);
-        let row = if matches!(limit, Limit::LeftOfNameField) {
-            name_field(&nodes)
-                .bounds()
-                .expect("the Name field's bounds")
-        } else {
-            label_bounds(&nodes, label)
-        };
-        assert!(
-            centre_y >= row.y0 - 4.0 && centre_y <= row.y1 + 4.0,
-            "{kind:?}: the cross's centre ({centre_y}) is on {label:?}'s row ({row:?})"
-        );
-        let cross_left = f64::from(glyph.min.x);
-        // The right edge is the glyph's ink, what a member sees over a
-        // control; its advance may end a fraction of a point past it, in
-        // the side bearing nobody sees.
-        let cross_right = f64::from(cross.visual_bounding_rect().max.x);
-        // Beside, not inside: a cross ends before its control begins.
-        let left_of = |node: &accesskit::Node, what: &str| {
-            let left = node.bounds().expect("the control's bounds").x0;
-            assert!(
-                cross_right <= left + 0.5,
-                "{kind:?}: the cross ({cross_right}) ends before {what} ({left})"
-            );
-        };
-        let after_label = || {
-            assert!(
-                cross_left >= row.x1 - 0.5,
-                "{kind:?}: the cross ({cross_left}) starts past {label:?}'s end ({})",
-                row.x1
-            );
-        };
-        match limit {
-            Limit::LeftOfControl => left_of(control_right_of(&nodes, label), "its control"),
-            Limit::AfterLabelLeftOfControl => {
-                after_label();
-                left_of(control_right_of(&nodes, label), "its control");
-            }
-            Limit::LeftOfNameField => left_of(name_field(&nodes), "the Name field"),
-            Limit::AfterLabel => after_label(),
-            Limit::AfterLabelBefore(next) => {
-                after_label();
-                let next_left = label_bounds(&nodes, next).x0;
-                assert!(
-                    cross_right <= next_left + 0.5,
-                    "{kind:?}: the cross ({cross_right}) ends before {next:?} ({next_left})"
-                );
-            }
-        }
+        assert_left_of_label(mark, bounds, &format!("{kind:?}"));
     }
 }
 
-/// The Name field's cross sits inside its counted label: over the cross
-/// only the cross's tooltip shows (the count's is held back, so the two
-/// tips do not stack), and over the count the count's shows.
-#[test]
-fn the_name_cross_holds_back_the_counts_tooltip() {
-    let (mut view, mut window) = open_734("live_marks_name_tip");
-    view.live_aatf = true;
-    let revision = view.session.as_ref().expect("the save opened").revision();
-    let name_color = violation(
-        Some(0),
-        aatf::Severity::Error,
-        aatf::ViolationKind::NameColor {
-            color: Some("cc9900ff".to_owned()),
-            expected: None,
-        },
-    );
-    let line = team_widgets::violations::violation_line(&name_color, 734);
-    view.live.check.result = Some((
-        aatf_check::CheckKey {
-            revision,
-            ids: vec![734],
-            rules_file: None,
-        },
-        vec![Ok(vec![name_color])],
-    ));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let crosses: Vec<_> = mark_shapes(&shapes, "\u{2716}")
-        .into_iter()
-        .filter(|shape| f64::from(shape.pos.x) > 250.0)
-        .collect();
-    let [cross] = *crosses.as_slice() else {
-        panic!("expected one `✖` in the view, got {}", crosses.len())
-    };
-    let on_cross = egui::pos2(cross.pos.x + 2.0, cross.pos.y + cross.galley.size().y / 2.0);
-    assert_eq!(
-        tooltip_containing(&mut window, &mut view, on_cross, &line, None).as_deref(),
-        Some(line.as_str()),
-        "the cross's tooltip shows over the cross"
-    );
-    assert_eq!(
-        tooltip_containing(&mut window, &mut view, on_cross, "Up to ", None),
-        None,
-        "the count's tooltip is held back over the cross"
-    );
-    let label = nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Label
-                && node
-                    .value()
-                    .is_some_and(|value| value.starts_with("Name ("))
-        })
-        .and_then(accesskit::Node::bounds)
-        .expect("the Name count's bounds");
-    let on_count = egui::pos2(
-        (label.x0 + 2.0) as f32,
-        ((label.y0 + label.y1) / 2.0) as f32,
-    );
-    assert!(
-        tooltip_containing(&mut window, &mut view, on_count, "Up to ", None).is_some(),
-        "the count's tooltip shows over the count"
-    );
-}
-
-/// A warning-only violation's cross draws in the warning colour: the
+/// A warning-only violation's mark is an orange warning sign: the
 /// official file gains a warning band on the regular tier, and 73401's
 /// attacking prowess goes one over its 77 target (a `Stat` warning, not
 /// an error).
 #[test]
-fn a_warnings_cross_draws_in_the_warning_colour() {
+fn a_warnings_mark_is_an_orange_warning_sign() {
     let (mut view, mut window) = open_734("live_marks_warning");
     view.live_aatf = true;
     let dir = view
@@ -1081,20 +850,12 @@ fn a_warnings_cross_draws_in_the_warning_colour() {
         }),
         "premise: the check holds a Stat warning"
     );
-    let prowess_box = control_right_of(&nodes, "Attacking Prowess")
-        .bounds()
-        .expect("Attacking prowess' box");
-    let cross = mark_shapes(&shapes, "\u{2716}")
-        .into_iter()
-        .find(|shape| {
-            let right = f64::from(shape.pos.x + shape.galley.rect.width());
-            ((right + f64::from(live_marks::MARK_GAP)) - prowess_box.x0).abs() < 0.5
-                && f64::from(shape.pos.y) >= prowess_box.y0 - 2.0
-                && f64::from(shape.pos.y) <= prowess_box.y1 + 2.0
-        })
-        .expect("a cross MARK_GAP left of Attacking prowess' box");
+    let label = label_bounds(&nodes, "Attacking Prowess");
+    let mark = mark_on_row(&field_marks(&shapes), label, "Attacking Prowess");
+    assert_left_of_label(mark, label, "Attacking Prowess");
+    assert_eq!(mark.galley.job.text, "\u{26a0}", "a warning sign");
     assert_eq!(
-        galley_color(cross),
+        galley_color(mark),
         window
             .ctx
             .style_of(window.ctx.theme())
@@ -1258,6 +1019,7 @@ fn a_long_name_truncates_before_the_rows_mark() {
             revision,
             ids: vec![701],
             rules_file: None,
+            suggestions: false,
         },
         vec![Ok(Vec::new())],
     ));
@@ -1308,8 +1070,9 @@ fn a_long_name_truncates_before_the_rows_mark() {
 
 /// A held check carrying an Error on the selected player for every field
 /// General info and Other stats mark: no cross's painted rect intersects
-/// another text's, and every box and combo keeps its x with the marks
-/// drawn (the decision entry: the field keeps its x).
+/// another text's, every label, box and combo keeps its x with the marks
+/// drawn, and General info's first column of labels has its crosses on
+/// one centre x whatever the labels' lengths.
 #[test]
 fn no_cross_overlaps_text_and_no_field_moves() {
     use aatf::ViolationKind as K;
@@ -1352,6 +1115,7 @@ fn no_cross_overlaps_text_and_no_field_moves() {
             revision,
             ids: vec![734],
             rules_file: None,
+            suggestions: false,
         },
         vec![Ok(violations)],
     ));
@@ -1362,6 +1126,29 @@ fn no_cross_overlaps_text_and_no_field_moves() {
         .filter(|shape| f64::from(shape.pos.x) > 250.0)
         .collect();
     assert_eq!(crosses.len(), 10, "one cross per marked field");
+
+    // General info's first column: each cross 2 points before its label,
+    // all on one centre x.
+    let column: Vec<f32> = [
+        "Name (",
+        "Height",
+        "Weight",
+        "Age",
+        "Registered position",
+        "Playing style",
+    ]
+    .into_iter()
+    .map(|label| {
+        let bounds = label_starting(&nodes_mark, label);
+        let cross = mark_on_row(&crosses, bounds, label);
+        assert_left_of_label(cross, bounds, label);
+        mark_centre(cross).x
+    })
+    .collect();
+    assert!(
+        column.iter().all(|x| (x - column[0]).abs() <= 0.01),
+        "General info's crosses share one centre x: {column:?}"
+    );
 
     // No cross touches another text's galley; the narrowest clearance
     // between a cross and any text sharing its row is reported. The
@@ -1427,6 +1214,11 @@ fn no_cross_overlaps_text_and_no_field_moves() {
             .bounds()
             .expect("the control's bounds");
         assert_eq!(marked.x0, off.x0, "{label}'s control kept its x");
+        assert_eq!(
+            label_bounds(&nodes_mark, label),
+            label_bounds(&nodes_off, label),
+            "{label}'s label kept its place"
+        );
     }
     for field in [name_field, shirt_field] {
         let marked = field(&nodes_mark).bounds().expect("the field's bounds");
@@ -1463,22 +1255,25 @@ fn a_failed_check_marks_nothing() {
     assert!(mark_shapes(&shapes, "\u{2714}").is_empty(), "no check mark");
 }
 
-/// A field several violations are about carries one cross, in the
-/// highest severity's colour, its tooltip every violation's line in
-/// the check's order; a suggestion alone draws nothing (the Live
-/// AATF bullet's field mark).
+/// A field's mark: one for every row about it, for the highest severity
+/// among them — a `✖` in the error colour for an Error, a `⚠` in the
+/// warning orange for a Warning, a `ⓘ` in the link blue for suggestions
+/// alone — its tooltip every row's line in the check's order. It is drawn
+/// in an 11-point box whose right edge stands 2 points left of the
+/// label's text, the glyph centred in the box and on the label's height.
 #[test]
-fn a_fields_cross_is_one_with_every_violations_line() {
+fn a_fields_mark_draws_its_highest_severitys_glyph_left_of_the_label() {
     use aatf::Severity::{Error, Suggestion, Warning};
     use aatf::ViolationKind as K;
-    let rect = egui::Rect::from_min_size(egui::pos2(100.0, 100.0), egui::vec2(20.0, 20.0));
+    let label = egui::Rect::from_min_size(egui::pos2(100.0, 100.0), egui::vec2(60.0, 16.0));
 
-    /// `Marks::paint` over `violations` on one frame (the pointer left
-    /// where `events` put it): what `paint` returned and the shapes.
+    /// `Marks::paint` over `violations` beside `label` on one frame (the
+    /// pointer left where `events` put it): what `paint` returned and the
+    /// shapes.
     fn paint_in(
         window: &mut Headless,
         violations: &[aatf::Violation],
-        rect: egui::Rect,
+        label: egui::Rect,
         events: Vec<egui::Event>,
     ) -> (Option<egui::Response>, Vec<egui::epaint::ClippedShape>) {
         let marks = live_marks::Marks {
@@ -1488,19 +1283,26 @@ fn a_fields_cross_is_one_with_every_violations_line() {
         };
         let mut painted = None;
         let (_, _, shapes) = window.frame(events, |ui| {
-            painted = marks.paint(ui, rect, live_marks::MarkedField::RegisteredPosition);
+            painted = marks.paint(ui, label, live_marks::MarkedField::RegisteredPosition);
         });
         (painted, shapes)
     }
 
-    /// The tooltip after `frames` idle frames over the painted cross
+    /// The tooltip after `frames` idle frames with the pointer at `at`
     /// (bounded, so a missing one fails rather than hangs).
     fn tooltip_of(
         window: &mut Headless,
         violations: &[aatf::Violation],
-        rect: egui::Rect,
+        label: egui::Rect,
+        at: egui::Pos2,
         frames: usize,
     ) -> Option<String> {
+        paint_in(
+            window,
+            violations,
+            label,
+            vec![egui::Event::PointerMoved(at)],
+        );
         for _ in 0..frames {
             let (_, nodes, _) = window.frame(Vec::new(), |ui| {
                 live_marks::Marks {
@@ -1508,7 +1310,7 @@ fn a_fields_cross_is_one_with_every_violations_line() {
                     slot: 0,
                     team_id: 734,
                 }
-                .paint(ui, rect, live_marks::MarkedField::RegisteredPosition);
+                .paint(ui, label, live_marks::MarkedField::RegisteredPosition);
             });
             if let Some(value) = nodes.iter().find_map(|node| node.value())
                 && (value.contains("RegisteredNotA") || value.contains("PositionRange"))
@@ -1521,80 +1323,73 @@ fn a_fields_cross_is_one_with_every_violations_line() {
 
     let mut window = Headless::new();
     let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
-
-    // A Warning then an Error: one cross, `error_fg_color`, the two
-    // lines in the check's order.
-    let violations = [
-        violation(Some(0), Warning, K::PositionRange),
-        violation(Some(0), Error, K::RegisteredNotA { rated_a: vec![] }),
+    let line =
+        |violation: &aatf::Violation| team_widgets::violations::violation_line(violation, 734);
+    let cases = [
+        (
+            vec![
+                violation(Some(0), Warning, K::PositionRange),
+                violation(Some(0), Error, K::RegisteredNotA { rated_a: vec![] }),
+            ],
+            "\u{2716}",
+            visuals.error_fg_color,
+        ),
+        (
+            vec![
+                violation(Some(0), Warning, K::RegisteredNotA { rated_a: vec![] }),
+                violation(Some(0), Warning, K::PositionRange),
+            ],
+            "\u{26a0}",
+            visuals.warn_fg_color,
+        ),
+        (
+            vec![violation(Some(0), Suggestion, K::PositionRange)],
+            "\u{24d8}",
+            visuals.hyperlink_color,
+        ),
     ];
-    let (painted, shapes) = paint_in(
-        &mut window,
-        &violations,
-        rect,
-        vec![egui::Event::PointerMoved(egui::pos2(
-            rect.min.x + 3.0,
-            rect.center().y,
-        ))],
-    );
-    assert!(painted.is_some(), "a cross is painted");
-    let crosses = mark_shapes(&shapes, "\u{2716}");
-    let [cross] = *crosses.as_slice() else {
-        panic!("expected one painted `✖`, got {}", crosses.len())
-    };
-    assert_eq!(
-        galley_color(cross),
-        visuals.error_fg_color,
-        "the highest severity's colour"
-    );
-    let cross_centre_y = cross.pos.y + cross.galley.size().y / 2.0;
-    assert!(
-        (cross_centre_y - rect.center().y).abs() < 0.5,
-        "the cross ({cross_centre_y}) is centred on its rect ({})",
-        rect.center().y
-    );
-    let expected = format!(
-        "{}\n{}",
-        team_widgets::violations::violation_line(&violations[0], 734),
-        team_widgets::violations::violation_line(&violations[1], 734),
-    );
-    assert_eq!(
-        tooltip_of(&mut window, &violations, rect, 30).as_deref(),
-        Some(expected.as_str()),
-        "every violation's line in the check's order"
-    );
+    // The box's centre: 2 points left of the label, then half of 11.
+    let box_centre = egui::pos2(label.min.x - 2.0 - 5.5, label.center().y);
+    for (violations, glyph, color) in &cases {
+        let (painted, shapes) = paint_in(&mut window, violations, label, vec![]);
+        assert!(painted.is_some(), "{glyph}: a mark is painted");
+        let marks: Vec<_> = ["\u{2716}", "\u{26a0}", "\u{24d8}"]
+            .into_iter()
+            .flat_map(|text| mark_shapes(&shapes, text))
+            .collect();
+        let [mark] = *marks.as_slice() else {
+            panic!("{glyph}: expected one mark, got {}", marks.len())
+        };
+        assert_eq!(mark.galley.job.text, *glyph, "the highest severity's glyph");
+        assert_eq!(galley_color(mark), *color, "{glyph}: the severity's colour");
+        let centre = mark.pos + mark.galley.rect.size() / 2.0;
+        assert!(
+            (centre.x - box_centre.x).abs() <= 0.01,
+            "{glyph}: centred in the 11-point box 2 points left of the label ({} vs {})",
+            centre.x,
+            box_centre.x
+        );
+        assert!(
+            (centre.y - box_centre.y).abs() <= 0.5,
+            "{glyph}: centred on the label's height ({} vs {})",
+            centre.y,
+            box_centre.y
+        );
+        let expected = violations.iter().map(line).collect::<Vec<_>>().join("\n");
+        assert_eq!(
+            tooltip_of(&mut window, violations, label, box_centre, 30).as_deref(),
+            Some(expected.as_str()),
+            "{glyph}: every row's line in the check's order"
+        );
+    }
 
-    // Two Warnings: the warning colour.
-    let violations = [
-        violation(Some(0), Warning, K::RegisteredNotA { rated_a: vec![] }),
-        violation(Some(0), Warning, K::PositionRange),
+    // Another slot's rows and another field's mark nothing here.
+    let others = [
+        violation(Some(1), Error, K::RegisteredNotA { rated_a: vec![] }),
+        violation(Some(0), Error, K::PlayingStyleRange),
     ];
-    let (_, shapes) = paint_in(
-        &mut window,
-        &violations,
-        rect,
-        vec![egui::Event::PointerMoved(rect.center())],
-    );
-    let crosses = mark_shapes(&shapes, "\u{2716}");
-    let [cross] = *crosses.as_slice() else {
-        panic!("expected one painted `✖`, got {}", crosses.len())
-    };
-    assert_eq!(
-        galley_color(cross),
-        visuals.warn_fg_color,
-        "a warning's colour"
-    );
-
-    // A suggestion alone draws nothing: `paint` returns `None` and no
-    // `✖` is painted (a `PositionRange`, so the kind alone would map
-    // to the field: only the severity filter stops it).
-    let violations = [violation(Some(0), Suggestion, K::PositionRange)];
-    let (painted, shapes) = paint_in(&mut window, &violations, rect, vec![]);
-    assert!(painted.is_none(), "a suggestion alone paints nothing");
-    assert!(
-        mark_shapes(&shapes, "\u{2716}").is_empty(),
-        "no `✖` for a suggestion alone"
-    );
+    let (painted, _) = paint_in(&mut window, &others, label, vec![]);
+    assert!(painted.is_none(), "no row of this slot and field");
 }
 
 /// A dirty row keeps its `●` through truncation (the dot holds the
@@ -1643,6 +1438,7 @@ fn a_dirty_rows_dot_survives_truncation() {
             revision,
             ids: vec![701],
             rules_file: None,
+            suggestions: false,
         },
         vec![Ok(Vec::new())],
     ));
@@ -1732,6 +1528,7 @@ fn a_dirty_rows_dot_survives_truncation() {
             revision,
             ids: vec![701],
             rules_file: None,
+            suggestions: false,
         },
         vec![Ok(Vec::new())],
     ));
@@ -1887,12 +1684,11 @@ fn only_the_checked_teams_rows_are_marked() {
     assert!(found, "his row never scrolled into view");
 }
 
-/// A `FieldedNotA` violation's cross stands `MARK_GAP` left of the
-/// starter's badge on the team view's Tactics pitch (the Live AATF
-/// bullet's `FieldedNotA` parenthesis: the pitch is the field the
+/// A `FieldedNotA` violation's cross is an X over the starter's portrait
+/// on the team view's Tactics pitch (the pitch is the field the
 /// violation is about); with Live AATF off the marker carries none.
 #[test]
-fn a_fielded_violation_marks_the_starters_badge_on_the_pitch() {
+fn a_fielded_violation_crosses_the_starters_portrait_on_the_pitch() {
     let (mut view, mut window) = open_734("live_marks_fielded");
     view.live_aatf = true;
     // Move a starter of preset 1's kick-off formation onto a position
@@ -1938,8 +1734,8 @@ fn a_fielded_violation_marks_the_starters_badge_on_the_pitch() {
     assert_eq!(position.byte(), position_byte, "the moved-to position");
 
     // The team row selected (the pitch is the team view's): his
-    // marker's badge carries the cross MARK_GAP to its left, centred
-    // on it, in the error colour.
+    // marker's portrait carries an X, corner to corner, its coloured
+    // strokes in the error colour over black ones.
     view.selected = Some(Selection::Team(734));
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -1947,19 +1743,17 @@ fn a_fielded_violation_marks_the_starters_badge_on_the_pitch() {
     let shown_slot = team_entry(&view, 734).tactics.presets[0].formations[0].players[index];
     let badge =
         egui::Rect::from_center_size(clamped_centre(canvas, shown_slot), egui::vec2(50.0, 14.0));
-    // The right edge is the glyph's advance, not its ink: the draft
-    // right-aligns the cross's text at the badge minus the gap, and the
-    // ink stops short of the advance by the glyph's side bearing.
-    let cross = mark_shapes(&shapes, "\u{2716}")
-        .into_iter()
-        .find(|shape| {
-            let advance_right = shape.pos.x + shape.galley.rect.max.x;
-            (advance_right - (badge.left() - live_marks::MARK_GAP)).abs() <= 0.5
-                && (shape.visual_bounding_rect().center().y - badge.center().y).abs() <= 0.5
-        })
-        .expect("a cross MARK_GAP left of his badge, centred on it");
+    let portrait = egui::Rect::from_min_max(
+        egui::pos2(badge.left(), badge.top() - 50.0),
+        egui::pos2(badge.right(), badge.top()),
+    );
+    let strokes = pitch_cross_strokes(&shapes);
+    let [black, _, colour, _] = strokes.as_slice() else {
+        panic!("expected one cross's four strokes, got {}", strokes.len())
+    };
+    assert_eq!(black.color, egui::Color32::BLACK, "the outline is black");
     assert_eq!(
-        galley_color(cross),
+        colour.color,
         window
             .ctx
             .style_of(window.ctx.theme())
@@ -1967,20 +1761,41 @@ fn a_fielded_violation_marks_the_starters_badge_on_the_pitch() {
             .error_fg_color,
         "the error colour"
     );
+    assert!(
+        strokes
+            .iter()
+            .all(|stroke| portrait.contains(stroke.points[0])
+                && portrait.contains(stroke.points[1])
+                && (stroke.points[0] - stroke.points[1]).x.abs() > 30.0),
+        "the strokes cross his portrait {portrait:?}"
+    );
 
     // Live AATF off: the pitch carries no cross.
     view.live_aatf = false;
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let canvas = canvas_of(&nodes);
-    let canvas_rect = egui::Rect::from_min_max(
-        egui::pos2(canvas.x0 as f32, canvas.y0 as f32),
-        egui::pos2(canvas.x1 as f32, canvas.y1 as f32),
-    );
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        !mark_shapes(&shapes, "\u{2716}")
-            .into_iter()
-            .any(|shape| canvas_rect.contains(shape.visual_bounding_rect().center())),
+        pitch_cross_strokes(&shapes).is_empty(),
         "no cross on the pitch with Live AATF off"
     );
+}
+
+/// A painted line segment's ends, width and colour.
+struct Stroke {
+    points: [egui::Pos2; 2],
+    color: egui::Color32,
+}
+
+/// The frame's line segments 5 or more wide: the pitch crosses' strokes
+/// (the pitch's lines and corners are 2 wide), black outlines first.
+fn pitch_cross_strokes(shapes: &[egui::epaint::ClippedShape]) -> Vec<Stroke> {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::LineSegment { points, stroke } if stroke.width >= 5.0 => Some(Stroke {
+                points: *points,
+                color: stroke.color,
+            }),
+            _ => None,
+        })
+        .collect()
 }

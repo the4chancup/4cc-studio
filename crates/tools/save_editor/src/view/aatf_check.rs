@@ -34,6 +34,9 @@ pub(super) struct CheckKey {
     /// The rules file the check's ruleset came from (`None`: the embedded
     /// official ruleset).
     pub(super) rules_file: Option<PathBuf>,
+    /// Whether the check asks for the suggestions: unasked, the reply
+    /// holds none.
+    pub(super) suggestions: bool,
 }
 
 /// A check in flight: the key it runs for and its reply channel (the
@@ -266,7 +269,14 @@ fn spawn_check(
     let ctx = ctx.clone();
     let reply_key = key.clone();
     std::thread::spawn(move || {
-        let checks = rules::check_teams(&rules, &views);
+        let mut checks = rules::check_teams(&rules, &views);
+        // Unasked, suggestions would tint the whole list blue: most
+        // players of a cup team leave some allowance unused.
+        if !reply_key.suggestions {
+            for violations in checks.iter_mut().flatten() {
+                violations.retain(|violation| violation.severity != aatf::Severity::Suggestion);
+            }
+        }
         // A newer check can replace the receiver mid-flight; that send's
         // failure is the superseded thread ending, not an error.
         if sender.send((reply_key, checks)).is_err() {

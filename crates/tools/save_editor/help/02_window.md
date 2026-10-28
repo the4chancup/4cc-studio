@@ -57,13 +57,27 @@ differences over the whole save as a text file.
 
 **Live AATF.** The toolbar's **Live AATF** toggle checks the open team after every
 edit, in a panel docked at the bottom of the window: the violations left, grouped
-per player as the floating window lists them, under `N issues · <ruleset>`, or
-`<team> passes <ruleset> with no issues` once the team passes. Clicking a row
-selects that player; a `FieldedNotA` row, about a position he is fielded at,
-selects his team's row instead, on the named preset's first formation that
-carries the violation's `✖`. On the tactics pitch that cross stands just left
-of his marker, on every formation the preset fields him at that position. The
-toggle is remembered, so it is still on the next time the editor is opened.
+per player as the floating window lists them and the team's own under `Team-wide
+issues`, under `N issues · <ruleset>`, or `<team> passes <ruleset> with no issues`
+once the team passes. Clicking a row selects that player; a `FieldedNotA` row, about
+a position he is fielded at, selects his team's row instead, on the named preset's
+first formation that crosses his portrait.
+
+While it is on, the editor itself is marked too. Each player of the team gets a mark
+at the end of his row in the list: a red `✖` when he breaks a rule, otherwise a `✔`,
+orange when he has a warning, blue when he has only suggestions and green when there
+is nothing to fix. Hover over it to see how many of each he has. A field of the
+selected player that a row is about gets a mark just left of its label: a red `✖`
+for an error, an orange `⚠` for a warning and a blue `ⓘ` for a suggestion. Hover over
+it to read its rows. On the tactics pitch, a player fielded at a position he is not
+rated A at has his portrait crossed out, on every formation the preset fields him at
+that position.
+
+**Show suggestions**, beside the toggle while it is on, also lists each player's
+unused allowances (cards he could still take, free tricks, weak foot) under
+`Suggestions`, after the violations. It is off at first, because most players of a
+cup team leave some allowance unused. The toggle and the checkbox are remembered, so
+they are as you left them the next time the editor is opened.
 
 **Saving.** **Save** or Ctrl+S writes the edits to the file the save was opened from (a
 file it replaces is kept once as a `.bak` copy). While the save's own PES version is

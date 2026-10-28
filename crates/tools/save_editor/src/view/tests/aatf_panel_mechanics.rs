@@ -303,6 +303,7 @@ fn a_worker_that_ends_without_a_reply_is_checked_again() {
             revision: view.session.as_ref().expect("the save opened").revision(),
             ids: vec![734],
             rules_file: None,
+            suggestions: true,
         },
         replies,
     });

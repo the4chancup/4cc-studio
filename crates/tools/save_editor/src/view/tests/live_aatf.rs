@@ -244,6 +244,236 @@ fn the_toggle_is_remembered_in_the_settings() {
     );
 }
 
+/// Show suggestions is a checkbox right of the Live AATF toggle, drawn
+/// only while Live AATF is on, off by default; ticking it writes
+/// `live_suggestions`, the tool's other keys untouched, and a fresh
+/// `Tool` on the same settings draws it ticked.
+#[test]
+fn show_suggestions_is_drawn_while_live_and_remembered() {
+    use studio_core::StudioTool;
+
+    let save_path = fixture(PesVersion::Pes17, "live_aatf_suggestions_setting");
+    let dir = save_path.parent().expect("the scratch dir").to_path_buf();
+    let mut tool = crate::Tool::new();
+    tool.view.open(&save_path);
+    let mut settings = studio_core::Settings::default();
+    let mut table = tool.default_settings();
+    assert_eq!(
+        table["live_suggestions"].as_bool(),
+        Some(false),
+        "off by default"
+    );
+    table.insert("unread_key".to_owned(), toml::Value::Integer(3));
+    settings.set_tool("save-editor", table);
+    let (ctx, _events_rx, _requests_rx) = tool_context(&dir, settings);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
+    let checkbox = |nodes: &[accesskit::Node]| {
+        nodes
+            .iter()
+            .find(|node| node.role() == Role::CheckBox && node.label() == Some("Show suggestions"))
+            .cloned()
+    };
+
+    // Live AATF off: no checkbox. On: the checkbox right of the toggle,
+    // on its row, unticked.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    assert!(
+        checkbox(&nodes).is_none(),
+        "no checkbox while Live AATF is off"
+    );
+    tool_click(
+        &mut window,
+        &mut tool,
+        &ctx,
+        node_labeled(&nodes, Role::Button, "\u{25b6} Live AATF"),
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    let toggle = node_labeled(&nodes, Role::Button, "\u{25b6} Live AATF")
+        .bounds()
+        .expect("the toggle's bounds");
+    let tick = checkbox(&nodes).expect("the checkbox while Live AATF is on");
+    let bounds = tick.bounds().expect("the checkbox's bounds");
+    assert!(
+        bounds.x0 >= toggle.x1 && bounds.y0 < toggle.y1 && toggle.y0 < bounds.y1,
+        "right of the toggle, on its row ({bounds:?} against {toggle:?})"
+    );
+    assert_eq!(tick.toggled(), Some(accesskit::Toggled::False), "unticked");
+
+    // Ticked: the setting holds true, Live AATF and the unread key stand.
+    tool_click(&mut window, &mut tool, &ctx, &tick);
+    let table = ctx.tool_settings("save-editor");
+    assert_eq!(
+        table["live_suggestions"].as_bool(),
+        Some(true),
+        "the tick set the setting"
+    );
+    assert_eq!(
+        table["live_aatf"].as_bool(),
+        Some(true),
+        "Live AATF stays on"
+    );
+    assert_eq!(
+        table["unread_key"].as_integer(),
+        Some(3),
+        "the tool's other key is unchanged"
+    );
+
+    // A fresh tool on the same context draws it ticked.
+    let mut tool2 = crate::Tool::new();
+    tool2.view.open(&save_path);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool2.view(ui, &ctx));
+    assert_eq!(
+        checkbox(&nodes).and_then(|node| node.toggled()),
+        Some(accesskit::Toggled::True),
+        "ticked on the first frame"
+    );
+}
+
+/// Show suggestions off, the default: the check asks for no suggestion,
+/// so the dock lists no `Unused` row and no `Suggestions` heading and no
+/// blue mark is drawn anywhere. On: the dock lists them under
+/// `Suggestions` after the team's own rows, which stand under `Team-wide
+/// issues`; a player whose rows are suggestions alone gets a blue check
+/// mark and his allowance's field a blue circled i; the header still
+/// counts errors and warnings alone. Team 734's own rows are its three
+/// tier counts; eight `Unused` rows fall on four of its players.
+#[test]
+fn suggestions_are_asked_for_only_while_show_suggestions_is_on() {
+    let path = fixture(PesVersion::Pes17, "live_aatf_suggestions");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(734);
+    view.selected = Some(Selection::Player(734, 0));
+    view.live_aatf = true;
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
+    let blue = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .hyperlink_color;
+    let blue_marks = |shapes: &[egui::epaint::ClippedShape]| {
+        mark_shapes_colored(shapes, "\u{2714}", blue)
+            + mark_shapes_colored(shapes, "\u{24d8}", blue)
+    };
+    let issues = "3 issues \u{b7} Autumn 26";
+
+    assert!(!view.live_suggestions, "premise: off by default");
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let held = view.live.check.result.as_ref().unwrap().1[0]
+        .as_ref()
+        .unwrap();
+    assert!(
+        held.iter()
+            .all(|violation| violation.severity != aatf::Severity::Suggestion),
+        "no suggestion asked for"
+    );
+    assert!(
+        nodes.iter().any(|node| node.value() == Some(issues)),
+        "the header counts the team's three rows"
+    );
+    assert!(
+        !nodes.iter().any(|node| node.value() == Some("Suggestions")
+            || node
+                .label()
+                .is_some_and(|label| label.starts_with("Unused"))),
+        "no Suggestions heading and no Unused row"
+    );
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(blue_marks(&shapes), 0, "no blue mark in the list");
+
+    // On: the suggestions asked for and listed after the team's rows.
+    view.live_suggestions = true;
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    assert!(
+        nodes.iter().any(|node| node.value() == Some(issues)),
+        "the header still counts errors and warnings alone"
+    );
+    let y_of = |value: &str| {
+        nodes
+            .iter()
+            .find(|node| node.value() == Some(value))
+            .and_then(accesskit::Node::bounds)
+            .unwrap_or_else(|| panic!("no {value:?}"))
+            .y0
+    };
+    let team_wide = y_of("Team-wide issues");
+    let heading = y_of("Suggestions");
+    let tier_rows: Vec<f64> = nodes
+        .iter()
+        // A team row only reports: a Label node, its line its value.
+        .filter(|node| {
+            node.label()
+                .or(node.value())
+                .is_some_and(|line| line.starts_with("TierCount"))
+        })
+        .filter_map(|node| node.bounds().map(|bounds| bounds.y0))
+        .collect();
+    assert_eq!(tier_rows.len(), 3, "the team's three tier counts");
+    assert!(
+        tier_rows.iter().all(|y| *y > team_wide && *y < heading),
+        "the team's rows under Team-wide issues, before Suggestions"
+    );
+    let unused: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.label()
+                .is_some_and(|label| label.starts_with("Unused"))
+        })
+        .collect();
+    assert!(!unused.is_empty(), "the Unused rows are listed");
+    assert!(
+        unused
+            .iter()
+            .all(|node| node.bounds().is_some_and(|bounds| bounds.y0 > heading)),
+        "under the Suggestions heading"
+    );
+
+    // A player whose rows are suggestions alone: a blue check mark on
+    // his row, and, selected, a blue circled i on his allowance's field.
+    let slot = held_slot_with_suggestions_alone(&view);
+    view.selected = Some(Selection::Player(734, slot));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        mark_shapes_colored(&shapes, "\u{2714}", blue) >= 1,
+        "a blue check mark in the list"
+    );
+    assert!(
+        mark_shapes_colored(&shapes, "\u{24d8}", blue) >= 1,
+        "a blue circled i on his field"
+    );
+}
+
+/// The first roster slot of the held result whose rows are all
+/// suggestions.
+fn held_slot_with_suggestions_alone(view: &SaveView) -> u8 {
+    let held = view.live.check.result.as_ref().unwrap().1[0]
+        .as_ref()
+        .unwrap();
+    held.iter()
+        .filter_map(|violation| violation.slot)
+        .find(|slot| {
+            held.iter()
+                .filter(|violation| violation.slot == Some(*slot))
+                .all(|violation| violation.severity == aatf::Severity::Suggestion)
+        })
+        .expect("a player with suggestions alone")
+}
+
+/// How many `text` shapes the frame paints in `color`.
+fn mark_shapes_colored(
+    shapes: &[egui::epaint::ClippedShape],
+    text: &str,
+    color: egui::Color32,
+) -> usize {
+    shapes
+        .iter()
+        .filter(|clipped| {
+            matches!(&clipped.shape, egui::Shape::Text(shape)
+                if shape.galley.job.text == text && galley_color(shape) == color)
+        })
+        .count()
+}
+
 /// An edit marks the previous result `checking…`, its count still shown,
 /// until the new check's result replaces it. The edit lands while the
 /// pointer is held, so the check waits for the release: a started check

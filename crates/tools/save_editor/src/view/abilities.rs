@@ -210,16 +210,23 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                             );
                         });
                         if let Some((title, aside)) = aside.as_ref() {
-                            panel(ui, spacing, title, None, card_box_inset(ui), |ui| {
-                                skills_changed |= cards::card_columns(
-                                    ui,
-                                    version,
-                                    &mut skills.skills,
-                                    &labels::SKILLS,
-                                    aside,
-                                    PlayerField::Skill,
-                                );
-                            });
+                            panel(
+                                ui,
+                                spacing,
+                                title,
+                                marks.map(|marks| (marks, live_marks::MarkedField::AsideCards)),
+                                card_box_inset(ui),
+                                |ui| {
+                                    skills_changed |= cards::card_columns(
+                                        ui,
+                                        version,
+                                        &mut skills.skills,
+                                        &labels::SKILLS,
+                                        aside,
+                                        PlayerField::Skill,
+                                    );
+                                },
+                            );
                         }
                         panel(
                             ui,
@@ -293,7 +300,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 /// `interact_size` height and sit it lower. One item of the column's
 /// vertical — the column's `PANEL_GAP` sits between panels, `spacing`
 /// (the pane's own) restored inside. `mark` is Live AATF's held check's
-/// with the panel's field: its cross sits after the header.
+/// with the panel's field: its mark stands before the header.
 fn panel(
     ui: &mut egui::Ui,
     spacing: egui::Vec2,
@@ -307,9 +314,9 @@ fn panel(
         ui.scope_builder(
             egui::UiBuilder::new().layout(egui::Layout::left_to_right(egui::Align::Min)),
             |ui| {
-                ui.strong(title);
+                let title = ui.strong(title);
                 if let Some((marks, field)) = mark {
-                    marks.cross(ui, field);
+                    marks.paint(ui, title.rect, field);
                 }
             },
         );
@@ -601,9 +608,9 @@ fn playable_positions(
 /// The 25 stats of `ABILITY_STATS` in one column in the game's order (the
 /// view's third column), each label beside its `DragValue` 40-99; a stat
 /// the version lacks shows `-`, disabled. `marks` is Live AATF's held
-/// check's: a stat a violation is about carries its cross just left of
-/// the box, in one column with the other stats' (the draft's `.ilabel`
-/// is right-aligned for it).
+/// check's: a stat a violation is about carries its mark before its
+/// label, over the gap before the column, in one column with the other
+/// stats' marks.
 fn ability_stats(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -618,10 +625,10 @@ fn ability_stats(
         .spacing(egui::vec2(info_strip::FIELD_ROW_GAP, spacing_y))
         .show(ui, |ui| {
             for (index, &label) in ABILITY_STATS.iter().enumerate() {
-                ui.label(title_case(label));
+                let label_response = ui.label(title_case(label));
                 match abilities[index] {
                     Some(value) => {
-                        let response = number_field(
+                        number_field(
                             ui,
                             session,
                             player_id,
@@ -632,20 +639,9 @@ fn ability_stats(
                         if let Some(marks) = marks {
                             let stat = aatf::Stat::try_from(label.to_owned())
                                 .expect("ABILITY_STATS are stat names");
-                            let cross = live_marks::cross_width(ui);
-                            // Just left of the box, painted into the
-                            // row's gap: the box keeps its x either way
-                            // (the Live AATF bullet's "the field keeps
-                            // its x").
                             marks.paint(
                                 ui,
-                                egui::Rect::from_min_size(
-                                    egui::pos2(
-                                        response.rect.min.x - live_marks::MARK_GAP - cross,
-                                        response.rect.min.y,
-                                    ),
-                                    egui::vec2(cross, response.rect.height()),
-                                ),
+                                label_response.rect,
                                 live_marks::MarkedField::Stat(stat),
                             );
                         }
@@ -671,8 +667,8 @@ fn ability_stats(
 /// lives in `cards` under the `BadgeKey`
 /// it was computed for — a `Session::revision` bump, a selection change
 /// or another rules file recomputes it, and any other frame draws the
-/// kept one. `marks` is Live AATF's held check's: the header's crosses
-/// sit after the title and after the badge.
+/// kept one. `marks` is Live AATF's held check's: the header's mark,
+/// the skills' and the card budget's in one, stands before the title.
 fn skills_panel(
     ui: &mut egui::Ui,
     (rules, aside): (Option<&ActiveRules>, Option<&[u8]>),
@@ -714,9 +710,9 @@ fn skills_panel(
         _ => None,
     };
     ui.horizontal_wrapped(|ui| {
-        ui.strong("Skills");
+        let title = ui.strong("Skills");
         if let Some(marks) = marks {
-            marks.cross(ui, live_marks::MarkedField::Skills);
+            marks.paint(ui, title.rect, live_marks::MarkedField::Skills);
         }
         if let Some(error) = &tier_error {
             ui.weak("Cards left:");
@@ -746,9 +742,6 @@ fn skills_panel(
                     ui.weak("Cards left:");
                 }
             }
-        }
-        if let Some(marks) = marks {
-            marks.cross(ui, live_marks::MarkedField::CardsLeft);
         }
     });
     // The title stands `TITLE_GAP` above the first card row's painted

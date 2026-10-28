@@ -1186,14 +1186,16 @@ fn frames_until(
 }
 
 /// Frames until `pick`'s check lands: `pending` empty and the result
-/// keyed to the session's current revision, `ids` and rules file
-/// (bounded, so a worker that never replies fails rather than hangs).
+/// keyed to the session's current revision, `ids`, rules file and
+/// `suggestions` (bounded, so a worker that never replies fails rather
+/// than hangs).
 fn checked(
     window: &mut Headless,
     view: &mut SaveView,
     rules: Option<&Path>,
     pick: impl Fn(&SaveView) -> &aatf_check::TeamsCheck,
     ids: &[u32],
+    suggestions: bool,
 ) -> Vec<accesskit::Node> {
     frames_until(
         window,
@@ -1204,7 +1206,10 @@ fn checked(
             let check = pick(view);
             check.pending.is_none()
                 && check.result.as_ref().is_some_and(|(key, _)| {
-                    key.revision == revision && key.ids == ids && key.rules_file.as_deref() == rules
+                    key.revision == revision
+                        && key.ids == ids
+                        && key.rules_file.as_deref() == rules
+                        && key.suggestions == suggestions
                 })
         },
         "the AATF check never returned",
@@ -1334,7 +1339,15 @@ fn live_checked(
     rules: Option<&Path>,
     ids: &[u32],
 ) -> Vec<accesskit::Node> {
-    checked(window, view, rules, |view| &view.live.check, ids)
+    let suggestions = view.live_suggestions;
+    checked(
+        window,
+        view,
+        rules,
+        |view| &view.live.check,
+        ids,
+        suggestions,
+    )
 }
 
 /// `checked` on the floating AATF panel's check.
@@ -1344,7 +1357,7 @@ fn panel_checked(
     rules: Option<&Path>,
     ids: &[u32],
 ) -> Vec<accesskit::Node> {
-    checked(window, view, rules, |view| &view.aatf.check, ids)
+    checked(window, view, rules, |view| &view.aatf.check, ids, true)
 }
 
 /// `node` clicked with `rules` as the active rules file.

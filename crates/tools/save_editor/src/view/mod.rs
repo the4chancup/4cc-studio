@@ -112,6 +112,10 @@ pub(crate) struct SaveView {
     /// from the `live_aatf` setting and writes the setting back when the
     /// toggle changes it; off in the tests' view-only frames.
     pub(crate) live_aatf: bool,
+    /// The Show suggestions checkbox beside the toggle, refreshed from and
+    /// written back to the `live_suggestions` setting as `live_aatf` is:
+    /// on, Live AATF's check asks for the suggestions too.
+    pub(crate) live_suggestions: bool,
     /// The Live AATF dock's state (the Live AATF bullet's docked panel);
     /// drawn while `live_aatf` and a save is open.
     live: live_aatf::LiveAatf,
@@ -308,6 +312,7 @@ impl SaveView {
             pick_folder_dialog: generate::default_pick_folder(),
             notice: None,
             live_aatf: false,
+            live_suggestions: false,
             live: live_aatf::LiveAatf::new(),
             aatf_copy_dialog: aatf_panel::default_copy_dialog(),
             export_dialog: comparator::default_export_dialog(),
@@ -671,6 +676,13 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
             .clicked()
         {
             view.live_aatf = !view.live_aatf;
+        }
+        // What the check asks for, so only while it runs.
+        if view.live_aatf {
+            ui.checkbox(&mut view.live_suggestions, "Show suggestions")
+                .on_hover_text(
+                    "Also list each player's unused allowances (cards, free tricks, weak foot...)",
+                );
         }
         // The save's path is in the window title (`title_detail`): beside the
         // unsaved mark it could wrap the toolbar onto a second row.
