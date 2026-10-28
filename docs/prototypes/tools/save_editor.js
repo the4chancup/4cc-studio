@@ -505,9 +505,9 @@ button.livebtn.on { background: var(--sel-bg); color: var(--sel-fg); }
 .xmark { display: inline-block; width: 11px; text-align: center; }
 .marked { position: relative; }
 .marked > .xmark { position: absolute; right: calc(100% + 2px); top: 50%; transform: translateY(-50%); }
-/* A stat's cross stands left of its label, 2 px from the text, so a column of stats' crosses
-   lines up whatever the labels' lengths; drawn over the cell's 6 px padding and the gap before
-   it, it moves no label. */
+/* A stat's mark stands at its label cell's left edge, the labels being right-aligned against
+   their numbers, so a column of stats' marks lines up whatever the labels' lengths; drawn
+   over the cell's 6 px padding and the gap before it, it moves no label. */
 [data-panel=ability-stats] td.ilabel { position: relative; }
 [data-panel=ability-stats] td.ilabel .xmark { position: absolute; right: calc(100% - 4px); top: 50%;
   transform: translateY(-50%); margin: 0; }
@@ -4254,8 +4254,8 @@ function abilityPanel(p) {
     const inp = h("input", { type: "number", "data-stat": s, value: p.stats[s] ?? "", min: 40, max: 99,
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v)) { set(p, x => x.stats[s], (x, v2) => x.stats[s] = v2, v, s); render(); } } });
-    // Live AATF's cross is drawn left of the label (the ability-stats rule),
-    // so the column's crosses line up.
+    // Live AATF's mark is drawn at the label cell's left edge (the ability-stats
+    // rule), so the column's marks line up.
     stats.append(h("tr", {}, h("td", { class: "ilabel" }, STAT_LABEL[s], fieldMark(p, "stat:" + s)),
       h("td", {}, gated(h("span", {}, inp), minV))));
   }

@@ -342,7 +342,9 @@ all side by side.
      version-gated card's disabled one as tall as an enabled one, so each row of the two
      columns shares one y (the draft's disabled cells were 2 points taller, and its second
      column ended 24 points lower).
-  3. **Ability stats**, ~25 in one column in the game's order, each label beside its number.
+  3. **Ability stats**, ~25 in one column in the game's order, each label beside its number,
+     right-aligned against it, so every label stands 12 points from its box however short
+     (left-aligned, a short one such as Jump stood far from its number).
   The three columns' titles share one line: Skills' row is as tall as its Cards left badge, so
   it starts 3 points above the columns' top, and the columns start 3 points lower than a bare
   title would. Every panel title of the view stands 6 points above the first thing drawn under
@@ -1301,8 +1303,9 @@ What this editor adds on top of the lib:
     drawn outside the label's box over the margin before it, so no label moves or wraps
     (after the label, the Registered position and `Weak foot: Usage` labels wrapped to a
     second line) and the marks of a column of labels line up whatever the labels' lengths:
-    General info's and Other stats' labels, an ability stat's (over the cell's padding), a
-    panel's header for a row about the panel as a whole (the positions grid, the skills, the
+    General info's and Other stats' labels; an ability stat's at its label cell's left edge
+    instead (over the cell's padding), the labels there being right-aligned, so the stats'
+    marks still share one column; a panel's header for a row about the panel as a whole (the positions grid, the skills, the
     Tricks or Free cards panel, the COM styles). The Skills header's Cards left badge has no
     mark of its own: its rows mark the Skills header, the group holding the card counts, in
     one mark with the skills' own (the highest severity of both, both in its tooltip), since

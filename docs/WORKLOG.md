@@ -4421,7 +4421,9 @@ briefs, review loops, gates and mutation runs as for any step.
       (`td.ilabel { text-align: right }`; found by ov2dg's sidekick, 2026-10-28), each
       stat's Live AATF mark then at the cell's left edge (the draft's `.xmark` `right:
       calc(100% - 4px)`), so the marks stay in one column; ov2cf paints it 2 before the
-      label's text, which lines up only while the labels are left-aligned
+      label's text, which lines up only while the labels are left-aligned. Planned (DECISIONS
+      "The ability stats' labels right-aligned, their marks at the cell's edge"); brief
+      `.tmp/0_0_1ov/brief_ov2i.md`, after ov7a lands (both touch `abilities.rs`)
     - [ ] ov2h the sixth rulings' looks (the maintainer, 2026-10-28; DECISIONS "The final
       pass's sixth rulings"; drafts done, `plans/save_editor.md` "Editing UI", "Tactics
       editor"): the drag handle 4 points from the row's edge and 4 before the place, in the

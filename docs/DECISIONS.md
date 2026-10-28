@@ -12980,3 +12980,14 @@ Why: the maintainer's yes (a clippy opt-out waits on it). A view calling egui's 
 would draw a checked box grey again, which no test of that view checks; the lint makes the gate
 catch it, where review alone would have to notice.
 Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row.
+
+## 2026-10-28 — save_editor — The ability stats' labels right-aligned, their marks at the cell's edge
+Decision: Ability stats' labels are right-aligned against their numbers, as the approved draft draws
+them (`td.ilabel`), and each stat's Live AATF mark stands at its label cell's left edge, 2 points
+before the label column, not 2 before the label's text.
+Why: the plan said only "each label beside its number"; the build left-aligned them, which left a
+short label (Jump) far from its box. The draft, approved whole, right-aligns them; a mark
+kept 2 before the text would then leave the column's marks at as many x's as there are label
+lengths, which the marks' one-column rule forbids.
+Plan: `plans/save_editor.md` "Editing UI" (the player view's Ability stats), "Configurable AATF
+rules" (Live AATF, the field a row is about).
