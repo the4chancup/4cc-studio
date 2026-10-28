@@ -244,18 +244,21 @@ all side by side.
   Each view's first line titles what it shows: the player view `<id> <name>` (`70101 QUADS
   ONLY`), the id in the weak colour, as the list draws ids, and the name with its colours; the
   team view the team's name with its colours.
-- **The player view**: three columns side by side, 30 points apart, then the Appearance
+- **The player view**: three columns side by side, 27 points apart, then the Appearance
   section, the whole centred between the player list and the window's right edge, so the gap
   after the list equals the margin after Ability stats (the room the fixed columns leave, split
-  evenly rather than all at the right). 30, not the 36 first drawn: the 12 points the gaps
-  give up move the first column 6 further from the list, room for Live AATF's marks left of
-  its labels, which at 36 were clipped at the pane's edge. At the 1280 × 780 window it fits the pane with no
+  evenly rather than all at the right). 27, not the 36 first drawn, with General info's 6-point
+  inset below: the first column starts 6 further from the list and its labels 12, room for
+  Live AATF's marks left of them, which at 36 were clipped at the pane's edge. At the 1280 × 780 window it fits the pane with no
   scrolling (the draft's check), and the pane is never narrower: a narrower window scales the
   whole UI down (`spec/core/gui.md` "Scaling with the width") and the player list keeps its 255
   points, so the columns sit side by side at every size, each panel in its design's columns,
   with no wrap to keep. Column by column, each panel's title over its content and the
   panels of one column 14 points apart:
-  1. **General info**, 344 points wide (the draft's: room for the longest pair label,
+  1. **General info**, its column 350 points wide: the title at the column's left edge, the
+     fields and their labels 6 in from it, as the ability stats stand in from theirs (their
+     cells' padding), so a panel's title heads its body; Other stats the same. The fields 344
+     points wide (the draft's: room for the longest pair label,
      "Injury resistance", beside its box on each half, and for the label-left rows, 339
      points in the body font; no wider, so the three columns stay on one row beside the
      255-point list), laid out as 4ccEditor's General Info:
@@ -327,7 +330,9 @@ all side by side.
 - **Name and Shirt.** Each label carries a count in brackets, `Name (28/46)`, that follows the
   field as typed: the name's bytes against the open save's field, the shirt name's letters
   against the 18 every version shows (PES 16's 16), so a longer name a PES 20/21 save holds
-  reads `(20/18)`. The
+  reads `(20/18)`. The count says how near its limit the field is, the limit being the smaller
+  of the shown maximum and the portable one below: in the weak grey (`#6e6e6e`, the player
+  list's roster places) under it, in the warning orange on it, in the error red past it. The
   field and its count carry one hover: past the portable limit below, its warning; else
   what counts (on PES 21 "Up to 61 bytes. A plain letter takes one byte, an accented letter two or
   more, and a colour code ten. A colour code is typed as \x11c and eight hex digits.", "Up to 18 letters. Western European accents (é, ü, ñ)
@@ -336,7 +341,7 @@ all side by side.
   Shirt fields follow `pes_savefile`'s portable limits (`spec/pes_savefile/operations.md` "Team TOML"):
   - **Name**: the open save's own field (61 bytes on PES 20/21, 46 before), so `(10/61)` on a PES
     21 save (a colour code counts ten, an accented letter two or more). A name past 46
-    bytes, which only a PES 20/21 save holds, draws its field and its count with an amber tint
+    bytes, which only a PES 20/21 save holds, draws its field with an amber tint, its count red,
     and the hover "In PES 2019 and older the game cuts this name to «…»", the name as
     `crop_player_text` would cut it. A tint of the theme's warning colour, not a pale yellow
     fill: the theme is dark and its text light, which a pale fill would wash out.
@@ -362,14 +367,13 @@ all side by side.
     stored and changes only when the member edits it: drawing a player never edits him (an egui
     number control clamps the value it draws unless told not to, which would mark him unsaved on
     sight).
-  - **The skills' Cards left badge** is the active ruleset's, the one `check-aatf` runs (the
-    `aatf_rules` setting's file, else the official one), and reads the player's own tier
-    alone (`Cards left for Gold: 6 of 8 cards`; `Cards left: No tier matches` when none
+  - **The skills' Cards left badge** is the active ruleset's, the toolbar's ruleset dropdown's
+    ("Configurable AATF rules"), and reads the player's own tier
+    alone (`Cards left for Gold: 6 of 8`, no `cards` after the count, which the label
+    before it already says; `Cards left: No tier matches` when none
     does, the reason after the colon): the tier his stats,
     registered position and height match under that ruleset, as `check-aatf` recognizes it,
-    not one badge per tier, which a member had to match to the player by eye. A file that
-    does not load draws no badge: the quick actions under the list say so, and the error's
-    text beside the Skills title pushed the column's header apart. A tier check that fails on
+    not one badge per tier, which a member had to match to the player by eye. A tier check that fails on
     the player shows `Tier check failed, click for more information.` in the error colour in
     the badge's place, its click opening a dialog titled `The tier check failed` with the
     error (the AATF check never runs the two functions the badge asks, so a member's edit that
@@ -1128,56 +1132,64 @@ What exists of this is in `spec/save_editor.md` "Configurable AATF rules".
 
 What this editor adds on top of the lib:
 
-- **The rules file's row.** The settings menu's Save editor section holds a path row, "AATF
-  rules file" (`aatf_rules`; `core/gui.md` "Settings menu"), and the "Aesthetics from exports"
-  checkbox ("Read-only aesthetics"). The row's Browse picks a `.4ccrules` file;
-  empty is the embedded official ruleset, and a relative path resolves in the data directory
-  as `check-aatf` resolves it. The window reads the setting every frame, so a commit reaches
-  the badges, the quick actions and the AATF panels on the next one.
+- **The ruleset dropdown.** A combo box on the toolbar, left of the Live AATF toggle, drawn
+  whether Live AATF is on or off: the ruleset drives the quick actions, the Cards left badge
+  and which skills the Tricks or Free cards panel holds, not only the check. It lists the
+  rulesets built into the binary (`spec/aatf_rules.md` "Embedded rulesets"), each by its
+  description alone, the file's `name` ("The ruleset schema": `/vg/ League 27`, not a file
+  name or a code), then under a separator the imported ones the same way, each row with an ×
+  at its right end (a frameless small button: egui's combo popup holds any widget), then
+  under another `Import rules file…`, a command rather than a value, so the wheel over the
+  closed combo (`core/gui.md` "The wheel over a value") steps the rulesets alone. The choice
+  is the `aatf_ruleset` setting (an embedded ruleset's file stem, `autumn26`, or an imported
+  copy's file name), remembered across restarts, and `check-aatf` without `--rules` reads it.
+  It replaces the `aatf_rules` path setting and its settings-menu row: one place to pick the
+  rules, the place a member switching between cups' rules is already looking (switching
+  through the settings row was awkward). The settings menu's Save editor section keeps the
+  "Aesthetics from exports" checkbox ("Read-only aesthetics").
+  - **Import rules file…** opens the file dialog on `.4ccrules` files and loads the pick as
+    `Rules::load` does (`spec/aatf_rules.md` "Loading and validation"). A file with findings is
+    refused, a dialog titled `The rules file has errors` listing them, each with its line and
+    column or key path, and nothing is copied: no file that does not load can become the
+    ruleset, so the quick actions and the badge never have a load error to show (the file is
+    fixed, in the Ruleset editor or by hand, and imported again). A clean file is copied into
+    the data folder's `rules/` under its file name and becomes the ruleset. The imported
+    rulesets are the `.4ccrules` files in that folder, read at start, no list kept beside
+    them (0.0.1's bundle ships its cups' rules there, `plans/core/development_plan.md`
+    "Development Plan"),
+    so moving or editing the original changes nothing until it is imported again. A
+    file whose description a built-in ruleset has is refused naming the clash (two rows would
+    read the same, and a built-in is not replaced); one whose file name or description an
+    earlier import has replaces that import once a confirmation naming it is accepted (a cup's
+    corrected rules keep their name). No Save a copy: writing a ruleset out is the Ruleset
+    editor's.
+  - **The ×** asks first (`Remove an imported ruleset?`, naming it, saying its copy is
+    deleted and the original stays), then deletes the copy; removing the ruleset in use falls
+    back to the first built-in one.
+  - **A choice that is gone**: a copy missing from `rules/` at start, or one that no longer
+    loads (edited by hand there), is left out of the list, and a setting naming it falls back
+    to the first built-in ruleset with a warning notice, `The AATF ruleset picked last is gone
+    from the data folder: <ruleset> is used instead.` (sample wording).
 - **Quick actions.** Under the player list, in two columns (the draft's `quickActions`):
   one button per
   tier of the active ruleset, the medal tiers on the left and the others on the right, each in
   its order ("Editing UI": Make Gold / Silver / Bronze, then Goalkeeper / Regular under the
   official one), each `aatf::apply_tier` on the selected player as one undoable edit;
-  then Set stats with its number, the Player menu's Set all stats in one click (40 to 99). A
-  rules file that does not load leaves Set stats alone under the list, and in the tier buttons'
-  place `The AATF rules file could not be loaded, click here for more information.` in the
-  error colour, wrapped across the panel's width, the list's scroll bar band included (two
-  lines at 255 points, as in the draft), its click opening a dialog
-  titled `The AATF rules file could not be loaded` with the lib's error, the file's path first.
-  Not the error itself in the list: about 160 characters, it took ten lines of the list's room
-  wrapped, and elided to one line its weak text read as a note, the failure a hover away. The
-  AATF panel and the Live AATF dock show the error whole in their lists; an `apply_tier` that
-  fails (`CheckError`) leaves the player as he was and shows the error in the refusal dialog.
-- **The AATF panel.** A floating window, "AATF violations (<ruleset>)", opened from the
-  toolbar's Panels menu ("AATF violations…"), as the draft shows (not also from a quick
-  action: the actions under the list are the edits a member repeats, and Live AATF is the
-  one-team check at hand). Results grouped per player; clicking a
-  violation selects the player (a `FieldedNotA` one his team's row, as Live AATF's does),
-  switching the team selector to his team unless it is at ALL
-  (the list must show the row it selects); team selection matches 4ccEditor (current team or a
-  multi-select list of the selector's teams). Current team is the selected row's team (a
-  player's or a team row's own; the filter lists other teams' rows than the selector's),
-  else the selector's team (with ALL picked and nothing selected, `No team is open.`), as Live
-  AATF reads it, not the first team the draft falls
-  back to: the panel checks the team the view is editing. A **Show suggestions**
-  toggle, off by default, lists unused allowances apart from errors and warnings (see
-  "Suggestions" in the AATF rules plan). The panel is `team_widgets`' violations list, under
-  "No violations." when every team's check succeeded and none has an error or a warning
-  (beside a failed team's line it would read as clearing that team). The teams are re-checked
-  when the save changes (an edit, undo, redo), the teams picked change or the rules file
-  does; until the new result arrives the previous one stays, marked as checking. A team whose
-  check fails (a script error) is a line naming the team and the error, the others still
-  listed, as `check-aatf` reports it. The check runs on the ruleset the window loaded; a rules
-  file that does not load leaves the load error in the list's place, whole: the panel has the
-  room the quick actions do not.
+  then Set stats with its number, the Player menu's Set all stats in one click (40 to 99). An
+  `apply_tier` that fails (`CheckError`) leaves the player as he was and shows the error in
+  the refusal dialog.
+- **No AATF panel.** Live AATF is the window's check: there is no floating "AATF
+  violations" window, no Panels menu entry for one, no Validate rules and no Save a copy. A
+  member checks the team they are making legal, which Live AATF does after every edit;
+  importing validates a rules file; the Ruleset editor writes a ruleset out. An organizer's
+  check of several teams or the whole save is `check-aatf`'s (`--teams`).
 - **Live AATF.** A toolbar toggle, off by default and remembered in the tool's settings
   (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
   docked at the bottom of the view lists the violations of the team the view is editing (the
   selected row's team, else the selector's), errors first, grouped per
-  player as the AATF panel does, the team's own under `Team-wide issues`, then, while **Show
-  suggestions** is on, under a `Suggestions` heading, the team's unused allowances as the
-  panel words them. Show suggestions is a checkbox right of the toggle, drawn only while Live
+  player under a line naming him, the team's own under `Team-wide issues`, then, while **Show
+  suggestions** is on, under a `Suggestions` heading, the team's unused allowances (`Unused`
+  rows, `only 4 of 5 cards used`). Show suggestions is a checkbox right of the toggle, drawn only while Live
   AATF is on, off by default and remembered (`live_suggestions`); on, the check asks for the
   suggestions, so a player whose list mark is blue has his reason in the dock, and off, no
   blue mark is drawn anywhere: a suggestion is no failure, and most players of a cup team
@@ -1196,10 +1208,7 @@ What this editor adds on top of the lib:
   as checking, until the new one arrives. The panel is the log panel widget's frame (its chevron collapses it to the header,
   its divider resizes it). At the bottom, not at a side: the player list holds the left and the
   views need their width (the player view's three columns), and a bottom strip is where the Team compiler's
-  log already sits. The floating AATF panel stays for several teams at once,
-  Validate rules and Save a copy; its whole-save check runs on a worker too, its teams in
-  parallel as `check-aatf` runs them (220 teams of a PES 2017 save in 2.0 s on 16 threads, 13.2
-  s on one). The toggle is drawn as a button, framed, its label a play sign (`▶`, U+25B6,
+  log already sits. The toggle is drawn as a button, framed, its label a play sign (`▶`, U+25B6,
   from the bundled emoji fonts the marks' glyphs come from) then `Live AATF` whether on or
   off, filled in the accent colour when on: the fill says on, and a check mark beside the
   label read as on even while it was off. egui's toggle value is a selectable label, which
@@ -1236,8 +1245,8 @@ What this editor adds on top of the lib:
     mark of its own: its rows mark the Skills header, the group holding the card counts, in
     one mark with the skills' own (the highest severity of both, both in its tooltip), since
     a mark in the row before the badge would shift the badge whenever it showed. The first
-    column's marks stand in the room the centred view leaves before it, which its 30-point
-    column gaps make wide enough ("The player view"). The fields: the Height
+    column's marks stand in the room the centred view leaves before it, which its 27-point
+    column gaps and General info's inset make wide enough ("The player view"). The fields: the Height
     box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields for
     theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
     `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and
@@ -1259,7 +1268,7 @@ What this editor adds on top of the lib:
     the `Weak foot: Usage` label for the weak foot (the pair's shared label), the Injury
     resistance field, the COM styles for `com`, the Tricks or Free cards panel for the tricks
     and the free cards, and the skills for any other card group. A field several rows are
-    about carries one mark, its tooltip their lines as the AATF panel shows them, one per
+    about carries one mark, its tooltip their lines as the dock shows them, one per
     line. One function maps a kind to its field, a match with an arm per kind (a new kind does
     not compile past it); the kinds about no single field (`NoTier`, `StatTotal`, `Special`,
     `Custom`, `RosterOrder`) mark the player's row alone, and the team-level ones the team's.
@@ -1268,15 +1277,6 @@ What this editor adds on top of the lib:
   - While a check is in flight the marks keep the previous result, as the list does. A check
     that fails (a script error in the rules file) clears every mark: the dock shows the
     failure, and a mark from an older result would claim a check that no longer ran.
-- **Validate rules.** A button in the AATF panel running the lib's load-time validation on
-  the active rules file (the `aatf_rules` setting's, or the embedded one when it is empty), its
-  findings listed one per line with their line and column or key path, or "There are no findings in <file>.". The
-  draft's own file combo stands for the settings row's Browse: a second file choice in the
-  panel would let it validate one file and check with another.
-- A **"save a copy"** action in the AATF panel writes the embedded official file
-  (`rulesets/autumn26.rhai` assembled with the current logic, the file `Rules::official()`
-  loads) out through a Save dialog, suggesting its file name.
-
 ---
 
 ## Build order and verification
@@ -1301,7 +1301,7 @@ dialogs are the same, function for function. The view builds up as:
    first `team_widgets` content
 2. The team's fields + batch operations + FPC
 3. Tactics editor in `team_widgets` (pitch canvas last — everything else works without it)
-4. Comparator and AATF panels (the transplant after Release 0.1.0)
+4. The Comparator panel and Live AATF (the transplant after Release 0.1.0)
 5. Interchange format dialogs (Team TOML, legacy import, Texport, settings.toml)
 
 Verification:
@@ -1446,27 +1446,24 @@ SE-GUI-14  GIVEN (after Release 0.1.0) the transplant panel, a donor save, one o
                 changing key old → new, and Apply writes exactly those keys, the files' other
                 keys and comments untouched; GIVEN a checked slot with no folder in the export
                 THEN the run is refused naming the slot, and nothing is written
-SE-GUI-15  GIVEN the PES 17 save and a ruleset with violations in the open team
-           WHEN the AATF panel is drawn
-           THEN the window's title names the ruleset (`AATF violations (<ruleset>)`), the
-                violations are grouped per player, a team-wide one under `the team`, which no
-                click follows, and clicking a player's one selects that player (a `FieldedNotA`
-                one his team's row, the named preset shown), clearing the
-                list's filter so his row shows (the team selector moving to his team unless at
-                ALL, which stays), Show suggestions is off and reveals the unused allowances
-                when on, Validate rules lists a broken rules file's findings under the file's
-                path, each with its line or key path (a file that loads: "There are no findings in <file>."), and
-                Save a copy, its dialog suggesting autumn26.4ccrules, writes the embedded official
-                ruleset out byte for byte and names the path it wrote; WHEN an edit changes
-                the team THEN the previous list stays, marked as checking, until the new one
-                replaces it, and an undo brings the old one back; WHEN another rules file is
-                chosen THEN its result replaces the previous ruleset's, and a rules file that
-                does not load leaves its load error in the list's place; GIVEN the PES 15 save
-                with a team with neither errors nor warnings THEN the panel reads "No
-                violations."; GIVEN Select teams with no team ticked THEN it reads `No teams
-                are picked.`, and with two ticked, one whose check fails, THEN that team is a line
-                naming it and the error, the other's violations are listed, and no "No
-                violations." is drawn
+SE-GUI-15  GIVEN the PES 17 save open and no ruleset imported
+           WHEN the toolbar's ruleset dropdown is opened
+           THEN it stands left of the Live AATF toggle, whether Live AATF is on or off, and
+                lists the built-in rulesets by their descriptions, then `Import rules file…`
+                under a separator, and the Panels menu holds no AATF entry; WHEN another
+                ruleset is picked THEN the quick actions, the Cards left badge and Live AATF's
+                list are that ruleset's on the next frame (SE-GUI-32 for the setting it
+                writes); WHEN the wheel turns over the closed dropdown THEN it
+                steps between the rulesets and never runs Import rules file…; WHEN Import rules
+                file… picks a file the loader refuses THEN a dialog lists its findings, each
+                with its line and column or key path, nothing is copied and the list is as it
+                was; WHEN it picks a clean file named like no built-in THEN the file is copied
+                into the data folder's `rules/`, listed under a separator with an × and picked;
+                WHEN a file of the same name is imported again THEN a confirmation names the
+                import it replaces, and once accepted one row remains; WHEN a file named like a
+                built-in is imported THEN it is refused naming the built-in; WHEN the imported
+                row's × is clicked and the confirmation accepted THEN its copy is deleted, its
+                row gone, and the ruleset is the first built-in
 SE-GUI-16  GIVEN the save open on a team
            WHEN Team TOML export, then import on another team with only the gameplay section
                 chosen, runs from the interchange dialog
@@ -1594,8 +1591,9 @@ SE-GUI-30  GIVEN the PES 17 save open on a team with violations under the active
                 selects that player (a `FieldedNotA` row his team's row, the named preset
                 shown on a formation carrying the cross); WHEN an edit fixes one of them THEN the list stays,
                 marked `checking…`, until the check returns, its row then gone and N one less,
-                and an undo brings it back; WHEN another team is opened, or another rules file
-                chosen, THEN the list and N are that team's, or that ruleset's; the panel checks
+                and an undo brings it back; WHEN another team is opened, or another ruleset
+                picked in the toolbar's dropdown, THEN the list and N are that team's, or that
+                ruleset's; the panel checks
                 the selected row's team (a player's or a team row's own, another team's
                 when the filter lists it), else the selector's (with ALL picked and nothing
                 selected: `No team is open.`);
@@ -1609,7 +1607,7 @@ SE-GUI-36  GIVEN SE-GUI-30's save and team, Live AATF on and its first check ret
            THEN the toolbar's Live AATF is a button whose label holds the play sign, the list
                 shows a cross beside the first player and a check mark beside the second; WHEN
                 the first is selected THEN a cross stands beside the Height box, its tooltip
-                the AATF panel's line for that violation, and no other field carries one; WHEN an edit fixes the
+                the dock's line for that violation, and no other field carries one; WHEN an edit fixes the
                 height and the check returns THEN both marks are a check mark and the cross
                 beside the box is gone; WHEN Live AATF is switched off THEN no mark is drawn
 SE-GUI-37  GIVEN the PES 17 save open on team 701
@@ -1628,11 +1626,13 @@ SE-GUI-37  GIVEN the PES 17 save open on team 701
 SE-GUI-38  GIVEN the save, player 70101's name set to the colour code `\x11cff0000ff` then `AB`,
                 and his shirt name to 20 letters, before it is opened
            WHEN he is selected
-           THEN the Name label reads "Name (12/61)" and the Shirt label "Shirt (20/18)", the shirt
-                field and its count tinted with the warning colour and its hover the "PES 2019
+           THEN the Name label reads "Name (12/61)", its count in the weak colour, and the Shirt
+                label "Shirt (20/18)", the shirt field tinted with the warning colour, its count
+                in the error colour, and its hover the "PES 2019
                 and older show 18 letters" sentence; WHEN a letter is deleted from the shirt
                 name THEN it reads "Shirt (19/18)", still tinted, and a letter typed after it is
-                refused; WHEN 47 bytes are typed as his name THEN "Name (47/61)", tinted, its hover
+                refused; WHEN another is deleted THEN "(18/18)" is in the warning colour and the
+                field untinted, and at "(17/18)" the count is in the weak colour; WHEN 47 bytes are typed as his name THEN "Name (47/61)", tinted, its hover
                 the cut PES 2019 makes; GIVEN the PES 16 save THEN a player's Shirt label's
                 limit is 16 and its Name label's 46
 SE-GUI-39  GIVEN the PES 21 save open on team 718 (/f/), its Tactics on preset 1, fluid
@@ -1656,15 +1656,14 @@ SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (glo
                 55 THEN Appearance reads "The default body is currently shown"; WHEN Ctrl+I, the Player menu's Toggle
                 FPC settings or the Team menu's Set and Remove FPC invisibility run THEN they
                 write and clear 60 and 12 the same, and a player holding 55 and 11 keeps them
-SE-GUI-32  GIVEN the settings menu open on the Save editor's section and the save open
-           WHEN a VTL11 rules file's path is typed in the AATF rules file row and Enter pressed
-           THEN the `aatf_rules` setting holds the path, the tool's other keys unchanged, and
-                the next frame's quick actions (under the player list) are VTL11's
-                (SE-GUI-09); WHEN the row is
-                emptied THEN they are the official ruleset's again; GIVEN a file that does not
-                load THEN the quick actions hold Set stats and `The AATF rules file could not
-                be loaded, click here for more information.` in the error colour, and no tier
-                button, and the Skills header no Cards left badge; WHEN that line is clicked
-                THEN a dialog shows the load error
+SE-GUI-32  GIVEN the save open and VTL11 picked in the toolbar's ruleset dropdown (SE-GUI-15)
+           WHEN the tool is closed and reopened
+           THEN the `aatf_ruleset` setting reads `vtl11`, the tool's other keys unchanged, the
+                dropdown shows VTL11's description and the quick actions are VTL11's
+                (SE-GUI-09), the settings menu's Save editor section holds no rules file row,
+                and `check-aatf` run without `--rules` checks against VTL11; GIVEN the setting
+                naming an imported file no longer in the data folder's `rules/` THEN at start
+                the ruleset is the first built-in one and a warning notice says so, and no
+                quick action, badge or list shows a load error
 ```
 

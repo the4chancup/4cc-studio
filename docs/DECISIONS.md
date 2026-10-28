@@ -12774,3 +12774,37 @@ sample's checked teams have an unused allowance (their free tricks), so unasked 
 tinted the whole list blue; the column move is the maintainer's pick over the pane fix.
 Plan: `plans/save_editor.md` "Editing UI", the player view bullet, and "Configurable AATF
 rules", the Live AATF bullet; worklog 0.0.1rn for the folder.
+
+## 2026-10-28 — save_editor — Live AATF replaces the AATF panel; the final pass's fourth rulings
+Decision: the floating AATF panel goes, with its Panels menu entry, Validate rules and Save a
+copy; Live AATF is the window's check. A ruleset dropdown on the toolbar, left of the Live
+AATF toggle and drawn whether it is on or off (the maintainer: the ruleset also sets which
+skills the Tricks panel holds), lists the built-in rulesets by description, then the imported
+ones under a separator, each with an × (a frameless button in egui's combo popup), then
+`Import rules file…`, a command the wheel never reaches. The choice is the `aatf_ruleset`
+setting, which replaces the `aatf_rules` path and its settings row; `check-aatf` without
+`--rules` reads it. Import loads the file as `Rules::load` does: findings refuse it and
+nothing is copied, so no file that does not load can be picked and the quick actions' load
+error line goes; a clean file is copied into the data folder's `rules/` and picked. Lead's
+choices, applied: the description is the schema's existing `name` (no new key; the files'
+names become descriptions such as `/vg/ League 27`); the imports are the `.4ccrules` files in
+`rules/`, read at start, so 0.0.1's bundled DBC7 and VGL27 files list as imports and its
+setting reads `dbc7.4ccrules`; a description a built-in has is refused, an earlier import's
+file name or description is replaced after a confirmation; the × asks first and deletes the
+copy, never the original; a removed or missing choice falls back to the first built-in with a
+warning notice. Also ruled: General info's and Other stats' fields stand 6 in from their
+titles as the ability stats do (the first column 350, the gaps 27, the view's width kept); the
+Cards left badge drops `cards` after the count; the Name and Shirt counts are weak under the
+limit, orange on it, red past it (the limit the smaller of the shown maximum and the portable
+one, so a PES 20/21 name turns orange at 46 of 61, where its tint already began).
+Why: a member checks the team they are making legal, which Live AATF does after every edit;
+the panel's several-teams and whole-save check is an organizer's, which `check-aatf --teams`
+keeps. Two places to pick rules (a settings row, a panel's combo) made switching awkward, and a
+broken file reached the view as a load error the quick actions had to show; refusing it at
+import keeps the error where the file is chosen. A list kept beside `rules/` would be a second
+truth to drift from the folder.
+Plan: `plans/save_editor.md` "Configurable AATF rules" (the ruleset dropdown, no AATF panel,
+the Live AATF bullet), "Editing UI" (the player view, Name and Shirt, the Cards left badge),
+"Acceptance" (SE-GUI-15 and SE-GUI-32 rewritten, SE-GUI-30/36/38);
+`plans/core/development_plan.md` "Development Plan" (0.0.1's bundle); `plans/aatf_rules.md`
+"The interpreter".

@@ -19,17 +19,25 @@ names where the question came from so the context can be read there.
   letter white), and the Live AATF gallery `.tmp/0_0_1ov/live/` (07 the list's orange and
   blue check marks, 08 and 10 every field mark left of its label, 12 the suggestions' blue
   marks, 13 the dock's Suggestions group; the earlier set kept in `live_before/`); the wheel
-  stepping a combo or a number box can be tried in the drafts themselves. Still to look at:
+  stepping a combo or a number box can be tried in the drafts themselves. Drafted from the
+  fourth rulings (DECISIONS "Live AATF replaces the AATF panel; the final pass's fourth
+  rulings"): `vet/ruleset_picker.png` (the dropdown open, left of Live AATF) and
+  `.tmp/0_0_1ov/ov7/imported_open.png` (an import under its line, with its ×; the import,
+  refusal, replace and remove dialogs can be walked in the drafts, the walkthrough's
+  SE-GUI-15), `vet/gen_indent.png` (the first column's fields 6 in; the badge without
+  `cards`), and the Name and Shirt counts' colours, tried by typing in the drafts. Still to look at:
   the windows' titles at 14 in white in the built app; the preview's icon where the lead
   cannot capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the
   head; Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's
   hash (0.0.1f2).
-- **The rulesets' descriptions** (worklog 0.0.1ov7): the ruleset dropdown names each embedded
-  file by a description alone, such as `/vg/ League 26`. Which description does each take,
-  and which files ship in the dropdown? The files today, by their `name`: Autumn 26, Spring
-  26, VGL27, VGL26, VTL11, VTL10, DBC7 (and the test rulesets Autumn 25, VGL25). The docs
-  name VGL the /vg/ League, VTL the /vt/ League and DBC Divegrass Before Christmas; the 4cc's
-  own name for its seasons ("4chan Cup Autumn 26"?) is not written anywhere.
+- **The rulesets' descriptions** (worklog 0.0.1ov7): the toolbar's ruleset dropdown names
+  each ruleset by its description alone, the file's `name`. The drafts show `Autumn 26`,
+  `Divegrass Before Christmas 7`, `/vt/ League 11` and, imported, `/vg/ League 27`: the
+  docs' names for the cups, and the 4cc's own season name kept as it is, since how the 4cc
+  names its seasons is written nowhere. Which description does each file take? And which
+  rulesets should be built into the binary (the drafts show Autumn 26, DBC7 and VTL11, the
+  ones they carry tiers for; today's files: Autumn 26, Spring 26, VGL27, VGL26, VTL11, VTL10,
+  DBC7)? 0.0.1's bundle ships DBC7 and VGL27 in `data/rules/`, where they list as imports.
 
 ## Cup practice
 

@@ -4369,38 +4369,41 @@ briefs, review loops, gates and mutation runs as for any step.
       (new in the symbols font: `theme.rs`'s symbol list test gains it) in an 11-point box,
       glyph centred; the check asked for the suggestions, the dock listing
       them under `Suggestions`, its header counting errors and warnings; a suggestion marking
-      its allowance's field; the player view's column gaps 30, not 36 (`COLUMN_GAP`); Show
+      its allowance's field; the player view's column gaps narrower (`COLUMN_GAP`, 27: ov2g); Show
       suggestions right of the toggle while it is on (`live_suggestions`), the suggestions
       asked for only then; `Team-wide issues` heading the team's own rows (DECISIONS "The
       final pass's third rulings")
+    - [ ] ov2g the fourth rulings' looks (the maintainer, 2026-10-28; DECISIONS "Live AATF
+      replaces the AATF panel; the final pass's fourth rulings"; drafts done,
+      `plans/save_editor.md` "Editing UI"): General info's and Other stats' fields 6 in from
+      their titles (the first column 350, the column gaps 27); the Cards left badge `Gold: 6 of
+      8`, no `cards`; the Name and Shirt counts `#6e6e6e` under the limit, the warning orange
+      on it, the error red past it (SE-GUI-38)
   - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
     the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/`; the first rulings
-    drafted and planned (ov2f; the dock's kind codes kept). Open for later (the maintainer,
-    2026-10-28: "we'll get there later"): a rules file that fails to load surfaced when it is
-    loaded, not only as a failed check; switching between rules files, which the maintainer
-    finds awkward (what to change still to be asked)
-  - [ ] ov7 Live AATF replaces the AATF panel (the maintainer, 2026-10-28: "Live AATF covers
-    it entirely if we do the following"), drafts, plan and DECISIONS before code:
-    - a rules file carries a human-readable description shown wherever the ruleset is named
-      (for example `/vg/ League 26` for VGL26); the schema's `name` already exists
-      (`spec/aatf_rules.md` "The ruleset schema", every file under `crates/libs/aatf/rulesets/`
-      sets it to a code such as `VGL26`): to settle whether `name` takes the description or a
-      new key is added, and the cups' full names (VTL's to look up, not to invent)
-    - a dropdown left of the Live AATF toggle picks the ruleset among the embedded files,
-      shown by description alone, its last choice importing a `.4ccrules` file: validated
-      (`Rules::load`) and, if clean, copied into the app's data folder and listed; a broken
-      file is refused, to be fixed in the Ruleset editor first; the choice is remembered
-      across restarts (it replaces the `aatf_rules` path setting and the Settings menu's
-      entry for it); an imported ruleset's row carries an × that removes it (egui's combo
-      list holds any widgets), the maintainer's idea of 2026-10-28; to settle: a confirmation,
-      the fallback when the active one is removed or its copy is missing, which embedded files
-      ship (the spec embeds only Autumn 26 in a shipped binary; the 0.0.1 bundle planned
-      `rules/dbc7.4ccrules` as its setting)
-    - no Save a copy of a ruleset (the Ruleset editor's job); the Panels menu's `AATF
-      violations…` and the floating AATF panel go (SE-GUI-15 and the panel's other scenarios
-      withdrawn or rewritten for Live AATF; its whole-save, several-teams check goes with it,
-      `check-aatf` keeping the command line's); the quick actions' load-error line goes with
-      broken files
+    drafted and planned (ov2f; the dock's kind codes kept). The two points left for later (a
+    rules file that fails to load surfaced when it is loaded; switching between rules files,
+    awkward) are answered by ov7: a file is validated when imported, and the toolbar's
+    dropdown switches
+  - [ ] ov7 Live AATF replaces the AATF panel (the maintainer, 2026-10-28; DECISIONS "Live AATF
+    replaces the AATF panel; the final pass's fourth rulings"; drafts and plan done,
+    `plans/save_editor.md` "Configurable AATF rules", SE-GUI-15 and SE-GUI-32 rewritten, their
+    tests rewritten with the code). Open: the descriptions and which rulesets are built in (QUESTIONS "The
+    rulesets' descriptions"). The app side, one brief:
+    - the toolbar's ruleset dropdown (`save_editor` view): built-ins by `name`, imports under
+      a separator with an ×, `Import rules file…` after another, outside the wheel's steps;
+      the import (`rfd` on `.4ccrules`, `Rules::load`, the refusal dialog with the findings,
+      the copy into the data folder's `rules/`, the built-in-name refusal, the replace
+      confirmation), the × with its confirmation, the fallback notice
+    - `aatf_ruleset` replacing `aatf_rules` (`settings.rs`, `lib.rs`'s settings row gone,
+      `session/rules.rs`, `cli.rs`'s `check-aatf` default)
+    - removed: `view/aatf_panel.rs` and its tests, the Panels menu's entry, the quick actions'
+      load error line and its dialog, the badge's no-file case
+    - `scripts/release.py`'s staged settings (`aatf_ruleset = "dbc7.4ccrules"`) and
+      `release_test.py`; the readme's VGL section (pick VGL27 in the dropdown)
+    - when built, the spec: `spec/aatf_rules.md` "The rules file" (the pickers), "Loading and
+      validation" (the setting), `spec/save_editor.md` "Configurable AATF rules" and "CLI"
+      (the setting `check-aatf` reads)
   - [ ] ov8 a violation's sentence suggests a valid value where the check can say it cheaply
     (the maintainer, 2026-10-28: "height 185 takes no bracket (175-184 are currently
     allowed)", warnings too where it applies): per kind, what the hint says and what it costs
@@ -4428,7 +4431,7 @@ briefs, review loops, gates and mutation runs as for any step.
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming
-  it as the Save editor's `aatf_rules` (how the recipe writes the file is this step's to settle,
+  it as the Save editor's `aatf_ruleset` (ov7; how the recipe writes the file is this step's to settle,
   a command the build already has preferred); the clean-machine check (`plans/core/development_plan.md`
   "Release 0.1.0"'s verification, both launchers included), the exe's size measured crate by
   crate with `cargo bloat` (35.3 MiB at 0.0.1d2, past the budget's "about 30 MB";

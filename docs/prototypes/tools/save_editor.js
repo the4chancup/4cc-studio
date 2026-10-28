@@ -5,7 +5,7 @@
 // info over Playable positions, the skills in two with the COM styles and
 // the non-ability values stacked under them, the ability stats - with the
 // Appearance as a collapsing section below, the team view with the Tactics,
-// the Comparator / AATF / aesthetics-patch panels, and the
+// Live AATF, the Comparator / aesthetics-patch panels, and the
 // interchange dialogs with settings.toml generation), drawn only with what
 // egui can draw (docs/plans/core/gui.md "Prototypes before implementation").
 // Its behaviour is faked with sample data transcribed from real saves and real
@@ -13,7 +13,7 @@
 // is the shell's, in the sidebar; a draft control also writes it.
 // There are no tabs: a player row shows the player's whole page at once, as
 // 4ccEditor lays it out, and a team row shows the team's fields and tactics.
-// The four panels live as floating windows (.panel = egui::Window over the
+// The three panels live as floating windows (.panel = egui::Window over the
 // central panel, non-modal, so a member fixes players while the results stay
 // open), opened from the toolbar's Panels menu; the plan's view/panels/ are
 // windows, not modal dialogs.
@@ -183,10 +183,6 @@ input[type=range]:focus { outline: none; }
 .plist #quick-actions .row { flex-wrap: nowrap; margin: 0; }
 .plist .qacol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .plist #quick-actions .row button { flex: 1; }
-/* The rules file's load error: a wrapped label in the error colour across
-   the list (two lines at 240 points), a click opening the whole error
-   (egui: a Label with Sense::click and the pointing-hand cursor). */
-.plist .qaerr { color: var(--error); cursor: pointer; margin-bottom: 4px; }
 .detail { flex: 1; min-width: 0; }
 /* The player view's fixed columns: General info over Playable positions,
    the skills in two with the COM styles and the non-ability values under
@@ -194,10 +190,14 @@ input[type=range]:focus { outline: none; }
    and even gaps; the whole view centred between the player list and the
    window's right edge, so the room the columns leave falls evenly on both
    sides (the gap after the list equals the margin after Ability stats). */
-.pcols { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; }
+.pcols { display: flex; gap: 27px; align-items: flex-start; flex-wrap: wrap; }
 #player-view { width: fit-content; margin: 0 auto; }
 .pcol { gap: 14px; }
-.pcol.first { width: 344px; }
+/* General info's and Other stats' fields stand 6 in from their titles, as
+   the ability stats' cell padding sets theirs: the column is 6 wider than
+   the fields' 344, the gaps 3 narrower, so the view keeps its width. */
+.pcol.first { width: 350px; }
+.pcols .gen { padding-left: 6px; }
 /* The three columns' titles on one line: Skills' row is as tall as its Cards
    left badge, which centres the title 3 points lower than a bare title, so
    the row starts 3 above the columns and the columns 3 below the view's top
@@ -234,7 +234,9 @@ input[type=range]:focus { outline: none; }
    halves are 28 apart. */
 .gen .pairs { display: grid; grid-template-columns: calc(109px + 12px + 54px) 1fr; column-gap: 28px; row-gap: 4px; }
 /* The count reads as part of its label, and keeps one width as it changes. */
-.gen .count { font-variant-numeric: tabular-nums; }
+.gen .count { font-variant-numeric: tabular-nums; color: #6e6e6e; }
+.gen .count.at { color: var(--warn); }
+.gen .count.over { color: var(--error); }
 /* The theme's warning colour mixed into the field's own, as the app draws
    it: a pale fill would wash the light text out. */
 .gen input.overlong { background: color-mix(in srgb, var(--extreme), var(--warn) 25%); }
@@ -2302,12 +2304,8 @@ const DIFF17 = [
 // every kind the runs report is among them); the other teams
 // stay in the multi-select, disabled.
 const AATF_ROWS = {"official": [["Error", 702, 70203, "Height", "height=185"], ["Error", 702, 70205, "Height", "height=185"], ["Error", 702, 70206, "Height", "height=185"], ["Error", 702, 70207, "Height", "height=185"], ["Error", 702, 0, "TierCount", "tier=gold;count=2;expected=1"], ["Error", 702, 0, "TierCount", "tier=bronze;count=0;expected=2"], ["Error", 702, 0, "TierCount", "tier=regular;count=19;expected=18"], ["Error", 702, 0, "BracketQuota", "system=red;bracket=tall;count=6;quota=10"], ["Error", 718, 71802, "Height", "height=185"], ["Error", 718, 71803, "Height", "height=185"], ["Error", 718, 71814, "Height", "height=185"], ["Error", 718, 71820, "Height", "height=185"], ["Error", 718, 71823, "Height", "height=185"], ["Error", 718, 0, "TierCount", "tier=gold;count=2;expected=1"], ["Error", 718, 0, "TierCount", "tier=bronze;count=0;expected=2"], ["Error", 718, 0, "TierCount", "tier=regular;count=19;expected=18"], ["Error", 718, 0, "BracketQuota", "system=red;bracket=tall;count=5;quota=10"]], "dbc7": [["Warning", 701, 70101, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70102, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70103, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70104, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70105, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70106, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70107, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70108, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70109, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70110, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70111, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70112, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70113, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70114, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70115, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70116, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70117, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70118, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70119, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70120, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70121, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70122, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Warning", 701, 70123, "Special", "label=The registered position must be rated A;text=The registered position is not rated A"], ["Error", 701, 0, "MedalSystem", "systems=[GGG, GGSS, GSSSS, SSSSSS]"], ["Error", 701, 0, "BracketQuota", "system=giga;bracket=tall;count=0;quota=7"], ["Warning", 702, 70220, "Stat", "stat=attacking_prowess;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=ball_control;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=dribbling;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=low_pass;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=lofted_pass;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=finishing;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=place_kicking;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=swerve;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=heading;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=defensive_prowess;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=ball_winning;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=kicking_power;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=speed;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=explosive_power;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=body_control;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=physical_contact;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=jump;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=goalkeeping;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=catching;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=clearing;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=reflexes;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=coverage;value=92;target=88;at_most=true"], ["Warning", 702, 70220, "Stat", "stat=stamina;value=92;target=88;at_most=true"], ["Error", 702, 70220, "StatTotal", "total=2116;limit=2024"], ["Warning", 702, 70221, "Stat", "stat=attacking_prowess;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=ball_control;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=dribbling;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=low_pass;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=lofted_pass;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=finishing;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=place_kicking;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=swerve;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=heading;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=defensive_prowess;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=ball_winning;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=kicking_power;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=speed;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=explosive_power;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=body_control;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=physical_contact;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=jump;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=goalkeeping;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=catching;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=clearing;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=reflexes;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=coverage;value=92;target=88;at_most=true"], ["Warning", 702, 70221, "Stat", "stat=stamina;value=92;target=88;at_most=true"], ["Error", 702, 70221, "StatTotal", "total=2116;limit=2024"], ["Error", 708, 70814, "Height", "height=167"], ["Error", 708, 0, "BracketQuota", "system=giga;bracket=manlet;count=5;quota=6"], ["Error", 708, 0, "ExtraHeight", "used=84;total=50"], ["Warning", 718, 71808, "Stat", "stat=attacking_prowess;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=ball_control;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=dribbling;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=low_pass;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=lofted_pass;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=finishing;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=place_kicking;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=swerve;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=heading;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=defensive_prowess;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=ball_winning;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=kicking_power;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=speed;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=explosive_power;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=body_control;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=physical_contact;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=jump;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=goalkeeping;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=catching;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=clearing;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=reflexes;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=coverage;value=92;target=88;at_most=true"], ["Warning", 718, 71808, "Stat", "stat=stamina;value=92;target=88;at_most=true"], ["Error", 718, 71808, "StatTotal", "total=2116;limit=2024"], ["Warning", 718, 71809, "Stat", "stat=attacking_prowess;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=ball_control;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=dribbling;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=low_pass;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=lofted_pass;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=finishing;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=place_kicking;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=swerve;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=heading;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=defensive_prowess;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=ball_winning;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=kicking_power;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=speed;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=explosive_power;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=body_control;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=physical_contact;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=jump;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=goalkeeping;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=catching;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=clearing;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=reflexes;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=coverage;value=92;target=88;at_most=true"], ["Warning", 718, 71809, "Stat", "stat=stamina;value=92;target=88;at_most=true"], ["Error", 718, 71809, "StatTotal", "total=2116;limit=2024"], ["Warning", 734, 73405, "Stat", "stat=attacking_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=ball_control;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=dribbling;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=low_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=lofted_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=finishing;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=place_kicking;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=swerve;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=heading;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=defensive_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=ball_winning;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=kicking_power;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=speed;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=explosive_power;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=body_control;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=physical_contact;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=jump;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=goalkeeping;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=catching;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=clearing;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=reflexes;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=coverage;value=82;target=77;at_most=true"], ["Warning", 734, 73405, "Stat", "stat=stamina;value=82;target=77;at_most=true"], ["Error", 734, 73405, "StatTotal", "total=1886;limit=1771"], ["Warning", 734, 73407, "Stat", "stat=attacking_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=ball_control;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=dribbling;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=low_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=lofted_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=finishing;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=place_kicking;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=swerve;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=heading;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=defensive_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=ball_winning;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=kicking_power;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=speed;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=explosive_power;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=body_control;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=physical_contact;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=jump;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=goalkeeping;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=catching;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=clearing;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=reflexes;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=coverage;value=82;target=77;at_most=true"], ["Warning", 734, 73407, "Stat", "stat=stamina;value=82;target=77;at_most=true"], ["Error", 734, 73407, "StatTotal", "total=1886;limit=1771"], ["Warning", 734, 73409, "Stat", "stat=attacking_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=ball_control;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=dribbling;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=low_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=lofted_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=finishing;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=place_kicking;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=swerve;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=heading;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=defensive_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=ball_winning;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=kicking_power;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=speed;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=explosive_power;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=body_control;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=physical_contact;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=jump;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=goalkeeping;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=catching;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=clearing;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=reflexes;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=coverage;value=82;target=77;at_most=true"], ["Warning", 734, 73409, "Stat", "stat=stamina;value=82;target=77;at_most=true"], ["Error", 734, 73409, "StatTotal", "total=1886;limit=1771"], ["Error", 734, 73409, "Height", "height=168"], ["Warning", 734, 73415, "Stat", "stat=attacking_prowess;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=ball_control;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=dribbling;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=low_pass;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=lofted_pass;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=finishing;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=place_kicking;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=swerve;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=heading;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=defensive_prowess;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=ball_winning;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=kicking_power;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=speed;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=explosive_power;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=body_control;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=physical_contact;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=jump;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=goalkeeping;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=catching;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=clearing;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=reflexes;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=coverage;value=92;target=88;at_most=true"], ["Warning", 734, 73415, "Stat", "stat=stamina;value=92;target=88;at_most=true"], ["Error", 734, 73415, "StatTotal", "total=2116;limit=2024"], ["Warning", 734, 73417, "Stat", "stat=attacking_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=ball_control;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=dribbling;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=low_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=lofted_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=finishing;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=place_kicking;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=swerve;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=heading;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=defensive_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=ball_winning;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=kicking_power;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=speed;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=explosive_power;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=body_control;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=physical_contact;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=jump;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=goalkeeping;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=catching;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=clearing;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=reflexes;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=coverage;value=82;target=77;at_most=true"], ["Warning", 734, 73417, "Stat", "stat=stamina;value=82;target=77;at_most=true"], ["Error", 734, 73417, "StatTotal", "total=1886;limit=1771"], ["Warning", 734, 73418, "Stat", "stat=attacking_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=ball_control;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=dribbling;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=low_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=lofted_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=finishing;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=place_kicking;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=swerve;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=heading;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=defensive_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=ball_winning;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=kicking_power;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=speed;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=explosive_power;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=body_control;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=physical_contact;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=jump;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=goalkeeping;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=catching;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=clearing;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=reflexes;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=coverage;value=82;target=77;at_most=true"], ["Warning", 734, 73418, "Stat", "stat=stamina;value=82;target=77;at_most=true"], ["Error", 734, 73418, "StatTotal", "total=1886;limit=1771"], ["Warning", 734, 73419, "Stat", "stat=attacking_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=ball_control;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=dribbling;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=low_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=lofted_pass;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=finishing;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=place_kicking;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=swerve;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=heading;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=defensive_prowess;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=ball_winning;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=kicking_power;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=speed;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=explosive_power;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=body_control;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=physical_contact;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=jump;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=goalkeeping;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=catching;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=clearing;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=reflexes;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=coverage;value=82;target=77;at_most=true"], ["Warning", 734, 73419, "Stat", "stat=stamina;value=82;target=77;at_most=true"], ["Error", 734, 73419, "StatTotal", "total=1886;limit=1771"], ["Warning", 734, 73423, "Stat", "stat=attacking_prowess;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=ball_control;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=dribbling;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=low_pass;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=lofted_pass;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=finishing;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=place_kicking;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=swerve;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=heading;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=defensive_prowess;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=ball_winning;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=kicking_power;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=speed;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=explosive_power;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=body_control;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=physical_contact;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=jump;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=goalkeeping;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=catching;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=clearing;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=reflexes;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=coverage;value=92;target=88;at_most=true"], ["Warning", 734, 73423, "Stat", "stat=stamina;value=92;target=88;at_most=true"], ["Error", 734, 73423, "StatTotal", "total=2116;limit=2024"], ["Error", 734, 0, "BracketQuota", "system=giga;bracket=manlet;count=5;quota=6"], ["Error", 772, 0, "MedalSystem", "systems=[GGG, GGSS, GSSSS, SSSSSS]"], ["Error", 772, 0, "ExtraHeight", "used=685;total=50"]]};
-const VALIDATE17 = {"dbc7_broken_syntax.rhai": "error: .tmp/8_5/samples/dbc7_broken_syntax.rhai: 7:5: Expecting ',' to separate the items of this object map literal (line 7, position 5)", "dbc7_broken_key.rhai": "error: .tmp/8_5/samples/dbc7_broken_key.rhai: stats.at_most[26]: unknown at_most target \"injury_resistence\""};
 const PATCH21 = { path: "C:\\Data\\4cc\\Cups\\Autumn26Q\\out\\aesthetics_patch.toml", "pes_version": 21, "teams": [{"id": 739, "name": "/o/", "players": [1, 9, 10, 11]}], rows: [[73901, "GoalCelebration1", "65", "0"], [73901, "GoalCelebration2", "65", "0"], [73909, "GoalCelebration1", "73", "0"], [73909, "GoalCelebration2", "105", "0"], [73909, "ArmMovementDribbling", "2", "0"], [73909, "ArmMovementRunning", "1", "0"], [73909, "CornerKickMotion", "1", "0"], [73909, "FreeKickMotion", "14", "0"], [73909, "HunchingDribbling", "2", "0"], [73909, "PenaltyKickMotion", "4", "0"], [73910, "GoalCelebration1", "81", "0"], [73910, "GoalCelebration2", "10", "0"], [73910, "ArmMovementDribbling", "3", "0"], [73910, "ArmMovementRunning", "2", "0"], [73910, "FreeKickMotion", "12", "0"], [73910, "HunchingDribbling", "1", "0"], [73910, "HunchingRunning", "1", "0"], [73910, "PenaltyKickMotion", "1", "0"], [73911, "GoalCelebration1", "90", "0"], [73911, "GoalCelebration2", "104", "0"], [73911, "ArmMovementDribbling", "1", "0"], [73911, "ArmMovementRunning", "2", "0"], [73911, "CornerKickMotion", "2", "0"], [73911, "FreeKickMotion", "8", "0"], [73911, "HunchingRunning", "1", "0"], [73911, "PenaltyKickMotion", "3", "0"]] };
 const TEAM17 = {"701": "/3/", "702": "/a/", "703": "/aco/", "704": "/adv/", "705": "/an/", "706": "/asp/", "707": "/b/", "708": "/bant/", "709": "/biz/", "710": "/c/", "711": "/cgl/", "712": "/ck/", "713": "/cm/", "714": "/co/", "715": "/d/", "716": "/diy/", "717": "/e/", "718": "/f/", "719": "/fa/", "720": "/fit/", "721": "/g/", "722": "/gd/", "723": "/gif/", "724": "/h/", "725": "/his/", "726": "/hm/", "727": "/hr/", "728": "/i/", "729": "/ic/", "730": "/int/", "731": "/jp/", "732": "/k/", "733": "/lgbt/", "734": "/lit/", "735": "/m/", "736": "/mlp/", "737": "/mu/", "738": "/n/", "739": "/o/", "740": "/out/", "741": "/p/", "742": "/po/", "743": "/pol/", "744": "/pw/", "745": "/r9k/", "746": "/s/", "747": "/s4s/", "748": "/sci/", "749": "/soc/", "750": "/sp/", "751": "/t/", "752": "/tg/", "753": "/toy/", "754": "/trv/", "755": "/tv/", "756": "/u/", "757": "/v/", "758": "/vg/", "759": "/vm/", "760": "/vmg/", "761": "/vp/", "762": "/vr/", "763": "/vrpg/", "764": "/vst/", "765": "/vt/", "766": "/w/", "767": "/wg/", "768": "/wsg/", "769": "/x/", "770": "/xs/", "771": "/y/", "772": "/4cccc/", "773": "Backup 2", "774": "Backup 3", "775": "Backup 4", "776": "Backup 5", "777": "Backup 6", "778": "Backup 7", "779": "Backup 8", "780": "Backup 9", "781": "VGL 1", "782": "VGL 2", "783": "VGL 3", "784": "VGL 4", "785": "VGL 5", "786": "VGL 6", "787": "VGL 7", "788": "VGL 8", "789": "VGL 9", "790": "VGL 10", "791": "VGL 11", "792": "VGL 12", "793": "VGL 13", "794": "VGL 14", "795": "VGL 15", "796": "VGL 16", "797": "VGL 17", "798": "VGL 18", "799": "VGL 19", "800": "VGL 20", "801": "VGL 21", "802": "VGL 22", "803": "VGL 23", "804": "VGL 24", "805": "VGL 25", "806": "VGL 26", "807": "VGL 27", "808": "VGL 28", "809": "VGL 29", "810": "VGL 30", "811": "VGL 31", "812": "VGL 32", "813": "VGL 33", "814": "VGL 34", "815": "VGL 35", "816": "VGL 36", "817": "VGL 37", "818": "VGL 38", "819": "VGL 39", "820": "VGL 40", "821": "VGL 41", "822": "VGL 42", "823": "VGL 43", "824": "VGL 44", "825": "VGL 45", "826": "VGL 46", "827": "VGL 47", "828": "VGL 48", "829": "VGL 49", "830": "VGL 50", "831": "VGL 51", "832": "VGL 52", "833": "VGL 53", "834": "VGL 54", "835": "VGL 55", "836": "VGL 56", "837": "VGL 57", "838": "VGL 58", "839": "VGL 59", "840": "VGL 60", "841": "VGL 61", "842": "VGL 62", "843": "VGL 63", "844": "VGL 64", "845": "VGL 65", "846": "VGL 66", "847": "VGL 67", "848": "VGL 68", "849": "VGL 69", "850": "VGL 70", "851": "/trash/", "852": "Invitational 2", "853": "Invitational 3", "854": "Invitational 4", "855": "Invitational 5", "856": "Invitational 6", "857": "Invitational 7", "858": "Invitational 8", "859": "Invitational 9", "860": "Invitational 10", "861": "Invitational 11", "862": "Invitational 12", "863": "Invitational 13", "864": "Invitational 14", "865": "Invitational 15", "866": "Invitational 16", "867": "Invitational 17", "868": "Invitational 18", "869": "Invitational 19", "870": "Invitational 20", "871": "Invitational 21", "872": "Invitational 22", "873": "Invitational 23", "874": "Invitational 24", "875": "Invitational 25", "876": "Invitational 26", "877": "Invitational 27", "878": "Invitational 28", "879": "Invitational 29", "880": "Invitational 30", "881": "Invitational 31", "882": "Invitational 32", "883": "Invitational 33", "884": "Invitational 34", "885": "Invitational 35", "886": "Invitational 36", "887": "Invitational 37", "888": "Invitational 38", "889": "Invitational 39", "890": "Invitational 40", "891": "Invitational 41", "892": "Invitational 42", "893": "Invitational 43", "894": "Invitational 44", "895": "Invitational 45", "896": "Invitational 46", "897": "Invitational 47", "898": "Invitational 48", "899": "Invitational 49", "900": "Invitational 50", "901": "Invitational 51", "902": "Invitational 52", "903": "Invitational 53", "904": "Invitational 54", "905": "Invitational 55", "906": "Invitational 56", "907": "Invitational 57", "908": "Invitational 58", "909": "Invitational 59", "910": "Invitational 60", "911": "Invitational 61", "912": "Invitational 62", "913": "Invitational 63", "914": "Invitational 64", "915": "Invitational 65", "916": "Invitational 66", "917": "Invitational 67", "918": "Invitational 68", "919": "Invitational 69", "920": "Invitational 70"};
-// The embedded official ruleset (autumn26.rhai), verbatim, for
-// the panel's Save a copy.
-const OFFICIAL_RHAI = "// 4cc Studio AATF ruleset. Open it in the Ruleset editor to change it.\nconst RULESET = #{\n    schema: 1,\n    name: \"Autumn 26\",\n    squad_size: 23,\n\n    stats: #{\n        rating: [\"dribbling\", \"goalkeeping\", \"finishing\", \"low_pass\", \"lofted_pass\", \"heading\",\n                 \"swerve\", \"catching\", \"clearing\", \"reflexes\", \"coverage\", \"body_control\",\n                 \"physical_contact\", \"kicking_power\", \"explosive_power\", \"ball_control\",\n                 \"ball_winning\", \"jump\", \"place_kicking\", \"stamina\", \"speed\", \"aggression\"],\n        at_most: [\"attacking_prowess\", \"defensive_prowess\",\n                  \"injury_resistance\", \"weak_foot_usage\", \"weak_foot_accuracy\"],\n    },\n\n    tiers: [\n        #{ id: \"gold\", label: \"Gold\", count: 1, rate: 99, form: 8, injury_resistance: 3,\n           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 6, free: #{ tricks: 3, com: 2 }, a_positions: 1 },\n        #{ id: \"silver\", label: \"Silver\", count: 2, rate: 92, form: 8, injury_resistance: 3,\n           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 5, free: #{ tricks: 3, com: 1 }, a_positions: 1 },\n        #{ id: \"bronze\", label: \"Bronze\", count: 2, rate: 86, form: 8, injury_resistance: 3,\n           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 4, free: #{ tricks: 3, com: 1 }, a_positions: 1 },\n        #{ id: \"goalkeeper\", label: \"Goalkeeper\", counts_as: \"regular\", when: #{ positions: [\"GK\"] },\n           rate: 77, form: 4, injury_resistance: 1,\n           weak_foot: #{ usage: 2, accuracy: 2 }, cards: 2, free: #{}, a_positions: 1 },\n        #{ id: \"regular\", label: \"Regular\", rate: 77, form: 4, injury_resistance: 1,\n           weak_foot: #{ usage: 2, accuracy: 2 }, cards: 3, free: #{ tricks: 2 }, a_positions: 1 },\n    ],\n\n    card_groups: #{\n        tricks: [\"scissors_feint\", \"flip_flap\", \"marseille_turn\", \"sombrero\", \"cut_behind_and_turn\",\n                 \"scotch_move\", \"rabona\", \"double_touch\", \"crossover_turn\", \"step_on_skill\",\n                 \"no_look_pass\"],\n    },\n\n    heights: #{\n        brackets: [\n            #{ id: \"manlet\", label: \"Manlet\", up_to: 175 },\n            #{ id: \"mid\",    label: \"Mid\",    up_to: 180 },\n            #{ id: \"tall\",   label: \"Tall\",   exactly: [185] },\n            #{ id: \"giant\",  label: \"Giant\",  exactly: [194] },\n            #{ id: \"giga\",   label: \"Giga\",   exactly: [199] },\n        ],\n        systems: [\n            #{ id: \"green\", label: \"Green\", any_player: #{ height_min: 194 },\n               quotas: #{ giga: 0, giant: 6, tall: 6, mid: 5, manlet: 6 } },\n            #{ id: \"red\", label: \"Red\",\n               quotas: #{ giga: 0, giant: 0, tall: 10, mid: 7, manlet: 6 } },\n        ],\n    },\n\n    universal: #{\n        registered_position_a: true, no_b_ratings: true, gk_not_second_a: true,\n        age: [15, 50], weight: #{ floor: 30, below: 129, above: 81 },\n        captain_required: true, min_goalkeepers: 1, max_skill_cards: 10,\n    },\n\n    specials: [\n        #{ label: \"Malicia is a free card\", then: #{ free_cards: [\"malicia\"] } },\n        #{ label: \"The captain's Captaincy card is free\", when: #{ captain: true },\n           then: #{ free_cards: [\"captaincy\"] } },\n        #{ label: \"Medals cannot be goalkeepers\",\n           when: #{ tiers: [\"gold\", \"silver\", \"bronze\"], positions: [\"GK\"] },\n           then: #{ forbid: \"Medals cannot play as GK\" } },\n        #{ label: \"Goalkeepers at 189 count as tall\",\n           when: #{ positions: [\"GK\"], height_min: 189, height_max: 189 },\n           then: #{ height_allowance: 4 } },\n        #{ label: \"Tall goalkeepers are 189\",\n           when: #{ positions: [\"GK\"], height_min: 181, height_max: 188 },\n           then: #{ forbid: \"GKs in this bracket must be 189cm\" } },\n        #{ label: \"Goalkeepers below giant\", severity: \"warning\",\n           when: #{ positions: [\"GK\"], height_min: 194 },\n           then: #{ forbid: \"GK heights cannot be 194cm or more\" } },\n        #{ label: \"Gold below giant\", severity: \"warning\",\n           when: #{ tiers: [\"gold\"], height_min: 194 },\n           then: #{ forbid: \"Gold heights cannot be 194cm or more\" } },\n        #{ label: \"Red CBs up to 189\",\n           when: #{ tiers: [\"regular\"], systems: [\"red\"], positions: [\"CB\"], fielded_only_at: \"CB\" },\n           then: #{ height_allowance: 4 } },\n        #{ label: \"Manlets\", when: #{ brackets: [\"manlet\"] },\n           then: #{ cards: 1, a_positions: 1, weak_foot: #{ usage: 4, accuracy: 4 } } },\n        #{ label: \"Red manlet bonus\", when: #{ systems: [\"red\"], height_max: 175 },\n           then: #{ stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } } } },\n        #{ label: \"Green silver giants\", when: #{ tiers: [\"silver\"], systems: [\"green\"], height_min: 194 },\n           then: #{ stat_bonus: #{ all: -3 } } },\n        #{ label: \"Medals: a free A position or a free COM style\",\n           when: #{ tiers: [\"gold\", \"silver\", \"bronze\"] },\n           then: #{ choice: [#{ free: #{ com: 1 } }, #{ a_positions: 1 }] } },\n    ],\n\n    suggestions: [\"cards\", \"tricks\", \"com\", \"weak_foot\", \"injury_resistance\"],\n};\n";
 //__PANEL_DATA_END__
 
 //__INTERCHANGE_DATA_BEGIN__
@@ -2479,9 +2477,11 @@ const snapXY = (px, py) => [
 // Set stats (SE-GUI-09). values is the draft's fake of apply_tier: the rating
 // stats go to rate, `stats` overrides them, form/injury_resistance/weak_foot
 // are the game's numbers (stored -1), name_color rewrites the name's leading
-// colour code.
+// colour code. label is the file's `name`, the description the ruleset
+// dropdown shows (sample wording: every label but Autumn 26's, which waits on
+// the maintainer's names for the files).
 const RULESETS = {
-  official: { label: "Official (Autumn 26, built in)", tiers: [
+  official: { label: "Autumn 26", tiers: [
     { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
       cards: 6, a_positions: 1, free: { tricks: 3, com: 2 } },
     { id: "silver", label: "Silver", rate: 92, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
@@ -2498,7 +2498,7 @@ const RULESETS = {
       "sombrero", "cut_behind_and_turn", "scotch_move", "rabona", "double_touch",
       "crossover_turn", "step_on_skill", "no_look_pass"] },
     free_specials: [ { card: "malicia" }, { card: "captaincy", captain: true } ] },
-  vtl11: { label: "VTL11", tiers: [
+  vtl11: { label: "/vt/ League 11", tiers: [
     { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
       stats: { place_kicking: 94, defensive_prowess: 65, ball_winning: 94, speed: 94, physical_contact: 94, stamina: 94 },
       name_color: "cc9900ff",
@@ -2531,7 +2531,7 @@ const RULESETS = {
       { card: "weighted_pass", tiers: ["regular", "buffed"] },
       { card: "pinpoint_crossing", tiers: ["regular", "buffed"] },
       { card: "captaincy", captain: true }, { card: "long_ranger" } ] },
-  dbc7: { label: "DBC7", tiers: [
+  dbc7: { label: "Divegrass Before Christmas 7", tiers: [
     { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
       cards: 48, a_positions: 13, free: {} },
     { id: "silver", label: "Silver", rate: 88, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
@@ -2540,7 +2540,38 @@ const RULESETS = {
       cards: 48, a_positions: 13, free: {} },
   ],
     card_groups: {}, free_specials: [] },
+  // Not built in here: the draft's clean file to import (rulesets/vgl27.rhai).
+  vgl27: { label: "/vg/ League 27", tiers: [
+    { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 2, weak_foot: { usage: 4, accuracy: 4 },
+      when: { not_positions: ["GK"] }, cards: 6, a_positions: 2, free: { tricks: 12, com: 1 } },
+    { id: "silver", label: "Silver", rate: 94, form: 8, injury_resistance: 2, weak_foot: { usage: 4, accuracy: 4 },
+      when: { not_positions: ["GK"] }, cards: 5, a_positions: 2, free: { tricks: 12, com: 1 } },
+    { id: "bronze", label: "Bronze", rate: 89, form: 8, injury_resistance: 2, weak_foot: { usage: 4, accuracy: 4 },
+      when: { not_positions: ["GK"] }, cards: 5, a_positions: 2, free: { tricks: 12, com: 1 } },
+    { id: "goalkeeper", label: "Goalkeeper", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 2, accuracy: 2 },
+      when: { positions: ["GK"] }, cards: 4, a_positions: 1, free: { tricks: 12 } },
+    { id: "regular", label: "Regular", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 2, accuracy: 2 },
+      when: { not_positions: ["GK"] }, cards: 4, a_positions: 2, free: { tricks: 12 } },
+  ],
+    card_groups: { tricks: ["scissors_feint", "double_touch", "flip_flap", "marseille_turn",
+      "sombrero", "crossover_turn", "cut_behind_and_turn", "scotch_move",
+      "step_on_skill", "rabona", "no_look_pass", "malicia"] },
+    free_specials: [ { card: "captaincy", captain: true } ] },
 };
+// The rulesets built into the binary, in the dropdown's order (which ones
+// ship waits on the maintainer).
+const EMBEDDED = ["official", "dbc7", "vtl11"];
+// What the draft's stand-in for the file picker offers to Import rules file:
+// a clean file, one named like a built-in ruleset, and two the loader refuses
+// (8.5's broken samples, their findings as Rules::load reports them).
+const IMPORT_SAMPLES = [
+  { file: "vgl27.4ccrules", key: "vgl27" },
+  { file: "autumn26.4ccrules", key: "official" },
+  { file: "dbc7_broken_syntax.4ccrules",
+    findings: ["7:5: Expecting ',' to separate the items of this object map literal (line 7, position 5)"] },
+  { file: "dbc7_broken_key.4ccrules",
+    findings: ["stats.at_most[26]: unknown at_most target \"injury_resistence\""] },
+];
 // The rating stats apply_tier moves to the tier's rate (RULESET.stats.rating).
 const RATING_STATS = ["dribbling", "goalkeeping", "finishing", "low_pass", "lofted_pass",
   "heading", "swerve", "catching", "clearing", "reflexes", "coverage", "body_control",
@@ -2591,19 +2622,17 @@ function cardLimits(p, t, tier) {
 // stats, registered position and height read as, per recognizedTier), the
 // error colour when overdrawn. sample wording: the tooltip.
 function cardBadges(p, t) {
-  // A rules file that does not load: no badge (the quick actions under the
-  // list say so, and the error's text would push the header's row apart).
-  if (D.rulesBroken) return null;
   const tier = recognizedTier(p, RULESETS[D.ruleset]);
   return h("span", { class: "row", id: "card-badges",
       title: "Cards left under the player's own tier of the active ruleset (paid cards vs its limit)" },
-    // "Cards left for Regular: 0 of 3 cards"; a player no tier matches
-    // reads "Cards left:" then why.
+    // "Cards left for Regular: 0 of 3" (no "cards" after the count: the
+    // label before it says so); a player no tier matches reads "Cards
+    // left:" then why.
     weak(tier ? "Cards left for" : "Cards left:"),
     tier ? (() => { const c = cardLimits(p, t, tier);
       return h("span", { class: "badge" + (c.left < 0 ? " over" : ""),
         title: tier.label + ": " + c.paid + " paid of " + c.limit },
-        tier.label + ": " + c.left + " of " + c.limit + " cards"); })()
+        tier.label + ": " + c.left + " of " + c.limit); })()
     : weak("No tier matches"));
 }
 
@@ -2633,11 +2662,22 @@ const D = { sample: "pes17",
   set selectorVersion(v) { setPesVersion(v); },
   gameRunning: false,
   appearanceIds: "all_set", ruleset: "official", pickerSugg: false, liveTeamRows: true,
-  rulesBroken: false,
   portraits: true,
   // "Aesthetics from exports", the settings menu's checkbox the draft has
   // no menu for, so it sits among the draft controls (SE-GUI-35's GIVEN).
   aesFromExports: false };
+// The ruleset dropdown's choice, D.ruleset, and the imported copies outlive a
+// reload, as the `aatf_ruleset` setting and the data folder's rules/ do:
+// localStorage stands for both. A choice whose copy is gone falls back to the
+// first built-in ruleset, which a notice says once the view shows.
+const IMPORTED = JSON.parse(localStorage.getItem("save_editor.aatf_imports") || "[]");
+const rulesetAvailable = k => EMBEDDED.includes(k) || IMPORTED.some(i => i.key === k);
+let rulesetFellBack = false;
+{
+  const k = localStorage.getItem("save_editor.aatf_ruleset");
+  if (k && rulesetAvailable(k)) D.ruleset = k;
+  else if (k) rulesetFellBack = true;
+}
 const S = { save: null, baseline: null, teamSel: "all", filter: "",
   // The selection: { team, slot } for a player row, { team } for a team row,
   // null for none (the view then shows the selector's first player).
@@ -2742,7 +2782,6 @@ function openSave(key, path) {
   S.picker = null; S.changesPop = false;
   S.panel = null;
   S.cmp = { second: null, refused: null, scope: "all", team: "all" };
-  S.aatf = { mode: "current", teams: {}, sugg: false, validate: null, savedCopy: null };
   S.pat = { loaded: false, refused: null, applied: false };
   // The interchange panel: the picked file, the section choices, the last
   // apply's note, the session's Texport export (a team snapshot the import
@@ -3068,11 +3107,6 @@ function draftControls() {
         ["mixed", "stripped, three restored"],
         ["stripped", "all stripped"]], D.appearanceIds,
         v => { D.appearanceIds = v; if (S.save && version() >= 19) requestOpen("pes21"); })),
-    h("label", { class: "cb", title: "SE-GUI-09" }, "AATF ruleset",
-      combo(Object.entries(RULESETS).map(([k, r]) => [k, r.label]), D.ruleset,
-        v => D.ruleset = v)),
-    h("span", { title: "SE-GUI-09's file that does not load: the quick actions hold Set stats and the error's one line, the Cards left badge the whole error" },
-      cb("The AATF rules file does not load", D.rulesBroken, v => { D.rulesBroken = v; render(); })),
     h("span", { title: "SE-GUI-35: the settings menu's checkbox (the draft has no settings menu); on when the cup's looks are compiled from exports: the save's aesthetics are then read-only, behind Edit aesthetics anyway in the Appearance section" },
       cb("Aesthetics from exports", D.aesFromExports, v => { D.aesFromExports = v; render(); })),
     h("span", { title: "SE-GUI-30: the draft recomputes player rows only; off drops the team's rows so the empty state can be reached" },
@@ -3105,7 +3139,7 @@ const WALK = [
   ["SE-GUI-06", "PES 17 sample: star and playing attitude in the Appearance section's Cutscenes group and stronger hand in General info sit disabled in place, tooltips naming PES 19+/20+; PES 21: enabled"],
   ["SE-GUI-07", "the Appearance section below the Cutscenes group is disabled under the ownership line; the switch unlocks it; the switch is off on every open"],
   ["SE-GUI-08", "drag a list row onto another: the dragged player's name, stats and look land on the target slot, those between shift one along, while every slot keeps its id, shirt number and captain mark; the save is marked unsaved"],
-  ["SE-GUI-09", "the quick actions under the player list follow the ruleset control: Gold/Silver/Bronze/Goalkeeper/Regular under official, VTL11 and DBC7 their own"],
+  ["SE-GUI-09", "the quick actions under the player list follow the toolbar's ruleset dropdown: Gold/Silver/Bronze/Goalkeeper/Regular under Autumn 26, /vt/ League 11 and Divegrass Before Christmas 7 their own"],
   ["SE-GUI-11", "switch Edit aesthetics anyway on; the Appearance section's FPC group: Hide default body (or Ctrl+I) gives the hide preset and reads 'The default body is currently hidden', Show default body (or Ctrl+I again) the show preset; a player with his own boots ID keeps it"],
   ["SE-GUI-35", "the 'Aesthetics from exports' draft control off (the default): the Appearance section draws no ownership line and no switch and every path edits; on, the lock draws"],
   ["SE-GUI-12", "a team row's view, the tactics: drag a pitch marker (it snaps to the stored grid, undoable), drop a bench row on a marker to swap, arm a set-piece chip and click a marker, arm Join attack and click two markers"],
@@ -3116,8 +3150,8 @@ const WALK = [
   ["SE-GUI-26", "the Open menu: the discovered saves with version (and account folder from 19), the session's recents, then the picker; Save as keeps the replaced file as .bak"],
   ["SE-GUI-28", "PES selector at 2019 with the PES 21 sample open: the warning names both; the save keeps its version"],
   ["SE-GUI-13", "Panels, Comparator: pick the PES 21 sample (refused), then Autumn24Q; the toggles and the team filter narrow the rows, Export writes their report lines, a row click selects the player"],
-  ["SE-GUI-15", "the Panels menu's AATF violations: violations grouped per player, a click selects him; Show suggestions (official), Validate rules on the broken files, Save a copy; Select teams ticks e.g. 708 for its Height, BracketQuota and ExtraHeight"],
-  ["SE-GUI-30", "PES 17 sample, team 718, the DBC7 ruleset: switch Live AATF on in the toolbar; the bottom panel lists the team's issues, errors first, under 'N issues · DBC7'. Lower a stat over its maximum (a Stat row) to its target: the list dims, marked checking, then the row is gone and N is one less; Undo brings it back. Under the official ruleset on 718, untick the team-rows control and set each Height row's player to 180: '... passes ... with no issues'. Reload the page: Live AATF is still on"],
+  ["SE-GUI-15", "the toolbar's ruleset dropdown, left of Live AATF: pick Divegrass Before Christmas 7 (the quick actions and the card counts follow); Import rules file...: the broken samples are refused with their errors, autumn26.4ccrules is refused for a built-in's name, vgl27.4ccrules joins the list under a line and becomes the ruleset; import it again: a confirmation replaces it; its × asks, then removes it and falls back to Autumn 26; reload the page: the choice and the imports stay"],
+  ["SE-GUI-30", "PES 17 sample, team 718, the Divegrass Before Christmas 7 ruleset: switch Live AATF on in the toolbar; the bottom panel lists the team's issues, errors first, under 'N issues · Divegrass Before Christmas 7'. Lower a stat over its maximum (a Stat row) to its target: the list dims, marked checking, then the row is gone and N is one less; Undo brings it back. Under the official ruleset on 718, untick the team-rows control and set each Height row's player to 180: '... passes ... with no issues'. Reload the page: Live AATF is still on"],
   ["SE-GUI-18", "Panels, Apply aesthetics patch: on the PES 21 sample the preview lists the changed players, Apply is one edit; on the PES 17 sample the same patch is refused"],
   ["SE-GUI-16", "Panels, Team file interchange: Team TOML export writes the team's file; pick 701.toml (PES 21) for the warning list, a 718 or 722 one for the refusals; Apply is one undoable edit"],
   ["SE-GUI-17", "same panel: the .4ccs files pair records with the rostered players; the .4cct imports tactics; on PES 21 Texport export writes a .ted the picker then reads back; on PES 17 it is disabled"],
@@ -3164,7 +3198,7 @@ function renderToolbar() {
   return h("div", { class: "toolbar", "data-panel": "toolbar" },
     openMenu(), saveBtn, button("Save as", saveAs), playerMenu(), teamMenu(), databaseMenu(),
     panelsMenu(), undoBtn, redoBtn,
-    liveButton(), LIVE.on ? suggestionsToggle() : null,
+    rulesetPicker(), liveButton(), LIVE.on ? suggestionsToggle() : null,
     // The save's path is in the window title (`titleDetail`): beside the
     // unsaved mark it could wrap the toolbar onto a second row.
     dirty() ? unsavedLabel() : null);
@@ -3726,14 +3760,20 @@ const chunk = (arr, n) =>
 // which only a PES 20/21 save carries) the count and the field are tinted:
 // a warning, never a block on Save.
 const PORTABLE_NAME = 46, PORTABLE_SHIRT = 18;
+// The count's colour says how near the limit is, the smaller of the shown
+// maximum and what every version holds: weak under it, the warning orange on
+// it, the error red past it.
 const textCount = (kind, raw) => {
   const v = version();
-  return kind === "name"
-    ? { n: utf8Len(raw), max: NAME_MAX(v), over: utf8Len(raw) > PORTABLE_NAME,
+  const c = kind === "name"
+    ? { n: utf8Len(raw), max: NAME_MAX(v), portable: PORTABLE_NAME,
         tip: "Up to " + NAME_MAX(v) + " bytes. A plain letter takes one byte, an accented"
           + " letter two or more, and a colour code ten" }
-    : { n: [...raw].length, max: v === 16 ? 16 : PORTABLE_SHIRT, over: [...raw].length > PORTABLE_SHIRT,
+    : { n: [...raw].length, max: v === 16 ? 16 : PORTABLE_SHIRT, portable: PORTABLE_SHIRT,
         tip: "PES 2019 and older show 18 letters of a shirt name (PES 2016 shows 16)" };
+  c.over = c.n > c.portable;
+  c.at = c.n === Math.min(c.max, c.portable);
+  return c;
 };
 // The General info column, laid out as 4ccEditor's General Info
 // (save_editor.md "Editing UI"): the name's and the shirt name's labels,
@@ -3753,7 +3793,8 @@ function generalPanel(p, team) {
     const cnt = h("span", { class: "count" });
     const show = r => { const c = textCount(kind, r);
       cnt.textContent = "(" + c.n + "/" + c.max + ")"; cnt.title = c.tip;
-      cnt.classList.toggle("warn", c.over); el.classList.toggle("overlong", c.over); };
+      cnt.classList.toggle("at", c.at); cnt.classList.toggle("over", c.over);
+      el.classList.toggle("overlong", c.over); };
     el.addEventListener("input", () => show(toRaw(el.value)));
     show(raw);
     return [markedLabel(h("span", { class: "gl" }, label + " ", cnt), mark), el];
@@ -3820,36 +3861,11 @@ function playerHeader(p) {
   return h("div", { class: "pheader strong", style: "margin-bottom:4px" },
     h("span", { class: "weak" }, String(p.id)), " ", ...nameSpans(p.name));
 }
-// A rules file's load error as the lib reports it, the file's path first: the
-// dialog behind the quick actions' error line shows it whole. sample wording:
-// the folder in the path.
-const RULES_LOAD_ERROR = "C:\\Games\\4cc Studio\\rules\\dbc7.rhai: 1:1: 'this' can only be used"
-  + " in functions (line 1, position 1)";
-function dlgRulesError() {
-  dlg("rules-error", "The AATF rules file could not be loaded",
-    h("p", { class: "mono" }, RULES_LOAD_ERROR), [button("OK", closeWindow)]);
-}
 // One "Make X" per tier of the active ruleset in its order, plus Set stats
 // (SE-GUI-09), in two columns under the player list. They act on the selected
 // player, so a team row leaves them disabled with the reason on hover.
 function quickActions() {
   const p = curPlayer(), off = isTeamSel();
-  // A rules file that does not load: no tier buttons, Set stats alone, and
-  // above it a line in the error colour, wrapped across the list, whose
-  // click opens the whole error (about 160 characters, the file's path
-  // first: wrapped in the list it took ten lines).
-  if (D.rulesBroken) {
-    const input = h("input", { type: "number", id: "set-stats", value: 77, min: 0, max: 99,
-      disabled: off, title: off ? "The make buttons act on a player: pick a player row" : null });
-    return h("div", { id: "quick-actions", "data-panel": "quick-actions" },
-      h("div", { class: "qaerr", onclick: dlgRulesError },
-        "The AATF rules file could not be loaded, click here for more information."),
-      h("div", { class: "qagrid" }, h("div", { class: "row" },
-        button("Set stats", () => {
-          const n = parseInt(input.value, 10);
-          if (!Number.isNaN(n)) { setAllStats(p, n); render(); }
-        }, { disabled: off }), input)));
-  }
   const tip = off ? "The make buttons act on a player: pick a player row" : null;
   const input = h("input", { type: "number", id: "set-stats", value: 77, min: 0, max: 99,
     disabled: off, title: tip });
@@ -4030,10 +4046,9 @@ function positionsPanel(p) {
 // Skills: its `tricks` card group ("Tricks"), else every skill its free-card
 // rules name, those free only for a tier or the captain included ("Free
 // cards", VTL's), since a card moving between panels as a player's tier
-// changes would be harder to find. No cards when the ruleset has neither or
-// its file does not load: every card then stays under Skills.
+// changes would be harder to find. No cards when the ruleset has neither:
+// every card then stays under Skills.
 function asideCards() {
-  if (D.rulesBroken) return { title: "", cards: [] };
   const rs = RULESETS[D.ruleset];
   const tricks = (rs.card_groups || {}).tricks || [];
   if (tricks.length) return { title: "Tricks", cards: SKILLS.filter(k => tricks.includes(k)) };
@@ -4866,7 +4881,7 @@ function paintPitch(g, t, f0, live) {
     // colour, inside its edge; a tier that is no medal draws none. An outline,
     // not a fill: the position colours read at a contrast of 1.0 to 2.4 on
     // the three metals.
-    const medal = p && !D.rulesBroken && MEDAL_MARK[(recognizedTier(p, RULESETS[D.ruleset]) || {}).id];
+    const medal = p && MEDAL_MARK[(recognizedTier(p, RULESETS[D.ruleset]) || {}).id];
     if (medal) {
       g.strokeStyle = medal; g.lineWidth = MEDAL_OUTLINE;
       g.beginPath();
@@ -5823,8 +5838,6 @@ function playerHead(pid) {
 
 // Panel state: one floating window at a time.
 // S.cmp: the comparator (second save picked, scope toggle, team filter).
-// S.aatf: the violations panel (team mode + picked teams, suggestions, the
-//   last validation, the saved copy's text).
 // S.pat: the aesthetics patch (loaded, previewed, refused).
 // (Initialized in openSave: a panel's state is per-save.)
 S.panel = null;
@@ -5845,7 +5858,6 @@ function panelWindow(id, title, body) {
 // sample wording: the menu and the panel titles.
 function panelsMenu() {
   return menu("Panels", [
-    ["AATF violations\u2026", () => { S.panel = "aatf"; render(); }],
     ["Comparator\u2026", () => { S.panel = "comparator"; render(); }],
     "-",
     ["Apply aesthetics patch\u2026", () => { S.panel = "patch"; render(); }],
@@ -5941,9 +5953,9 @@ function comparatorPanel() {
   return c;
 }
 
-// ---- The AATF panel (SE-GUI-15) ----
-// The CLI reports the code and fields only; the panel's sentences per rule
-// kind are the draft's own, from messages.rs's ViolationKind arms.
+// ---- A violation's sentence (Live AATF's rows and the marks' tooltips) ----
+// The CLI reports the code and fields only; the sentences per rule kind are
+// the draft's own, from messages.rs's ViolationKind arms.
 // sample wording: every sentence below, one per kind.
 function violationSentence(rule, kv, sev) {
   const v = (k, d) => kv[k] ?? d;
@@ -6004,6 +6016,7 @@ function recognizedTier(p, rs) {
   const whenOk = t => {
     if (!t.when) return true;
     if (t.when.positions && !t.when.positions.includes(p.positions.registered)) return false;
+    if (t.when.not_positions && t.when.not_positions.includes(p.positions.registered)) return false;
     if (t.when.captain !== undefined && (teamOf(p).captain === p.slot - 1) !== t.when.captain) return false;
     return true;
   };
@@ -6021,6 +6034,7 @@ function recognizedTier(p, rs) {
 RULESETS.official.suggestions = ["cards", "tricks", "com", "weak_foot", "injury_resistance"];
 RULESETS.dbc7.suggestions = [];
 RULESETS.vtl11.suggestions = [];
+RULESETS.vgl27.suggestions = ["cards", "com", "a_positions", "weak_foot", "free_cards"];
 function suggestionsFor(p, t) {
   const rs = RULESETS[D.ruleset], out = [];
   const list = rs.suggestions || [];
@@ -6064,127 +6078,6 @@ function suggestionsFor(p, t) {
   }
   return out;
 }
-// The teams the active ruleset's sample run covers, in id order.
-const aatfCovered = () => new Set((AATF_ROWS[D.ruleset] || []).map(r => r[1]));
-function aatfRows() {
-  const rows = S.saveKey === "pes17" ? (AATF_ROWS[D.ruleset] || []) : [];
-  const ids = S.aatf.mode === "current" ? [selTeam().id]
-    : Object.keys(S.aatf.teams).filter(k => S.aatf.teams[k]).map(Number);
-  return rows.filter(r => ids.includes(r[1]));
-}
-function aatfPanel() {
-  // The sample runs are the PES 17 save's; on the other sample the panel
-  // says so rather than show another save's violations.
-  const rows = S.saveKey === "pes17" ? (AATF_ROWS[D.ruleset] || []) : [];
-  const covered = aatfCovered();
-  const rs = RULESETS[D.ruleset];
-  const c = h("div", {},
-    h("div", { class: "row" },
-      weak("Ruleset " + rs.label + " "),
-      h("label", { class: "cb" }, h("input", { type: "radio", name: "aatf-mode",
-        checked: S.aatf.mode === "current",
-        onchange: () => { S.aatf.mode = "current"; render(); } }), " Current team"),
-      h("label", { class: "cb" }, h("input", { type: "radio", name: "aatf-mode",
-        checked: S.aatf.mode === "select",
-        onchange: () => { S.aatf.mode = "select"; render(); } }), " Select teams"),
-      cb("Show suggestions", S.aatf.sugg, v => S.aatf.sugg = v),
-      button("Save a copy", () => {
-        S.aatf.savedCopy = OFFICIAL_RHAI;
-        publishNotice("Wrote a copy of the built-in official ruleset (autumn26.rhai)", null, "success");
-        render();
-      }, { title: "Write the built-in official ruleset to a file" })),
-    h("div", { class: "row" },
-      weak("Rules file "),
-      combo([["dbc7_full.rhai", "dbc7_full.rhai"],
-        ["dbc7_broken_syntax.rhai", "dbc7_broken_syntax.rhai"],
-        ["dbc7_broken_key.rhai", "dbc7_broken_key.rhai"]],
-        S.aatf.file || "dbc7_full.rhai", v => S.aatf.file = v),
-      button("Validate rules", () => {
-        const f = S.aatf.file || "dbc7_full.rhai";
-        S.aatf.validate = { file: f, findings: VALIDATE17[f] ? [VALIDATE17[f]] : [] };
-        render();
-      }, { title: "Check the rules file in use for errors, each reported with its line or setting" })));
-  if (S.aatf.validate) {
-    const { file, findings } = S.aatf.validate;
-    c.append(h("div", { class: "row" },
-      findings.length ? [weak(file + ": "), findings.map(f => h("span", { class: "err mono" }, f))]
-        : weak("There are no findings in " + file + ".")));
-  }
-  if (S.aatf.mode === "select") {
-    const list = h("div", { class: "tlist" },
-      Object.keys(TEAM17).map(id => {
-        const on = covered.has(Number(id));
-        return h("label", { class: "cb prow" + (on ? "" : " off"),
-          title: on ? "" : "The sample holds no check rows for this team" },
-          h("input", { type: "checkbox", checked: !!S.aatf.teams[id], disabled: !on,
-            onchange: e => { S.aatf.teams[id] = e.target.checked; render(); } }),
-          " " + id + " " + TEAM17[id]);
-      }));
-    c.append(list);
-  }
-  if (!rows.length) {
-    c.append(h("div", { class: "row weak" },
-      D.ruleset === "vtl11" || S.saveKey !== "pes17"
-        ? "No sample run for this ruleset or save in the draft."
-        : "No violations."));
-    return c;
-  }
-  const list = h("div", { id: "aatf-rows" });
-  const these = aatfRows();
-  let lastTeam = null, lastPid = null, lastIsTeam = null;
-  for (const [sev, team, pid, rule, fields] of these) {
-    if (team !== lastTeam) {
-      list.append(h("div", { class: "grp" }, "Team " + team + (TEAM17[team] ? " " + TEAM17[team] : "")));
-      lastTeam = team; lastPid = null; lastIsTeam = false;
-    }
-    if (pid === 0) {
-      if (!lastIsTeam) { list.append(h("div", { class: "grp weak" }, "Team-wide issues")); lastIsTeam = true; }
-    } else if (pid !== lastPid) {
-      list.append(playerHead(pid));
-      lastPid = pid; lastIsTeam = false;
-    }
-    const kv = kvOf(fields);
-    const row = h("div", { class: "drow sel " + (sev === "Error" ? "err" : sev === "Warning" ? "warn" : ""),
-      onclick: () => {
-        if (!curSave().teams.some(t => t.id === team)) return;
-        if (pid) jumpToPlayer(team, pid % 100); else jumpToTeam(team);
-        render();
-      }, title: pid ? "Select this player" : "Select the team" },
-      h("span", { class: "f" }, rule), h("span", { class: "v" }, violationSentence(rule, kv, sev)));
-    list.append(row);
-  }
-  // The suggestions, apart from errors and warnings (the toggle's whole
-  // point), derived from the sample values.
-  if (S.aatf.sugg) {
-    const ids = S.aatf.mode === "current" ? [selTeam().id]
-      : Object.keys(S.aatf.teams).filter(k => S.aatf.teams[k]).map(Number);
-    let any = false, lastSuggPid = null;
-    for (const tid of ids) {
-      const t = curSave().teams.find(t => t.id === tid);
-      if (!t) continue;
-      for (const p of t.players) {
-        const sugs = suggestionsFor(p, t);
-        if (!sugs.length) continue;
-        if (!any) { list.append(h("div", { class: "grp" }, "Suggestions")); any = true; }
-        if (p.id !== lastSuggPid) {
-          list.append(playerHead(p.id));
-          lastSuggPid = p.id;
-        }
-        for (const s of sugs)
-          list.append(h("div", { class: "drow sel",
-            onclick: () => { jumpToPlayer(t.id, p.slot); render(); },
-            title: "Select this player" },
-            h("span", { class: "f" }, "Unused"),
-            h("span", { class: "v" }, violationSentence("Unused", s))));
-      }
-    }
-    if (!any && D.ruleset !== "official")
-      list.append(h("div", { class: "row weak" }, "The active ruleset lists no suggestions."));
-  }
-  c.append(list);
-  return c;
-}
-
 // ---- Live AATF (SE-GUI-30) ----
 // A toolbar toggle; on, a panel docked at the bottom of the view lists the
 // violations of the team the view is editing (the selected row's team, else
@@ -6209,6 +6102,92 @@ function liveButton() {
   b.className = "livebtn" + (LIVE.on ? " on" : "");
   b.id = "live-toggle";
   return b;
+}
+// The ruleset dropdown, left of the toggle and drawn whether Live AATF is on
+// or off: the ruleset also drives the quick actions, the Cards left badge and
+// which skills the Tricks or Free cards panel holds. The built-in rulesets by
+// their description alone, then the imported ones, each with an × that
+// removes it, then Import rules file..., a command rather than a choice (the
+// wheel over the closed dropdown steps the rulesets alone). The choice is
+// remembered (`aatf_ruleset`). sample wording: the tooltips.
+function rulesetPicker() {
+  const keys = EMBEDDED.concat(IMPORTED.map(i => i.key));
+  const s = combo(keys.map(k => [k, RULESETS[k].label]), D.ruleset, setRuleset,
+    { title: "The AATF rules the quick actions, the card counts and Live AATF use" });
+  s.id = "ruleset-picker";
+  s.comboSepBefore = IMPORTED.length ? IMPORTED[0].key : null;
+  s.comboRemove = { keys: IMPORTED.map(i => i.key), remove: dlgRemoveRules,
+    title: "Remove this imported ruleset" };
+  s.comboActions = [["Import rules file…", dlgImportRules,
+    "Add a .4ccrules file to this list; a file with errors is refused"]];
+  return s;
+}
+function setRuleset(k) {
+  D.ruleset = k;
+  localStorage.setItem("save_editor.aatf_ruleset", k);
+  LIVE.sig = null; LIVE.result = null;
+}
+function storeImports() {
+  localStorage.setItem("save_editor.aatf_imports", JSON.stringify(IMPORTED));
+}
+// Import rules file: the native picker (rfd, "AATF rules (*.4ccrules)")
+// stands as a dialog over the draft's sample files. The file is loaded as
+// Rules::load loads it, so a file with errors is refused, its findings
+// listed, and nothing is copied; a clean one is copied into the data folder's
+// rules/ under its file name and becomes the ruleset. A description a
+// built-in ruleset already has is refused (two rows would read the same); an
+// earlier import with the same file name or description is replaced, once
+// confirmed. sample wording: every text.
+function dlgImportRules() {
+  const pick = combo(IMPORT_SAMPLES.map(f => [f.file, f.file]), IMPORT_SAMPLES[0].file, () => {});
+  dlg("import-rules", "Import rules file", h("div", {},
+    h("p", { class: "weak" }, "The file picker stands here: pick one of the draft's samples."), pick),
+    [button("Import", () => importRules(IMPORT_SAMPLES.find(f => f.file === pick.value))),
+     button("Cancel", closeWindow)]);
+}
+function importRules(f) {
+  if (f.findings) {
+    dlg("import-refused", "The rules file has errors", h("div", {},
+      h("p", {}, f.file + " was not imported. Fix these errors, then import it again:"),
+      f.findings.map(x => h("p", { class: "mono" }, x))),
+      [button("OK", closeWindow)]);
+    return;
+  }
+  const label = RULESETS[f.key].label;
+  if (EMBEDDED.includes(f.key)) {
+    dlg("import-refused", "The rules file was not imported", h("p", {},
+      f.file + " is named " + label + ", as a built-in ruleset is. Rename it in its RULESET block, then import it again."),
+      [button("OK", closeWindow)]);
+    return;
+  }
+  const old = IMPORTED.filter(i => i.file === f.file || RULESETS[i.key].label === label);
+  const add = () => {
+    for (const i of old) IMPORTED.splice(IMPORTED.indexOf(i), 1);
+    IMPORTED.push({ file: f.file, key: f.key });
+    storeImports();
+    setRuleset(f.key);
+    closeWindow();
+    publishNotice("Imported " + label + ".", null, "success");
+  };
+  if (!old.length) { add(); return; }
+  dlg("import-replace", "Replace an imported ruleset?", h("p", {},
+    "Importing " + f.file + " replaces " + old.map(i => RULESETS[i.key].label + " (" + i.file + ")").join(" and ") + "."),
+    [button("Replace", add), button("Cancel", closeWindow)]);
+}
+// The ×: removes the imported copy once confirmed; the original file is not
+// touched. Removing the ruleset in use falls back to the first built-in one.
+function dlgRemoveRules(k) {
+  const imp = IMPORTED.find(i => i.key === k);
+  dlg("remove-rules", "Remove an imported ruleset?", h("p", {},
+    "Remove " + RULESETS[k].label + " from the list? Its copy in the data folder is deleted; "
+    + "the file you imported it from (" + imp.file + ") stays."),
+    [button("Remove", () => {
+      IMPORTED.splice(IMPORTED.indexOf(imp), 1);
+      storeImports();
+      if (D.ruleset === k) setRuleset(EMBEDDED[0]);
+      closeWindow();
+      render();
+    }), button("Cancel", closeWindow)]);
 }
 // Show suggestions, right of the toggle and only while Live AATF is on (it
 // says what the check asks for): off by default and remembered, as the
@@ -6299,7 +6278,7 @@ function violationField(rule, kv) {
 // warning sign for a Warning, a blue circled i for suggestions alone (the
 // list's colours; its check
 // mark says a player passes, which a field with a row does not say); its
-// tooltip their lines as the AATF panel shows them, one per line. Several
+// tooltip their lines as the dock shows them, one per line. Several
 // fields share one mark where one label heads them (the Skills header).
 function fieldMark(p, ...fields) {
   const rows = (liveRowsOf(teamOf(p).id) || []).filter(r => r[2] === p.id
@@ -6476,8 +6455,8 @@ function livePanel() {
   if (LIVE.collapsed) return h("div", { class: "live-panel", "data-panel": "live-aatf" }, header);
   const body = h("div", { class: "live-body" + (LIVE.checking ? " checking" : ""), id: "live-rows",
     style: `height:${LIVE.height}px` });
-  // The suggestions in their own group after the violations, plain, as the
-  // AATF panel draws them.
+  // The suggestions in their own group after the violations, plain (no
+  // severity colour: a suggestion is no failure).
   let lastPid = null, inSuggestions = false;
   for (const [sev, team, pid, rule, fields] of (res && res.rows) || []) {
     if (sev === "Suggestion" && !inSuggestions) {
@@ -7126,13 +7105,20 @@ function renderPanel() {
   if (!S.panel || !S.save) return null;
   const [id, title, body] =
     S.panel === "comparator" ? ["panel-comparator", "Comparator", comparatorPanel()]
-    : S.panel === "aatf" ? ["panel-aatf", "AATF violations (" + RULESETS[D.ruleset].label + ")", aatfPanel()]
     : S.panel === "interchange" ? ["panel-interchange", "Team file interchange", interchangePanel()]
     : ["panel-patch", "Apply aesthetics patch", patchPanel()];
   return panelWindow(id, title, body);
 }
 
-function firstShow() { openSave(D.sample); } // the draft control's open save
+function firstShow() {
+  openSave(D.sample); // the draft control's open save
+  if (rulesetFellBack) {
+    rulesetFellBack = false;
+    setRuleset(EMBEDDED[0]);
+    publishNotice("The AATF ruleset picked last is gone from the data folder: "
+      + RULESETS[EMBEDDED[0]].label + " is used instead.", null, "warning");
+  }
+}
 // The view's screen: the selection's kind (the host's layout edit keys its
 // tweaks by it; a floating panel window is its own named panel instead).
 const screen = () => isTeamSel() ? "team" : "player";
@@ -7182,7 +7168,7 @@ const linkWarn = what => console.warn("save-editor link: " + what);
 function linkOpen(scr, keys) {
   // The draft controls go first: an open save's faking reads them.
   if (keys.ruleset !== undefined) {
-    if (RULESETS[keys.ruleset]) D.ruleset = keys.ruleset;
+    if (rulesetAvailable(keys.ruleset)) D.ruleset = keys.ruleset;
     else linkWarn("ruleset=" + keys.ruleset);
   }
   if (keys.appids !== undefined) {

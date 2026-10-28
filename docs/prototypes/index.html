@@ -347,11 +347,15 @@
   .combo-pop { position: fixed; z-index: 140; background: var(--panel); border: 1px solid var(--stroke);
     border-radius: 6px; padding: 6px; box-shadow: 6px 10px 4px #00000060; }
   .combo-pop > div { display: flex; flex-direction: column; gap: 3px; max-height: 200px; overflow-y: auto; }
-  .combo-pop > div > div { flex: none; display: flex; align-items: center; min-height: 18px;
+  .combo-pop > div > div:not(.sep) { flex: none; display: flex; align-items: center; min-height: 18px;
     padding: 0 4px; border-radius: 2px; color: #b4b4b4; white-space: nowrap; cursor: default; }
-  .combo-pop > div > div:hover { background: var(--hover); box-shadow: inset 0 0 0 1px #969696;
+  .combo-pop > div > div:not(.sep):hover { background: var(--hover); box-shadow: inset 0 0 0 1px #969696;
     border-radius: 3px; color: #f0f0f0; }
   .combo-pop > div > div.on { background: var(--sel-bg); color: var(--sel-fg); }
+  .combo-pop > div > .sep { flex: none; margin: 0; }
+  /* A removable row's ×: a frameless small button at the row's right end, 12 from its text. */
+  .combo-pop .combo-x { margin-left: auto; padding: 0 2px 0 12px; color: #8c8c8c; }
+  .combo-pop .combo-x:hover { color: var(--error); }
   /* An open select's list: Firefox draws it outside the page, where the page's own fonts
      are not loaded, so without a generic family it falls to the browser's serif default.
      The app's combo list is in the body font; the system sans is the nearest a browser
@@ -774,11 +778,30 @@ function comboPopup(s) {
   closeComboPopup();
   const r = s.getBoundingClientRect();
   const [left, top] = inWin(r.left, r.top), below = top + s.offsetHeight;
-  const pop = h("div", { class: "combo-pop", style: `left:${left}px; top:${below}px; min-width:${s.offsetWidth}px` },
-    h("div", {}, [...s.options].map(o => h("div", { class: o.selected ? "on" : "", onclick: () => {
+  // A list may carry more than its values (the Save editor's ruleset dropdown): a separator
+  // before the value s.comboSepBefore, an × at the right of each value s.comboRemove.keys
+  // names, and after the values s.comboActions, rows that run a command rather than pick a
+  // value. Only the values are options, so the wheel over the closed combo steps them alone.
+  const sep = () => h("div", { class: "sep" });
+  const rows = [];
+  for (const o of s.options) {
+    if (s.comboSepBefore === o.value) rows.push(sep());
+    const r = h("div", { class: o.selected ? "on" : "", onclick: () => {
       closeComboPopup();
       if (s.value !== o.value) { s.value = o.value; s.dispatchEvent(new Event("change")); }
-    } }, o.textContent))));
+    } }, o.textContent);
+    if (s.comboRemove && s.comboRemove.keys.includes(o.value))
+      r.append(h("span", { class: "combo-x", title: s.comboRemove.title,
+        onclick: e => { e.stopPropagation(); closeComboPopup(); s.comboRemove.remove(o.value); } }, "✕"));
+    rows.push(r);
+  }
+  if (s.comboActions) {
+    rows.push(sep());
+    for (const [text, fn, title] of s.comboActions)
+      rows.push(h("div", { title, onclick: () => { closeComboPopup(); fn(); } }, text));
+  }
+  const pop = h("div", { class: "combo-pop", style: `left:${left}px; top:${below}px; min-width:${s.offsetWidth}px` },
+    h("div", {}, rows));
   const win = document.getElementById("win");
   win.append(pop);
   if (below + pop.offsetHeight > win.clientHeight) pop.style.top = Math.max(4, top - pop.offsetHeight) + "px";
@@ -955,7 +978,7 @@ S.settings = {
       dds_compression: "Auto", strict_file_type_check: true, pass_through: false,
       teams_list_path: "teams_list.txt",
     },
-    "save-editor": { aatf_rules: "" },
+    "save-editor": { aatf_ruleset: "autumn26" },
     "export-upgrader": {},
     "ruleset-editor": {},
   },
@@ -1966,9 +1989,8 @@ const TOOL_SETTINGS_SPEC = {
     ["pass_through", "Keep folders with errors", "bool", "Keep folders with errors instead of discarding them."],
     ["teams_list_path", "Teams list file", "file", "The working teams list; a relative path resolves in the data directory."],
   ],
-  "save-editor": [
-    ["aatf_rules", "AATF rules file", "file", "The AATF rules file check-aatf and the AATF panel run; empty: the official ruleset, built in."],
-  ],
+  // The ruleset is the toolbar's dropdown (aatf_ruleset), not a row here.
+  "save-editor": [],
   "export-upgrader": [],
   // Its table holds state the tool writes (the last folder, the recent files), no setting.
   "ruleset-editor": [],

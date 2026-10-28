@@ -209,7 +209,7 @@ No row is a custom check: the five new fields are the gaps, each one a form ("Th
 
 What exists of this is in `spec/aatf_rules.md` "The interpreter".
 
-Every surface that shows results (the Save editor's AATF panel, the Team creator's) has a "Show
+Every surface that shows results (the Save editor's Live AATF, the Team creator's) has a "Show
 suggestions" toggle, off by default, and lists them apart from errors and warnings, uncounted.
 
 **The player's own tier.** The logic implements a fourth function the host calls,
