@@ -793,7 +793,11 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   positions and a position in, the overall out): twenty abilities weighted per position,
   the position's bonus (registered, A, B; C none), and at the registered position, a
   keeper's aside, a blend with the first nineteen abilities' mean through a lookup table,
-  clamped to 40-109. Its weights, bonuses and lookup are PES 2016's tables, a measurement
+  clamped to 40-109. The two keeper terms are each the mean of a few keeper abilities; PES
+  2015 stores no clearing, reflexes or coverage, so its means take the ones it stores rather
+  than counting the missing ones as 0, which would sink every PES 2015 keeper (one keeper
+  ability at 0 takes a 70 keeper to the floor of 40).
+  Its weights, bonuses and lookup are PES 2016's tables, a measurement
   hand-written by the lead; which ability each weight reads is inferred from its profile
   (the code reads them unnamed), and the two alternatives tried (kicking power and swerve
   swapped, physical contact for body control) change no overall read in PES 2017 or 2021.

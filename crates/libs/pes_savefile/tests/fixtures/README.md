@@ -35,3 +35,9 @@ the golden tests hold.
 | `pes19_squad.4ccs` | A real `.4ccs` (`PRO EVOLUTION SOCCER 2019/<account>/save/CM.4ccs`, team 713, 23 players, tag `20a`, no tactics block) |
 | `pesNN_parity.4ccs` (NN = 15 to 21) | Real `.4ccs` files exported by the maintainer with 4ccEditor on 2026-09-30 from the saves the payload fixtures above hold (each save's decrypted payload has the fixture's SHA-256), one team each: `/a/` (team 702) on 15 to 19, team 857 on 20, team 782 on 21; 23 players, no tactics block. The PES 18 file is a second export from a freshly opened editor: the first repeated player 1, dropped player 23 and had 22 players' visual edit flags cleared. The parity evidence of `verification.md` "Cross-implementation parity" |
 | `pes19_tactics.4cct` | **Synthesized**: the reference editor's `save_tactical_data` write walk (transcribed in the script) over team 713's tactics record of the PES 19 payload fixture, header `001` + `19` + `713`; block MD5 `4985ec743656067c618235ef11e9a2a3`. No real `.4cct` exists on the machine |
+
+## The overall formula's fixture
+
+| File | Holds |
+|---|---|
+| `overall_points.tsv` | 351 overalls read in game off the formation screens (the badge's number, a held player's swap preview, the drag panel's): 150 in PES 2017 on team /3/ (701) of the maintainer's PES 2017 save, 201 in PES 2021 on teams 717 and 718 of the PES 2021 save, all read 2026-10-27/28 with the pad and OBS. Each row: the version, team and roster key, the player's abilities, registered position and playable ratings (letters in the position byte's order, GK to CF) as his team's Team TOML export gives them, the position, the overall `shown` and the overall PES 2016's formula `computed` (the lead's script over the same exports, its tables checked entry for entry against the executable's). Every PES 2017 row has `computed` equal to `shown`; PES 2021's are within 2 |

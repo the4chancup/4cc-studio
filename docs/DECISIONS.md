@@ -12583,3 +12583,14 @@ colours tell them apart where they come close, and the maintainer asked for slig
 text. The margins and the outline were measured on the maintainer's PES 2021 capture, 1:1 at
 720p (the badge 50 px wide there).
 Plan: `plans/save_editor.md` "Tactics editor" ("A marker", the captain's mark).
+
+## 2026-10-28 — pes_savefile — PES 2015's keeper terms average the keeper abilities it stores
+Decision: the overall formula's two keeper terms (goalkeeping with coverage; catching, clearing and
+reflexes) take the mean of the abilities the save's version stores. PES 2015's record has no
+clearing, reflexes or coverage (its catching is Saving), so its terms are goalkeeping alone and
+Saving alone.
+Why: the formula is PES 2016's, whose record stores all five; a missing ability counted as 0
+would sink every PES 2015 keeper (one keeper ability at 0 takes a 70 keeper to the floor of 40),
+and PES 2015's own formula is not read. Averaging what is stored keeps the terms on PES 2016's
+scale.
+Plan: `plans/save_editor.md` "Tactics editor", the pitch-drop paragraph's formula.

@@ -9,6 +9,8 @@ pub mod ingame_face;
 pub mod instruction;
 /// Save-name helpers: colour-code stripping for display.
 pub mod names;
+/// A player's overall rating at a position (`PlayerEntry::overall_at`).
+mod overall;
 /// The player model.
 pub mod player;
 /// The canonical playing-style enum (the stored value is a per-version index

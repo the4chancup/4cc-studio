@@ -3915,11 +3915,15 @@ briefs, review loops, gates and mutation runs as for any step.
       (no player here has those unequal), the B bonus
     - [ ] y4e the code, on every version (`plans/save_editor.md` "Tactics editor", the
       pitch-drop paragraph), in two slices
-      - [ ] y4e1 the overall in `pes_savefile`'s player model: the weights, bonuses and
-        lookup hand-written by the lead (or checked byte for byte against
-        `.tmp/0_0_1y4/y4d_overall.py`), y4d's 150 points as exact tests and y4c's 201 as
-        recorded residuals (all within 2) → verify: `cargo test -p pes_savefile`; the
-        draft's `overallAt` agrees (`.tmp/fb1028/overall_port_check.py`)
+      - [x] y4e1 the overall in `pes_savefile`'s player model (the lead, 2026-10-28):
+        `PlayerEntry::overall_at(position) -> Option<u8>` (`model/overall.rs`, `None` past
+        CF), its tables checked entry for entry against the executable's dump
+        (`.tmp/0_0_1y4/check_tables_vs_dump.py`); fixture `tests/fixtures/overall_points.tsv`
+        (351 in-game reads, `.tmp/0_0_1y4/make_overall_fixture.py`): PES 2017's 150 exact,
+        PES 2021's 201 within 2; five tests, each red under a perturbation (a weight, the
+        keeper mean's count, the B arm, the blend's rounding); PES 2015's keeper means over
+        the abilities it stores (DECISIONS). 384 tests, clippy, fmt. Its cross-family review
+        (a new `pub` method) rides with y4e2's
       - [ ] y4e2 the rule in `team_widgets`' pitch drop (the rectangles, the band default,
         the candidates), `RosterRow` carrying each starter's thirteen overalls from the host,
         the y3 scans and y4d's edges as tests
