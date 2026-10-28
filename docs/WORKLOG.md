@@ -3152,7 +3152,7 @@ briefs, review loops, gates and mutation runs as for any step.
     4K's keeps the resend (11 ms, a mixed-scale desk) and maximizes there; both restore to
     the place. manual: checked 2026-10-27 (the maintainer): no flicker any more. Files:
     `studio_core/src/shell/{mod.rs,window_size/{mod,tests}.rs}`
-- [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
+- [x] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version
   toggle and its rows, `pes_folder` resolving an override first, Fix PES path writing the
@@ -3168,11 +3168,13 @@ briefs, review loops, gates and mutation runs as for any step.
   thousand lines). Three ST-SET-04 tests, seven unit tests. SWE-2 round S1: 2 accepted of 8
   (`.tmp/0_0_1r/rulings.md`: a hand-written empty entry dropped at load, so the toggle and
   Fix PES path count overrides as the resolution does; the typed-commit test's folder
-  holding the year). Open for the top lead, on the
-  merged code: Browse on the PES folder row with a folder named `… 2019` at PES 2019 (stores
-  `20**`) and with `E:\PES` (stored as picked), the native picker being manual. Not in my
-  locks: `spec/team_compiler/settings.md`'s `pes_folder_path` row and
-  `team_compiler/src/view/mod.rs` (prints `pes_folder_path` raw) do not know the overrides.
+  holding the year). Browse in the built window, checked 2026-10-28 at `825f1885` (the
+  portable copy at PES 2019, its settings restored by hash after; folders under
+  `4cc-studio-temp/browse_r/`; `.tmp/0_0_1z/shots/r_02_year.png`, `r_03_plain.png`): a pick
+  of `…\Pro Evolution Soccer 2019` stored `…\Pro Evolution Soccer 20**`, a pick of `…\PES`
+  stored as picked. The spec's settings table has the `pes_folders` row since; the Team
+  compiler view's raw `pes_folder_path` line waits for its window (CLI-only in 0.0.1, the
+  view unreachable).
   Files: `studio_core/src/settings/{common,mod}.rs`, `studio_core/src/shell/{mod.rs,
   settings_menu/}`, `studio_core/src/{status.rs,widgets/{mod,settings_row}.rs}`,
   `plans/core/gui.md`, `DECISIONS.md`
