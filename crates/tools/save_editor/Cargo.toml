@@ -30,8 +30,15 @@ teams_list.workspace = true
 toml.workspace = true
 toml_edit.workspace = true
 
+[features]
+# `Tool::with_running_probe`, for tests that set which PES games run.
+test-support = []
+
 [dev-dependencies]
 pes_savefile = { workspace = true, features = ["test-support"] }
+# The integration tests are their own crate, which `cfg(test)` does not reach: they turn on
+# `test-support` to set the running-game probe instead of reading the process list.
+save_editor = { workspace = true, features = ["test-support"] }
 
 [lints]
 workspace = true

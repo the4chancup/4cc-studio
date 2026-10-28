@@ -2740,3 +2740,5 @@ worklog passed 7,000 lines.
   limit checked on every embedded ruleset; the texture Converter rewraps kept blocks without a decode (156 to 85 ms on a 2048 BC7 face).
 - **2026-10-28** — The drafts' player list is 255 points (from 240), taking the Tactics view's spare strip; General info 344 so the player
   view keeps one row.
+- **2026-10-28** — The Save editor's CLI asks the tool's running-game probe, which the tests set: a gate run no longer fails with a PES
+  open (closes the worklog's two issues on the process list).

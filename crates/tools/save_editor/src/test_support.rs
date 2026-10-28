@@ -71,7 +71,7 @@ pub(crate) fn cli_stdout(dir: &Path, args: &[&str]) -> String {
     let matches = crate::cli::command()
         .try_get_matches_from(std::iter::once("save-editor").chain(args.iter().copied()))
         .expect("the arguments parse");
-    crate::cli::run(&matches, &ctx).expect("the command runs");
+    crate::cli::run(&matches, &ctx, crate::running_probe()).expect("the command runs");
     drop(ctx);
     let mut lines = studio_core::EventLines::new();
     let mut out = String::new();

@@ -7,6 +7,7 @@ use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::TeamToml;
 use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 use pes_version::PesVersion;
+use studio_core::RunningPes;
 
 use crate::{Sandbox, payload, payload_after};
 
@@ -276,4 +277,60 @@ fn a_team_the_save_lacks_or_a_document_with_no_id_is_refused() {
         .import("noid.toml", "EDIT", "OUT")
         .assert_refused(2, &["[team] id"]);
     assert!(!sandbox.path("OUT").exists());
+}
+
+/// `import-toml <file> --base <base> --out <base>` with `running` as the running-game probe.
+fn import_in_place_while(
+    sandbox: &Sandbox,
+    running: fn() -> Vec<RunningPes>,
+) -> crate::common::Run {
+    sandbox.run_with_running(
+        running,
+        &[
+            "import-toml",
+            &sandbox.arg("co.toml"),
+            "--base",
+            &sandbox.arg("EDIT"),
+            "--out",
+            &sandbox.arg("EDIT"),
+        ],
+    )
+}
+
+// SE-CLI-02
+#[test]
+fn a_write_is_refused_while_the_saves_own_pes_runs() {
+    let sandbox = Sandbox::new("import_pes_running");
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    sandbox.export("EDIT", CO, "co.toml");
+    let before = fs::read(sandbox.path("EDIT")).unwrap();
+
+    import_in_place_while(&sandbox, || {
+        vec![RunningPes {
+            version: PesVersion::Pes21,
+            exe: None,
+        }]
+    })
+    .assert_refused(2, &["PES 2021 is running", "close the game first"]);
+    assert_eq!(fs::read(sandbox.path("EDIT")).unwrap(), before);
+    assert!(!sandbox.path("EDIT.bak").exists());
+}
+
+// SE-CLI-02
+#[test]
+fn a_write_goes_ahead_while_only_another_versions_pes_runs() {
+    let sandbox = Sandbox::new("import_other_pes_running");
+    sandbox.fixture(PesVersion::Pes21, "EDIT");
+    sandbox.export("EDIT", CO, "co.toml");
+    let before = fs::read(sandbox.path("EDIT")).unwrap();
+
+    let run = import_in_place_while(&sandbox, || {
+        vec![RunningPes {
+            version: PesVersion::Pes19,
+            exe: None,
+        }]
+    });
+    assert_eq!(run.exit_code(), 0, "{:?}", run.messages());
+    assert_eq!(fs::read(sandbox.path("EDIT.bak")).unwrap(), before);
+    assert_ne!(fs::read(sandbox.path("EDIT")).unwrap(), before);
 }

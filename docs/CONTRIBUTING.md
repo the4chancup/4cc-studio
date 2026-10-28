@@ -302,6 +302,8 @@ Requirements:
   tool: the crate's CLI sandbox and its in-process `tool_context` alike, inserted before the
   tool's defaults are merged in (a default already merged is not replaced). At 5.3b2 a context
   that missed this let three GUI tests apply their patch to the maintainer's PES 21 save.
+  Machine state is held to the same rule: a test gets the running PES games (the process list)
+  through the tool's probe, which it sets, and never reads them directly.
 - **Acceptance IDs.** Each tool plan has an "Acceptance" section listing that tool's user-observable
   behavior as scenarios with stable IDs, written before the phase that delivers them (procedure in
   `AGENTS.md` "Working documents"). Format, one entry per behavior:

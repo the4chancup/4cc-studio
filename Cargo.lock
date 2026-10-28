@@ -4061,6 +4061,7 @@ dependencies = [
  "pes_version",
  "rayon",
  "rfd",
+ "save_editor",
  "serde",
  "serde_json",
  "studio_core",

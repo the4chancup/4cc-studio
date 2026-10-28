@@ -11,8 +11,8 @@ use pes_savefile::fixture_save;
 use pes_version::PesVersion;
 use save_editor::Tool;
 use studio_core::{
-    AppPaths, CliError, EventLines, PipelineEvent, PipelineEventEnvelope, Settings, StudioTool,
-    ToolContext,
+    AppPaths, CliError, EventLines, PipelineEvent, PipelineEventEnvelope, RunningPes, Settings,
+    StudioTool, ToolContext,
 };
 
 /// A fresh folder standing in for the executable's folder; `data/` is the data directory.
@@ -67,18 +67,30 @@ impl Sandbox {
 
     /// `run` with `settings` as the settings file's text (the tool sections under their ids).
     pub fn run_with_settings(&self, settings: &str, args: &[&str]) -> Run {
-        self.run_full(Some(self.root.join("data")), settings, args)
+        self.run_full(Some(self.root.join("data")), settings, no_game, args)
     }
 
     /// `run` with the data directory given (`None`: no settings file exists yet).
     pub fn run_with_data_dir(&self, data_dir: Option<PathBuf>, args: &[&str]) -> Run {
-        self.run_full(data_dir, "", args)
+        self.run_full(data_dir, "", no_game, args)
+    }
+
+    /// `run` with `running` as the PES games the command sees running.
+    pub fn run_with_running(&self, running: fn() -> Vec<RunningPes>, args: &[&str]) -> Run {
+        self.run_full(Some(self.root.join("data")), "", running, args)
     }
 
     /// The run's shared body: `data_dir` and `settings` are the settings file's location and
-    /// text, `""` standing for no file.
-    fn run_full(&self, data_dir: Option<PathBuf>, settings: &str, args: &[&str]) -> Run {
-        let tool = Tool::new();
+    /// text, `""` standing for no file; `running` is the running-game probe, so no command
+    /// reads the machine's own process list.
+    fn run_full(
+        &self,
+        data_dir: Option<PathBuf>,
+        settings: &str,
+        running: fn() -> Vec<RunningPes>,
+        args: &[&str],
+    ) -> Run {
+        let tool = Tool::new().with_running_probe(running);
         let mut parsed = Settings::parse(settings).unwrap();
         // A default that finds a real folder is set to one under the sandbox
         // before the tool's defaults merge in (CONTRIBUTING.md "Testing and
@@ -114,6 +126,11 @@ impl Sandbox {
             events: events_rx.iter().collect(),
         }
     }
+}
+
+/// The running-game probe every run gets by default: no PES runs.
+fn no_game() -> Vec<RunningPes> {
+    Vec::new()
 }
 
 impl Run {

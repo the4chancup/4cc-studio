@@ -14,7 +14,7 @@ use pes_savefile::interchange::team_toml::TeamToml;
 use pes_savefile::ops::compare::{CompareError, DiffScope};
 use pes_savefile::player_tables::{AppearanceTable, ItemList, PlayerTable, PlayerTableFile};
 use pes_version::{Engine, PesVersion};
-use studio_core::{CliError, RunningPes, Severity, ToolContext, running_pes};
+use studio_core::{CliError, RunningPes, Severity, ToolContext};
 
 use crate::events::Report;
 use crate::messages::{
@@ -176,19 +176,24 @@ pub(crate) fn command() -> Command {
     SaveEditorCommand::augment_subcommands(Command::new(TOOL_ID).subcommand_required(true))
 }
 
-/// Runs a parsed `save-editor` command.
-pub(crate) fn run(matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, CliError> {
+/// Runs a parsed `save-editor` command. `running` is the running-PES probe the commands that
+/// write a save ask before writing.
+pub(crate) fn run(
+    matches: &clap::ArgMatches,
+    ctx: &ToolContext,
+    running: fn() -> Vec<RunningPes>,
+) -> Result<u8, CliError> {
     let command = SaveEditorCommand::from_arg_matches(matches)
         .map_err(|error| CliError::new(INVALID, error))?;
     let mut report = Report::new(ctx);
     match command {
         SaveEditorCommand::ExportToml(args) => export_toml(&args, &mut report)?,
-        SaveEditorCommand::ImportToml(args) => import_toml(&args, &mut report)?,
-        SaveEditorCommand::ApplyPatch(args) => apply_patch(&args, &mut report)?,
+        SaveEditorCommand::ImportToml(args) => import_toml(&args, running, &mut report)?,
+        SaveEditorCommand::ApplyPatch(args) => apply_patch(&args, running, &mut report)?,
         SaveEditorCommand::Diff(args) => diff_saves(&args, &mut report)?,
         SaveEditorCommand::CheckAatf(args) => check_aatf(&args, ctx, &mut report)?,
-        SaveEditorCommand::StripAndSeed(args) => strip_and_seed(&args, &mut report)?,
-        SaveEditorCommand::CheckStripped(args) => check_stripped(&args, &mut report)?,
+        SaveEditorCommand::StripAndSeed(args) => strip_and_seed(&args, running, &mut report)?,
+        SaveEditorCommand::CheckStripped(args) => check_stripped(&args, running, &mut report)?,
         SaveEditorCommand::ExportTeamsList(args) => {
             export_teams_list(&args, ctx.paths().data_dir.as_deref(), &mut report)?;
         }
@@ -252,9 +257,13 @@ fn write_save(session: &Session, out: &Path) -> Result<(), CliError> {
 /// refuses (a team name or short name too long, a key it does not know) refuses the command
 /// with `--out` unwritten; each note is one line, emitted once `--out` is written, so a
 /// failed write reports no note.
-fn import_toml(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
+fn import_toml(
+    args: &ApplyArgs,
+    running: fn() -> Vec<RunningPes>,
+    report: &mut Report,
+) -> Result<(), CliError> {
     let mut session = open(&args.base)?;
-    refuse_while_running(&running_pes(), session.version())?;
+    refuse_while_running(&running(), session.version())?;
     let document = TeamToml::parse(&read_text(&args.file)?)
         .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
     let notes = session.import_team(&document).map_err(invalid)?;
@@ -270,9 +279,13 @@ fn import_toml(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
 /// before anything is touched; a team or player the save lacks is an Error finding and the
 /// rest is written. The applied and skipped lines are emitted once `--out` is written, so a
 /// failed write reports none of them.
-fn apply_patch(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
+fn apply_patch(
+    args: &ApplyArgs,
+    running: fn() -> Vec<RunningPes>,
+    report: &mut Report,
+) -> Result<(), CliError> {
     let mut session = open(&args.base)?;
-    refuse_while_running(&running_pes(), session.version())?;
+    refuse_while_running(&running(), session.version())?;
     let patch = AestheticsPatch::parse(&read_text(&args.file)?)
         .map_err(|error| invalid(anyhow!("{}: {error}", args.file.display())))?;
     let summary = session
@@ -514,10 +527,14 @@ fn parse_teams(text: &str) -> Result<Vec<u32>, String> {
 /// refusal of the save or of `--bins` writes nothing, and an
 /// unwritable `--bins-out` leaves `--out` unwritten (a seeded CPK beside an unstripped save
 /// changes no look: the records still decide).
-fn strip_and_seed(args: &StripAndSeedArgs, report: &mut Report) -> Result<(), CliError> {
+fn strip_and_seed(
+    args: &StripAndSeedArgs,
+    running: fn() -> Vec<RunningPes>,
+    report: &mut Report,
+) -> Result<(), CliError> {
     let mut session = open(&args.base)?;
     refuse_pre_fox(session.version())?;
-    refuse_while_running(&running_pes(), session.version())?;
+    refuse_while_running(&running(), session.version())?;
     let mut archive = open_cpk(&args.bins)?;
     let mut appearance: AppearanceTable =
         read_table(&mut archive, PlayerTableFile::PlayerAppearance)?;
@@ -558,11 +575,15 @@ fn strip_and_seed(args: &StripAndSeedArgs, report: &mut Report) -> Result<(), Cl
 /// `--strip-again` (which clap couples to `--out`) his id is set to -1 and `--out` is
 /// written; the lines then report what was fixed, so they go out at Info once the write
 /// has landed (a failed write reports nobody fixed) and the exit code is 0.
-fn check_stripped(args: &CheckStrippedArgs, report: &mut Report) -> Result<(), CliError> {
+fn check_stripped(
+    args: &CheckStrippedArgs,
+    running: fn() -> Vec<RunningPes>,
+    report: &mut Report,
+) -> Result<(), CliError> {
     let mut session = open(&args.save)?;
     refuse_pre_fox(session.version())?;
     if args.strip_again {
-        refuse_while_running(&running_pes(), session.version())?;
+        refuse_while_running(&running(), session.version())?;
     }
     let restored = session.restored_players();
     if let Some(out) = &args.out {

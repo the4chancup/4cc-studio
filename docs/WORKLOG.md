@@ -97,10 +97,6 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
 - `block_compression` 0.10's BC3/BC4/BC5 decoder truncates the alpha-ramp interpolation where
   DirectX rounds; `dds_convert::dds::fix_interpolated_channels` re-derives those channels. Drop
   it if a later release rounds (the exact-match test will say).
-- While a PES game (or any process named `PES2015.exe` to `PES2021.exe`) runs on the machine,
-  `save_editor`'s tests of `import-toml` and `apply-patch` on that version's
-  fixture save fail with "PES 20xx is running": the commands refuse then (SE-CLI-02). Close the game before `just gates` or a
-  mutation run that touches `save_editor`; a failed unmutated baseline is the symptom.
 - `studio_core`'s `pes_process.rs` is split by `cfg` per OS, so a mutation run reports the other
   OS's mutants as missed: a Windows-only function's mutant tested on the VPS's Linux half (and a
   Linux one on this machine) compiles out. Triage those by OS, not as test gaps. Windows gates
@@ -4578,18 +4574,14 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
-- open — the Save editor's CLI tests read the real process list (found 2026-10-27, cm4's
-  gate run with PES 2021 open for an in-game check: 18 of `tests/cli`'s 46 failed, each
-  "PES 2021 is running: … close the game first"): `cli.rs`'s four writing commands call
-  `studio_core::running_pes()` directly, where the window uses `Tool`'s `running` probe,
-  stubbed under `#[cfg(test)]`, and an integration test is a separate crate that `cfg(test)`
-  does not reach. CONTRIBUTING's "A test never reaches the developer's own files" names files
-  only; the process list is the same kind of machine state, and the window already stubs it.
-  Fix: the commands take `Tool`'s probe, the integration tests set it through the crate's
-  `test-support` feature (the workspace's pattern, `pes_savefile`'s), with a test that a
-  writing command refuses under a stub reporting the save's PES and writes under one
-  reporting another version's; the CONTRIBUTING bullet names the running games too. Briefed
-  once PES 2021 is closed (no cargo while a Fox-engine PES runs: it takes the CPU)
+- resolved 2026-10-28 — the Save editor's CLI tests read the real process list (found
+  2026-10-27, cm4's gate run with PES 2021 open: 18 of `tests/cli`'s 46 failed, each "PES 2021
+  is running: … close the game first"). Now `cli::run` takes `Tool`'s `running` probe, the
+  integration tests set it through `save_editor`'s `test-support` feature
+  (`Tool::with_running_probe`, a self dev-dependency; the sandbox's default reports no game),
+  `import_toml`'s two tests refuse under a stub reporting the save's PES and write under one
+  reporting PES 2019, and CONTRIBUTING's "A test never reaches the developer's own files"
+  names the running games. A sandbox default reporting PES 2021 fails 18 tests
 
 - open — Studio Web (phase 18): `theme::install_fonts` is native-only, so on wasm the named
   families the views draw in, `icons` (the sidebar) and `label` (the Tactics pitch's formation
@@ -4718,13 +4710,13 @@ points there.
   selector and list, and rule. (4), the motion randomizer's ranges, is in the plan
   (2026-10-22: from 1 to the measured tops, never the dribbling motion; DECISIONS)
 
-- open 2026-10-20 — two `save_editor` CLI tests (`strip::tables_the_bins_lacks_are_created_from_the_seed`,
+- resolved 2026-10-28 (the entry above: the CLI asks `Tool`'s probe) — two `save_editor` CLI tests (`strip::tables_the_bins_lacks_are_created_from_the_seed`,
   `strip::the_tables_are_seeded_and_every_appearance_id_is_set_to_minus_one`) fail while
   PES 2019 runs on the machine: the command's running-game refusal (`src/cli.rs`, "is running:
   it writes its own save back") reads the real process list, so a gate run during an in-game
   check fails (6.16d's first run). Likely fix: the tests inject the process probe (or the
   command takes it from its context), so no test depends on what else the machine runs.
-  Until then, close the game before `just gates`.
+  (The game no longer needs closing for the tests' sake; a Fox PES still takes the CPU.)
 - open 2026-10-19 — the maintainer saw AMD driver timeouts during the BC7 encoding tests
   (`dds_convert`'s `gpu.rs` tests, 16.x a). Logged so far: one Windows GPU reset (System log,
   event 4101 "Display driver amduw23g ... stopped responding and has successfully recovered")

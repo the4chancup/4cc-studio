@@ -60,6 +60,16 @@ impl Tool {
             running: running_probe(),
         }
     }
+
+    /// The tool with `probe` standing in for the process list when it asks which PES games
+    /// run: a test sets the games its command sees running, whatever the machine runs.
+    #[cfg(feature = "test-support")]
+    pub fn with_running_probe(self, probe: fn() -> Vec<RunningPes>) -> Tool {
+        Tool {
+            running: probe,
+            ..self
+        }
+    }
 }
 
 impl Default for Tool {
@@ -266,7 +276,7 @@ impl StudioTool for Tool {
     }
 
     fn cli_run(&self, matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, CliError> {
-        cli::run(matches, ctx)
+        cli::run(matches, ctx, self.running)
     }
 }
 
