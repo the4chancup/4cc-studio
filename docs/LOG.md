@@ -2789,3 +2789,4 @@ worklog passed 7,000 lines.
 - **2026-10-28** — Live AATF marks each field by severity just left of its label, crosses a misfielded starter's portrait on the pitch, and lists unused allowances under Show suggestions (0.0.1ov2c, ov2f).
 - **2026-10-28** — The player list sits in a frame with its scroll bar outside, numbers rows by roster place, and the player view's columns stand four equal gaps apart as drafted (0.0.1ov2d, ov2g); the shared target folder of parallel worktrees found to mix their builds, each sidekick now building in its own.
 - **2026-10-28** — The Save editor picks its AATF ruleset from a toolbar dropdown of every cup's current rules, built in and named by their descriptions; the AATF panel and the bundled rules files are gone (0.0.1ov7a).
+- **2026-10-28** — The ability stats' labels stand right-aligned against their numbers, as drafted, Live AATF's marks still on one column at the labels' edge (0.0.1ov2i).
