@@ -2792,3 +2792,4 @@ worklog passed 7,000 lines.
 - **2026-10-28** — The ability stats' labels stand right-aligned against their numbers, as drafted, Live AATF's marks still on one column at the labels' edge (0.0.1ov2i).
 - **2026-10-28** — The ruleset dropdown imports a cup's rules file, refusing one with errors or a built-in's name, and an imported ruleset's × removes its copy after asking (0.0.1ov7b).
 - **2026-10-28** — The Savefile menu's Multi-team AATF checks a range of teams under the toolbar's ruleset and copies the report for a cup's thread; ov7's sections moved to the spec (0.0.1ov7c).
+- **2026-10-29** — A held pitch marker moves by whole steps under the grabbed point, his badge showing the position a release there gives, ruled from his stored one as PES 2017 does; the pitch outside his A/B areas darkens; the formation selector locks on Kick-off while Fluid formation is off (0.0.1ov10).

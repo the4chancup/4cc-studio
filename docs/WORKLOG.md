@@ -4521,7 +4521,7 @@ briefs, review loops, gates and mutation runs as for any step.
     preset's) and correct the other. The drafts' official sample was stale the same way and
     is re-recorded from the current build (Height and BracketQuota now computed by the drafts'
     `heightRows`)
-  - [ ] ov10 the pitch drag as the game's (the maintainer, 2026-10-28; DECISIONS "The pitch
+  - [x] ov10 the pitch drag as the game's (the maintainer, 2026-10-28; DECISIONS "The pitch
     drag follows the game's"; drafted, `plans/save_editor.md` "Tactics editor" "A held
     starter" and the popover, SE-GUI-42): in `team_widgets`' pitch, the held marker snapped
     to whole units with the press's offset kept, the position ruled at every step from his
@@ -4531,9 +4531,11 @@ briefs, review loops, gates and mutation runs as for any step.
     carrying each starter's A/B ratings); the popover's combo limited to the spot's choices,
     X and Y applying the rule; the formation selector disabled on Kick-off while the shown
     preset's Fluid formation is off (the maintainer, 2026-10-29; DECISIONS "The formation
-    selector is locked on Kick-off while Fluid formation is off"). The sidekick's brief
-    (`brief_ov10.md`) asked for the step-to-step rule: its rework brief corrects it and adds
-    the lock
+    selector is locked on Kick-off while Fluid formation is off"). Done 2026-10-29: `164343d7`
+    with rework 1 (the rule from the stored position, the lock, the band skip dropped, the
+    host's `rated` fill tested), merge `8315c07e`; `team_widgets` pitch (`drop_rule.rs`, new
+    `lit_area.rs`, `mod.rs`, `popover.rs`, tests), `tactics/mod.rs`; `save_editor`
+    `view/tactics.rs` (`roster_slot`), help 08. Not yet seen in a built window (ov1)
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
