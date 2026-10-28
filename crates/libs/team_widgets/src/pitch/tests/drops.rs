@@ -195,7 +195,9 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
 // point falls in, whichever his per-position overall rates higher.
 // Slot 2's CB released at stored (40, 20) — its default CMF, its
 // candidate DMF — takes the higher-rated DMF; released at (40, 12),
-// inside CB's band, he is CB again.
+// inside CB's band, he is CB again. A non-identity eleven: the
+// overalls read are his roster slot's, and the row slot 2 would name
+// by its index rates CMF higher, so reading it would give CMF.
 #[test]
 fn a_marker_released_on_the_grass_takes_the_rules_position() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -204,8 +206,13 @@ fn a_marker_released_on_the_grass_takes_the_rules_position() {
     let rows = fixture_rows(PesVersion::Pes21);
     let mut roster = roster_rows(&rows);
     tactics.presets[0].formations[0] = formation_701_1();
-    roster[usize::from(tactics.starting_eleven[2])].overalls =
-        Some([62, 83, 73, 73, 73, 69, 68, 68, 71, 68, 68, 70, 70]);
+    tactics.starting_eleven.swap(2, 5);
+    let his_row = usize::from(tactics.starting_eleven[2]);
+    assert_ne!(his_row, 2, "premise: slot 2's player is not roster slot 2");
+    roster[his_row].overalls = Some([62, 83, 73, 73, 73, 69, 68, 68, 71, 68, 68, 70, 70]);
+    let mut decoy = [70; 13];
+    decoy[usize::from(position_byte("CMF"))] = 90;
+    roster[2].overalls = Some(decoy);
     let players = tactics.presets[0].formations[0].players;
     assert_eq!(
         (players[2].position, players[2].x, players[2].y),

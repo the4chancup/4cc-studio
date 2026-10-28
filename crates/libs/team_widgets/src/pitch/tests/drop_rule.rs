@@ -165,6 +165,23 @@ fn the_default_wins_a_tie() {
     );
 }
 
+// Slot 9's CF dropped at (90, 40), where SS's and RWF's areas overlap:
+// the default is SS and the candidate the free RWF, tried before SS,
+// so a higher-rated RWF wins. Every real player there rates SS higher,
+// so only synthetic overalls tell the candidates' order apart.
+#[test]
+fn a_free_rwf_is_tried_before_ss() {
+    let formation = formation_701_1();
+    let mut overalls = [70; 13];
+    overalls[usize::from(position_byte("RWF"))] = 90;
+    overalls[usize::from(position_byte("SS"))] = 80;
+    assert_eq!(
+        dropped_position(&formation, 9, 90, 40, Some(&overalls)),
+        position_byte("RWF"),
+        "RWF is the candidate, rated above the default SS"
+    );
+}
+
 // Slot 3's DMF dropped at (90, 20): RMF's area holds the point but
 // slot 7 is the formation's RMF, so the candidate is none and the
 // default CMF is taken — with slot 7 turned CMF, RMF is free and wins.

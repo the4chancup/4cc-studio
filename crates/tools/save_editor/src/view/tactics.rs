@@ -60,8 +60,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // The roster as the widgets list it: the display names as the player
     // list shows them, the raw names for the colour-coded rows, the
     // registered positions and the thirteen per-position overalls the
-    // badge's number reads, indexed by roster slot (an empty slot "" and
-    // none).
+    // badge's number and the grass drop's position pick read, indexed by
+    // roster slot (an empty slot "" and none).
     let rows: Vec<RosterSlot> = team
         .roster
         .iter()
