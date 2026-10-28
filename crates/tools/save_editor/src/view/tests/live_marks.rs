@@ -89,16 +89,20 @@ fn marked_field_maps_every_kind() {
     let stat = |name: &str| aatf::Stat::try_from(name.to_owned()).expect("a stat name");
     let position = || aatf::Position::try_from("CB".to_owned()).expect("a position name");
     let cases: &[(K, Option<F>)] = &[
-        (K::RegisteredNotA, Some(F::RegisteredPosition)),
+        (
+            K::RegisteredNotA { rated_a: vec![] },
+            Some(F::RegisteredPosition),
+        ),
         (
             K::FieldedNotA {
                 preset: 1,
                 position: position(),
+                rated_a: vec![],
             },
             Some(F::Pitch),
         ),
-        (K::BRating, Some(F::PlayablePositions)),
-        (K::GkSecondA, Some(F::PlayablePositions)),
+        (K::BRating { rated_b: vec![] }, Some(F::PlayablePositions)),
+        (K::GkSecondA { rated_a: vec![] }, Some(F::PlayablePositions)),
         (
             K::Age {
                 age: 30,
@@ -117,7 +121,7 @@ fn marked_field_maps_every_kind() {
         ),
         (K::PositionRange, Some(F::RegisteredPosition)),
         (K::PlayingStyleRange, Some(F::PlayingStyle)),
-        (K::NoTier, None),
+        (K::NoTier { heights: vec![] }, None),
         (
             K::Stat {
                 stat: stat("speed"),
@@ -177,10 +181,21 @@ fn marked_field_maps_every_kind() {
             Some(F::ComStyles),
         ),
         (
-            K::APositions { count: 2, max: 1 },
+            K::APositions {
+                count: 2,
+                max: 1,
+                rated_a: vec![],
+            },
             Some(F::PlayablePositions),
         ),
-        (K::Height { height: 183 }, Some(F::Height)),
+        (
+            K::Height {
+                height: 183,
+                fits: vec![],
+                room: false,
+            },
+            Some(F::Height),
+        ),
         (
             K::TierCount {
                 tier: "gold".to_owned(),
@@ -211,6 +226,7 @@ fn marked_field_maps_every_kind() {
             K::TeamSetting {
                 label: "x".to_owned(),
                 setting: "y".to_owned(),
+                wanted: false,
             },
             None,
         ),
@@ -440,7 +456,7 @@ fn the_marks_follow_the_held_check() {
     let tip_at = egui::pos2(cross.pos.x + 2.0, cross.pos.y + 2.0);
     assert_eq!(
         tooltip_containing(&mut window, &mut view, tip_at, "takes no bracket", None).as_deref(),
-        Some("Height: height 183 takes no bracket"),
+        Some("Height: height 183 takes no bracket (185 has room)"),
         "the cross's tooltip is the violation's line"
     );
 
@@ -767,7 +783,15 @@ fn each_fields_cross_stands_beside_its_control() {
         AfterLabelBefore(&'static str),
     }
     let cases: &[(K, &str, Limit)] = &[
-        (K::Height { height: 183 }, "Height", Limit::LeftOfControl),
+        (
+            K::Height {
+                height: 183,
+                fits: vec![],
+                room: false,
+            },
+            "Height",
+            Limit::LeftOfControl,
+        ),
         (
             K::Age {
                 age: 30,
@@ -818,12 +842,16 @@ fn each_fields_cross_stands_beside_its_control() {
             Limit::LeftOfNameField,
         ),
         (
-            K::RegisteredNotA,
+            K::RegisteredNotA { rated_a: vec![] },
             "Registered position",
             Limit::LeftOfControl,
         ),
         (K::PlayingStyleRange, "Playing style", Limit::LeftOfControl),
-        (K::BRating, "Playable positions", Limit::AfterLabel),
+        (
+            K::BRating { rated_b: vec![] },
+            "Playable positions",
+            Limit::AfterLabel,
+        ),
         (
             K::SkillCardCap { count: 11, max: 10 },
             "Skills",
@@ -1289,7 +1317,11 @@ fn no_cross_overlaps_text_and_no_field_moves() {
     view.live_aatf = true;
     let error = |kind| violation(Some(0), aatf::Severity::Error, kind);
     let violations = vec![
-        error(K::Height { height: 183 }),
+        error(K::Height {
+            height: 183,
+            fits: vec![],
+            room: false,
+        }),
         error(K::Age {
             age: 30,
             min: 15,
@@ -1311,7 +1343,7 @@ fn no_cross_overlaps_text_and_no_field_moves() {
             color: Some("cc9900ff".to_owned()),
             expected: None,
         }),
-        error(K::RegisteredNotA),
+        error(K::RegisteredNotA { rated_a: vec![] }),
         error(K::PlayingStyleRange),
     ];
     let revision = view.session.as_ref().expect("the save opened").revision();
@@ -1494,7 +1526,7 @@ fn a_fields_cross_is_one_with_every_violations_line() {
     // lines in the check's order.
     let violations = [
         violation(Some(0), Warning, K::PositionRange),
-        violation(Some(0), Error, K::RegisteredNotA),
+        violation(Some(0), Error, K::RegisteredNotA { rated_a: vec![] }),
     ];
     let (painted, shapes) = paint_in(
         &mut window,
@@ -1534,7 +1566,7 @@ fn a_fields_cross_is_one_with_every_violations_line() {
 
     // Two Warnings: the warning colour.
     let violations = [
-        violation(Some(0), Warning, K::RegisteredNotA),
+        violation(Some(0), Warning, K::RegisteredNotA { rated_a: vec![] }),
         violation(Some(0), Warning, K::PositionRange),
     ];
     let (_, shapes) = paint_in(
@@ -1893,6 +1925,7 @@ fn a_fielded_violation_marks_the_starters_badge_on_the_pitch() {
             if let aatf::ViolationKind::FieldedNotA {
                 preset: 1,
                 position,
+                ..
             } = violation.kind
             {
                 Some((violation.slot, position))

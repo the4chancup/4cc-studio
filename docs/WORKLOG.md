@@ -4430,19 +4430,18 @@ briefs, review loops, gates and mutation runs as for any step.
     - when built, the spec: `spec/aatf_rules.md` "The rules file" (the pickers), "Embedded
       rulesets", "Loading and validation" (the setting), `spec/save_editor.md` "Configurable
       AATF rules" and "CLI" (the setting `check-aatf` reads)
-  - [ ] ov8 a violation's sentence suggests a valid value where the check can say it cheaply
-    (the maintainer, 2026-10-28; DECISIONS "The final pass's seventh rulings"; drafts and plan
-    done, `plans/aatf_rules.md` "The interpreter", Hints at a valid value). The app side, one
-    brief, before logic version 1's freeze (0.0.1f2):
-    - `logic.rhai`: `check_team` reads every player before checking any and hands the
-      brackets' room to `player_checks`; `Height`'s `fits` and `room` (the pool system's
-      range), `NoTier`'s `heights`, `card_summary`'s A and B lists into `RegisteredNotA`,
-      `FieldedNotA`, `APositions`, `GkSecondA` and `BRating`, `TeamSetting`'s `wanted`
-    - `aatf`: the `ViolationKind` fields, the map reader, `rule()`'s fields (what
-      `check-aatf` prints), the tests' expected values (`fixtures/*.rs`); the logic hash's
-      pin follows
-    - `team_widgets` `violations.rs` `sentence`: the drafts' wording (`violationSentence`)
-    - when built, the spec: `spec/aatf_rules.md` "The interpreter" (the violation block)
+  - [x] ov8 a violation's sentence suggests a valid value where the check can say it cheaply
+    (the maintainer, 2026-10-28; DECISIONS "The final pass's seventh rulings"; Opus sidekick,
+    brief `.tmp/0_0_1ov/brief_ov8.md`, report `.tmp/sidelead/sk_ov8.report.md`; spec
+    `spec/aatf_rules.md` "The interpreter", Hints at a valid value): `logic.rhai` reads every
+    player first (`height_room`, `tier_heights`, `card_summary`'s `rated_a`/`rated_b`,
+    `team_setting`'s `wanted`), the logic hash re-pinned; `aatf`'s eight variants with their
+    fields and `rule()`'s `[a, b]` lists; `team_widgets`' sentences in the drafts' words. A
+    bracket with a quota of 0 is no hint (the sidekick's evidence: Autumn 26's Red system).
+    New tests in `fixtures/official.rs`, `vgl26.rs`, `interpreter.rs` and `violations.rs`,
+    red on the old logic; on EDIT17 under DBC7 and Autumn 26 only the new fields changed
+    (10630 and 7086 lines). A rules file saved with the old logic now fails its check on a
+    missing field until its logic is updated (pre-release: no member holds one)
   - [ ] ov9 the drafts' FieldedNotA against the check (found 2026-10-28 at ov8): the drafts'
     `fieldedRows` raise one for PES 17's 71822 (DMF in preset 1, rated A at CB alone) under
     Autumn 26 and DBC7, the current build's `check-aatf` on the same save none; find which

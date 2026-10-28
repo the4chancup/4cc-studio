@@ -99,8 +99,10 @@ pub(super) fn marked_field(kind: &aatf::ViolationKind) -> Option<MarkedField> {
         K::WeakFootAccuracy { .. } => Some(MarkedField::WeakFootAccuracy),
         K::Stat { stat, .. } => Some(MarkedField::Stat(*stat)),
         K::NameColor { .. } => Some(MarkedField::Name),
-        K::RegisteredNotA | K::PositionRange => Some(MarkedField::RegisteredPosition),
-        K::BRating | K::GkSecondA | K::APositions { .. } => Some(MarkedField::PlayablePositions),
+        K::RegisteredNotA { .. } | K::PositionRange => Some(MarkedField::RegisteredPosition),
+        K::BRating { .. } | K::GkSecondA { .. } | K::APositions { .. } => {
+            Some(MarkedField::PlayablePositions)
+        }
         K::FieldedNotA { .. } => Some(MarkedField::Pitch),
         K::PlayingStyleRange => Some(MarkedField::PlayingStyle),
         K::SkillCardCap { .. } => Some(MarkedField::Skills),
@@ -110,7 +112,7 @@ pub(super) fn marked_field(kind: &aatf::ViolationKind) -> Option<MarkedField> {
             aatf::Card::ComStyle(_) => MarkedField::ComStyles,
         }),
         K::Cards { .. } | K::MinCards { .. } => Some(MarkedField::CardsLeft),
-        K::NoTier
+        K::NoTier { .. }
         | K::StatTotal { .. }
         | K::Special { .. }
         | K::Custom { .. }

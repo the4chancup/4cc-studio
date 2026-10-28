@@ -150,11 +150,11 @@ fn teams_limits_the_check_to_the_named_teams_in_id_order() {
         .unwrap();
     assert!(last_704 < first_718, "704's lines come first: {messages:?}");
     // SE-AATF-01's player field on an error line: 704's goalkeeper,
-    // fielded in goal in preset 1 without an A there.
+    // fielded in goal in preset 1 without an A there (rated A nowhere).
     assert!(
         messages.iter().any(|line| line
             == "Error aatf_violation (team=704, player=70401, rule=FieldedNotA, preset=1, \
-                position=GK)"),
+                position=GK, rated_a=[])"),
         "{messages:?}"
     );
 }

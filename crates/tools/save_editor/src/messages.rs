@@ -773,16 +773,40 @@ mod tests {
     #[test]
     fn every_violation_kind_prints_its_rules_file_fields() {
         let cases: &[(ViolationKind, &str)] = &[
-            (ViolationKind::RegisteredNotA, "rule=RegisteredNotA"),
+            (
+                ViolationKind::RegisteredNotA {
+                    rated_a: vec![
+                        "CF".to_owned().try_into().unwrap(),
+                        "SS".to_owned().try_into().unwrap(),
+                    ],
+                },
+                "rule=RegisteredNotA, rated_a=[CF, SS]",
+            ),
+            (
+                ViolationKind::RegisteredNotA { rated_a: vec![] },
+                "rule=RegisteredNotA, rated_a=[]",
+            ),
             (
                 ViolationKind::FieldedNotA {
                     preset: 1,
                     position: "GK".to_owned().try_into().unwrap(),
+                    rated_a: vec!["DMF".to_owned().try_into().unwrap()],
                 },
-                "rule=FieldedNotA, preset=1, position=GK",
+                "rule=FieldedNotA, preset=1, position=GK, rated_a=[DMF]",
             ),
-            (ViolationKind::BRating, "rule=BRating"),
-            (ViolationKind::GkSecondA, "rule=GkSecondA"),
+            (
+                ViolationKind::BRating {
+                    rated_b: vec![
+                        "LB".to_owned().try_into().unwrap(),
+                        "RB".to_owned().try_into().unwrap(),
+                    ],
+                },
+                "rule=BRating, rated_b=[LB, RB]",
+            ),
+            (
+                ViolationKind::GkSecondA { rated_a: vec![] },
+                "rule=GkSecondA, rated_a=[]",
+            ),
             (
                 ViolationKind::Age {
                     age: 15,
@@ -801,7 +825,16 @@ mod tests {
             ),
             (ViolationKind::PositionRange, "rule=PositionRange"),
             (ViolationKind::PlayingStyleRange, "rule=PlayingStyleRange"),
-            (ViolationKind::NoTier, "rule=NoTier"),
+            (
+                ViolationKind::NoTier {
+                    heights: vec![(180, 180), (185, 185)],
+                },
+                "rule=NoTier, heights=[180-180, 185-185]",
+            ),
+            (
+                ViolationKind::NoTier { heights: vec![] },
+                "rule=NoTier, heights=[]",
+            ),
             (
                 ViolationKind::Stat {
                     stat: "dribbling".to_owned().try_into().unwrap(),
@@ -867,12 +900,32 @@ mod tests {
                 "rule=RequiredCard, card=malicia",
             ),
             (
-                ViolationKind::APositions { count: 3, max: 2 },
-                "rule=APositions, count=3, max=2",
+                ViolationKind::APositions {
+                    count: 3,
+                    max: 2,
+                    rated_a: vec![
+                        "AMF".to_owned().try_into().unwrap(),
+                        "SS".to_owned().try_into().unwrap(),
+                        "CF".to_owned().try_into().unwrap(),
+                    ],
+                },
+                "rule=APositions, count=3, max=2, rated_a=[AMF, SS, CF]",
             ),
             (
-                ViolationKind::Height { height: 191 },
-                "rule=Height, height=191",
+                ViolationKind::Height {
+                    height: 183,
+                    fits: vec![(180, 180), (185, 185)],
+                    room: true,
+                },
+                "rule=Height, height=183, fits=[180-180, 185-185], room=true",
+            ),
+            (
+                ViolationKind::Height {
+                    height: 191,
+                    fits: vec![],
+                    room: false,
+                },
+                "rule=Height, height=191, fits=[], room=false",
             ),
             (
                 ViolationKind::TierCount {
@@ -913,8 +966,9 @@ mod tests {
                 ViolationKind::TeamSetting {
                     label: "no offside trap".to_owned(),
                     setting: "offside_trap".to_owned(),
+                    wanted: false,
                 },
-                "rule=TeamSetting, label=no offside trap, setting=offside_trap",
+                "rule=TeamSetting, label=no offside trap, setting=offside_trap, wanted=false",
             ),
             (
                 ViolationKind::FormationShape {

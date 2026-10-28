@@ -134,7 +134,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         )
                 })
                 .filter_map(|violation| {
-                    if let aatf::ViolationKind::FieldedNotA { preset, position } = violation.kind {
+                    if let aatf::ViolationKind::FieldedNotA {
+                        preset, position, ..
+                    } = violation.kind
+                    {
                         Some(FieldedMark {
                             preset: usize::from(preset) - 1,
                             position: position.byte(),

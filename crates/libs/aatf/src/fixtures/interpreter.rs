@@ -50,6 +50,40 @@ fn fires(rules: &Rules, team: &TeamView, slot: u8, label: &str) -> bool {
     })
 }
 
+/// `NoTier`'s heights: a lone `height_min` runs to 255, a lone
+/// `height_max` from 0, an `any` list's entries count one by one, a
+/// `not` names no height the tier takes, and a range two tiers name is
+/// listed once, in order of its low end. Slot 3 (175 cm) fits none.
+#[test]
+fn no_tier_heights_read_every_bound_once() {
+    let rules = rules(
+        "const RULESET = #{
+            schema: 1, name: \"x\", squad_size: 23,
+            universal: #{ max_skill_cards: 10 },
+            tiers: [
+                #{ id: \"giant\", label: \"Giant\", count: 1, rate: 77,
+                   when: #{ height_min: 194 } },
+                #{ id: \"small\", label: \"Small\", count: 1, rate: 77,
+                   when: #{ height_max: 170 } },
+                #{ id: \"pair\", label: \"Pair\", rate: 77,
+                   when: #{ any: [#{ height_min: 180, height_max: 180 }, #{ height_min: 194 }],
+                            not: #{ height_min: 185, height_max: 185 } } },
+            ],
+        };",
+    );
+    let team = TeamView::sample_team();
+    assert_eq!(player(&team, 3).height, 175);
+    assert_eq!(
+        findings_at(&rules, &team, 3),
+        vec![error(
+            Some(3),
+            ViolationKind::NoTier {
+                heights: vec![(0, 170), (180, 180), (194, 255)]
+            }
+        )]
+    );
+}
+
 /// The weak-foot suggestion reads the special's limits, not the tier's:
 /// a `weak_foot` replacement raising usage to 4 reports the player's 2
 /// as unused.
@@ -515,7 +549,11 @@ fn max_a_positions_caps_the_a_positions() {
         findings_at(&rules, &three, 3),
         vec![error(
             Some(3),
-            ViolationKind::APositions { count: 3, max: 2 }
+            ViolationKind::APositions {
+                count: 3,
+                max: 2,
+                rated_a: vec![position("CB"), position("RB"), position("CMF")]
+            }
         )]
     );
     let limits = rules
@@ -1024,7 +1062,11 @@ fn a_later_specials_max_a_positions_wins_over_an_earlier_choice() {
         findings_at(&rules, &team, 3),
         vec![error(
             Some(3),
-            ViolationKind::APositions { count: 3, max: 2 }
+            ViolationKind::APositions {
+                count: 3,
+                max: 2,
+                rated_a: vec![position("CB"), position("RB"), position("CMF")]
+            }
         )]
     );
     // Listed after it, the option's cap applies: three A positions met.
@@ -1068,7 +1110,11 @@ fn an_overridden_max_a_positions_is_not_used() {
         findings_at(&rules, &team, 3),
         vec![error(
             Some(3),
-            ViolationKind::APositions { count: 3, max: 2 }
+            ViolationKind::APositions {
+                count: 3,
+                max: 2,
+                rated_a: vec![position("CB"), position("RB"), position("CMF")]
+            }
         )]
     );
     assert_eq!(
@@ -1232,7 +1278,8 @@ fn auto_attack_defence_levels_is_compared() {
             None,
             ViolationKind::TeamSetting {
                 label: "a/d levels off".to_string(),
-                setting: "auto_attack_defence_levels".to_string()
+                setting: "auto_attack_defence_levels".to_string(),
+                wanted: false
             }
         )]
     );

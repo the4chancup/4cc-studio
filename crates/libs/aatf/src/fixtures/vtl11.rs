@@ -185,7 +185,8 @@ fn silver_and_gold_at_195_differ_only_in_swerve() {
     assert_eq!(
         problems(&rules, &team),
         vec![
-            error(Some(5), ViolationKind::NoTier),
+            // 195 is the medals' own height: the cause is the swerve.
+            error(Some(5), ViolationKind::NoTier { heights: vec![] }),
             error(
                 None,
                 ViolationKind::TierCount {
@@ -798,6 +799,7 @@ fn the_pes16_team_settings() {
             ViolationKind::TeamSetting {
                 label: label.to_string(),
                 setting: name.to_string(),
+                wanted: false,
             },
         )
     };

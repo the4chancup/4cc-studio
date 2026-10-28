@@ -296,7 +296,8 @@ fn a_starter_is_fielded_only_at_his_a_positions_in_preset_1() {
             Some(9),
             ViolationKind::FieldedNotA {
                 preset: 1,
-                position: amf
+                position: amf,
+                rated_a: vec![ss]
             }
         )]
     );
@@ -337,7 +338,8 @@ fn a_fluid_preset_fields_every_formation_under_the_a_rule() {
             Some(9),
             ViolationKind::FieldedNotA {
                 preset: 1,
-                position: amf
+                position: amf,
+                rated_a: vec![ss]
             }
         )]
     );
@@ -406,7 +408,8 @@ fn man_marking_and_the_support_settings_are_checked() {
             None,
             ViolationKind::TeamSetting {
                 label: "No man marking".to_string(),
-                setting: "man_marking".to_string()
+                setting: "man_marking".to_string(),
+                wanted: false
             }
         )]
     );
@@ -418,7 +421,8 @@ fn man_marking_and_the_support_settings_are_checked() {
             None,
             ViolationKind::TeamSetting {
                 label: "Support settings".to_string(),
-                setting: "auto_substitution".to_string()
+                setting: "auto_substitution".to_string(),
+                wanted: false
             }
         )]
     );
@@ -430,7 +434,8 @@ fn man_marking_and_the_support_settings_are_checked() {
             None,
             ViolationKind::TeamSetting {
                 label: "Support settings".to_string(),
-                setting: "auto_preset_change".to_string()
+                setting: "auto_preset_change".to_string(),
+                wanted: false
             }
         )]
     );
@@ -442,7 +447,54 @@ fn man_marking_and_the_support_settings_are_checked() {
             None,
             ViolationKind::TeamSetting {
                 label: "Support settings".to_string(),
-                setting: "auto_offside_trap".to_string()
+                setting: "auto_offside_trap".to_string(),
+                wanted: false
+            }
+        )]
+    );
+}
+
+/// An entry that wants a setting on names it `wanted: true`: VGL26's man
+/// marking entry turned to require man marking, which the legal team
+/// (no preset marks anyone) breaks.
+#[test]
+fn a_team_setting_names_the_value_it_wants() {
+    let rules = Rules::from_data_block(&VGL26.replace(
+        "#{ label: \"No man marking\", man_marking: false }",
+        "#{ label: \"No man marking\", man_marking: true }",
+    ))
+    .expect("the edited VGL26 loads");
+    assert_eq!(
+        problems(&rules, &legal_team()),
+        vec![error(
+            None,
+            ViolationKind::TeamSetting {
+                label: "No man marking".to_string(),
+                setting: "man_marking".to_string(),
+                wanted: true
+            }
+        )]
+    );
+}
+
+/// A regular (slot 12, 180) at 183 fits no tier's `when`: the hint names
+/// the heights the tiers take, each once and in order: the regulars' 180,
+/// the buffed 185 (its `not` names no height it takes), the bronzes' 190
+/// and the gold's and silvers' 195. The goalkeepers' tier names none.
+#[test]
+fn no_tier_names_the_heights_the_tiers_take() {
+    let rules = rules();
+    assert_eq!(player(&legal_team(), 12).height, 180);
+    let team = edited(12, |p| p.height = 183);
+    assert_eq!(
+        problems(&rules, &team)
+            .into_iter()
+            .filter(|violation| violation.slot == Some(12))
+            .collect::<Vec<_>>(),
+        vec![error(
+            Some(12),
+            ViolationKind::NoTier {
+                heights: vec![(180, 180), (185, 185), (190, 190), (195, 195)]
             }
         )]
     );

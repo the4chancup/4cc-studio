@@ -64,7 +64,7 @@ fn the_panel_lists_the_current_teams_violations_per_player() {
         .iter()
         .filter(|node| {
             node.role() == Role::Button
-                && node.label() == Some("Height: height 183 takes no bracket")
+                && node.label() == Some("Height: height 183 takes no bracket (185 has room)")
         })
         .collect();
     assert_eq!(heights.len(), 2, "the two players' Height rows");

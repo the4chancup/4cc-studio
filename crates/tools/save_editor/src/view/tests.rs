@@ -1260,7 +1260,7 @@ fn height_row_below<'a>(nodes: &'a [accesskit::Node], header: &str) -> &'a acces
         .iter()
         .filter(|node| {
             node.role() == Role::Button
-                && node.label() == Some("Height: height 183 takes no bracket")
+                && node.label() == Some("Height: height 183 takes no bracket (185 has room)")
         })
         .filter(|node| node.bounds().is_some_and(|b| b.y0 > top))
         .min_by(|a, b| {
@@ -1276,7 +1276,7 @@ fn height_rows(nodes: &[accesskit::Node]) -> usize {
         .iter()
         .filter(|node| {
             node.role() == Role::Button
-                && node.label() == Some("Height: height 183 takes no bracket")
+                && node.label() == Some("Height: height 183 takes no bracket (185 has room)")
         })
         .count()
 }

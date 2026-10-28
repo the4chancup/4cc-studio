@@ -6198,7 +6198,7 @@ function comparatorPanel() {
 // The CLI reports the code and fields only; the sentences per rule kind are
 // the draft's own, from messages.rs's ViolationKind arms.
 // sample wording: every sentence below, one per kind.
-// A hint names a valid value where the sentence would not (plans/aatf_rules.md
+// A hint names a valid value where the sentence would not (spec/aatf_rules.md
 // "The interpreter", Hints at a valid value): a list joined "a, b and c",
 // heights as inclusive ranges ("180", "up to 175", "175 to 210").
 function violationSentence(rule, kv, sev) {

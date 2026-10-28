@@ -84,14 +84,18 @@ fn check_team(team) {
     let found = [];
     let system = rules.height_system(team);
     let read = [];
-    for player in team.players {
-        let r = rules.read_player(team, system, player);
-        read.push(r);
+    for player in team.players { read.push(rules.read_player(team, system, player)); }
+    // Every player is read before any is checked: a height hint names the brackets with
+    // room, which the whole team's reading decides.
+    let room = rules.height_room(system, read);
+    for r in read {
         if r.tier == () {
-            found.push(#{ kind: "NoTier", slot: player.slot });
+            found.push(#{
+                kind: "NoTier", slot: r.player.slot, heights: rules.tier_heights(r.player.height),
+            });
             continue;
         }
-        found += rules.player_checks(team, system, player, r.tier, r.profile);
+        found += rules.player_checks(team, system, r.player, r.tier, r.profile, room);
     }
     found += rules.team_checks(team, system, read);
     if is_def_fn("custom_checks", 1) {
@@ -599,8 +603,9 @@ fn groups_of(groups, card) {
 
 // A player's cards against `tier` under `p`: the held cards, how many are skills and COM
 // styles, the free count and the held count per group (a card free by name is not counted
-// there), the paid count and how many of them are skills, the A and B ratings,
-// the A allowance, the extra A positions and the paid limit; `this` is the ruleset.
+// there), the paid count and how many of them are skills, the positions rated A and B (in
+// `positions()`'s order) and their counts, the A allowance, the extra A positions and the
+// paid limit; `this` is the ruleset.
 fn card_summary(tier, p, player) {
     let held = player.cards;
     let com = com_styles();
@@ -633,19 +638,21 @@ fn card_summary(tier, p, player) {
         paid += 1;
         if !(card in com) { paid_skills += 1; }
     }
-    let a_count = 0;
-    let b_count = 0;
+    let rated_a = [];
+    let rated_b = [];
     for pos in positions() {
         let rating = player.rating_at(pos);
-        if rating == "A" { a_count += 1; } else if rating == "B" { b_count += 1; }
+        if rating == "A" { rated_a.push(pos); } else if rating == "B" { rated_b.push(pos); }
     }
+    let a_count = rated_a.len();
+    let b_count = rated_b.len();
     let counted_a = a_count + (if flag(this.universal, "b_uses_a_allowance") { b_count } else { 0 });
     let a_allowance = num(tier, "a_positions") + p.a_positions;
     let extra = max(0, counted_a - a_allowance);
     #{
         held: held, skills: skills, coms: coms, free: free, held_by_group: held_by_group,
         paid: paid, paid_skills: paid_skills,
-        a_count: a_count, b_count: b_count,
+        rated_a: rated_a, rated_b: rated_b, a_count: a_count, b_count: b_count,
         counted_a: counted_a, a_allowance: a_allowance, extra: extra,
         limit: num(tier, "cards") + p.cards - extra,
     }
@@ -660,33 +667,38 @@ fn misses(at_most, name, value, target) {
 
 // Every violation of `player`, read as `tier` under `p`, against the universal rules, the
 // tier's targets and limits, the card economy, the height and the specials' forbids, then the
-// suggestions; `this` is the ruleset.
-fn player_checks(team, system, player, tier, p) {
+// suggestions; `this` is the ruleset, `room` is `height_room`'s answer for the team.
+fn player_checks(team, system, player, tier, p, room) {
     let found = [];
     let slot = player.slot;
     let universal = this.universal;
     let at_most = this.stats.at_most;
+    let cards = this.card_summary(tier, p, player);
     // Built in: the version's registered-position and playing-style ranges.
     if player.position == () { found.push(#{ kind: "PositionRange", slot: slot }); }
     if player.playing_style == () { found.push(#{ kind: "PlayingStyleRange", slot: slot }); }
     if flag(universal, "registered_position_a") && player.position != ()
         && player.rating_at(player.position) != "A" {
-        found.push(#{ kind: "RegisteredNotA", slot: slot });
+        found.push(#{ kind: "RegisteredNotA", slot: slot, rated_a: cards.rated_a });
     }
     for preset in list(universal, "fielded_at_a") {
         for pos in team.fielded_positions(player, preset) {
             if player.rating_at(pos) != "A" {
-                found.push(#{ kind: "FieldedNotA", slot: slot, preset: preset, position: pos });
+                found.push(#{
+                    kind: "FieldedNotA", slot: slot, preset: preset, position: pos,
+                    rated_a: cards.rated_a,
+                });
             }
         }
     }
-    let cards = this.card_summary(tier, p, player);
     if flag(universal, "no_b_ratings") && cards.b_count > 0 {
-        found.push(#{ kind: "BRating", slot: slot });
+        found.push(#{ kind: "BRating", slot: slot, rated_b: cards.rated_b });
     }
     // A GK rating among several A positions: the GK's own second A included.
     if flag(universal, "gk_not_second_a") && cards.a_count > 1 && player.rating_at("GK") == "A" {
-        found.push(#{ kind: "GkSecondA", slot: slot });
+        found.push(#{
+            kind: "GkSecondA", slot: slot, rated_a: cards.rated_a.filter(|pos| pos != "GK"),
+        });
     }
     if "age" in universal && universal.age != () {
         let age = universal.age;
@@ -785,7 +797,10 @@ fn player_checks(team, system, player, tier, p) {
         }
     }
     if p.max_a_positions != () && cards.a_count > p.max_a_positions {
-        found.push(#{ kind: "APositions", slot: slot, count: cards.a_count, max: p.max_a_positions });
+        found.push(#{
+            kind: "APositions", slot: slot, count: cards.a_count, max: p.max_a_positions,
+            rated_a: cards.rated_a,
+        });
     }
     if cards.skills > universal.max_skill_cards {
         found.push(#{
@@ -800,13 +815,26 @@ fn player_checks(team, system, player, tier, p) {
     }
     // The height: under `extra_height`, over `max` or below every quota
     // bracket (less the allowance); elsewhere a height no bracket takes.
+    // Each hint's ranges carry the allowance, except `max`, which is
+    // compared with the height as it is.
     if system != () && "extra_height" in system && system.extra_height != () {
-        if player.height > system.extra_height.max
-            || player.height - p.allowance < this.quota_floor(system) {
-            found.push(#{ kind: "Height", slot: slot, height: player.height });
+        let floor = this.quota_floor(system);
+        if player.height > system.extra_height.max || player.height - p.allowance < floor {
+            found.push(#{
+                kind: "Height", slot: slot, height: player.height,
+                fits: [[floor + p.allowance, system.extra_height.max]], room: false,
+            });
         }
     } else if p.bracket == () && this.heights.brackets.len() > 0 {
-        found.push(#{ kind: "Height", slot: slot, height: player.height });
+        let fits = [];
+        for range in room.ranges {
+            // 0 is an `up_to` bracket's open bottom, no height an allowance moves.
+            let low = if range[0] == 0 { 0 } else { range[0] + p.allowance };
+            fits.push([low, range[1] + p.allowance]);
+        }
+        found.push(#{
+            kind: "Height", slot: slot, height: player.height, fits: fits, room: room.room,
+        });
     }
     for forbid in p.forbids {
         found.push(#{
@@ -964,23 +992,25 @@ fn team_checks(team, system, read) {
         if versions.len() > 0 && !(team.version in versions) { continue; }
         // A setting the version lacks (`()`) cannot be checked.
         if "man_marking" in entry && team.man_marking != entry.man_marking {
-            found.push(team_setting(entry.label, "man_marking"));
+            found.push(team_setting(entry.label, "man_marking", entry.man_marking));
         }
         if "auto_substitution" in entry && team.auto_substitution != ()
             && (team.auto_substitution != 0) != entry.auto_substitution {
-            found.push(team_setting(entry.label, "auto_substitution"));
+            found.push(team_setting(entry.label, "auto_substitution", entry.auto_substitution));
         }
         if "auto_offside_trap" in entry && team.auto_offside_trap != ()
             && team.auto_offside_trap != entry.auto_offside_trap {
-            found.push(team_setting(entry.label, "auto_offside_trap"));
+            found.push(team_setting(entry.label, "auto_offside_trap", entry.auto_offside_trap));
         }
         if "auto_preset_change" in entry && team.auto_preset_change != ()
             && team.auto_preset_change != entry.auto_preset_change {
-            found.push(team_setting(entry.label, "auto_preset_change"));
+            found.push(team_setting(entry.label, "auto_preset_change", entry.auto_preset_change));
         }
         if "auto_attack_defence_levels" in entry && team.auto_attack_defence_levels != ()
             && team.auto_attack_defence_levels != entry.auto_attack_defence_levels {
-            found.push(team_setting(entry.label, "auto_attack_defence_levels"));
+            found.push(team_setting(
+                entry.label, "auto_attack_defence_levels", entry.auto_attack_defence_levels,
+            ));
         }
         let shapes = list(entry, "forbidden_shapes");
         if shapes.len() > 0 {
@@ -995,6 +1025,65 @@ fn team_checks(team, system, read) {
         }
     }
     found
+}
+
+// The heights a player in no bracket could take under `system`, before his allowance, as
+// `#{ ranges, room }`: the ranges of each quota bracket (one whose quota is above 0) counting
+// fewer players than its quota, `room: true`; when none has room, every quota bracket's,
+// `room: false`; none without a system. A bracket counts the players read with a tier in it,
+// as `height_findings` does. An `up_to` bracket's range starts above the brackets before it,
+// or at 0 when it is the first; an `exactly` bracket gives one range per height. A bracket
+// with a quota of 0 is left out: no player may take it. `this` is the ruleset, `read` is
+// `read_player`'s result per player.
+fn height_room(system, read) {
+    let open = [];
+    let every = [];
+    let quotas = if system == () { #{} } else { table(system, "quotas") };
+    let floor = 0;
+    for bracket in this.heights.brackets {
+        let ranges = [];
+        if "up_to" in bracket {
+            ranges.push([if floor == 0 { 0 } else { floor + 1 }, bracket.up_to]);
+            floor = max(floor, bracket.up_to);
+        } else {
+            for h in bracket.exactly {
+                ranges.push([h, h]);
+                floor = max(floor, h);
+            }
+        }
+        let quota = num(quotas, bracket.id);
+        if quota == 0 { continue; }
+        every += ranges;
+        let count = 0;
+        for r in read {
+            if r.tier != () && r.profile.bracket == bracket.id { count += 1; }
+        }
+        if count < quota { open += ranges; }
+    }
+    if open.len() > 0 { #{ ranges: open, room: true } } else { #{ ranges: every, room: false } }
+}
+
+// The heights the tiers' `when`s name, each an inclusive `[low, high]` listed once, by its low
+// end: a `when`'s own `height_min`/`height_max` and each entry of its `any` list, a lone
+// `height_min` running to 255 and a lone `height_max` from 0. A `not` is skipped: it names
+// heights the tier refuses. Empty when `height` is among them, the tier then failing on
+// another condition. `this` is the ruleset.
+fn tier_heights(height) {
+    let ranges = [];
+    for tier in this.tiers {
+        let when = table(tier, "when");
+        let conditions = [when];
+        conditions += list(when, "any");
+        for cond in conditions {
+            if !("height_min" in cond) && !("height_max" in cond) { continue; }
+            let low = if "height_min" in cond { cond.height_min } else { 0 };
+            let high = if "height_max" in cond { cond.height_max } else { 255 };
+            if height >= low && height <= high { return []; }
+            if !([low, high] in ranges) { ranges.push([low, high]); }
+        }
+    }
+    ranges.sort(|a, b| if a[0] == b[0] { a[1] - b[1] } else { a[0] - b[0] });
+    ranges
 }
 
 // The lowest height the system's quota brackets take (a pool system's quotas name
@@ -1087,7 +1176,7 @@ fn height_findings(system, read) {
     found
 }
 
-// A `TeamSetting` violation.
-fn team_setting(label, setting) {
-    #{ kind: "TeamSetting", label: label, setting: setting }
+// A `TeamSetting` violation: `wanted` is the value the entry sets.
+fn team_setting(label, setting, wanted) {
+    #{ kind: "TeamSetting", label: label, setting: setting, wanted: wanted }
 }
