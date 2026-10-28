@@ -7,6 +7,7 @@
 
 use std::time::Duration;
 
+use crate::shell::window_size;
 use crate::status::{ActionEffect, Notice, ShellCondition};
 
 /// How long a notice without an action stays in the middle slot (the draft's
@@ -207,16 +208,32 @@ impl StatusBar {
         effect
     }
 
-    /// The left slot: the version, always, then one icon-and-text entry per held condition,
-    /// each carrying its tooltip. Returns the content's right edge, the middle slot's
-    /// left bound.
+    /// The left slot: the version, always, then the Reset window button while
+    /// the window sits off the main class's fitted design size, then one
+    /// icon-and-text entry per held condition, each carrying its tooltip.
+    /// Returns the content's right edge, the middle slot's left bound.
     fn left_slot(&self, ui: &mut egui::Ui) -> f32 {
+        let (viewport, screen_rect) =
+            ui.input(|input| (input.viewport().clone(), input.raw.screen_rect));
+        let zoom = ui.ctx().zoom_factor();
         ui.horizontal(|ui| {
             ui.label(
                 egui::RichText::new(crate::shell::version_label())
                     .small()
                     .weak(),
             );
+            if window_size::off_design_size(&viewport, screen_rect, zoom, window_size::DEFAULT_SIZE)
+            {
+                let reset = ui
+                    .add(
+                        egui::Button::new(egui::RichText::new("Reset window").small().weak())
+                            .frame(false),
+                    )
+                    .on_hover_text("Back to the default window size, centred on its monitor");
+                if reset.clicked() {
+                    window_size::reset(ui.ctx(), &viewport);
+                }
+            }
             for condition in &self.conditions {
                 // The labels are not selectable: a selectable label senses click+drag and
                 // would shadow the entry's own `hovered`, keeping the tooltip shut.
@@ -248,17 +265,33 @@ mod tests {
     use egui::accesskit::Role;
     use pes_version::PesVersion;
 
+    use crate::shell::StudioApp;
     use crate::shell::test_harness::*;
     use crate::status::{ActionEffect, Notice, NoticeAction, NoticeKind};
 
     /// The `Label` nodes' texts drawn inside the bottom 24 px of the 800x600 screen (a
     /// `RichText` label also leaves a `TextRun` child, so `Label` alone is counted).
     fn bottom_texts(nodes: &[egui::accesskit::Node]) -> Vec<&str> {
+        texts_below(nodes, 576.0)
+    }
+
+    /// The `Label` nodes' texts drawn at or below `y` on the frame's screen.
+    fn texts_below(nodes: &[egui::accesskit::Node], y: f64) -> Vec<&str> {
         nodes
             .iter()
             .filter(|node| node.role() == Role::Label)
-            .filter(|node| node.bounds().is_some_and(|bounds| bounds.y0 >= 576.0))
+            .filter(|node| node.bounds().is_some_and(|bounds| bounds.y0 >= y))
             .filter_map(|node| node.value())
+            .collect()
+    }
+
+    /// The `Button` nodes' labels drawn at or below `y` on the frame's screen.
+    fn buttons_below(nodes: &[egui::accesskit::Node], y: f64) -> Vec<&str> {
+        nodes
+            .iter()
+            .filter(|node| node.role() == Role::Button)
+            .filter(|node| node.bounds().is_some_and(|bounds| bounds.y0 >= y))
+            .filter_map(|node| node.label())
             .collect()
     }
 
@@ -275,17 +308,198 @@ mod tests {
             .x1
     }
 
+    /// One frame's input reporting a window `size` zoom-1 points big on a
+    /// `monitor`-point monitor, `maximized` or not: the screen and inner rects
+    /// are `size`, the outer `size` plus (16, 39) of decorations, and the
+    /// inner is inset by the 8-wide border and 31-tall title bar.
+    fn placed_input(
+        outer_min: egui::Pos2,
+        size: egui::Vec2,
+        monitor: egui::Vec2,
+        maximized: bool,
+    ) -> egui::RawInput {
+        let mut input = raw_input(Vec::new(), true, None, None);
+        input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size));
+        let info = input
+            .viewports
+            .get_mut(&egui::ViewportId::ROOT)
+            .expect("`RawInput::default` carries the root viewport");
+        info.monitor_size = Some(monitor);
+        info.outer_rect = Some(egui::Rect::from_min_size(
+            outer_min,
+            size + egui::vec2(16.0, 39.0),
+        ));
+        info.inner_rect = Some(egui::Rect::from_min_size(
+            outer_min + egui::vec2(8.0, 31.0),
+            size,
+        ));
+        info.maximized = Some(maximized);
+        input
+    }
+
+    /// Whether `input`'s frame draws the Reset window button, on a fresh
+    /// context so each case stands at zoom 1.
+    fn draws_reset(app: &mut StudioApp, input: egui::RawInput) -> bool {
+        has_label(
+            &run_frame(&test_context(), app, input).nodes,
+            "Reset window",
+        )
+    }
+
+    /// The frame's commands to the window's place: size, position and
+    /// maximize, the list the Reset window click produces.
+    fn place_commands(output: &FrameOutput) -> Vec<egui::ViewportCommand> {
+        output
+            .commands
+            .iter()
+            .filter(|command| {
+                matches!(
+                    command,
+                    egui::ViewportCommand::InnerSize(_)
+                        | egui::ViewportCommand::OuterPosition(_)
+                        | egui::ViewportCommand::Maximized(_)
+                )
+            })
+            .cloned()
+            .collect()
+    }
+
     // ST-BAR-01
     #[test]
-    fn an_empty_bar_shows_the_version_and_nothing_else() {
+    fn an_empty_bar_on_a_maximized_window_shows_the_version_and_reset_window() {
         let Shell { mut app, _dir, .. } = shell();
         let egui_ctx = test_context();
-        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        let nodes = run_frame(
+            &egui_ctx,
+            &mut app,
+            placed_input(
+                egui::Pos2::ZERO,
+                egui::vec2(1920.0, 1041.0),
+                egui::vec2(1920.0, 1080.0),
+                true,
+            ),
+        )
+        .nodes;
         let version = crate::shell::version_label();
+        // The bar's strip is the bottom 24 points of the 1041-point screen.
         assert_eq!(
-            bottom_texts(&nodes),
+            texts_below(&nodes, 1017.0),
             [version.as_str()],
-            "the bar shows the version alone"
+            "the bar's only text is the version"
+        );
+        assert_eq!(
+            buttons_below(&nodes, 1017.0),
+            ["Reset window"],
+            "its only button is Reset window"
+        );
+    }
+
+    // ST-BAR-06
+    #[test]
+    fn the_reset_button_is_drawn_only_while_the_window_is_off_its_fitted_size() {
+        let Shell { mut app, _dir, .. } = shell();
+        let fhd = egui::vec2(1920.0, 1080.0);
+
+        assert!(
+            !draws_reset(
+                &mut app,
+                placed_input(egui::Pos2::ZERO, egui::vec2(1280.0, 800.0), fhd, false)
+            ),
+            "1280 x 800 on a 1920 x 1080 monitor: the fitted design size"
+        );
+        assert!(
+            draws_reset(
+                &mut app,
+                placed_input(egui::Pos2::ZERO, egui::vec2(1100.0, 800.0), fhd, false)
+            ),
+            "resized narrower than the design size"
+        );
+        assert!(
+            draws_reset(
+                &mut app,
+                placed_input(egui::Pos2::ZERO, egui::vec2(1920.0, 1041.0), fhd, true)
+            ),
+            "maximized"
+        );
+        assert!(
+            !draws_reset(
+                &mut app,
+                placed_input(
+                    egui::pos2(400.0, 200.0),
+                    egui::vec2(1280.0, 800.0),
+                    fhd,
+                    false
+                )
+            ),
+            "moved at the design size: the position does not count"
+        );
+        // A monitor too narrow for the decorated design width fits the window
+        // to 1184 x 800, under the design width so at zoom < 1: at that fit
+        // the button is not drawn either.
+        assert!(
+            !draws_reset(
+                &mut app,
+                placed_input(
+                    egui::Pos2::ZERO,
+                    egui::vec2(1184.0, 800.0),
+                    egui::vec2(1200.0, 2000.0),
+                    false
+                )
+            ),
+            "at the fit on a narrow monitor, where the zoom is under 1"
+        );
+
+        // A frame reporting a monitor but no window size, and one reporting
+        // neither, leave no evidence the window is off its size.
+        let mut no_size = raw_input(Vec::new(), true, None, None);
+        no_size
+            .viewports
+            .get_mut(&egui::ViewportId::ROOT)
+            .expect("`RawInput::default` carries the root viewport")
+            .monitor_size = Some(fhd);
+        assert!(
+            !draws_reset(&mut app, no_size),
+            "a monitor but no reported size"
+        );
+        assert!(
+            !draws_reset(&mut app, raw_input(Vec::new(), true, None, None)),
+            "neither reported"
+        );
+    }
+
+    // ST-BAR-05
+    #[test]
+    fn clicking_reset_window_restores_then_fits_and_centres_the_window() {
+        let Shell { mut app, _dir, .. } = shell();
+        let egui_ctx = test_context();
+        let maximized = || {
+            placed_input(
+                egui::Pos2::ZERO,
+                egui::vec2(1920.0, 1041.0),
+                egui::vec2(1920.0, 1080.0),
+                true,
+            )
+        };
+
+        let nodes = run_frame(&egui_ctx, &mut app, maximized()).nodes;
+        let button = entry(&nodes, "Reset window");
+        // The press and release frames report the same maximized window; the
+        // click lands on the release frame, so its output holds the commands.
+        let mut press = maximized();
+        press.events = pointer(button, true);
+        run_frame(&egui_ctx, &mut app, press);
+        let mut release = maximized();
+        release.events = pointer(button, false);
+        let out = run_frame(&egui_ctx, &mut app, release);
+
+        assert_eq!(
+            place_commands(&out),
+            [
+                egui::ViewportCommand::Maximized(false),
+                egui::ViewportCommand::InnerSize(egui::vec2(1280.0, 800.0)),
+                egui::ViewportCommand::OuterPosition(egui::pos2(312.0, 120.5)),
+            ],
+            "restored first, then the fit centring the window on its monitor"
         );
     }
 

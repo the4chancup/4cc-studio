@@ -36,18 +36,24 @@ const SMALL_ICON_PNG: &[u8] = include_bytes!("../../../../../resources/icon/smal
 #[cfg(not(target_arch = "wasm32"))]
 const WINDOW_ICON_PNG: &[u8] = include_bytes!("../../../../../resources/icon/window.png");
 
-/// The size the first frame fits the window to: the height is `DEFAULT_SIZE.y`
-/// while it is within 90% of `monitor`'s height, else 90% of it rounded to
-/// whole points; the width is `DEFAULT_SIZE.x` while the window with its
-/// `decorations` fits `monitor`'s width, else what is left over them.
+/// The size the first frame fits the window to: the main class's design size
+/// fitted to `monitor` (`fitted_size_of`).
 pub(super) fn fitted_size(monitor: egui::Vec2, decorations: egui::Vec2) -> egui::Vec2 {
-    let height = if DEFAULT_SIZE.y <= monitor.y * 0.9 {
-        DEFAULT_SIZE.y
+    fitted_size_of(DEFAULT_SIZE, monitor, decorations)
+}
+
+/// `design` fitted to `monitor`: the height is `design.y` while it is within
+/// 90% of `monitor`'s height, else 90% of it rounded to whole points; the width
+/// is `design.x` while the window with its `decorations` fits `monitor`'s
+/// width, else what is left over them.
+fn fitted_size_of(design: egui::Vec2, monitor: egui::Vec2, decorations: egui::Vec2) -> egui::Vec2 {
+    let height = if design.y <= monitor.y * 0.9 {
+        design.y
     } else {
         (monitor.y * 0.9).round()
     };
-    let width = if DEFAULT_SIZE.x + decorations.x <= monitor.x {
-        DEFAULT_SIZE.x
+    let width = if design.x + decorations.x <= monitor.x {
+        design.x
     } else {
         monitor.x - decorations.x
     };
@@ -265,6 +271,46 @@ pub(super) fn fit(viewport: &egui::ViewportInfo) -> Option<(egui::Vec2, egui::Po
     };
     let size = fitted_size(monitor, decorations);
     Some((size, ((monitor - size - decorations) * 0.5).to_pos2()))
+}
+
+/// Whether the window sits off `design` (the active class's design size), the
+/// status bar's condition for drawing the Reset window button: maximized, or
+/// its inner size at zoom 1 (`screen_rect`'s size times the pass's zoom, which
+/// undoes the zoom the rect is expressed in) is not `design` fitted to its
+/// monitor, both rounded to whole points. The position never counts, and a
+/// frame reporting no monitor or no size leaves nothing to compare, so the
+/// button is not drawn.
+pub(super) fn off_design_size(
+    viewport: &egui::ViewportInfo,
+    screen_rect: Option<egui::Rect>,
+    zoom: f32,
+    design: egui::Vec2,
+) -> bool {
+    if viewport.maximized == Some(true) {
+        return true;
+    }
+    let (Some(monitor), Some(inner), Some(screen)) =
+        (viewport.monitor_size, viewport.inner_rect, screen_rect)
+    else {
+        return false;
+    };
+    let decorations = viewport
+        .outer_rect
+        .map_or(egui::Vec2::ZERO, |outer| outer.size() - inner.size());
+    (screen.size() * zoom).round() != fitted_size_of(design, monitor, decorations).round()
+}
+
+/// What the status bar's Reset window click sends: a maximized window is
+/// restored first, then the same `InnerSize` and `OuterPosition` the first
+/// frame's fit sends, centring the window on its monitor.
+pub(super) fn reset(ctx: &egui::Context, viewport: &egui::ViewportInfo) {
+    if viewport.maximized == Some(true) {
+        ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(false));
+    }
+    if let Some((size, top_left)) = fit(viewport) {
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+        ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(top_left));
+    }
 }
 
 #[cfg(test)]

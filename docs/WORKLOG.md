@@ -4014,7 +4014,7 @@ briefs, review loops, gates and mutation runs as for any step.
     buttons). Plan `core/gui.md` the theme row, "Status bar" (ST-BAR-01, ST-BAR-05),
     `save_editor.md` "Editing UI" (the player rows, Playable positions, SE-GUI-40). Checked
     in Chromium and Firefox (`.tmp/draft_look/check.py`). Approved 2026-10-28 (with z4)
-  - [ ] z2 the code, once z1 is approved
+  - [x] z2 the code, once z1 is approved (its built-window look batched with 0.0.1's)
     - [x] z2a `team_widgets` + `save_editor`: the slider's trailing fill and handle in the
       selection blue (`tactics/mod.rs` `slider`, the handle overpainted from egui's own
       geometry, which egui keeps private; the physique sliders when built), the rows'
@@ -4024,8 +4024,11 @@ briefs, review loops, gates and mutation runs as for any step.
       `view/abilities.rs`); help pages 02 and 03. Open: the built-window look; the
       handle's stroke brightens on hovering the value box too (egui strokes it from the
       slider part alone), cosmetic
-    - [ ] z2b `studio_core`: Reset window (`shell/status_bar.rs`, ST-BAR-01's test,
-      ST-BAR-05, ST-BAR-06: drawn only off the active class's design size or maximized);
+    - [x] z2b `studio_core`: Reset window (`shell/status_bar.rs`, ST-BAR-01's test,
+      ST-BAR-05, ST-BAR-06: drawn only off the active class's design size or maximized;
+      `window_size` `off_design_size`, `reset`). Open: the built-window look, the click
+      on a maximized window landing centred (the fit reads the maximized frame's
+      decorations);
       ST-BAR-05/06's special-tool clauses wait for ST-WIN-03 (special tools' declared
       sizes, not built: the class is always the main one)
   - [ ] z3 the sidebar's active-tool bar: the draft rounds its left corners, egui draws it
