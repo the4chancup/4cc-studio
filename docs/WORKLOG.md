@@ -2145,7 +2145,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `save_editor/src/{lib,settings}.rs`, `view/{mod,menus,player_list}.rs`,
     `view/appearance/mod.rs`, `view/tests/{appearance,player,team,savefile}.rs`,
     `help/0{4,5,6,7}_*.md`, `docs/prototypes/tools/save_editor.js`
-  - [ ] 8.30 after 0.0.1 (the maintainer, 2026-10-26, not a priority): the Save editor's
+  - [x] 8.30 WITHDRAWN (the maintainer, 2026-10-28: "keep the Nation input as it is, with no
+    label"); its draft stays on `side/drafts2`, unmerged. Was (the maintainer, 2026-10-26): the Save editor's
     Nation field shows the nation's name beside its number, from a map of the game's nation
     ids to names (which versions share the ids, and where the names come from, first).
     Drafted (`side/drafts2`); answered 2026-10-27 (DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers"): 4cc's nations in PES 16's
@@ -2157,8 +2158,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     not a window (the maintainer, 2026-10-27; DECISIONS "The changes list is a popup under the
     unsaved-changes label"); a colour's values draw a 12 × 12 swatch in the shared table (the
     close prompt's too) and the list has no footer line (DECISIONS "The changes table's colours
-    draw a swatch; the list has no footer line"; draft `side/drafts2` `30842fa2`)
-  - [ ] 8.32 after 0.0.1 (the maintainer, 2026-10-27): the pitch draws the formation's name
+    draw a swatch; the list has no footer line"; draft `side/drafts2` `30842fa2`). Approved
+    2026-10-28: the draft on main (`ed81bdb3`, `aaae3d1e`), the plan written
+    (`plans/save_editor.md` "Editing UI", the bullet after the close prompt's); left: the
+    code, its SE-GUI scenario written with it
+  - [x] 8.32 approved 2026-10-28 as built in 0.0.1x (the maintainer, 2026-10-27): the pitch draws the formation's name
     (`4-3-3`) in its corner, exactly as PES's formation screen draws it. First: the game's
     rule for the name from the slots' positions and the label's look, from in-game captures
     (ask before taking them); then the draft, then the plan. Moved into 0.0.1 as 0.0.1x
@@ -2170,9 +2174,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     Drafted (`side/drafts2`); answered 2026-10-27 (DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers"): pitch-size cells, a second
     set of entries with the presets' settings, a save dialog for one team, no fluid-off
     line, a narrow picture when no preset is fluid; the draft revised (side-lead D's step
-    5), then the look
-  - [ ] 8.34 after 8.33 (the maintainer, 2026-10-27): the same for a range of team ids asked
-    for, one picture per team, in one go
+    5), then the look. Approved 2026-10-28 with four changes (DECISIONS "The drafts' looks
+    of 2026-10-28"): one Team-menu entry whose own dialog holds the settings checkbox,
+    the dialogs' fields at one x, the range's teams picked in combos, the range dialog one
+    width in both checkbox states. Drafts on main (`f3122871`, `e1b49843`, `5d668583`),
+    the plan written (`plans/save_editor.md` "Tactics editor", "Formation pictures");
+    left: the code, with 8.34, its scenarios written with it
+  - [ ] 8.34 after 8.33 (the maintainer, 2026-10-27): the same for a range of teams, one
+    picture per team, in one go. Drafted and approved with 8.33 (above); left: the code
   - [ ] 8.29 the text pass: every line a member reads reread against CONTRIBUTING's "That text
     flows naturally" (the maintainer, 2026-10-25; DECISIONS "Text a member reads flows
     naturally, and every existing line is swept once"), rewritten where it reads dry, its meaning
@@ -3720,7 +3729,8 @@ briefs, review loops, gates and mutation runs as for any step.
     `ruleset_editor/src/view/{mod,tests,tests/file,tests/start}.rs`,
     `save_editor/src/view/{menus,tactics,abilities,info_strip,team}.rs` and its tests,
     `team_widgets/src/pitch/tests/paint.rs`
-  - [ ] w3 the maintainer's close look at the drafts (their approval back), then the built window
+  - [x] w3 the maintainer's close look at the drafts: approved 2026-10-28 (with w4a, w6a; w6c
+    was his own requests of the same evening); the built window follows w4b and w6b
   - [ ] w4 alternatives to Selawik (the maintainer, 2026-10-27: "not liking Selawik much
     compared to Segoe UI", alternatives kept open): a few bundleable fonts, each scaled
     (`FontTweak::scale`, `size-adjust` in the drafts) to Segoe UI's measured width (Steam's PES
@@ -3790,8 +3800,7 @@ briefs, review loops, gates and mutation runs as for any step.
       line and 6-point spacings, Player assignments' gaps; a test
       that the detail pane's offset survives a pick (the app's one ScrollArea keeps it today,
       by reading) → verify: the gates; the built window's player and team views against the
-      drafts (asks before it takes focus). Waits for the maintainer's look (QUESTIONS
-      0.0.1w3)
+      drafts (asks before it takes focus). The drafts approved 2026-10-28
 - [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the
   maintainer, 2026-10-27: "Since the formation name work is almost done"; DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers": the
   typeface need not be the game's, its stroke thickness must match the game's label; the
@@ -3842,7 +3851,7 @@ briefs, review loops, gates and mutation runs as for any step.
     against the expected swap (premises that a swap elsewhere would show), the keeper held over
     (no mark) and released on (the snapped point), SE-GUI-12's two WHENs; red: the old
     starting-eleven exchange (three tests), `swap_target` taking the keeper. Open: the built
-    window, the maintainer's look (QUESTIONS)
+    window; the maintainer's look: "Looks fine" (2026-10-28)
   - [x] y3 the position areas (the maintainer, 2026-10-27: "Can we try mapping the areas, as
     well?"): measured, and there are no fixed areas to map; the editor keeps the dragged
     player's position (plan "A pitch player dropped on another", DECISIONS 2026-10-27 "A
@@ -3907,6 +3916,13 @@ briefs, review loops, gates and mutation runs as for any step.
     - [ ] y4e the code: the rule in `team_widgets`' pitch drop (the rectangles, the band
       default, the candidates, PES 2016's overall), on every version, with the y3 scans, y4c's
       points and y4d's edges and points as tests
+  - [ ] y5 the slot popover's position row (the maintainer, 2026-10-28): no Position label,
+    the dropdown and Make GK filling the popover's width, the button at its own width
+    - [x] y5a the draft (`5d668583` and the commit after it) and `plans/save_editor.md` "The
+      pitch is the editor"; checked: the dropdown 113 and Make GK 58 on one row spanning
+      the popover, no page error (`.tmp/fb1028/answers_check.py`)
+    - [ ] y5b the code (`team_widgets` `pitch/popover.rs`) → verify: the gates; the built
+      popover against the draft (asks before it takes focus)
 - [ ] 0.0.1z the maintainer's look at the built app (2026-10-27 ~21:10): the app's sliders
   kept, the drafts made to match
   - [x] z1 the drafts: sliders drawn as egui's (8-point rail, 11 × 14 handle, value box), the
@@ -3917,7 +3933,7 @@ briefs, review loops, gates and mutation runs as for any step.
     … Discard loses them." lines gone (the maintainer: redundant beside the title and the
     buttons). Plan `core/gui.md` the theme row, "Status bar" (ST-BAR-01, ST-BAR-05),
     `save_editor.md` "Editing UI" (the player rows, Playable positions, SE-GUI-40). Checked
-    in Chromium and Firefox (`.tmp/draft_look/check.py`). Waits for the maintainer's look
+    in Chromium and Firefox (`.tmp/draft_look/check.py`). Approved 2026-10-28 (with z4)
   - [ ] z2 the code, once z1 is approved: the slider's trailing fill and blue handle
     (`team_widgets` `tactics/mod.rs` `slider`, the physique sliders when built), the rows'
     team name gone (`save_editor` `view/player_list.rs`), the prompt's two lines gone

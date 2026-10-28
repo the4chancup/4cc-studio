@@ -2752,3 +2752,5 @@ worklog passed 7,000 lines.
   heads on both views, the open dropdown lists in a sans face instead of Firefox's serif default.
 - **2026-10-28** — y4d in PES 2017, the game DBC7 plays: the drag rule's rectangles hold at ten edges and PES 2016's overall formula gives
   all 150 overalls read in game exactly, so the editor's PES 2017 drag is the rule as it stands; the save unchanged by hash.
+- **2026-10-28** — The maintainer's draft looks answered: the font, layout and slider drafts approved (the app's code may follow), the changes
+  popup and the formation pictures landed on main with their plan (one picture dialog of the tool's own, team pickers for a range), 8.30 withdrawn.

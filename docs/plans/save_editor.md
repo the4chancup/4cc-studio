@@ -90,6 +90,7 @@ not kept, so no team operation reaches past one team.
 | Copy / swap presets (1↔2↔3) | Kept |
 | Copy / swap formations (kick-off / in-possession / out-of-possession) | Kept |
 | Full tactics editing (see "Tactics editor" below) | Kept at full parity + interaction improvements |
+| (none) | New: Save a picture of the formations, bare or with each preset's settings ("Tactics editor", "Formation pictures") |
 
 ### Database operations
 
@@ -99,6 +100,7 @@ What exists of this is in `spec/save_editor.md` "Database operations".
 |-----------|------|
 | Output rosters to TSV (`EDIT.tsv` in the working folder, no dialog, UTF-8; every team, hidden ones included, in roster order; per player: number, name, registered position, Finishing as the "rating", captain mark, height, playing style, skills, COM styles) | Kept, the same columns and label spellings, UTF-8 with a byte-order mark (4ccEditor's `ccs=UTF-8` writes one, and a spreadsheet reads accented names right by it); written where a save dialog says, `EDIT.tsv` its default name |
 | Fix database (clear all visual flags, reset kit slots, PES17 kit-ID repair; a player's base-copy id cleared when it is neither his own nor 0 and his base-copy flag is off, the flag cleared when the id is his own or 0; every team's strip-edited flag cleared) | Kept as a maintenance action behind a confirmation dialog, under the aesthetics lock (it clears what Clear visual flags clears), one undo step, but for two parts. The base-copy repair runs only where the record has the flag (PES 15 to 18): on 19 to 21 4ccEditor tests a flag it never reads (an uninitialized field), and clearing copy ids there would change players' looks. The PES 17 kit-ID repair is not kept: its 2,500 writes step 131 bytes (`write_dataOld` advances its cursor 3 bytes, then the loop adds 0x80) over a strip table whose entries are 132 bytes (`spec/pes_savefile/model.md` "Kit slots and the strip table"), so all but the first land inside entries' bodies, and each writes 0xC0 into the strip-number byte; a repair of that table waits for its layout to be measured. The kit slots reset where the model has them (PES 17, the one version 4ccEditor writes them on) |
+| (none) | New: Save formation pictures for a range of teams ("Tactics editor", "Formation pictures") |
 
 ---
 
@@ -429,6 +431,17 @@ all side by side.
   The table is computed when the prompt opens, not per frame; players through
   `pes_savefile`'s `compare_players`, teams through a team twin of it over the team, roster
   and tactics schemas.
+- The toolbar's `• unsaved changes` is a clickable label (Sense::click, the pointing-hand
+  cursor, tooltip "Lists the changes since the save was opened or last saved"): a click opens
+  a popup under it holding the close prompt's table (the same rows, computed when the popup
+  opens, the table scrolling past 240 points) and none of the prompt's answers. The popup
+  closes on a click outside it, Esc, a second click on the label, or any edit, undo or redo
+  (its rows would otherwise go stale under it); the toolbar's Undo is a click outside, so the
+  label reopens the list one row shorter. A popup, not a window: the list is a glance at what
+  Save would write, read and dismissed, where the panels hold results a member works against.
+  Its left edge is the label's, slid left when it would pass the window's edge. In the table,
+  the prompt's and the popup's alike, a colour's old and new values each draw a 12-point
+  swatch before the hex, so the rows carry the colour typed rather than as text.
 - Save with the save's own PES running asks first ("Writing a save while its game runs",
   below); another version's game asks nothing.
 - A save of another version than the sidebar's selector opens with a Warning notice in the
@@ -504,7 +517,8 @@ Win32 original hurt the most):
   players are **dragged** to reposition (x/y), with position labels and snapping.
   4ccEditor's per-slot dropdown + coordinate fields remain as a detail popover on
   click, not the primary interface: its header the starter's name and `player <n>` (his
-  roster slot counted from 1), its top-right corner on the marker's bottom-left corner as it
+  roster slot counted from 1), under it the position dropdown, with no label (its abbreviations say what
+  it holds), and Make GK beside it at its own width, the two filling the popover's width, its top-right corner on the marker's bottom-left corner as it
   stood at the click, and there it stays while his X and Y change, so the fields' arrows stay
   under the pointer rather than moving off with the marker; a press outside it closes it, as
   Close does. The editor is **one grid** of three columns (the
@@ -658,6 +672,50 @@ Win32 original hurt the most):
   overall rating, a gold `G` (`#cc9900`, the tier's name colour), a silver `S` (`#c0c0c0`)
   or a bronze `B` (`#cd7f32`) for a player the active ruleset recognizes as that tier (the
   tier ids `gold`, `silver`, `bronze` every ruleset shares); nothing for any other.
+- **Formation pictures.** The Team menu's "Save a picture of the formations…" writes one PNG
+  of the selected row's team through a dialog of the tool's own, not rfd's save-file dialog,
+  since a native dialog cannot hold the checkbox the range dialog has too: the folder last used
+  (the tool's `formation_pictures_folder` setting, which the range dialog shares) with Browse
+  for rfd's folder picker, the file name `<id> <name>.png` filled in (the name less the
+  characters a file name cannot hold, `718 f.png`; the id first so a folder sorts as the teams
+  list does), and the checkbox "With each preset's settings beside its row", which adds or
+  removes " settings" before the extension, so a team's two pictures do not replace each
+  other. Labels and fields sit on one grid, every field starting at one x. A name already in
+  the folder asks "Replace it?" first; the picture is then written and a success notice names
+  it, with an Open folder action. The picture: the theme's panel colour under the team's name
+  in its colour codes' colours, its id and the save's version (a folder of pictures from
+  several saves would otherwise not say which game each came from); one row per preset,
+  labelled "Preset n"; each cell the pitch as the view paints it at its own 320 x 384, the
+  formation's name in its corner, with none of the view's states (no drag, corners or join
+  fill, a wider name held still at the badge's left). The columns are the three formations
+  under their names; a preset with fluid formation off draws its Kick-off formation alone, the
+  room beside it empty, and a team with fluid off on every preset gets one column and no column
+  heads (a lone "Kick-off" would name a switch the team never makes). With the settings, a 300
+  point column at the grid's right lists each preset's settings level with its row, in the
+  Tactics editor's order: Fluid formation (PES 2016 on), the Formation settings' offensive then
+  defensive half, the Advanced instructions (PES 2017 on) with each target after an arrow, a
+  label in the text colour and its value strong at 120 points, values named as the editor's
+  controls name them, full length, a value too long cut with an ellipsis; the team's Automatic
+  settings, which no preset owns, are one line under the grid. The pitch painter is one
+  function the view and the picture share, taking the formation it paints. The Savefile menu's
+  "Save formation pictures for a range of teams…" writes one such picture per team whose id
+  lies between two teams picked in combo boxes (From and To, the save's teams by name as the
+  player list's selector lists them, the save's first and last by default; not typed ids, which
+  a member would have to look up): a count line under them ("4 teams"; "The first team comes
+  after the last" in the warning colour, Save pictures off), the folder row with Browse, the
+  same checkbox, and the file-name line, which follows it. The dialog is as wide as its longer
+  state, the file-name line sized for both of the checkbox's, so it keeps its width when the
+  checkbox flips, and its labels and fields sit on one grid. An existing file is replaced, the
+  file-name line saying so. The dialog then turns into the run's progress ("Writing 2 of 4: /f/
+  (718)", a ProgressBar, Stop, which keeps the pictures written so far) and then its result
+  ("4 pictures written to …", or "Stopped after 2 of 4 pictures; they are in …", Open folder
+  and Close): the run is the tool's own, so it reports in its view, not the status bar. The
+  teams' portraits are read before each picture, as the view reads them, so a cell never shows
+  the placeholder where the view shows a face. Drawing the picture: egui's Painter draws to the
+  screen only, so the pitch painter draws through a small target that both the view's
+  `Painter` and an `image::RgbaImage` implement, text through `ab_glyph` (already in the tree
+  through epaint), rather than a software renderer (a new dependency) or screenshot crops
+  (the view would flicker through every formation).
 - Formation edits participate in undo/redo like everything else.
 
 What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc`) could differ:

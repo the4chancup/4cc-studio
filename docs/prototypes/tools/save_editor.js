@@ -389,7 +389,10 @@ table.grid.stats-grid td { padding: 2px 6px; }
   border: 1px solid var(--stroke); border-radius: 6px; padding: 6px 8px;
   z-index: 30; box-shadow: 0 4px 16px #000a; }
 .tpopover .pos-row { flex-wrap: nowrap; }
-.tpopover .pos-row select { width: auto; flex: none; }
+/* The dropdown takes the row's width less Make GK's, which keeps its own:
+   the two fill the popover, whose width its other rows set. */
+.tpopover .pos-row select { width: 0; flex: 1 1 auto; }
+.tpopover .pos-row button { flex: none; }
 .rolechip { border-radius: 2px; padding: 1px 6px; cursor: default; }
 .rolechip:hover { background: var(--hover); color: #f0f0f0; }
 .rolechip.armed { background: var(--sel-bg); color: var(--sel-fg); }
@@ -4982,9 +4985,8 @@ function slotPopover(t) {
       style: "left:" + pop.x + "px; top:" + pop.y + "px" },
     h("div", { class: "strong" }, ...(p ? nameSpans(p.name) : ["(empty roster slot)"]),
       " ", weak("player " + (roster + 1))),
-    // No label: the dropdown's abbreviations name what it holds. It is as
-    // wide as its longest entry (egui's ComboBox width), so Make GK fits on
-    // its row.
+    // No label: the dropdown's abbreviations name what it holds. It and Make
+    // GK fill the popover's width, the button at its own width.
     h("div", { class: "row pos-row" },
       s.position === "GK"
         ? combo([["GK", "GK"]], "GK", () => {}, { disabled: true, title: "Position" })

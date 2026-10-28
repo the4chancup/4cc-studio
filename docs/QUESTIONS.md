@@ -18,52 +18,6 @@ names where the question came from so the context can be read there.
   Substitution says whether Very early is there. A save's stored value outside the offered
   ones still shows, as its number.
 
-## Draft looks
-
-- **The sliders, the player rows, the positions labels and Reset window (0.0.1z1).** Open
-  `docs/prototypes/index.html`, the Save editor: the sliders are drawn as the app's, the
-  handle and the rail up to it blue (a team's Formation settings, a player's Appearance);
-  the player rows carry no team name under ALL; a click on a Playable positions label makes
-  it the registered position; the list keeps its scroll through a reorder or a folded
-  section; Reset window sits right of the version in the status bar. Your second look's
-  changes (0.0.1z4): Reset window is drawn only while the window is maximized or off its
-  default size; the unsaved-changes prompt is as wide as its widest row, up to nine tenths of
-  the window, each change on one line; every draft's controls sit in one column left of the
-  window, in sections (Window, Shell, the active tool). The app follows once you approve.
-- **The drafts in the app's own fonts (0.0.1w3).** Their approval is withdrawn until you have
-  looked at them again: they now draw your pick, Roboto Flex, and the suite's symbols font
-  (worklog 0.0.1w4a; DECISIONS 2026-10-28 "Roboto Flex is cut at optical size 12.5"), where
-  every earlier review saw Segoe UI. Open `docs/prototypes/index.html`. Changed with the font:
-  General info's label columns 2 and 1 points wider, so "Registered position" and "Shirt
-  number" keep one line; the Tactics settings column 8 points wider, so "Frontline Press." is
-  whole, Player assignments 8 narrower; the pitch's formation name in Roboto Flex's semibold
-  (Selawik Semibold before); the player list 15 points wider (255), taking the Tactics
-  view's spare strip on the right, General info 6 narrower (344) so the player view keeps
-  its columns on one row. With your review of 2026-10-28 (0.0.1w6a): a Tricks panel under
-  Skills holds the active ruleset's tricks (none under VTL11 or DBC7, which have no such
-  group); the three column titles on one line, every title 6.5 points above its content;
-  Player assignments and Advanced instructions 6 under their titles, the assignments' rows 4
-  apart; switching players keeps the scroll; and the drafts' window is drawn wider by your
-  browser's scroll-bar width, its bar in that strip, so Firefox lays out what the app does.
-  The app's code follows once you approve (0.0.1w4b, w6b).
-- **Track D's drafts, 8.30, 8.32, 8.33 and 8.34**, revised with your answers of 2026-10-27
-  (DECISIONS "Formation pictures, the formation's name and the nation names: the maintainer's
-  answers"): branch `side/drafts2`, each step's renders and proposed plan text in
-  `C:/Data/4cc/Tools_Mine/4cc-studio-temp/wt-drafts2/.tmp/<step>/look.md`. Approve or change
-  each; the plan text lands on approval. 8.32 (0.0.1x) is the exception: it is on main
-  with the rule the in-game captures gave (LMF and RMF count with the AMF, not the CMF), its
-  plan text written (`plans/save_editor.md` "The formation's name"); look at the pitch's
-  bottom-left corner in the Save editor's Tactics tab of `docs/prototypes/index.html`.
-  8.31 (the changes list) is revised with your three answers of 2026-10-27 (a popup, the
-  12-point swatch, no line under the table; `side/drafts2` `30842fa2`, renders
-  `wt-drafts2/.tmp/8_31/8_31_{popup,prompt}_answered.png`): approve it or change it like the
-  others.
-- **The Tactics pitch's drop on another player (0.0.1y)**, as the game's drag now: the two
-  swap places in the shown formation alone, while dragging an XI row onto another swaps the
-  two players in every preset, as the game's select-one-then-the-other does (DECISIONS
-  2026-10-27 "A pitch player dropped on another swaps the two slots in the shown formation, as
-  the game's drag"). The Save editor's Tactics tab in `docs/prototypes/index.html`.
-
 ## Cup practice
 
 The Music player's three below come from reading Rigdio v2.2.0's controls (worklog 10.0i,

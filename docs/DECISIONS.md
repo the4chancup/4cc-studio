@@ -12532,3 +12532,26 @@ stats are typed. The Cards left badge still counts a conditional free card by th
 tier. Six points to the drawn content is the team view's spacing, which the maintainer called
 fine; the player view's label blocks and Ability stats sat 5 points from their field frames.
 Plan: `plans/save_editor.md`, the player view's "Skills" item and its titles' sentence.
+
+## 2026-10-28 — save_editor — The drafts' looks of 2026-10-28: approvals, 8.30 withdrawn, the picture dialogs and the slot popover
+Decision: approved as drafted: the sliders, player rows, positions labels and Reset window
+(0.0.1z1, z4), the drafts in Roboto Flex with the spacing and Tricks/Free cards changes
+(0.0.1w3, w4a, w6a, w6c), the changes popup (8.31), the formation's name (8.32, built as
+0.0.1x) and the pitch's drop on another player (0.0.1y). Withdrawn: the Nation field's name
+beside its number (8.30); the Nation input stays as it is, with no label. The formation
+pictures (8.33, 8.34) approved with four changes: the Team menu has one entry, whose dialog is
+the tool's own (folder with Browse, the file name, the "With each preset's settings beside its
+row" checkbox, a question before replacing), not rfd's save-file dialog; both dialogs put their
+labels and fields on one grid; the range's ends are two team combos as the player list's
+selector lists them, not typed ids; the range dialog keeps one width in both checkbox states.
+The slot popover drops its Position label, its dropdown and Make GK filling the popover's
+width, the button at its own.
+Why: the maintainer's looks (2026-10-28). The native save dialog could not hold the checkbox
+the maintainer wanted on the single picture too, so the dialog became the tool's own (the lead's
+call, the one way to give it the checkbox); its "Replace it?" question keeps what the native
+dialog did. Ids typed by hand meant looking them up; the combos list what the player list
+already shows. A dialog that changed width as its checkbox flipped moved its buttons under the
+pointer. A dropdown sized to its longest entry left the popover's row ragged (the maintainer:
+the two must fill the width).
+Plan: `plans/save_editor.md` "Editing UI" (the changes popup), "Tactics editor" ("Formation
+pictures", "The pitch is the editor"), "Team operations" and "Database operations" (a row each).
