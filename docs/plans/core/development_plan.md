@@ -36,7 +36,7 @@ and view first among Phase 8's tool views, then Phase 8's other views and Releas
 above. Members get the Save editor as a **preview build, 0.0.1**, cut once its view is done:
 the shell with that tool active, and the Team compiler, the Export upgrader and the Ruleset
 editor, whose views come later, greyed out on the sidebar as the planned tools are. The exe
-embeds every cup's current rulesets (`plans/aatf_rules.md` "Embedded rulesets"), DBC7 and VGL27
+embeds every cup's current rulesets (`spec/aatf_rules.md` "Embedded rulesets"), DBC7 and VGL27
 among them, and the bundle's settings pick DBC7 as the Save editor's `aatf_ruleset`: 0.0.1's
 window testers are DBC's managers. VGL's organizer, in case he checks his teams in the Save
 editor, picks `/vg/ League 27` in the toolbar's ruleset dropdown, as the readme's VGL section

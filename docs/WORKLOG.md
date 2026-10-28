@@ -4491,7 +4491,8 @@ briefs, review loops, gates and mutation runs as for any step.
       a clean one; DECISIONS "The final pass's sixth rulings"), Copy to clipboard (each team's
       line after a `>`)
     - when built, the spec: `spec/aatf_rules.md` "The rules file" (the pickers), "Embedded
-      rulesets", "Loading and validation" (the setting), `spec/save_editor.md` "Configurable
+      rulesets", "Loading and validation" (the setting) (moved; distribution's `vgl27.4ccrules`
+      gone with ov7a's readme), `spec/save_editor.md` "Configurable
       AATF rules" and "CLI" (the setting `check-aatf` reads)
   - [x] ov8 a violation's sentence suggests a valid value where the check can say it cheaply
     (the maintainer, 2026-10-28; DECISIONS "The final pass's seventh rulings"; Opus sidekick,
