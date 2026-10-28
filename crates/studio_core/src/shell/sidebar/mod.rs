@@ -287,6 +287,9 @@ impl Sidebar {
         egui::Area::new(overlay_id())
             .order(egui::Order::Foreground)
             .fixed_pos(outer.min)
+            // No fade-in: the rail's widgets leave on the opening frame, so a fading
+            // overlay would flash a dim, half-empty sidebar on every open.
+            .fade_in(false)
             .show(egui_ctx, |ui| {
                 frame
                     .show(ui, |ui| {

@@ -2759,3 +2759,4 @@ worklog passed 7,000 lines.
 - **2026-10-28** — Pitch badge back to 50 points with its texts at 11.5 and the game's 2-point margins; the captain's mark outlined as the game's.
 - **2026-10-28** — y4e1: `PlayerEntry::overall_at`, PES 2016's overall formula in `pes_savefile`, its tables checked against the executable's, 351 in-game reads as its fixture.
 - **2026-10-28** — y5b's code (the popover's position row without its label, the combo filling to Make GK) and y7b (Very early on PES 2018-2020), SWE-2, reviewed.
+- **2026-10-28** — The sidebar's flicker on the hover expand: egui faded the overlay in while the rail's widgets had already left; the overlay no longer fades.

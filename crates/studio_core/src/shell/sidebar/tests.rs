@@ -319,6 +319,59 @@ fn the_rail_opens_the_sidebar_over_the_view_on_hover_and_closes_on_leave() {
     );
 }
 
+// ST-SIDE-02: the rail's widgets leave on the frame the overlay opens, so an
+// overlay that faded in would show a dim, half-empty sidebar on every open.
+#[test]
+fn the_overlay_opens_opaque_on_every_open() {
+    let Shell { mut app, _dir, .. } = shell();
+    let egui_ctx = test_context();
+    let panel_fill = egui_ctx.global_style().visuals.panel_fill;
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9)).nodes;
+    let rail_pos = centre(entry(&nodes, "A"));
+    let middle = egui::pos2(400.0, 300.0);
+
+    for (round, start) in [(1, 1.0), (2, 2.0)] {
+        frame_at(
+            &egui_ctx,
+            &mut app,
+            vec![egui::Event::PointerMoved(rail_pos)],
+            true,
+            Some(start),
+        );
+        let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(start + 0.16));
+        // The overlay's frame is the rect at the rail's left edge wider than the rail
+        // and narrower than the 800-point window; `egui::Frame` paints it inside a
+        // `Shape::Vec` with its shadow.
+        let mut fills = Vec::new();
+        let mut shapes: Vec<&egui::Shape> = out.shapes.iter().map(|c| &c.shape).collect();
+        while let Some(shape) = shapes.pop() {
+            match shape {
+                egui::Shape::Vec(children) => shapes.extend(children),
+                egui::Shape::Rect(rect)
+                    if rect.rect.min.x.abs() < 1.0
+                        && rect.rect.width() > RAIL_WIDTH + 1.0
+                        && rect.rect.width() < 400.0 =>
+                {
+                    fills.push(rect.fill);
+                }
+                _ => {}
+            }
+        }
+        assert!(
+            fills.contains(&panel_fill),
+            "open {round}: the overlay's frame is painted in the panel fill on its opening frame, \
+             wide fills {fills:?}"
+        );
+        frame_at(
+            &egui_ctx,
+            &mut app,
+            vec![egui::Event::PointerMoved(middle)],
+            true,
+            Some(start + 0.3),
+        );
+    }
+}
+
 // ST-SIDE-02's popup rule: the overlay stays open while a popup it opened is
 // open, and the popup survives the move.
 #[test]
