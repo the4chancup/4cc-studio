@@ -4,22 +4,14 @@
 //! Player menu's Set all stats in one click, 40 to 99), each a
 //! `Session::apply_tier` as one undoable edit. They act on the selected
 //! player, so a team row leaves them disabled with the reason on hover. A
-//! rules file that does not load leaves Set stats alone in the left
-//! column, a red line above it whose click opens the error in the refusal
-//! dialog; a failed `apply_tier` leaves the player as he was and shows
-//! the error there too. The floating AATF panel opens from the toolbar's
-//! Panels menu.
+//! failed `apply_tier` leaves the player as he was and shows the error in
+//! the refusal dialog.
 
 use crate::session::Session;
 use crate::view::{Refusal, SaveView, selected_player};
 
 /// The disabled controls' tooltip on a team selection.
 const TEAM_TIP: &str = "The make buttons act on a player: pick a player row";
-
-/// The line the load error draws in the tier buttons' place: it opens
-/// the error itself in the refusal dialog (the draft's `.qaerr`).
-const RULES_LOAD_ERROR_LINE: &str =
-    "The AATF rules file could not be loaded, click here for more information.";
 
 /// The columns' gap (the draft's `.qagrid` gap): `column_widths`
 /// subtracts it too, so the spacing and the widths share the constant.
@@ -53,42 +45,15 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         set_stats: stat_value,
         ..
     } = view;
-    let rules_ok = rules
+    let rules: &aatf::Rules = &rules
         .as_ref()
-        .and_then(|active| active.rules.as_deref().ok());
-    let rules_error = rules
-        .as_ref()
-        .and_then(|active| active.rules.as_ref().err());
-    let (left, right): (Vec<&aatf::Tier>, Vec<&aatf::Tier>) = match rules_ok {
-        Some(rules) => rules
-            .ruleset()
-            .tiers
-            .iter()
-            .partition(|tier| is_medal(&tier.id)),
-        None => (Vec::new(), Vec::new()),
-    };
-    // The load error is a red line wrapped across the list's width (three
-    // lines at the default 240), the pointing hand on hover, its click
-    // opening the error in the refusal dialog (the draft's `.qaerr`):
-    // about 160 characters, the text itself would take ten lines.
-    if let Some(error) = rules_error {
-        let message = error.clone();
-        let response = ui
-            .add(
-                egui::Label::new(
-                    egui::RichText::new(RULES_LOAD_ERROR_LINE).color(ui.visuals().error_fg_color),
-                )
-                .wrap()
-                .sense(egui::Sense::click()),
-            )
-            .on_hover_cursor(egui::CursorIcon::PointingHand);
-        if response.clicked() {
-            *refusal = Some(Refusal {
-                title: "The AATF rules file could not be loaded",
-                message,
-            });
-        }
-    }
+        .expect("`show` resolves the ruleset before the list draws")
+        .rules;
+    let (left, right): (Vec<&aatf::Tier>, Vec<&aatf::Tier>) = rules
+        .ruleset()
+        .tiers
+        .iter()
+        .partition(|tier| is_medal(&tier.id));
     // Each column takes its widest cell's natural width while the two fit
     // the list, else half the list each (the draft's `1fr`), the widths
     // read from the panel's own width — inside the columns a cell's
@@ -101,20 +66,11 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             .map(|tier| cell_width(ui, &format!("Make {}", tier.label)))
             .fold(0.0_f32, f32::max)
     };
-    let (columns, set_stats_column) = match rules_ok {
-        Some(_) => (
-            column_widths(
-                widest(&left),
-                widest(&right).max(set_stats_width),
-                ui.available_width(),
-            ),
-            1,
-        ),
-        // The load error stands above the columns; on it Set stats is the
-        // left column's only cell (the draft's `.row` in the grid's
-        // first cell), and before a ruleset ever loaded it is too.
-        None => (column_widths(set_stats_width, 0.0, ui.available_width()), 0),
-    };
+    let columns = column_widths(
+        widest(&left),
+        widest(&right).max(set_stats_width),
+        ui.available_width(),
+    );
     let height = QUICK_ACTION_HEIGHT;
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing = egui::vec2(COLUMN_GAP, ROW_GAP);
@@ -126,13 +82,14 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         ui,
                         session,
                         refusal,
-                        rules_ok.expect("tiers exist only once the ruleset loaded"),
+                        rules,
                         tier,
                         player,
                         egui::vec2(columns[index], height),
                     );
                 }
-                if index == set_stats_column {
+                // Set stats ends the right column, under the other tiers.
+                if index == 1 {
                     set_stats_cell(
                         ui,
                         session,

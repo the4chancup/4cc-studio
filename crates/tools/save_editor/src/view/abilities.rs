@@ -91,7 +91,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // Live AATF's held check while it is the selected player's team's:
     // the field crosses below read it (the `live` borrow is disjoint
     // from the session's `&mut` taken next).
-    let marks = live_marks::held_violations(view.live_aatf, &view.live.check, view.rules.as_ref())
+    let marks = live_marks::held_violations(view.live_aatf, &view.live.check)
         .filter(|(id, _)| *id == team_id)
         .map(|(id, violations)| live_marks::Marks {
             violations,
@@ -183,16 +183,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     egui::vec2(saved[1], ui.available_height()),
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
-                        // The cards the ruleset keeps apart: a file that
-                        // does not load shows none — every skill stays
-                        // under Skills.
-                        let aside = rules.as_ref().and_then(|active| {
-                            active
-                                .rules
-                                .as_deref()
-                                .ok()
-                                .and_then(|rules| aside_cards(rules.ruleset()))
-                        });
+                        // The cards the ruleset keeps apart.
+                        let aside = rules
+                            .as_ref()
+                            .and_then(|active| aside_cards(active.rules.ruleset()));
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
                         ui.vertical(|ui| {
                             ui.spacing_mut().item_spacing = spacing;
@@ -662,15 +656,14 @@ fn ability_stats(
 
 /// The Skills panel's content: the header row's Cards left badge — the
 /// player's own tier's, the tier `Rules::player_tier` reads him as, then
-/// that tier's `card_limits`; no tier matching draws the stand-in, a
-/// file that does not load draws nothing (the quick actions report it),
-/// and a check that fails on him draws the red click line that opens the
+/// that tier's `card_limits`; no tier matching draws the stand-in, and a
+/// check that fails on him draws the red click line that opens the
 /// error in `refusal`, then the checkboxes in their two columns, the
 /// skills but the `aside` indices (the aside panel's own).
 /// Returns whether a card was ticked this frame. The computed badge
 /// lives in `cards` under the `BadgeKey`
 /// it was computed for — a `Session::revision` bump, a selection change
-/// or another rules file recomputes it, and any other frame draws the
+/// or another ruleset recomputes it, and any other frame draws the
 /// kept one. `marks` is Live AATF's held check's: the header's crosses
 /// sit after the title and after the badge.
 fn skills_panel(
@@ -682,27 +675,15 @@ fn skills_panel(
     skills: &mut PlayerSkills,
     refusal: &mut Option<Refusal>,
 ) -> bool {
-    let mut load_error = false;
     if let Some(active) = rules {
-        match &active.rules {
-            Ok(rules) => {
-                let key = BadgeKey {
-                    revision: session.revision(),
-                    team: team_id,
-                    slot,
-                    rules_file: active.file.clone(),
-                };
-                if badge.as_ref().is_none_or(|(held, _)| *held != key) {
-                    *badge = Some((key, own_badge(rules, session.file(), team_id, slot)));
-                }
-            }
-            // The load error draws nothing here (the quick actions under
-            // the list say so, and its text pushed the header's row
-            // apart): a stale badge goes too.
-            Err(_) => {
-                load_error = true;
-                *badge = None;
-            }
+        let key = BadgeKey {
+            revision: session.revision(),
+            team: team_id,
+            slot,
+            ruleset: active.key.clone(),
+        };
+        if badge.as_ref().is_none_or(|(held, _)| *held != key) {
+            *badge = Some((key, own_badge(&active.rules, session.file(), team_id, slot)));
         }
     }
     // A tier check that fails on him draws `Cards left` then a red click
@@ -735,7 +716,7 @@ fn skills_panel(
                     message: error.clone(),
                 });
             }
-        } else if !load_error {
+        } else {
             match badge.as_ref() {
                 Some((_, OwnBadge::Tier { label, limits })) => cards::cards_left(
                     ui,

@@ -273,7 +273,7 @@ fn an_open_prompts_and_each_answer_does_what_it_says() {
     answer(&mut window, &mut view, &ctx, "Discard");
     assert_eq!(
         view.document.as_ref().expect("opened").ruleset.name,
-        "Autumn 26",
+        "4cc Autumn 26",
         "the picked file opened"
     );
 
@@ -292,7 +292,7 @@ fn an_open_prompts_and_each_answer_does_what_it_says() {
     assert_saved(&dir, "edited.4ccrules", "Edited");
     assert_eq!(
         view.document.as_ref().expect("opened").ruleset.name,
-        "Autumn 26"
+        "4cc Autumn 26"
     );
 }
 
@@ -315,7 +315,7 @@ fn the_open_after_the_prompts_save_starts_in_the_folder_it_chose() {
     view.open_dialog = open_picking(dir_a, other);
     menu_pick(&mut window, &mut view, &ctx, "File", "Open…");
     answer(&mut window, &mut view, &ctx, "Save");
-    assert_name(&view, "Autumn 26");
+    assert_name(&view, "4cc Autumn 26");
 }
 
 // RE-GUI-15
@@ -335,13 +335,13 @@ fn new_from_template_is_unguarded_but_a_pick_in_it_prompts() {
     );
 
     // Picking a template there meets the prompt; Discard opens it.
-    click_prefix(&mut window, &frame.nodes, "Spring 26", &mut view, &ctx);
+    click_prefix(&mut window, &frame.nodes, "4cc Spring 26", &mut view, &ctx);
     let frame = window.draw(&mut view, &ctx);
     assert!(prompt_drawn(&frame.nodes), "the prompt is up");
     click_labeled(&mut window, &frame.nodes, "Discard", &mut view, &ctx);
     assert_eq!(
         view.document.as_ref().expect("opened").ruleset.name,
-        "Spring 26"
+        "4cc Spring 26"
     );
 
     // And Close puts the start page away, the document kept as it was.
@@ -458,7 +458,7 @@ fn a_recent_file_pick_prompts_and_each_answer_does_what_it_says() {
         vec![other.to_string_lossy().into_owned()],
     );
 
-    pick_answers(&mut window, &ctx, &dir, "other.4ccrules", "Autumn 26");
+    pick_answers(&mut window, &ctx, &dir, "other.4ccrules", "4cc Autumn 26");
 }
 
 // RE-GUI-15
@@ -466,7 +466,7 @@ fn a_recent_file_pick_prompts_and_each_answer_does_what_it_says() {
 fn a_template_pick_prompts_and_each_answer_does_what_it_says() {
     let (dir, ctx, mut window) = prompt_setup("prompt_template");
 
-    pick_answers(&mut window, &ctx, &dir, "Spring 26", "Spring 26");
+    pick_answers(&mut window, &ctx, &dir, "4cc Spring 26", "4cc Spring 26");
 }
 
 // The prompt's title draws in the window-title style (the drafts'

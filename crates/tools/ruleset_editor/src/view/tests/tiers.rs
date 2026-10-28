@@ -254,8 +254,8 @@ fn a_rate_edit_shows_in_the_preview_and_marks_the_document_unsaved() {
         "premise: Silver's rate is 92"
     );
     // The toolbar's name label carries no unsaved marker yet.
-    assert_count(&frame, Role::Label, "Autumn 26", 1);
-    assert_count(&frame, Role::Label, "Autumn 26 •", 0);
+    assert_count(&frame, Role::Label, "4cc Autumn 26", 1);
+    assert_count(&frame, Role::Label, "4cc Autumn 26 •", 0);
     click(&mut window, spin(&frame.nodes, "92"), &mut view, &ctx);
     type_replacing(&mut window, &mut view, &ctx, "90");
     // Enter ends the DragValue's keyboard gesture, sealing the edit.
@@ -274,7 +274,7 @@ fn a_rate_edit_shows_in_the_preview_and_marks_the_document_unsaved() {
     // silver line reads rate 90, not 92, and that line alone is
     // highlighted.
     let frame = settled(&mut window, &mut view, &ctx);
-    assert_count(&frame, Role::Label, "Autumn 26 •", 1);
+    assert_count(&frame, Role::Label, "4cc Autumn 26 •", 1);
     let silver = find(&frame.nodes, "the preview's silver line", |node| {
         node.label()
             .or(node.value())
@@ -404,7 +404,8 @@ fn a_shared_tier_id_marks_the_rail_and_blocks_save() {
 // RE-GUI-06
 #[test]
 fn the_medal_checkbox_moves_a_tier_into_and_out_of_the_systems() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(template("Divegrass Before Christmas 7"), false);
     let dbc7_systems = ruleset(&view).medal_systems.clone();
 
     let frame = settled(&mut window, &mut view, &ctx);
@@ -502,7 +503,7 @@ fn deleting_a_tier_the_custom_checks_read_blocks_save() {
     // (a count, nothing naming it) deletes without breaking a load
     // rule — the refusal then comes from the custom check's
     // `global::RULESET.tiers[4]` read alone.
-    let mut spring26 = template("Spring 26");
+    let mut spring26 = template("4cc Spring 26");
     let mut extra = crate::document::tier("extra", "Extra", Some(0), 77);
     extra.cards = 0;
     spring26.tiers.push(extra);
@@ -546,7 +547,8 @@ fn deleting_a_tier_the_custom_checks_read_blocks_save() {
 /// (the scenarios never rename a counted tier's id).
 #[test]
 fn the_id_edit_carries_the_tiers_medal_keys() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(template("Divegrass Before Christmas 7"), false);
 
     click_role(&mut window, &mut view, &ctx, Role::TextInput, "gold");
     type_replacing(&mut window, &mut view, &ctx, "royal");
@@ -577,7 +579,8 @@ fn the_id_edit_carries_the_tiers_medal_keys() {
 /// keystroke after it, to `gold2`).
 #[test]
 fn the_id_commits_once_and_carries_the_medal_keys() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(template("Divegrass Before Christmas 7"), false);
 
     // Silver's id selected and `gold2` typed one character per frame;
     // Enter commits it.
@@ -621,7 +624,8 @@ fn the_id_commits_once_and_carries_the_medal_keys() {
 /// committed as `royal` moves none either (another tier carries `gold`).
 #[test]
 fn an_ambiguous_id_commit_renames_the_tier_alone() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(template("Divegrass Before Christmas 7"), false);
     let dbc7_systems = ruleset(&view).medal_systems.clone();
 
     // Silver's id committed as `gold`: two tiers share it, the rail
@@ -675,7 +679,8 @@ fn an_ambiguous_id_commit_renames_the_tier_alone() {
 /// Alt+Tab).
 #[test]
 fn an_id_edit_survives_the_window_losing_focus() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(template("Divegrass Before Christmas 7"), false);
 
     // Silver's id selected and `royal` typed, not committed.
     click_role(&mut window, &mut view, &ctx, Role::TextInput, "silver");
@@ -702,7 +707,8 @@ fn an_id_edit_survives_the_window_losing_focus() {
 /// one's to take.
 #[test]
 fn removing_a_tier_under_a_shared_id_keeps_the_counts() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), true);
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(template("Divegrass Before Christmas 7"), true);
     let dbc7_systems = ruleset(&view).medal_systems.clone();
 
     // "+ Add tier", its id committed as `gold` (a duplicate).
@@ -733,7 +739,8 @@ fn removing_a_tier_under_a_shared_id_keeps_the_counts() {
 /// A tier's ✕ drops its key from every medal system's counts.
 #[test]
 fn removing_a_tier_drops_its_medal_keys() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), true);
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(template("Divegrass Before Christmas 7"), true);
 
     // The first row's ✕ (the tiers' ✕s sit above the systems' own).
     let frame = settled(&mut window, &mut view, &ctx);
@@ -856,7 +863,7 @@ fn a_name_colour_pick_keeps_the_alpha() {
 /// scroll over a table that fits the window moves nothing.
 #[test]
 fn an_open_expander_adds_no_scroll_space() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("VTL11"), true);
+    let (ctx, _events, mut window, mut view) = tiers_view(template("/vt/ League 11"), true);
 
     // The first tier's expander opened and settled.
     let frame = settled(&mut window, &mut view, &ctx);
@@ -894,7 +901,7 @@ fn an_open_expander_adds_no_scroll_space() {
 /// own: a window the table just fits gets no scroll space from it.
 #[test]
 fn the_open_expanders_stat_grid_spans_the_table() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("VTL11"), true);
+    let (ctx, _events, mut window, mut view) = tiers_view(template("/vt/ League 11"), true);
 
     let frame = settled(&mut window, &mut view, &ctx);
     click_labeled(
@@ -944,7 +951,7 @@ fn the_open_expanders_stat_grid_spans_the_table() {
 /// table's left edge, the draft's colspan indent).
 #[test]
 fn the_expander_opens_indented_one_cell_minimum() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("VTL11"), true);
+    let (ctx, _events, mut window, mut view) = tiers_view(template("/vt/ League 11"), true);
 
     let frame = settled(&mut window, &mut view, &ctx);
     click_labeled(
@@ -970,7 +977,7 @@ fn the_expander_opens_indented_one_cell_minimum() {
 /// the fourth's on the first's row.
 #[test]
 fn the_stat_grid_lays_out_five_columns() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("VTL11"), false);
+    let (ctx, _events, mut window, mut view) = tiers_view(template("/vt/ League 11"), false);
 
     let frame = settled(&mut window, &mut view, &ctx);
     click_labeled(
@@ -1090,7 +1097,8 @@ fn the_counts_as_combo_picks_one_of_the_other_tiers() {
 /// `s.counts[t.id] = v`): DBC7's "GGSS" silver count keeps its key.
 #[test]
 fn a_medal_count_of_zero_keeps_the_tier_counted() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(template("Divegrass Before Christmas 7"), false);
     assert_eq!(
         ruleset(&view).medal_systems[1].counts["silver"],
         2,
@@ -1146,7 +1154,8 @@ fn a_free_count_writes_the_groups_entry() {
 /// nothing yet.
 #[test]
 fn a_medal_system_is_removed_and_added() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(template("Divegrass Before Christmas 7"), false);
 
     let frame = settled(&mut window, &mut view, &ctx);
     click_labeled(
@@ -1187,7 +1196,8 @@ fn a_medal_system_is_removed_and_added() {
 /// ticked again, the rest of the squad (`count: null`).
 #[test]
 fn the_rest_checkbox_writes_the_count() {
-    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(template("Divegrass Before Christmas 7"), false);
     assert_eq!(
         ruleset(&view).tiers[2].count,
         None,
@@ -1434,10 +1444,11 @@ fn each_tier_field_writes_to_its_own_binding() {
 
     // A medal system's label field on DBC7.
     {
-        let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
+        let (ctx, _events, mut window, mut view) =
+            tiers_view(template("Divegrass Before Christmas 7"), false);
         click_role(&mut window, &mut view, &ctx, Role::TextInput, "GGG");
         type_replacing(&mut window, &mut view, &ctx, "Podium");
-        let mut expected = template("DBC7");
+        let mut expected = template("Divegrass Before Christmas 7");
         expected.medal_systems[0].label = "Podium".to_string();
         assert_eq!(ruleset(&view), &expected, "the medal system's label");
     }

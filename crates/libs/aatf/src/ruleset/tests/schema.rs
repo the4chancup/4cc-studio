@@ -417,12 +417,12 @@ fn a_let_ruleset_is_no_ruleset() {
 fn the_last_constant_ruleset_wins() {
     let two = format!(
         "{}\n{}",
-        AUTUMN26.replacen("name: \"Autumn 26\"", "name: \"a\"", 1),
-        AUTUMN26.replacen("name: \"Autumn 26\"", "name: \"b\"", 1)
+        AUTUMN26.replacen("name: \"4cc Autumn 26\"", "name: \"a\"", 1),
+        AUTUMN26.replacen("name: \"4cc Autumn 26\"", "name: \"b\"", 1)
     );
     assert_eq!(
         Ruleset::from_data_block(&two).expect("the second const"),
-        Ruleset::from_data_block(&AUTUMN26.replacen("name: \"Autumn 26\"", "name: \"b\"", 1))
+        Ruleset::from_data_block(&AUTUMN26.replacen("name: \"4cc Autumn 26\"", "name: \"b\"", 1))
             .expect("b loads")
     );
     // `let` above `const`: the `const` wins and loads.

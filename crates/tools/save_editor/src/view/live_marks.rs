@@ -8,7 +8,6 @@
 use team_widgets::violations::violation_line;
 pub(super) use team_widgets::violations::{CROSS, MARK_GAP};
 
-use crate::view::ActiveRules;
 use crate::view::aatf_check::TeamsCheck;
 
 /// The passing glyph (`✔`, U+2714), the `✖`'s pair (`violations::CROSS`):
@@ -17,18 +16,12 @@ use crate::view::aatf_check::TeamsCheck;
 const TICK: char = '\u{2714}';
 
 /// The violations the marks draw: `check`'s held result while `live`
-/// (the `live_aatf` toggle) is on and the active rules file loaded, when
-/// the result is one team's successful check — the team id and its
-/// violations, `None` otherwise. While a check is in flight the held
-/// result stands, as the dock's list keeps it. A failed check or a rules
-/// file that does not load marks nothing: a mark from an older result
-/// would claim a check that no longer ran.
-pub(super) fn held_violations<'a>(
-    live: bool,
-    check: &'a TeamsCheck,
-    rules: Option<&ActiveRules>,
-) -> Option<(u32, &'a [aatf::Violation])> {
-    if !live || !matches!(rules, Some(active) if active.rules.is_ok()) {
+/// (the `live_aatf` toggle) is on, when the result is one team's
+/// successful check — the team id and its violations, `None` otherwise.
+/// While a check is in flight the held result stands, as the dock's list
+/// keeps it. A failed check marks nothing.
+pub(super) fn held_violations(live: bool, check: &TeamsCheck) -> Option<(u32, &[aatf::Violation])> {
+    if !live {
         return None;
     }
     let (key, checks) = check.result.as_ref()?;

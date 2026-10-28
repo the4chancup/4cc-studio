@@ -1,5 +1,5 @@
 [save-editor]
-aatf_rules = "rules/dbc7.4ccrules"
+aatf_ruleset = "dbc7"
 
 [team-compiler]
 multicpk_mode = false

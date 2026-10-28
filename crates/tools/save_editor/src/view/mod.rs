@@ -11,7 +11,6 @@
 //! shows a refusal in a modal.
 
 mod aatf_check;
-mod aatf_panel;
 mod abilities;
 mod appearance;
 mod comparator;
@@ -24,6 +23,7 @@ mod player_list;
 mod portraits;
 pub(crate) mod prompt;
 mod quick_actions;
+mod ruleset_picker;
 mod tactics;
 mod team;
 mod terms;
@@ -31,15 +31,16 @@ mod terms;
 mod tests;
 mod worker;
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_version::{Engine, PesVersion};
-use studio_core::{Notice, RunningPes};
+use studio_core::{Notice, NoticeKind, RunningPes};
 use team_widgets::names::append_name;
 
 use crate::session::Session;
+use crate::session::rules::{self, Imported};
 use crate::session::selection::{self, TeamChoice};
 
 /// The list row the selection names: a team by id, or a player by team
@@ -89,15 +90,23 @@ pub(crate) struct SaveView {
     open_dialog: comparator::OpenSaveDialog,
     /// A refusal to show until dismissed (an open the save refused).
     refusal: Option<Refusal>,
-    /// The ruleset the Cards left badge uses, loaded on the first frame and again only
-    /// when the file named differs.
+    /// The `aatf_ruleset` setting: `Tool::view` refreshes it each frame,
+    /// the toolbar's ruleset dropdown writes a pick into it and
+    /// `Tool::view` writes that back, as `live_aatf` is; the first
+    /// built-in ruleset in the tests' view-only frames.
+    pub(crate) aatf_ruleset: String,
+    /// The imported rulesets the dropdown lists after the built-in ones:
+    /// `Tool::view` reads them from the data folder on its first frame;
+    /// none in the tests' view-only frames.
+    pub(crate) imported: Vec<Imported>,
+    /// The ruleset the quick actions, the Cards left badge, the medal
+    /// outlines and Live AATF use, resolved from `aatf_ruleset` on the
+    /// first frame and again only when the setting changes.
     rules: Option<ActiveRules>,
-    /// The floating AATF panel's state; closed at start.
-    aatf: aatf_panel::AatfPanel,
     /// The comparator panel's state; closed at start.
     comparator: comparator::Comparator,
-    /// The comparator's Pick dialog (`rfd`, stubbed in tests — the AATF
-    /// panel's copy dialog pattern).
+    /// The comparator's Pick dialog (`rfd`, stubbed in tests — the
+    /// toolbar's Open dialog pattern).
     open_save_dialog: comparator::OpenSaveDialog,
     /// The Generate dialog's state while it is open (the Player menu's
     /// `settings.toml` and in-game face items); `None` while it is closed.
@@ -115,23 +124,16 @@ pub(crate) struct SaveView {
     /// The Live AATF dock's state (the Live AATF bullet's docked panel);
     /// drawn while `live_aatf` and a save is open.
     live: live_aatf::LiveAatf,
-    /// The panel's Save a copy dialog (`rfd`, stubbed in tests — the
+    /// The comparator's Export dialog (`rfd`, stubbed in tests — the
     /// Ruleset editor's picker pattern).
-    aatf_copy_dialog: aatf_panel::SaveFileDialog,
-    /// The comparator's Export dialog (`rfd`, stubbed in tests — the same
-    /// dialog type as the AATF panel's).
-    export_dialog: aatf_panel::SaveFileDialog,
+    export_dialog: comparator::SaveFileDialog,
     /// The "Cards left" badge as last computed and the `BadgeKey` it was
     /// computed for: `player_tier` then `card_limits` run again only when
-    /// the key differs, not on every frame. `None` while the rules file
-    /// does not load (the quick actions' red line says so; no badge is
-    /// drawn then).
+    /// the key differs, not on every frame.
     cards: Option<(BadgeKey, OwnBadge)>,
     /// The pitch badges' medal letters per roster slot as last computed
     /// and the `MedalKey` they were computed for: `player_tier` runs
-    /// again only when the key differs, not on every frame. A rules
-    /// file that does not load is kept as a row of `None`s under the
-    /// key, so no letter is drawn.
+    /// again only when the key differs, not on every frame.
     medals: Option<(MedalKey, Vec<Option<team_widgets::tactics::Medal>>)>,
     /// The Tactics pitch's portraits, read from the selected game's
     /// `download/` CPKs off the UI thread (`select_portraits` points it at
@@ -192,22 +194,25 @@ pub(crate) struct SaveView {
     randomize_draw: Box<dyn FnMut(u8) -> u8>,
 }
 
-/// The ruleset the Skills column's Cards left badge uses, the one
-/// `check-aatf` runs: the file it was loaded from and the outcome as the
-/// badge's row draws it.
+/// The ruleset the window's AATF controls use, the one `check-aatf` runs
+/// without `--rules`: the setting it was resolved from, what that resolved
+/// to and the loaded rules.
 pub(crate) struct ActiveRules {
-    /// The file `rules` was loaded from (`None`: the embedded official ruleset).
-    file: Option<PathBuf>,
-    /// The loaded rules or the load error's text (a file that does not
-    /// load draws no badge; the quick actions' red line reports it). The
-    /// `Arc` lets the AATF panel's worker check teams on the same loaded
-    /// file the badge reads.
-    rules: Result<Arc<aatf::Rules>, String>,
+    /// The `aatf_ruleset` value `key` was resolved from: a setting naming
+    /// a ruleset that is gone differs from `key`, and is not resolved (nor
+    /// its notice shown) again while it stays.
+    setting: String,
+    /// The built-in stem or imported file name the rules came from: the
+    /// key the caches below and the AATF checks are computed for.
+    key: String,
+    /// The loaded rules. The `Arc` lets Live AATF's worker check teams on
+    /// the same loaded file the badge reads.
+    rules: Arc<aatf::Rules>,
 }
 
 /// What the Skills column's Cards left badge was computed for: a change of
-/// the open save (`Session::revision`), of the selection or of the rules
-/// file recomputes it; anything else keeps a frame's `player_tier` and
+/// the open save (`Session::revision`), of the selection or of the
+/// ruleset recomputes it; anything else keeps a frame's `player_tier` and
 /// `card_limits` cost off.
 #[derive(PartialEq)]
 pub(crate) struct BadgeKey {
@@ -217,24 +222,22 @@ pub(crate) struct BadgeKey {
     team: u32,
     /// The selected roster slot (0-based).
     slot: u8,
-    /// The rules file the badge's ruleset came from (`None`: the official
-    /// ruleset).
-    rules_file: Option<PathBuf>,
+    /// The ruleset the badge was computed under (`ActiveRules::key`).
+    ruleset: String,
 }
 
 /// What the pitch badges' medal letters were computed for: the Cards
 /// left badge's `BadgeKey` minus the selection — a change of the open
-/// save (`Session::revision`), of the team or of the rules file
-/// recomputes them, and any other frame draws the kept ones.
+/// save (`Session::revision`), of the team or of the ruleset recomputes
+/// them, and any other frame draws the kept ones.
 #[derive(PartialEq)]
 pub(crate) struct MedalKey {
     /// `Session::revision` when computed.
     revision: u64,
     /// The team the medals are for.
     team: u32,
-    /// The rules file the medals' ruleset came from (`None`: the official
-    /// ruleset).
-    rules_file: Option<PathBuf>,
+    /// The ruleset the medals were computed under (`ActiveRules::key`).
+    ruleset: String,
 }
 
 /// The badge `cards` holds for a `BadgeKey`, owned: what the rules read the
@@ -250,9 +253,8 @@ pub(crate) enum OwnBadge {
     NoTier,
     /// `player_tier` or `card_limits` failed (or the team could not be
     /// read), with the error's text: the row draws the red click line
-    /// `TIER_CHECK_FAILED_LINE` in the badge's place, opening the error
-    /// (a file that does not load draws nothing there — the quick
-    /// actions' red line reports it). The AATF check never calls
+    /// `TIER_CHECK_FAILED_LINE` in the badge's place, opening the error.
+    /// The AATF check never calls
     /// these two functions, so a member's logic edit that breaks only them
     /// would otherwise show nowhere. Kept under its key like the others, so
     /// the failing script does not run again on every frame.
@@ -300,8 +302,9 @@ impl SaveView {
             request_close: false,
             open_dialog: comparator::default_open_dialog(),
             refusal: None,
+            aatf_ruleset: rules::FIRST_BUILTIN.to_owned(),
+            imported: Vec::new(),
             rules: None,
-            aatf: aatf_panel::AatfPanel::new(),
             comparator: comparator::Comparator::new(),
             open_save_dialog: comparator::default_open_dialog(),
             generate: None,
@@ -309,7 +312,6 @@ impl SaveView {
             notice: None,
             live_aatf: false,
             live: live_aatf::LiveAatf::new(),
-            aatf_copy_dialog: aatf_panel::default_copy_dialog(),
             export_dialog: comparator::default_export_dialog(),
             cards: None,
             medals: None,
@@ -421,7 +423,6 @@ impl SaveView {
                 self.generate = None;
                 self.fix_database = false;
                 self.kit_slots = None;
-                self.aatf.reset();
                 self.live.check.reset();
             }
             Err(error) => {
@@ -436,22 +437,28 @@ impl SaveView {
 
 /// Shows the window for one frame. `running` is the running-PES probe,
 /// called only when Save runs (a process snapshot is not a frame's cost).
-/// `rules_file` is the AATF rules file the `aatf_rules` setting resolved
-/// to; the ruleset loads on the first frame and again only when it differs.
-pub(crate) fn show(
-    ui: &mut egui::Ui,
-    view: &mut SaveView,
-    running: &dyn Fn() -> Vec<RunningPes>,
-    rules_file: Option<&Path>,
-) {
+/// The ruleset is resolved from `view.aatf_ruleset` on the first frame and
+/// again only when the setting changes; a setting naming a ruleset that is
+/// gone raises its warning notice then.
+pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
     set_surrender_on_press(ui.ctx());
-    let file = rules_file.map(Path::to_path_buf);
-    if view.rules.as_ref().is_none_or(|active| active.file != file) {
+    if view
+        .rules
+        .as_ref()
+        .is_none_or(|active| active.setting != view.aatf_ruleset)
+    {
+        let choice = rules::resolve(&view.aatf_ruleset, &view.imported);
+        if let Some(text) = choice.notice {
+            view.notice = Some(Notice {
+                text,
+                kind: NoticeKind::Warning,
+                action: None,
+            });
+        }
         view.rules = Some(ActiveRules {
-            rules: crate::session::rules::load_rules(file.as_deref())
-                .map(Arc::new)
-                .map_err(|error| format!("{error:#}")),
-            file,
+            setting: view.aatf_ruleset.clone(),
+            key: choice.key,
+            rules: choice.rules,
         });
     }
     toolbar(ui, view, running);
@@ -528,7 +535,6 @@ pub(crate) fn show(
     menus::copy_swap_dialog(ui, view);
     menus::fix_database_dialog(ui, view);
     generate::dialog(ui, view);
-    aatf_panel::show(ui, view);
     comparator::show(ui, view);
     prompt::show(ui, view, running);
     prompt::edit_mode_dialog(ui, view, running);
@@ -582,8 +588,9 @@ fn set_surrender_on_press(ctx: &egui::Context) {
     });
 }
 
-/// The toolbar: Open, Save, Undo, Redo and the unsaved-changes marker (the
-/// draft's toolbar row). The open save's path rides the idle window title
+/// The toolbar: Open, Save, Undo, Redo, the menus, the ruleset dropdown,
+/// the Live AATF toggle and the unsaved-changes marker (the draft's
+/// toolbar row). The open save's path rides the idle window title
 /// (`Tool::title_detail`), not this row, which never takes a second row.
 fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
     // The unsaved prompt and the running-game question hold every
@@ -657,6 +664,9 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         menus::team_menu(ui, view);
         menus::savefile_menu(ui, view);
         menus::panels_menu(ui, view);
+        // The ruleset beside the check it drives, whether the check is on
+        // or not: the quick actions and the card counts use it too.
+        ruleset_picker::show(ui, view);
         // The Live AATF toggle as a framed button, since the toggle is how
         // a manager finds the check at all: the play sign (`▶`) then the
         // name — a check mark beside it read as on while it was off — the
@@ -771,13 +781,6 @@ pub(crate) fn edit_team(
     let mut edited = session.file().team(id).expect("the selected team").clone();
     edit(&mut edited);
     session.edit_team(key, edited);
-}
-
-/// The line drawn where the ruleset's controls would stand when the active
-/// rules file did not load: the AATF panel's list and the Live AATF dock
-/// share the one wording.
-pub(crate) fn rules_load_error(error: &str) -> String {
-    format!("The AATF rules file could not be loaded: {error}")
 }
 
 /// The selected row's team id — a player row's team or a team row's own;

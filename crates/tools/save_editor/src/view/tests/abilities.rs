@@ -21,17 +21,6 @@ fn in_skills_column(nodes: &[accesskit::Node], value: &str) -> bool {
     })
 }
 
-/// Whether the Skills column draws a Label whose value starts with
-/// `prefix`.
-fn in_skills_column_prefixed(nodes: &[accesskit::Node], prefix: &str) -> bool {
-    let column_x0 = skills_header(nodes).x0;
-    nodes.iter().any(|node| {
-        node.role() == Role::Label
-            && node.value().is_some_and(|v| v.starts_with(prefix))
-            && node.bounds().is_some_and(|b| b.x0 >= column_x0 - 1.0)
-    })
-}
-
 /// The badge texts a frame's Cards left row drew (`"Regular: 3 of 7
 /// cards"` or the weak `"No tier matches"`), in left-to-right order: the
 /// Labels at the heading's height or below it of the badge's shapes
@@ -104,7 +93,7 @@ fn a_speed_edit_does_not_reach_the_next_players_control() {
         .expect("the Speed control");
     click(&mut window, speed, &mut view);
     window.frame(vec![egui::Event::Text("55".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let before_b = speed_of(&view, b_id);
 
@@ -112,9 +101,9 @@ fn a_speed_edit_does_not_reach_the_next_players_control() {
     // his speed is untouched — and a keystroke reaches no control of his
     // (the in-progress edit stays 70201's own).
     view.selected = Some(Selection::Player(702, 1));
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     window.frame(vec![egui::Event::Text("9".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         speed_of(&view, b_id),
@@ -158,19 +147,19 @@ fn an_ability_edit_marks_the_row_until_ctrl_s_writes_the_save() {
         ((speed.y0 + speed.y1) / 2.0) as f32,
     );
     window.frame(pointer_at(at, true), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(pointer_at(at, false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(vec![egui::Event::Text("55".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     row(&nodes, "1 CB PLACEHOLDER ●");
     assert_eq!(
         std::fs::read(&path).unwrap(),
@@ -182,9 +171,9 @@ fn an_ability_edit_marks_the_row_until_ctrl_s_writes_the_save() {
     let bak = path.with_file_name("EDIT00000000.bak");
     assert!(!bak.exists(), "no .bak before the first save");
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     row(&nodes, "1 CB PLACEHOLDER");
     assert_eq!(
         std::fs::read(&bak).unwrap(),
@@ -212,8 +201,7 @@ fn version_gated_controls_are_disabled_in_place_with_their_first_version() {
         let mut view = SaveView::new();
         view.open(&path);
         let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         let sides = right_of_label(&nodes, "Stronger hand", Role::Button);
         assert_eq!(sides.len(), 2, "the hand is two choices");
         let span = |node: &accesskit::Node| node.bounds().expect("bounds");
@@ -293,7 +281,7 @@ fn the_stats_fill_one_column_in_the_games_order() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let at = |label: &str| {
         nodes
             .iter()
@@ -345,7 +333,7 @@ fn a_playable_positions_rating_writes_its_own_slot_and_undoes() {
 
     // LWF's three ratings in row order: C, B, A. Click A (stored 2;
     // `playable[2]` is LWF's array slot, not POSITIONS[9]'s index).
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let ratings = rating_buttons(&nodes, "LWF");
     click(&mut window, ratings[2], &mut view);
     assert_eq!(
@@ -359,7 +347,7 @@ fn a_playable_positions_rating_writes_its_own_slot_and_undoes() {
     );
     // One Ctrl+Z restores the entry.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(playable(&view)[2], 0, "the one undo restores it");
 }
@@ -444,8 +432,7 @@ fn the_positions_grid_draws_five_centered_rows_with_the_registered_outlined() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // The five rows in the pitch's order, each on its own y, x order as
     // listed, GK alone on the last.
@@ -539,8 +526,7 @@ fn the_positions_grid_draws_five_centered_rows_with_the_registered_outlined() {
         .copied()
         .expect("the registered combo");
     click(&mut window, combo, &mut view);
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (item, _) = nodes
         .iter()
         .find(|(_, node)| {
@@ -548,8 +534,7 @@ fn the_positions_grid_draws_five_centered_rows_with_the_registered_outlined() {
         })
         .expect("the CF item");
     action_click(&mut window, &mut view, *item);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let strokes = outlines(&shapes);
     assert_eq!(strokes.len(), 1, "still exactly one outlined cell");
     let cell = cell_rect(&nodes, "CF");
@@ -591,8 +576,7 @@ fn a_card_tick_on_another_player_is_its_own_undo_entry() {
     // The undo gesture stays open while a widget holds the keyboard: focus
     // the filter box — it is drawn for every selection, so the entry
     // survives the player switch — then tick his card through AccessKit.
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (filter, _) = nodes
         .iter()
         .find(|(_, node)| {
@@ -612,8 +596,7 @@ fn a_card_tick_on_another_player_is_its_own_undo_entry() {
     // still has the keyboard), and tick the same card there: his own
     // entry, not a merge.
     view.selected = Some(Selection::Player(702, 1));
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (card_b, _) = nodes
         .iter()
         .find(|(_, node)| node.role() == Role::CheckBox && node.label() == Some("Heading"))
@@ -672,7 +655,7 @@ fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
         "premise: the stored values"
     );
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let form = right_of_label(&nodes, "Form", Role::SpinButton)
         .first()
         .copied()
@@ -680,11 +663,11 @@ fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
     assert_eq!(form.value(), Some("4"), "stored 3 shows 4");
     click(&mut window, form, &mut view);
     window.frame(vec![egui::Event::Text("8".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         six(&view),
@@ -730,8 +713,7 @@ fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
                 node.role() == Role::Label && node.value() == Some(label)
             })
         } else {
-            let (_, nodes, _) =
-                window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+            let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
             nodes
         };
         let control = right_of_label(&nodes, label, Role::SpinButton)
@@ -741,11 +723,11 @@ fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
         assert_eq!(control.value(), Some(shown), "{label} shows {shown}");
         click(&mut window, control, &mut view);
         window.frame(vec![egui::Event::Text(typed.to_owned())], |ui| {
-            show(ui, &mut view, &|| Vec::new(), None)
+            show(ui, &mut view, &|| Vec::new())
         });
         window.frame(
             vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-            |ui| show(ui, &mut view, &|| Vec::new(), None),
+            |ui| show(ui, &mut view, &|| Vec::new()),
         );
         assert_eq!(six(&view), expected, "{label} typed {typed}");
     }
@@ -765,9 +747,9 @@ fn an_out_of_range_value_draws_as_stored_without_marking_the_player() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     for _ in 0..5 {
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     }
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let speed = right_of_label(&nodes, "Speed", Role::SpinButton)
         .first()
         .copied()
@@ -785,8 +767,8 @@ fn an_out_of_range_value_draws_as_stored_without_marking_the_player() {
 
 // The Cards left badge is one badge, the player's own tier under the
 // active ruleset (`label: left of limit cards`, `limit - paid`); a ticked
-// skill that no free group covers lowers it by one; the `aatf_rules`
-// file's reading is the badge's.
+// skill that no free group covers lowers it by one; the active
+// ruleset's reading is the badge's.
 #[test]
 fn the_cards_left_badge_reads_the_players_own_tier() {
     /// The badge text `rules` reads for team 701's roster `slot` on the
@@ -841,7 +823,7 @@ fn the_cards_left_badge_reads_the_players_own_tier() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     let rules = aatf::Rules::official();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         cards_left_badges(&nodes),
         [expected(&view, &rules, 0)],
@@ -854,14 +836,13 @@ fn the_cards_left_badge_reads_the_players_own_tier() {
     // The checkbox sits below the fold under the player header: the tick
     // goes through its AccessKit action (a pointer click lands only
     // inside the scroll's clip).
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (heading, _) = nodes
         .iter()
         .find(|(_, node)| node.role() == Role::CheckBox && node.label() == Some("Heading"))
         .expect("the Heading checkbox");
     action_click(&mut window, &mut view, *heading);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         cards_left_badges(&nodes),
         [expected(&view, &rules, 0)],
@@ -871,9 +852,9 @@ fn the_cards_left_badge_reads_the_players_own_tier() {
 
     // Ctrl+Z unticks it: the badge is recomputed, back to the old count.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         cards_left_badges(&nodes),
         [expected(&view, &rules, 0)],
@@ -884,33 +865,18 @@ fn the_cards_left_badge_reads_the_players_own_tier() {
     // The selection recomputes it: slot 1's player, his Heading held,
     // shows his own one-lower count — not slot 0's.
     view.selected = Some(Selection::Player(701, 1));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         cards_left_badges(&nodes),
         [expected(&view, &rules, 1)],
         "his badge, not slot 0's"
     );
 
-    // A rules file's reading is the badge's: the same view now given the
-    // DBC7 file reloads on the changed path (no fresh window).
-    let aatf = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/aatf");
-    let data = std::fs::read_to_string(aatf.join("rulesets/dbc7.rhai")).unwrap();
-    let logic = std::fs::read_to_string(aatf.join("logic/logic.rhai")).unwrap();
-    let rules_path = path.with_file_name("dbc7.4ccrules");
-    std::fs::write(
-        &rules_path,
-        format!(
-            "{}\n\n{}\n\n{}\nfn custom_checks(team) {{ [] }}\n",
-            data.trim_end(),
-            logic.trim_end(),
-            "// ==== CUSTOM CHECKS: optional, hand-written; the Ruleset editor keeps this section as it is ===="
-        ),
-    )
-    .unwrap();
-    let dbc7 = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap()).unwrap();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
-    });
+    // The ruleset's reading is the badge's: the same view now set to DBC7
+    // reloads on the changed setting (no fresh window).
+    let dbc7 = aatf::builtin("dbc7").expect("DBC7 is built in");
+    view.aatf_ruleset = "dbc7".to_owned();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         cards_left_badges(&nodes),
         [expected(&view, &dbc7, 1)],
@@ -975,7 +941,7 @@ fn an_overdrawn_badge_paints_in_the_error_colour() {
             limits.limit
         )
     };
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let error_color = window
         .ctx
         .style_of(window.ctx.theme())
@@ -991,28 +957,10 @@ fn an_overdrawn_badge_paints_in_the_error_colour() {
 #[test]
 fn a_player_no_tier_matches_gets_the_stand_in() {
     let path = fixture(PesVersion::Pes21, "cards_left_no_tier");
-    // VTL11's whole rules file: its data block, the current logic and the
-    // block's own CUSTOM CHECKS section.
-    let data = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../libs/aatf/rulesets/vtl11.rhai"),
-    )
-    .unwrap();
-    let ruleset = aatf::Ruleset::from_data_block(&data).unwrap();
-    let rules_path = path.with_file_name("vtl11.4ccrules");
-    std::fs::write(
-        &rules_path,
-        aatf::assemble_file(
-            &ruleset,
-            None,
-            aatf::file_sections(&data).custom_checks.as_deref(),
-        ),
-    )
-    .unwrap();
-
-    let rules = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap()).unwrap();
+    let rules = aatf::builtin("vtl11").expect("VTL11 is built in");
     let mut view = SaveView::new();
     view.open(&path);
+    view.aatf_ruleset = "vtl11".to_owned();
     view.selected = Some(Selection::Player(781, 0));
     {
         let session = view.session.as_ref().unwrap();
@@ -1025,9 +973,7 @@ fn a_player_no_tier_matches_gets_the_stand_in() {
         );
     }
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
-    });
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         cards_left_badges(&nodes),
         ["No tier matches"],
@@ -1035,7 +981,7 @@ fn a_player_no_tier_matches_gets_the_stand_in() {
     );
 }
 
-// The same bullet: a rules file that loads but whose `player_tier` fails on
+// The same bullet: a ruleset that loads but whose `player_tier` fails on
 // the selected player (a member's own logic edit) draws the red click line
 // in the badge's place, not `No tier matches` (which would tell him the
 // opposite), whose click opens the error; and the failure is kept under
@@ -1055,17 +1001,11 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
         &format!("{head}    throw \"the tier check fails\";\n"),
         1,
     );
-    let rules_path = path.with_file_name("failing.4ccrules");
-    std::fs::write(
-        &rules_path,
-        aatf::assemble_file(aatf::Rules::official().ruleset(), Some(&failing), None),
-    )
-    .unwrap();
-
-    let rules = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap())
-        .expect("premise: the file loads");
+    let text = aatf::assemble_file(aatf::Rules::official().ruleset(), Some(&failing), None);
+    let rules = aatf::Rules::load(&text).expect("premise: the file loads");
     let mut view = SaveView::new();
     view.open(&path);
+    pick_imported(&mut view, "failing.4ccrules", &text);
     {
         let session = view.session.as_ref().unwrap();
         let team = aatf::TeamView::new(session.file(), 701).unwrap();
@@ -1075,9 +1015,7 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
         );
     }
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
-    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
-    });
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     // `Cards left:`, then the red click line in the badge's place.
     const LINE: &str = "Tier check failed, click for more information.";
     let error_node = {
@@ -1122,15 +1060,8 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
     assert!(view.refusal.is_none(), "no refusal before the click");
 
     // Its click opens the refusal dialog with the check's own error.
-    click_rules(
-        &mut window,
-        &mut view,
-        error_node,
-        Some(rules_path.as_path()),
-    );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
-    });
+    click(&mut window, error_node, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         label_value(&nodes, "The tier check failed"),
         "the dialog's title"
@@ -1138,93 +1069,6 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
     assert!(
         label_value(&nodes, &expected),
         "the dialog's body is the check's error"
-    );
-
-    // The rules file then fails to load (a member's edit, a moved
-    // file): neither the badge nor the error line stays drawn — the
-    // quick actions' red line carries the load error.
-    let bad = path.with_file_name("bad.4ccrules");
-    std::fs::write(&bad, "this is no ruleset").unwrap();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
-    });
-    assert!(
-        !in_skills_column_prefixed(&nodes, "Cards left"),
-        "no stale badge under the load error"
-    );
-    assert!(
-        !in_skills_column(&nodes, LINE),
-        "no stale tier-error line under the load error"
-    );
-}
-
-// The same bullet: the Skills header stays clean under an error naming a
-// long path too: `Skills` alone, no badge and no error line.
-#[test]
-fn a_load_error_at_a_long_path_draws_nothing_in_the_skills_column() {
-    let path = fixture(
-        PesVersion::Pes21,
-        "rules_load_error_at_a_path_long_enough_to_need_the_wrap",
-    );
-    let dir = path.parent().unwrap().to_path_buf();
-    let bad = dir.join("this_is_not_a_rules_file.4ccrules");
-    assert!(
-        bad.to_str().unwrap().len() >= 80,
-        "premise: the path is long: {bad:?}"
-    );
-    std::fs::write(&bad, "this is no ruleset").unwrap();
-
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
-    });
-    assert!(
-        !in_skills_column_prefixed(&nodes, "Cards left"),
-        "no badge under the load error"
-    );
-    assert!(
-        !in_skills_column_prefixed(&nodes, "The AATF rules file could not be loaded"),
-        "no error line in the Skills column"
-    );
-}
-
-// A rules file that does not load draws no Cards left badge: the quick
-// actions under the list report it, and the error's text would push the
-// header's row apart. The rest of the view draws.
-#[test]
-fn a_rules_file_that_does_not_load_draws_no_badge() {
-    let path = fixture(PesVersion::Pes21, "rules_load_error");
-    let dir = path.parent().unwrap().to_path_buf();
-    let bad = dir.join("bad.4ccrules");
-    std::fs::write(&bad, "this is no ruleset").unwrap();
-
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
-    });
-    assert!(
-        in_skills_column(&nodes, "Skills"),
-        "the Skills header draws"
-    );
-    assert!(
-        !in_skills_column_prefixed(&nodes, "Cards left"),
-        "no badge under the load error"
-    );
-    assert!(
-        !in_skills_column_prefixed(&nodes, "The AATF rules file could not be loaded"),
-        "no error line in the Skills column"
-    );
-    // The rest of the view draws: a stat control and a skill checkbox.
-    right_of_label(&nodes, "Speed", Role::SpinButton);
-    assert!(
-        nodes
-            .iter()
-            .any(|node| node.role() == Role::CheckBox && node.label() == Some("Heading")),
-        "the skills draw"
     );
 }
 
@@ -1300,28 +1144,6 @@ fn tricks_labels(ruleset: &aatf::Ruleset) -> Vec<String> {
         .collect()
 }
 
-/// `file`'s whole ruleset written beside `path` as `name` (the no-tier
-/// test's VTL11 write), returned as the `rules_file` `show` reads.
-fn rules_file(path: &std::path::Path, file: &str, name: &str) -> PathBuf {
-    let data = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(format!("../../libs/aatf/rulesets/{file}")),
-    )
-    .unwrap();
-    let ruleset = aatf::Ruleset::from_data_block(&data).unwrap();
-    let rules_path = path.with_file_name(name);
-    std::fs::write(
-        &rules_path,
-        aatf::assemble_file(
-            &ruleset,
-            None,
-            aatf::file_sections(&data).custom_checks.as_deref(),
-        ),
-    )
-    .unwrap();
-    rules_path
-}
-
 // The Skills panel lists the version's skills but the ruleset's tricks:
 // those stand in their own panel between Skills and COM playing styles,
 // in the game's order (Autumn 26's eleven), and the rest stay under
@@ -1332,7 +1154,7 @@ fn the_tricks_panel_holds_the_rulesets_tricks() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let expected = tricks_labels(aatf::Rules::official().ruleset());
     assert_eq!(expected.len(), 11, "premise: Autumn 26's eleven tricks");
@@ -1361,15 +1183,12 @@ fn the_tricks_panel_holds_the_rulesets_tricks() {
 #[test]
 fn the_tricks_panel_draws_the_cards_in_the_games_order() {
     let path = fixture(PesVersion::Pes21, "tricks_panel_vgl26");
-    let rules_path = rules_file(&path, "vgl26.rhai", "vgl26.4ccrules");
-    let ruleset = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap())
-        .expect("the VGL26 file loads");
+    let ruleset = aatf::builtin("vgl26").expect("VGL26 is built in");
     let mut view = SaveView::new();
     view.open(&path);
+    view.aatf_ruleset = "vgl26".to_owned();
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
-    });
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let expected = tricks_labels(ruleset.ruleset());
     assert_eq!(expected.len(), 12, "premise: VGL 26's twelve tricks");
@@ -1386,13 +1205,11 @@ fn the_tricks_panel_draws_the_cards_in_the_games_order() {
 #[test]
 fn a_ruleset_without_tricks_shows_its_free_cards() {
     let path = fixture(PesVersion::Pes21, "free_cards_vtl11");
-    let rules_path = rules_file(&path, "vtl11.rhai", "vtl11.4ccrules");
     let mut view = SaveView::new();
     view.open(&path);
+    view.aatf_ruleset = "vtl11".to_owned();
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
-    });
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // The 13 of "The free skills", the pass trio free to non-medals and
     // the captain's Captaincy.
@@ -1434,41 +1251,13 @@ fn a_ruleset_without_tricks_shows_its_free_cards() {
 #[test]
 fn a_ruleset_without_aside_cards_shows_no_aside_panel() {
     let path = fixture(PesVersion::Pes21, "no_aside_dbc7");
-    let rules_path = rules_file(&path, "dbc7.rhai", "dbc7.4ccrules");
     let mut view = SaveView::new();
     view.open(&path);
+    view.aatf_ruleset = "dbc7".to_owned();
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
-    });
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     for title in ["Tricks", "Free cards"] {
         assert!(!label_value(&nodes, title), "no {title} title under DBC7");
-    }
-    assert_eq!(
-        checkboxes_in(&nodes, "Skills", Some("COM playing styles")).len(),
-        41,
-        "every skill under Skills"
-    );
-}
-
-// A rules file that does not load shows no aside panel either: every
-// skill stays under Skills.
-#[test]
-fn a_rules_file_that_does_not_load_shows_no_aside_panel() {
-    let path = fixture(PesVersion::Pes21, "no_aside_load_error");
-    let bad = path.with_file_name("bad.4ccrules");
-    std::fs::write(&bad, "this is no ruleset").unwrap();
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
-    });
-    for title in ["Tricks", "Free cards"] {
-        assert!(
-            !label_value(&nodes, title),
-            "no {title} title under the load error"
-        );
     }
     assert_eq!(
         checkboxes_in(&nodes, "Skills", Some("COM playing styles")).len(),
@@ -1500,8 +1289,7 @@ fn a_trick_tick_is_the_same_one_undoable_edit() {
     // "Double Touch" is a trick: its checkbox sits under the Tricks
     // title, below the fold, so the tick goes through its AccessKit
     // action.
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let nodes: Vec<accesskit::Node> = pairs.iter().map(|(_, node)| node.clone()).collect();
     let tricks_y = label_bounds(&nodes, "Tricks").y0;
     let (card, cell) = pairs
@@ -1517,7 +1305,7 @@ fn a_trick_tick_is_the_same_one_undoable_edit() {
     assert_ne!(held(&view), before, "the tick wrote the trick's own index");
 
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(held(&view), before, "one undo restores it");
     assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
@@ -1588,10 +1376,9 @@ fn every_panel_title_stands_six_above_its_first_drawn_row() {
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     // The columns' widths settle over the first frames.
     for _ in 0..3 {
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     }
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // The three columns' titles share one line.
     let titles = ["General info", "Skills", "Ability stats"].map(|t| label_bounds(&nodes, t));
@@ -1700,9 +1487,9 @@ fn the_detail_pane_keeps_its_scroll_offset_across_picks() {
     // and the pane stays where it was.
     view.selected = Some(Selection::Player(734, 1));
     for _ in 0..3 {
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     }
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         (label_bounds(&nodes, "General info").y0 - scrolled).abs() < 0.5,
         "the offset outlives the pick ({scrolled} vs {})",
@@ -1731,7 +1518,7 @@ fn the_registered_position_combo_stores_the_pick_as_one_edit() {
         "premise: registered CB"
     );
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let combo = right_of_label(&nodes, "Registered position", Role::ComboBox)
         .first()
         .copied()
@@ -1742,8 +1529,7 @@ fn the_registered_position_combo_stores_the_pick_as_one_edit() {
         "the combo names the position in full, British spelling"
     );
     click(&mut window, combo, &mut view);
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (item, _) = nodes
         .iter()
         .find(|(_, node)| {
@@ -1765,7 +1551,7 @@ fn the_registered_position_combo_stores_the_pick_as_one_edit() {
     );
     // One gesture, one entry: a single undo brings CB back.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         view.session
@@ -1802,7 +1588,7 @@ fn a_positions_label_click_registers_it_as_one_edit() {
     );
 
     // The label's hover names what its click does.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let ss = nodes
         .iter()
         .find(|node| node.role() == Role::Label && node.value() == Some("SS"))
@@ -1812,8 +1598,7 @@ fn a_positions_label_click_registers_it_as_one_edit() {
             &mut window,
             &mut view,
             centre(ss),
-            "the registered position",
-            None
+            "the registered position"
         ),
         Some("Make SS the registered position".to_owned()),
         "the label's hover"
@@ -1826,8 +1611,7 @@ fn a_positions_label_click_registers_it_as_one_edit() {
         view.session.as_ref().unwrap().can_undo(),
         "the one undo entry"
     );
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let combo = right_of_label(&nodes, "Registered position", Role::ComboBox)
         .first()
         .copied()
@@ -1848,11 +1632,11 @@ fn a_positions_label_click_registers_it_as_one_edit() {
     // One undo brings CB back; a click on the now-registered CB's label
     // writes nothing.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(registered(&view), 1, "the undo restores CB");
     assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let cb = nodes
         .iter()
         .find(|node| node.role() == Role::Label && node.value() == Some("CB"))
@@ -1889,8 +1673,7 @@ fn the_foot_and_hand_sides_fill_the_held_side_and_store_the_pick() {
         "premise: right-handed"
     );
 
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let quiet_grey = egui::Color32::from_rgb(0x5a, 0x5a, 0x5a);
     for label in ["Stronger foot", "Stronger hand"] {
         let sides = right_of_label(&nodes, label, Role::Button);
@@ -1961,7 +1744,7 @@ fn a_players_first_frame_draws_where_every_later_one_does() {
     view.selected = Some(Selection::Player(734, 0));
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     for _ in 0..3 {
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     }
 
     // Each pass of the frame selecting the next player: the columns' width
@@ -1971,7 +1754,7 @@ fn a_players_first_frame_draws_where_every_later_one_does() {
     let mut passes = Vec::new();
     let (_, first, _) = window.frame(Vec::new(), |ui| {
         let read = crate::view::abilities::columns_width(ui);
-        show(ui, &mut view, &|| Vec::new(), None);
+        show(ui, &mut view, &|| Vec::new());
         let measured = crate::view::abilities::columns_width(ui);
         passes.push((read, measured, ui.ctx().will_discard()));
     });
@@ -1982,7 +1765,7 @@ fn a_players_first_frame_draws_where_every_later_one_does() {
     );
     assert_eq!(read, measured, "the kept pass, of {passes:?}");
 
-    let (_, later, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, later, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         label_bounds(&first, "General info").x0,
         label_bounds(&later, "General info").x0,
@@ -2005,10 +1788,9 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     // The combos' label column is measured on the first frames: let it settle.
     for _ in 0..3 {
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     }
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // The title line's first text is the player's id in the weak colour.
     let weak = window
@@ -2343,10 +2125,9 @@ fn the_player_view_centres_its_columns_in_the_pane() {
     for screen_w in [DEFAULT_PANE.x, DEFAULT_PANE.x + 300.0] {
         let mut window = Headless::sized(screen_w, DEFAULT_PANE.y);
         for _ in 0..3 {
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         }
-        let (_, nodes, shapes) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
         let gen_left = label_bounds(&nodes, "General info").x0;
         let stats_left = label_bounds(&nodes, "Ability stats").x0;
@@ -2420,8 +2201,7 @@ fn the_chosen_ratings_paint_their_fills_and_letters() {
     view.selected = Some(Selection::Player(701, 0));
     let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
     let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let cases = [
         (

@@ -23,11 +23,6 @@ pub(crate) const AUTUMN26: &str = include_str!("../rulesets/autumn26.rhai");
 /// the loader reads the content, never the ending.
 pub const RULES_FILE_EXTENSION: &str = "4ccrules";
 
-/// The name Save a copy suggests for the embedded official rules file:
-/// the `rulesets/` source's stem (`AUTUMN26`'s `include_str!` above)
-/// under `RULES_FILE_EXTENSION`.
-pub const OFFICIAL_FILE_NAME: &str = "autumn26.4ccrules";
-
 /// The embedded official rules file, the one `Rules::official` loads:
 /// `AUTUMN26` assembled with the current logic.
 pub fn official_file() -> String {
@@ -100,15 +95,16 @@ impl Rules {
     }
 
     /// The official ruleset, the default file: `rulesets/autumn26.rhai`
-    /// assembled with the current logic (`official_file`). Panics only
-    /// if the embedded file does not load, which a test rules out.
+    /// assembled with the current logic (`official_file`), the first
+    /// built-in ruleset. Panics only if the embedded file does not load,
+    /// which a test rules out.
     pub fn official() -> Rules {
-        Rules::load(&official_file()).expect("the embedded official file loads")
+        crate::templates::builtin("autumn26").expect("autumn26 is built in")
     }
 
     /// The rules of an embedded data block assembled with the current
-    /// logic: the other rulesets' fixtures run on these.
-    #[cfg(test)]
+    /// logic: the built-in rulesets (`templates::builtin`) and the other
+    /// rulesets' fixtures run on these.
     pub(crate) fn from_data_block(data_block: &str) -> Result<Rules, LoadError> {
         Rules::load(&assemble(data_block))
     }
@@ -332,7 +328,7 @@ mod tests {
     #[test]
     fn official_loads_and_checks_every_fixture_version() {
         let rules = Rules::official();
-        assert_eq!(rules.ruleset().name, "Autumn 26");
+        assert_eq!(rules.ruleset().name, "4cc Autumn 26");
         for version in PesVersion::ALL {
             rules
                 .check_team(&fixture_team(version))
@@ -462,7 +458,7 @@ mod tests {
         assert_eq!(
             found.last().map(|v| &v.kind),
             Some(&crate::violation::ViolationKind::Custom {
-                text: "Autumn 26".to_string(),
+                text: "4cc Autumn 26".to_string(),
             })
         );
     }

@@ -111,7 +111,7 @@ fn edited(slot: u8, edit: impl FnOnce(&mut PlayerView)) -> TeamView {
 #[test]
 fn the_legal_team_reports_nothing() {
     let rules = rules();
-    assert_eq!(rules.ruleset().name, "VGL26");
+    assert_eq!(rules.ruleset().name, "/vg/ League 26");
     assert_eq!(problems(&rules, &legal_team()), vec![]);
 }
 

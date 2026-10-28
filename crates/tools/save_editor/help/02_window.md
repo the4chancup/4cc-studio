@@ -29,20 +29,13 @@ Ctrl+Shift+Z); a drag or a run of typing on one field is one undo step.
 rules in use gives the player that tier's values (stats, form, injury resistance, weak
 foot, name color) as one undoable edit. **Set stats** sets every ability stat to the
 number beside it (40 to 99). They act on the selected player, so a team row leaves them
-greyed out. When the rules file does not load, its error shows in place of the Make
-buttons.
+greyed out.
 
-**AATF violations.** **Panels** in the toolbar opens a floating window listing a
-team's violations against the AATF rules
-in use, grouped per player. **Current team** checks the team of the selected row,
-a player's own or a team row's; with nothing selected it checks the team the
-selector names (with ALL picked and nothing selected, no team is open).
-**Select teams** lists every team of the save to
-check several at once, which takes a moment while the results come in. Clicking a
-player's violation selects him. **Show suggestions** adds, below the violations, what
-each player could still use within the rules. **Validate rules** checks the rules
-file itself and lists everything it finds wrong with it. **Save a copy** writes the
-built-in official ruleset out to a file.
+**AATF ruleset.** The dropdown on the toolbar, left of **Live AATF**, picks the AATF
+rules the quick actions, the Cards left badge and Live AATF use. Every cup's current
+rules are built in, listed by name, and the copies in the data folder's `rules` folder
+follow them. The pick is remembered. When the copy picked last is gone from the data
+folder, 4cc Autumn 26 is used instead and a notice says so.
 
 **Comparator.** **Panels** in the toolbar, **Comparator…**, opens a floating
 window comparing the open save, edits included, against a second save:
@@ -57,7 +50,7 @@ differences over the whole save as a text file.
 
 **Live AATF.** The toolbar's **Live AATF** toggle checks the open team after every
 edit, in a panel docked at the bottom of the window: the violations left, grouped
-per player as the floating window lists them, under `N issues · <ruleset>`, or
+per player, under `N issues · <ruleset>`, or
 `<team> passes <ruleset> with no issues` once the team passes. Clicking a row
 selects that player; a `FieldedNotA` row, about a position he is fielded at,
 selects his team's row instead, on the named preset's first formation that

@@ -6,14 +6,14 @@ use super::*;
 /// button (skipped when a previous call left it open), then the frame's
 /// nodes.
 fn open_savefile_menu(window: &mut Headless, view: &mut SaveView) -> Vec<accesskit::Node> {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     if nodes.iter().any(|node| {
         node.role() == Role::Button && node.label() == Some("Output rosters to TSV\u{2026}")
     }) {
         return nodes;
     }
     click(window, menu_button(&nodes, "Savefile"), view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     nodes
 }
 
@@ -71,7 +71,7 @@ fn fix_database_repairs_the_save_behind_a_confirmation_and_one_undo() {
         node_labeled(&nodes, Role::Button, "Fix database\u{2026}"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         label_value(
             &nodes,
@@ -101,7 +101,7 @@ fn fix_database_repairs_the_save_behind_a_confirmation_and_one_undo() {
         node_labeled(&nodes, Role::Button, "Fix database\u{2026}"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Fix database"),
@@ -189,10 +189,10 @@ fn fix_database_repairs_the_save_behind_a_confirmation_and_one_undo() {
 
     // Redo, save, reopen: the file holds the repair.
     window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let reopened = EditFile::load(&path).unwrap();
     assert_eq!(reopened.player(70101).unwrap().appearance.base_copy_id, 0);
@@ -249,8 +249,7 @@ fn the_fix_database_question_names_only_what_the_save_has() {
             node_labeled(&nodes, Role::Button, "Fix database\u{2026}"),
             &mut view,
         );
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         assert!(
             label_value(&nodes, question),
             "{version}'s question is {question:?}"
@@ -282,13 +281,7 @@ fn the_locked_savefile_menu_disables_fix_database_only() {
         "Fix database is disabled under the lock"
     );
     assert_eq!(
-        tooltip_containing(
-            &mut window,
-            &mut view,
-            centre(item),
-            "The team's export",
-            None
-        ),
+        tooltip_containing(&mut window, &mut view, centre(item), "The team's export"),
         Some(
             "The team's export owns the aesthetics, so edit its settings.toml and recompile."
                 .to_string(),

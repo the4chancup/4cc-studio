@@ -1,15 +1,14 @@
-//! The AATF check the floating panel (`aatf_panel`) and the Live AATF dock
-//! (`live_aatf`) share: the worker-thread check's key, pending state and
-//! spawn, the team both Current-team callers read, the `violations_list`
-//! rows a check's results draw, and a row click's effect on the view's
-//! selection. The check runs on a worker thread — a whole-save pick is
-//! seconds of script — started when the key moves on (the session's
-//! revision, the team ids or the rules file) and the edit has settled
-//! (`edit_settled`, the same condition the undo stack's seal uses); until
-//! the reply lands the last result stays, marked as checking.
+//! The AATF check behind the Live AATF dock (`live_aatf`): the
+//! worker-thread check's key, pending state and spawn, the team the dock
+//! reads, the `violations_list` rows a check's results draw, and a row
+//! click's effect on the view's selection. The check runs on a worker
+//! thread, so a slow custom check never stalls a frame, started when the
+//! key moves on (the session's revision, the team ids or the ruleset) and
+//! the edit has settled (`edit_settled`, the same condition the undo
+//! stack's seal uses); until the reply lands the last result stays, marked
+//! as checking.
 
 use std::collections::HashMap;
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use pes_savefile::EditFile;
@@ -24,16 +23,15 @@ use crate::view::Selection;
 use crate::view::worker::{Pending, WorkerResult};
 
 /// What a check ran for: a change of the open save, of the ids or of the
-/// rules file recomputes it.
+/// ruleset recomputes it.
 #[derive(Clone, PartialEq)]
 pub(super) struct CheckKey {
     /// `Session::revision` when the views were built.
     pub(super) revision: u64,
     /// The teams checked, in id order.
     pub(super) ids: Vec<u32>,
-    /// The rules file the check's ruleset came from (`None`: the embedded
-    /// official ruleset).
-    pub(super) rules_file: Option<PathBuf>,
+    /// The ruleset the check ran under (`ActiveRules::key`).
+    pub(super) ruleset: String,
 }
 
 /// A check in flight: the key it runs for and its reply channel (the
@@ -42,40 +40,29 @@ pub(super) type PendingCheck = Pending<CheckKey, Vec<TeamCheck>>;
 
 /// A team check's state: the last result with its key and the check in
 /// flight, if one is (`worker::WorkerResult`'s poll-and-spawn cycle). The
-/// AATF panel and the Live AATF dock each hold one.
+/// Live AATF dock holds one.
 pub(super) type TeamsCheck = WorkerResult<CheckKey, Vec<TeamCheck>>;
 
 /// One frame of the check cycle for `key`: the reply polled first, so
 /// the frame that starts a check still marks the previous result as
 /// checking; then a check spawned when the key moved on since the last
-/// result (a rules file that does not load, `rules` `None`, never
-/// starts one: its error is the list) and the edit has settled.
-/// Returns whether the list is checking — a check in flight or due at
-/// the next settled frame — for the callers' checking marks.
+/// result and the edit has settled. Returns whether the list is checking
+/// — a check in flight or due at the next settled frame — for the
+/// caller's checking mark.
 pub(super) fn update_check(
     check: &mut TeamsCheck,
     ctx: &egui::Context,
     file: &EditFile,
-    rules: Option<&Arc<aatf::Rules>>,
+    rules: &Arc<aatf::Rules>,
     key: CheckKey,
     settled: bool,
 ) -> bool {
-    check.update(
-        &key,
-        !key.ids.is_empty() && rules.is_some(),
-        settled,
-        |key| {
-            spawn_check(
-                ctx,
-                file,
-                rules.expect("a due check has its ruleset loaded"),
-                key.clone(),
-            )
-        },
-    )
+    check.update(&key, !key.ids.is_empty(), settled, |key| {
+        spawn_check(ctx, file, rules, key.clone())
+    })
 }
 
-/// The team the Current-team callers check: the selected row's (a player
+/// The team the dock checks: the selected row's (a player
 /// row's team or a team row's own — the team the view is editing, another
 /// team's too when the filter lists its rows), else the selector's;
 /// `None` with no row selected under ALL.
@@ -164,19 +151,15 @@ pub(super) fn team_name(file: &EditFile, id: u32) -> &str {
 }
 
 /// The check's results: one error-coloured line per team whose check
-/// failed (as `check-aatf` reports it), `clean_line` (the panel's "No
-/// violations."; `None` in the dock, whose header says it) when every
-/// team's check succeeded and none has an error or a warning, then the
-/// `violations_list` itself. Returns the player whose row was clicked
-/// this frame.
+/// failed (as `check-aatf` reports it), then the `violations_list` itself,
+/// suggestions left out (an unused allowance is nothing to fix). Returns
+/// the player whose row was clicked this frame.
 pub(super) fn results(
     ui: &mut egui::Ui,
     file: &EditFile,
     id_salt: impl egui::AsIdSalt,
     key: &CheckKey,
     checks: &[TeamCheck],
-    show_suggestions: bool,
-    clean_line: Option<&'static str>,
 ) -> Option<SelectedPlayer> {
     // Player ids are stable inside an open file: one map serves the
     // whole roster scan, as `selection::rows` builds its own (its
@@ -214,15 +197,7 @@ pub(super) fn results(
             }),
         }
     }
-    // Only when every check succeeded: beside a failed team's line it
-    // would read as clearing that team, whose violations are unknown.
-    if issues(checks) == 0
-        && checks.iter().all(Result::is_ok)
-        && let Some(line) = clean_line
-    {
-        ui.weak(line);
-    }
-    violations_list(ui, id_salt, &teams, show_suggestions)
+    violations_list(ui, id_salt, &teams, false)
 }
 
 /// Team `id`'s rostered players as the list's `ListedPlayer`s, in slot

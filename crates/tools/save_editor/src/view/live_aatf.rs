@@ -6,19 +6,17 @@
 //! `live_aatf` setting (`view.live_aatf`); off, nothing is drawn and no
 //! check starts.
 
-use std::sync::Arc;
-
 use studio_core::widgets::BottomDock;
 
 use crate::view::aatf_check::{self, CheckKey, TeamsCheck};
-use crate::view::{SaveView, edit_settled, rules_load_error};
+use crate::view::{SaveView, edit_settled};
 
 /// The dock's state on `SaveView` (`view.live`): the dock's frame and the
 /// open team's check.
 pub(super) struct LiveAatf {
     /// The bottom dock's frame: the chevron, the title and the height.
     dock: BottomDock,
-    /// The open team's check, the floating panel's shared with it.
+    /// The open team's check.
     pub(super) check: TeamsCheck,
 }
 
@@ -38,7 +36,7 @@ impl LiveAatf {
 
 /// One frame of the dock, while `view.live_aatf` and a save is open: the
 /// open team's check polled and re-spawned for the session's current
-/// revision and rules file once the edit settles, the header counting the
+/// revision and ruleset once the edit settles, the header counting the
 /// held result's Error and Warning violations (the draft's `livePanel`
 /// wording) and the body listing them through the shared `results`.
 pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
@@ -61,66 +59,49 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // The open team: the selected row's team (a player's or a team row's
     // own — the team the view is editing), else the selector's.
     let team_id = aatf_check::current_team(*team, *selected);
-    let (loaded, load_error) = match &active.rules {
-        Ok(rules) => (Some(Arc::clone(rules)), None),
-        Err(error) => (None, Some(error.clone())),
-    };
     let key = CheckKey {
         revision: session.revision(),
         ids: team_id.into_iter().collect(),
-        rules_file: active.file.clone(),
+        ruleset: active.key.clone(),
     };
-    let checking = aatf_check::update_check(
-        &mut live.check,
-        ui.ctx(),
-        file,
-        loaded.as_ref(),
-        key,
-        settled,
-    );
+    let checking =
+        aatf_check::update_check(&mut live.check, ui.ctx(), file, &active.rules, key, settled);
+    let ruleset = &active.rules.ruleset().name;
     live.dock.show(
         ui,
         |ui| {
             // The header after the title (the draft's `livePanel` wording);
-            // a rules file that does not load and a failed check draw no
-            // count — the body says why.
-            if load_error.is_none() {
-                match &live.check.result {
-                    Some((result_key, checks)) => {
-                        if let Ok(rules) = &active.rules
-                            && checks.iter().all(Result::is_ok)
-                        {
-                            let issues = aatf_check::issues(checks);
-                            if issues == 0 {
-                                let name = aatf_check::team_name(
-                                    file,
-                                    *result_key
-                                        .ids
-                                        .first()
-                                        .expect("a held result checked a team"),
-                                );
-                                ui.strong(format!(
-                                    "{name} passes {} with no issues.",
-                                    rules.ruleset().name
-                                ));
-                            } else {
-                                let plural = if issues == 1 { "issue" } else { "issues" };
-                                ui.strong(format!("{issues} {plural} · {}", rules.ruleset().name));
-                            }
-                        }
-                    }
-                    None => {
-                        if let Some(id) = team_id {
-                            ui.strong(format!(
-                                "Checking {}\u{2026}",
-                                aatf_check::team_name(file, id)
-                            ));
+            // a failed check draws no count — the body says why.
+            match &live.check.result {
+                Some((result_key, checks)) => {
+                    if checks.iter().all(Result::is_ok) {
+                        let issues = aatf_check::issues(checks);
+                        if issues == 0 {
+                            let name = aatf_check::team_name(
+                                file,
+                                *result_key
+                                    .ids
+                                    .first()
+                                    .expect("a held result checked a team"),
+                            );
+                            ui.strong(format!("{name} passes {ruleset} with no issues."));
+                        } else {
+                            let plural = if issues == 1 { "issue" } else { "issues" };
+                            ui.strong(format!("{issues} {plural} · {ruleset}"));
                         }
                     }
                 }
-                if checking && live.check.result.is_some() {
-                    ui.weak("checking\u{2026}");
+                None => {
+                    if let Some(id) = team_id {
+                        ui.strong(format!(
+                            "Checking {}\u{2026}",
+                            aatf_check::team_name(file, id)
+                        ));
+                    }
                 }
+            }
+            if checking && live.check.result.is_some() {
+                ui.weak("checking\u{2026}");
             }
         },
         |ui| {
@@ -132,18 +113,8 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     let mut clicked = None;
                     if team_id.is_none() {
                         ui.weak("No team is open.");
-                    } else if let Some(error) = &load_error {
-                        ui.weak(rules_load_error(error));
                     } else if let Some((result_key, checks)) = &live.check.result {
-                        clicked = aatf_check::results(
-                            ui,
-                            file,
-                            "aatf_live",
-                            result_key,
-                            checks,
-                            false,
-                            None,
-                        );
+                        clicked = aatf_check::results(ui, file, "aatf_live", result_key, checks);
                     }
                     clicked
                 })

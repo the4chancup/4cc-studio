@@ -1,5 +1,6 @@
 //! The Save editor's section of the settings file: its four keys. `check-aatf` and the window's
-//! AATF checks read `aatf_rules`; the window reads `live_aatf` (the toolbar's Live AATF toggle),
+//! AATF checks read `aatf_ruleset` (the toolbar's ruleset dropdown writes it); the window reads
+//! `live_aatf` (the toolbar's Live AATF toggle),
 //! `aesthetics_from_exports` ("Aesthetics from exports", the aesthetics lock's setting) and
 //! `scroll_names` (the Tactics formation bar's checkbox). A key enters with the code that reads
 //! it, so the file never carries a setting nothing honors.
@@ -10,9 +11,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub(crate) struct SaveEditorSettings {
-    /// The AATF rules file `check-aatf` and the AATF panel run; empty: the official ruleset,
-    /// built in.
-    pub(crate) aatf_rules: String,
+    /// The AATF ruleset the window and `check-aatf` use: a built-in ruleset's file stem
+    /// (`autumn26`, the default), or an imported copy's file name (`cup.4ccrules`) in the
+    /// data folder's `rules/`. One that is gone falls back to the first built-in ruleset.
+    pub(crate) aatf_ruleset: String,
     /// The toolbar's Live AATF toggle; on, a docked panel lists the open team's violations
     /// after every edit.
     pub(crate) live_aatf: bool,
@@ -31,7 +33,7 @@ pub(crate) struct SaveEditorSettings {
 impl Default for SaveEditorSettings {
     fn default() -> SaveEditorSettings {
         SaveEditorSettings {
-            aatf_rules: String::new(),
+            aatf_ruleset: crate::session::rules::FIRST_BUILTIN.to_owned(),
             live_aatf: false,
             aesthetics_from_exports: false,
             scroll_names: default_scroll_names(),
@@ -60,17 +62,29 @@ pub(crate) fn from_table(table: &toml::Table) -> Result<SaveEditorSettings, toml
 mod tests {
     use super::*;
 
+    /// The default ruleset is the first built-in one; a key this version does not know, the
+    /// old `aatf_rules` path among them, reads back as the defaults.
     #[test]
-    fn the_defaults_carry_no_rules_file_and_an_unknown_key_reads_back_as_the_defaults() {
-        assert_eq!(default_table()["aatf_rules"].as_str(), Some(""));
-        let table: toml::Table = toml::from_str("setting_from_a_newer_version = 3").unwrap();
-        assert_eq!(from_table(&table).unwrap(), SaveEditorSettings::default());
+    fn the_defaults_pick_autumn26_and_an_unknown_key_reads_back_as_the_defaults() {
+        assert_eq!(default_table()["aatf_ruleset"].as_str(), Some("autumn26"));
+        assert!(!default_table().contains_key("aatf_rules"));
+        for unknown in [
+            "setting_from_a_newer_version = 3",
+            "aatf_rules = \"rules/dbc7.4ccrules\"",
+        ] {
+            let table: toml::Table = toml::from_str(unknown).unwrap();
+            assert_eq!(
+                from_table(&table).unwrap(),
+                SaveEditorSettings::default(),
+                "{unknown}"
+            );
+        }
     }
 
     #[test]
-    fn aatf_rules_names_a_rules_file() {
-        let table: toml::Table = toml::from_str("aatf_rules = \"vgl27.4ccrules\"").unwrap();
-        assert_eq!(from_table(&table).unwrap().aatf_rules, "vgl27.4ccrules");
+    fn aatf_ruleset_names_a_ruleset() {
+        let table: toml::Table = toml::from_str("aatf_ruleset = \"vgl27\"").unwrap();
+        assert_eq!(from_table(&table).unwrap().aatf_ruleset, "vgl27");
     }
 
     // SE-GUI-35's GIVEN (the setting off is the default).

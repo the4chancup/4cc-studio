@@ -47,7 +47,7 @@ fn red_legal_records() -> Records {
 #[test]
 fn the_sample_team_is_legal_under_the_ruleset_it_was_built_for() {
     let rules = Rules::from_data_block(SPRING26).expect("Spring 26 loads");
-    assert_eq!(rules.ruleset().name, "Spring 26");
+    assert_eq!(rules.ruleset().name, "4cc Spring 26");
     let team = TeamView::sample_team();
     assert_eq!(player(&team, 0).abilities[2], Some(74));
     assert_eq!(problems(&rules, &team), vec![]);

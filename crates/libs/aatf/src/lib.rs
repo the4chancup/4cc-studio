@@ -54,7 +54,8 @@ mod rules;
 mod ruleset;
 /// `TeamView`/`PlayerView` from `pes_savefile`'s model, the tactics answers.
 mod team;
-/// The Ruleset editor's start page templates (`templates()`).
+/// The embedded rulesets: the Ruleset editor's start page templates
+/// (`templates()`) and the Save editor's built-in rulesets (`builtin`).
 mod templates;
 /// `TierValues`/`CardLimits` from the script's maps, and the write into a record.
 mod values;
@@ -64,9 +65,9 @@ mod violation;
 mod writer;
 
 pub use file::{FileSections, LogicIdentity, assemble_file, file_sections};
-pub use rules::{OFFICIAL_FILE_NAME, RULES_FILE_EXTENSION, Rules, official_file};
+pub use rules::{RULES_FILE_EXTENSION, Rules, official_file};
 pub use team::{PlayerView, TeamView, TeamViewError};
-pub use templates::{Template, templates};
+pub use templates::{Template, builtin, templates};
 pub use values::CardLimits;
 pub use violation::{CheckError, Violation, ViolationKind};
 

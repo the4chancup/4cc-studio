@@ -62,7 +62,7 @@ fn click_labeled_tool(
 
 /// A click on the view's `label` button (the prompt's and the question's).
 fn click_label(window: &mut Headless, view: &mut SaveView, label: &str) {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     let button = node_labeled(&nodes, Role::Button, label);
     click(window, button, view);
 }
@@ -172,7 +172,7 @@ fn question_nodes_with(
     view: &mut SaveView,
     running: &dyn Fn() -> Vec<RunningPes>,
 ) -> Vec<(accesskit::NodeId, accesskit::Node)> {
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, running, None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, running));
     let nodes: Vec<accesskit::Node> = pairs.iter().map(|(_, node)| node.clone()).collect();
     assert!(
         label_value(&nodes, "PES 2021 is running"),
@@ -207,10 +207,9 @@ fn the_prompt_lists_each_changed_field_in_the_views_terms() {
 
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(prompt_drawn(&nodes), "the prompt is up");
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         prompt_rows(&pairs, "Unsaved changes"),
         [
@@ -238,9 +237,8 @@ fn the_prompt_shows_only_the_table_and_the_answers() {
     let mut view = dirty_view(&path);
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let nodes = dialog_nodes(&pairs, "Unsaved changes");
     assert!(
         !nodes
@@ -272,9 +270,8 @@ fn a_row_wider_than_the_default_keeps_one_line() {
     view.session.as_mut().unwrap().edit_player(1, edited);
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows = prompt_rows(&pairs, "Unsaved changes");
     let [(item, old, new)] = rows.as_slice() else {
         panic!("the one Name row: {rows:?}")
@@ -335,9 +332,8 @@ fn a_row_past_the_cap_scrolls_sideways() {
     view.session.as_mut().unwrap().edit_player(1, edited);
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let dialog = dialog_nodes(&pairs, "Unsaved changes");
     let dialog_rect = prompt_rect(&mut window);
     let cap = f64::from(window.screen.x) * 0.9;
@@ -383,8 +379,7 @@ fn a_teams_row_comes_after_the_players() {
     view.session.as_mut().unwrap().edit_team(4, team);
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         prompt_rows(&pairs, "Unsaved changes"),
         [
@@ -526,13 +521,13 @@ fn opening_another_save_prompts_and_each_answer_does_what_it_says() {
     // A dirty session's Open… shows the prompt, not the picker (the
     // test-build default dialog panics if it is reached).
     let mut view = dirty_view(&first);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Open…"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(prompt_drawn(&nodes), "the prompt is up");
 
     // Cancel keeps the first save open and dirty.
@@ -550,14 +545,13 @@ fn opening_another_save_prompts_and_each_answer_does_what_it_says() {
     // toolbar's interactive rects (egui's own hysteresis, and a real
     // member's click at 60fps spans past it), so the second pointer
     // click's press would land dead.
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let (open_id, _) = pairs
         .iter()
         .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Open…"))
         .expect("the Open button");
     action_click(&mut window, &mut view, *open_id);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(prompt_drawn(&nodes), "Discard's prompt is up");
     click_label(&mut window, &mut view, "Discard");
     assert_eq!(
@@ -581,7 +575,7 @@ fn click_with(
     running: &dyn Fn() -> Vec<RunningPes>,
     node: &accesskit::Node,
 ) {
-    press_release(window, centre(node), |ui| show(ui, view, running, None));
+    press_release(window, centre(node), |ui| show(ui, view, running));
 }
 
 /// The `label` button of the modal headed `heading`, found in that
@@ -618,7 +612,7 @@ fn the_prompts_save_runs_the_window_save_first() {
 
     // Save opens the question over the prompt; its Cancel keeps the
     // prompt and asks nothing of the shell.
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own));
     click_with(
         &mut window,
         &mut view,
@@ -639,7 +633,7 @@ fn the_prompts_save_runs_the_window_save_first() {
 
     // Its Save writes and goes on: the file holds the edit and the close
     // follows.
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own));
     click_with(
         &mut window,
         &mut view,
@@ -713,15 +707,13 @@ fn a_refused_write_under_the_prompt_shows_the_refusal_on_top() {
     // up.
     std::fs::remove_file(&path).unwrap();
     std::fs::create_dir(&path).unwrap();
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         modal_button(&pairs, "Unsaved changes", "Save"),
         &mut view,
     );
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(view.prompt.is_some(), "the failed write keeps the prompt");
     assert!(view.is_dirty(), "and the session stays dirty");
     let ok = dialog_nodes(&pairs, "Save refused")
@@ -757,7 +749,7 @@ fn a_refused_write_under_the_question_keeps_the_prompt_and_shows_the_refusal() {
     // fails on every OS, so the write refuses.
     std::fs::remove_file(&path).unwrap();
     std::fs::create_dir(&path).unwrap();
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own));
     click_with(
         &mut window,
         &mut view,
@@ -780,7 +772,7 @@ fn a_refused_write_under_the_question_keeps_the_prompt_and_shows_the_refusal() {
     assert!(view.session.is_some(), "the session stays open");
     assert!(view.is_dirty(), "and dirty");
     assert!(!view.request_close, "no close is asked");
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own));
     dialog_nodes(&pairs, "Save refused")
         .into_iter()
         .find(|node| node.role() == Role::Button && node.label() == Some("OK"))
@@ -813,7 +805,7 @@ fn a_strip_again_is_a_stripped_row_under_the_player() {
     view.open(&path);
     assert!(view.strip_again.is_some(), "the window lists him");
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Strip again"),
@@ -834,9 +826,8 @@ fn a_strip_again_is_a_stripped_row_under_the_player() {
     prompt::open(&mut view, Pending::Close);
     // One frame so the modal's area has registered (its first frame is
     // egui's invisible sizing pass).
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         prompt_rows(&pairs, "Unsaved changes"),
         [(
@@ -875,8 +866,7 @@ fn a_player_on_two_rosters_gets_his_rows_once() {
 
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows = prompt_rows(&pairs, "Unsaved changes");
     let heights: Vec<&(String, String, String)> = rows
         .iter()
@@ -915,9 +905,8 @@ fn an_unlisted_players_rows_come_after_the_listed() {
     let mut window = Headless::new();
     // One frame so the modal's area has registered (its first frame is
     // egui's invisible sizing pass).
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows = prompt_rows(&pairs, "Unsaved changes");
     let height = rows
         .iter()
@@ -949,14 +938,13 @@ fn opening_anothers_save_writes_the_first_then_opens_the_picked() {
     let mut view = dirty_view(&first);
     let picked = other.clone();
     view.open_dialog = Box::new(move || Some(picked.clone()));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Open…"),
         &mut view,
     );
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let nodes: Vec<accesskit::Node> = pairs.iter().map(|(_, node)| node.clone()).collect();
     assert!(prompt_drawn(&nodes), "the prompt is up");
     click(
@@ -991,14 +979,14 @@ fn opening_anothers_save_writes_the_first_then_opens_the_picked() {
     let mut view = dirty_view(&first);
     let picked = other.clone();
     view.open_dialog = Box::new(move || Some(picked.clone()));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &running_own));
     click_with(
         &mut window,
         &mut view,
         &running_own,
         node_labeled(&nodes, Role::Button, "Open…"),
     );
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own));
     click_with(
         &mut window,
         &mut view,
@@ -1035,11 +1023,11 @@ fn escape_on_the_prompt_closes_it_and_changes_nothing() {
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
     // One frame for the modal to register as the top one, then Escape.
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(view.prompt.is_some(), "premise: the prompt is up");
     window.frame(
         vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert!(view.prompt.is_none(), "Escape closes the prompt");
     let session = view.session.as_ref().expect("the session kept");
@@ -1067,14 +1055,14 @@ fn escape_on_the_question_closes_it_and_keeps_the_prompt() {
     prompt::open(&mut view, Pending::Close);
     view.edit_mode_question = Some(PesVersion::Pes21);
     let mut window = Headless::new();
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         view.edit_mode_question.is_some(),
         "premise: the question is up"
     );
     window.frame(
         vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert!(
         view.edit_mode_question.is_none(),
@@ -1097,7 +1085,7 @@ fn the_shortcuts_do_not_act_behind_the_unsaved_prompt_alone() {
     let mut window = Headless::new();
     for key_event in [egui::Key::S, egui::Key::Z] {
         window.frame(vec![key(key_event, egui::Modifiers::CTRL, true)], |ui| {
-            show(ui, &mut view, &|| Vec::new(), None)
+            show(ui, &mut view, &|| Vec::new())
         });
     }
     assert!(view.prompt.is_some(), "the prompt stays up");
@@ -1126,7 +1114,7 @@ fn the_shortcuts_do_not_act_behind_the_edit_mode_question_alone() {
     let mut window = Headless::new();
     for key_event in [egui::Key::S, egui::Key::Z] {
         window.frame(vec![key(key_event, egui::Modifiers::CTRL, true)], |ui| {
-            show(ui, &mut view, &|| Vec::new(), None)
+            show(ui, &mut view, &|| Vec::new())
         });
     }
     assert!(view.edit_mode_question.is_some(), "the question stays up");
@@ -1160,8 +1148,7 @@ fn a_tactics_row_names_the_player_as_the_roster_shows_him() {
 
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows = prompt_rows(&pairs, "Unsaved changes");
     assert!(
         rows.iter()
@@ -1206,8 +1193,7 @@ fn a_tactics_rows_old_side_names_the_baseline_records() {
     prompt::open(&mut view, Pending::Close);
     assert!(view.prompt.is_some(), "the prompt opened");
     let mut window = Headless::new();
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows = prompt_rows(&pairs, "Unsaved changes");
     let captain = rows
         .iter()
@@ -1244,9 +1230,8 @@ fn a_team_rows_item_is_the_teams_display_name() {
 
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         prompt_rows(&pairs, "Unsaved changes"),
         [(
@@ -1277,9 +1262,8 @@ fn the_item_column_is_the_display_name() {
     let mut window = Headless::new();
     // One frame so the modal's area has registered (its first frame is
     // egui's invisible sizing pass).
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         prompt_rows(&pairs, "Unsaved changes"),
         [(
@@ -1302,7 +1286,7 @@ fn a_backdrop_click_on_the_prompt_closes_it_and_changes_nothing() {
     let mut window = Headless::new();
     // One frame for the modal to register as the top one, then a click
     // beside it, on the backdrop.
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(view.prompt.is_some(), "premise: the prompt is up");
     click_at(&mut window, egui::pos2(5.0, 5.0), &mut view);
     assert!(view.prompt.is_none(), "a backdrop click closes the prompt");
@@ -1331,7 +1315,7 @@ fn a_backdrop_click_on_the_question_closes_it_and_keeps_the_prompt() {
     prompt::open(&mut view, Pending::Close);
     view.edit_mode_question = Some(PesVersion::Pes21);
     let mut window = Headless::new();
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         view.edit_mode_question.is_some(),
         "premise: the question is up"
@@ -1357,8 +1341,8 @@ fn the_prompts_title_is_14_points_and_strong() {
     let mut window = Headless::new();
     // The modal's first frame is a sizing pass; the second's shapes are
     // painted.
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let title = text_shape(&shapes, "Unsaved changes");
     assert_eq!(
         title.galley.job.sections[0].format.font_id.size, 14.0,

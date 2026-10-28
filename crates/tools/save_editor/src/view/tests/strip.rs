@@ -28,7 +28,7 @@ fn a_name_edit_does_not_reach_the_next_players_field() {
     view.selected = Some(Selection::Player(702, 0));
     let a_before = name_of(&view, a_id);
     let b_before = name_of(&view, b_id);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let name_field = nodes
         .iter()
         .find(|node| {
@@ -39,14 +39,14 @@ fn a_name_edit_does_not_reach_the_next_players_field() {
         .expect("the Name field");
     click(&mut window, name_field, &mut view);
     window.frame(vec![egui::Event::Text("ZZZ".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_ne!(name_of(&view, a_id), a_before, "the edit landed on 70201");
 
     // Select 70202 (roster slot 1), focus his Name field, Ctrl+Z: his
     // field has only his own edit history — never 70201's text.
     view.selected = Some(Selection::Player(702, 1));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let name_field = nodes
         .iter()
         .find(|node| {
@@ -65,7 +65,7 @@ fn a_name_edit_does_not_reach_the_next_players_field() {
             egui::Modifiers::CTRL | egui::Modifiers::COMMAND,
             true,
         )],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(name_of(&view, b_id), b_before, "70202's name is unchanged");
 }
@@ -104,21 +104,21 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
     }
     let settle = |window: &mut Headless, view: &mut SaveView| {
         for _ in 0..70 {
-            window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+            window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
         }
     };
 
     // Save A: type into the selected player's (70101's) Name field, twice,
     // letting the field's undoer commit each stretch as an undo point.
     view.open(&path_a);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, name_field(&nodes, "PLACEHOLDER"), &mut view);
     window.frame(vec![egui::Event::Text("Z".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     settle(&mut window, &mut view);
     window.frame(vec![egui::Event::Text("Y".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     settle(&mut window, &mut view);
     let a_name = name_of(&view);
@@ -131,10 +131,10 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
     view.open(&path_b);
     let stored = name_of(&view);
     assert_eq!(stored, "PLACEHOLDER", "premise: save B opens unedited");
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, name_field(&nodes, "PLACEHOLDER"), &mut view);
     window.frame(vec![egui::Event::Text("X".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     // A field's own undo answers Ctrl+Z: the event's `command` bit is what
     // its `matches_logically(COMMAND)` arm tests (a real platform event
@@ -146,10 +146,10 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
                 egui::Modifiers::CTRL | egui::Modifiers::COMMAND,
                 true,
             )],
-            |ui| show(ui, &mut view, &|| Vec::new(), None),
+            |ui| show(ui, &mut view, &|| Vec::new()),
         );
     }
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         name_of(&view),
         stored,
@@ -167,9 +167,9 @@ fn the_name_and_shirt_fields_share_the_rows_edges() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
     for _ in 0..3 {
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     }
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let name = name_field(&nodes).bounds().expect("bounds");
     let shirt = shirt_field(&nodes).bounds().expect("bounds");
@@ -208,7 +208,7 @@ fn a_name_or_shirt_edit_sets_the_edited_player_flag() {
     };
     assert!(!flag(&view), "premise: the flag is clear");
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let name_field = nodes
         .iter()
         .find(|node| {
@@ -219,7 +219,7 @@ fn a_name_or_shirt_edit_sets_the_edited_player_flag() {
         .expect("the Name field");
     click(&mut window, name_field, &mut view);
     window.frame(vec![egui::Event::Text("X".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert!(flag(&view), "the edit set the flag, one entry");
     window.frame(
@@ -227,19 +227,19 @@ fn a_name_or_shirt_edit_sets_the_edited_player_flag() {
             key(egui::Key::Escape, egui::Modifiers::NONE, true),
             key(egui::Key::Escape, egui::Modifiers::NONE, false),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert!(!flag(&view), "undo clears it again");
 
     // The shirt field sets the same flag.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let shirt = shirt_field(&nodes);
     click(&mut window, shirt, &mut view);
     window.frame(vec![egui::Event::Text("Z".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert!(flag(&view), "a shirt edit sets the flag too");
 }
@@ -251,7 +251,7 @@ fn a_shirt_name_is_upper_cased_as_typed() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let shirt = shirt_field(&nodes);
     let stored = shirt.value().expect("its text").to_owned();
     click(&mut window, shirt, &mut view);
@@ -260,10 +260,10 @@ fn a_shirt_name_is_upper_cased_as_typed() {
             key(egui::Key::End, egui::Modifiers::NONE, true),
             key(egui::Key::End, egui::Modifiers::NONE, false),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(vec![egui::Event::Text("miyako".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         view.session
@@ -299,8 +299,7 @@ fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
         .lerp_to_gamma(visuals.warn_fg_color, 0.25);
 
     // The field draws the tint and shows the versions' hover.
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = shirt_field(&nodes);
     assert_eq!(
         field.value(),
@@ -328,7 +327,7 @@ fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
     );
 
     // Two backspaces: 18 lands (each step shorter than stored).
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let shirt = nodes
         .iter()
         .find(|node| {
@@ -344,7 +343,7 @@ fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
                 key(egui::Key::Backspace, egui::Modifiers::NONE, true),
                 key(egui::Key::Backspace, egui::Modifiers::NONE, false),
             ],
-            |ui| show(ui, &mut view, &|| Vec::new(), None),
+            |ui| show(ui, &mut view, &|| Vec::new()),
         );
     }
     assert_eq!(
@@ -362,7 +361,7 @@ fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
 
     // And lengthening past the current 18 is refused: two more letters do
     // not land.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let shirt = nodes
         .iter()
         .find(|node| {
@@ -377,11 +376,11 @@ fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
             key(egui::Key::End, egui::Modifiers::NONE, true),
             key(egui::Key::End, egui::Modifiers::NONE, false),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     // The keystrokes land before the refusal: the 20 letters draw once.
     let (_, nodes, _) = window.frame(vec![egui::Event::Text("SS".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert!(
         nodes.iter().any(|node| {
@@ -411,7 +410,7 @@ fn a_pes16_strip_refuses_a_17th_shirt_letter() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let shirt = shirt_field(&nodes);
     let stored = view
         .session
@@ -428,13 +427,13 @@ fn a_pes16_strip_refuses_a_17th_shirt_letter() {
             key(egui::Key::End, egui::Modifiers::NONE, true),
             key(egui::Key::End, egui::Modifiers::NONE, false),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     // The keystrokes land before the refusal: the field draws the typed
     // text on the Text frame, then reverts.
     let expected = format!("{stored}{}", "S".repeat(17));
     let (_, nodes, _) = window.frame(vec![egui::Event::Text("S".repeat(17).to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert!(
         nodes.iter().any(|node| {
@@ -446,7 +445,7 @@ fn a_pes16_strip_refuses_a_17th_shirt_letter() {
         !view.session.as_ref().unwrap().is_dirty(),
         "a 17th letter is refused on PES 16"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         nodes.iter().any(|node| {
             node.role() == Role::TextInput && node.value() == Some(stored.as_str())
@@ -464,9 +463,9 @@ fn the_shirt_hover_names_the_limit_the_field_enforces() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let shirt = shirt_field(&nodes);
-    let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to", None);
+    let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to");
     assert_eq!(
         tooltip,
         Some(
@@ -486,9 +485,9 @@ fn the_pes16_shirt_hover_names_its_own_field() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let shirt = shirt_field(&nodes);
-    let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to", None);
+    let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to");
     assert_eq!(
         tooltip,
         Some(
@@ -548,8 +547,7 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     };
 
     // The labels read the counts, the colour code counting its ten bytes.
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(label_value(&nodes, "Name (12/61)"), "the name's count");
     assert!(label_value(&nodes, "Shirt (20/18)"), "the shirt's count");
     let shirt = shirt_field(&nodes);
@@ -605,10 +603,9 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
             key(egui::Key::Backspace, egui::Modifiers::NONE, true),
             key(egui::Key::Backspace, egui::Modifiers::NONE, false),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         label_value(&nodes, "Shirt (19/18)"),
         "the count follows the deleted letter"
@@ -633,9 +630,9 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
             key(egui::Key::End, egui::Modifiers::NONE, false),
             egui::Event::Text("S".to_owned()),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         shirt_name(&view).len(),
         19,
@@ -643,12 +640,11 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     );
 
     // 47 bytes as the name: "Name (47/61)", tinted, the crop hover.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = name_field(&nodes);
     click(&mut window, field, &mut view);
     type_text(&mut window, &mut view, &"Z".repeat(47));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(label_value(&nodes, "Name (47/61)"), "the name's new count");
     let field = name_field(&nodes);
     assert_eq!(
@@ -701,7 +697,7 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         label_value(&nodes, "Name (4/61)"),
         "É is two bytes in the name's count"
@@ -721,7 +717,7 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         label_value(&nodes, &format!("Name ({name_n}/46)")),
         "PES 16's name limit is 46"
@@ -758,7 +754,7 @@ fn a_shirt_name_takes_latin1_letters_and_refuses_past_them() {
             .clone()
     };
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let stored = shirt(&nodes).value().expect("its text").to_owned();
     click(&mut window, shirt(&nodes), &mut view);
     let type_at_end = |window: &mut Headless, view: &mut SaveView, text: &str| {
@@ -767,10 +763,10 @@ fn a_shirt_name_takes_latin1_letters_and_refuses_past_them() {
                 key(egui::Key::End, egui::Modifiers::NONE, true),
                 key(egui::Key::End, egui::Modifiers::NONE, false),
             ],
-            |ui| show(ui, view, &|| Vec::new(), None),
+            |ui| show(ui, view, &|| Vec::new()),
         );
         let (_, nodes, _) = window.frame(vec![egui::Event::Text(text.to_owned())], |ui| {
-            show(ui, view, &|| Vec::new(), None)
+            show(ui, view, &|| Vec::new())
         });
         nodes
     };
@@ -784,7 +780,7 @@ fn a_shirt_name_takes_latin1_letters_and_refuses_past_them() {
         Some(typed.as_str()),
         "the typed ł was drawn before the revert"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         shirt(&nodes).value(),
         Some(stored.as_str()),
@@ -817,8 +813,7 @@ fn a_shirt_at_the_portable_limit_draws_no_tint() {
     let tint = visuals
         .extreme_bg_color
         .lerp_to_gamma(visuals.warn_fg_color, 0.25);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = shirt_field(&nodes);
     assert_eq!(
         field.value(),
@@ -855,12 +850,12 @@ fn the_captain_box_ticks_on_the_captains_slot() {
     };
     // Select the captain's slot: the radio is on.
     view.selected = Some(Selection::Player(701, captain));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(toggled(&nodes), Some(Some(accesskit::Toggled::True)));
     // Another slot: off.
     let other = if captain == 0 { 1 } else { 0 };
     view.selected = Some(Selection::Player(701, other));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(toggled(&nodes), Some(Some(accesskit::Toggled::False)));
 }
 
@@ -876,7 +871,7 @@ fn the_captains_radio_cannot_be_unticked() {
     view.team = TeamChoice::Team(701);
     view.selected = Some(Selection::Player(701, captain));
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let radio = nodes
         .iter()
         .find(|node| node.role() == Role::RadioButton && node.label().is_none())
@@ -913,18 +908,18 @@ fn a_typed_number_clamps_to_the_fields_stored_width() {
         .expect("the schema stores Age");
 
     // Type 99 into Age (stored 20): the field clamps it.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let age = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("20"))
         .expect("the Age control");
     click(&mut window, age, &mut view);
     window.frame(vec![egui::Event::Text("99".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         view.session
@@ -940,18 +935,18 @@ fn a_typed_number_clamps_to_the_fields_stored_width() {
     );
 
     // Type 23 into Shirt number (in range): it lands as typed.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let number = right_of_label(&nodes, "Shirt number", Role::SpinButton)
         .first()
         .copied()
         .expect("the Shirt number control");
     click(&mut window, number, &mut view);
     window.frame(vec![egui::Event::Text("23".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         view.session
@@ -989,8 +984,7 @@ fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
     let tint = |v: &egui::style::Visuals| v.extreme_bg_color.lerp_to_gamma(v.warn_fg_color, 0.25);
 
     // 70101's stored name fits: no tint, no crop hover.
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let bounds = name_field(&nodes, "PLACEHOLDER");
     assert_ne!(
         fill_at(&shapes, bounds),
@@ -1009,7 +1003,7 @@ fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
             ),
             true,
         ),
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(
         pointer_at(
@@ -1019,17 +1013,17 @@ fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
             ),
             false,
         ),
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(
         vec![
             key(egui::Key::End, egui::Modifiers::NONE, true),
             key(egui::Key::End, egui::Modifiers::NONE, false),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(vec![egui::Event::Text("Z".repeat(41).to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         view.session
@@ -1042,8 +1036,7 @@ fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
         format!("PLACEHOLDER{}", "Z".repeat(41)),
         "the 52-byte name was taken"
     );
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let bounds = name_field(&nodes, &format!("PLACEHOLDER{}", "Z".repeat(41)));
     assert_eq!(
         fill_at(&shapes, bounds),
@@ -1075,7 +1068,7 @@ fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
             key(egui::Key::Escape, egui::Modifiers::NONE, true),
             key(egui::Key::Escape, egui::Modifiers::NONE, false),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         undo_entries(&mut window, &mut view),
@@ -1085,31 +1078,30 @@ fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
 
     // Exactly the portable 46 bytes ("PLACEHOLDER" + 35): no tint, no crop
     // hover — the tint is a warning for what would be cut, and nothing is.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let bounds = name_field(&nodes, "PLACEHOLDER");
     let pos = egui::pos2(
         ((bounds.x0 + bounds.x1) / 2.0) as f32,
         ((bounds.y0 + bounds.y1) / 2.0) as f32,
     );
     window.frame(pointer_at(pos, true), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(pointer_at(pos, false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![
             key(egui::Key::End, egui::Modifiers::NONE, true),
             key(egui::Key::End, egui::Modifiers::NONE, false),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     window.frame(vec![egui::Event::Text("Z".repeat(35).to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let name46 = format!("PLACEHOLDER{}", "Z".repeat(35));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let bounds = name_field(&nodes, &name46);
     assert_ne!(
         fill_at(&shapes, bounds),
@@ -1139,7 +1131,7 @@ fn a_pes17_strip_refuses_a_name_past_its_own_field() {
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let file = EditFile::load(&path).unwrap();
     // The field draws the raw name with `\x11` spelled out (the strip's
     // `escName`): match it as drawn.
@@ -1162,13 +1154,13 @@ fn a_pes17_strip_refuses_a_name_past_its_own_field() {
             key(egui::Key::End, egui::Modifiers::NONE, true),
             key(egui::Key::End, egui::Modifiers::NONE, false),
         ],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     // 47 bytes past this version's own 46-byte field: the keystrokes land
     // and draw before the refusal reverts them.
     let expected = format!("{stored}{}", "Z".repeat(47));
     let (_, nodes, _) = window.frame(vec![egui::Event::Text("Z".repeat(47).to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert!(
         nodes.iter().any(|node| {
@@ -1176,7 +1168,7 @@ fn a_pes17_strip_refuses_a_name_past_its_own_field() {
         }),
         "the typed 47 bytes were drawn"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         nodes.iter().any(|node| {
             node.role() == Role::TextInput && node.value() == Some(stored.as_str())
@@ -1261,8 +1253,7 @@ fn the_player_header_tops_the_player_view_alone() {
         if appearance_open {
             open_appearance(&mut window, &mut view);
         }
-        let (_, nodes, shapes) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         let shape = title_shape(&shapes, title);
         let painted: Vec<(egui::Color32, String)> = shape
             .galley
@@ -1330,8 +1321,7 @@ fn the_player_header_tops_the_player_view_alone() {
     }
     // The team view draws neither the title nor the player's fields.
     open_team_view(&mut window, &mut view, 734);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         !title_painted(&shapes, title, heading),
         "no title on the team view"
@@ -1364,8 +1354,7 @@ fn the_field_labels_paint_the_normal_text_colour() {
         visuals.weak_text_color(),
         "premise: the two colours differ"
     );
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     for label in [
         "Height",
@@ -1419,8 +1408,7 @@ fn the_field_labels_paint_the_normal_text_colour() {
 
     // The team view's field labels.
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     for label in ["Team", "Short"] {
         assert_eq!(
             painted_label_color(&nodes, &shapes, label),

@@ -25,10 +25,9 @@ The first time
 Checking a team for DBC
 -----------------------
 
-The Save editor checks teams against DBC7's rules from the start: it reads them from the file
-dbc7.4ccrules in the data\rules folder, so there is nothing to set up. To check against
-another cup's rules, click the gear and set "AATF rules file" to that cup's .4ccrules file.
-With the box left empty, it checks against the 4cc's official rules.
+The Save editor checks teams against DBC7's rules from the start: every cup's current rules
+are built in, so there is nothing to set up. To check against another cup's rules, pick them
+in the dropdown on the Save editor's toolbar, left of Live AATF.
 
 
 Upgrading old exports
@@ -97,9 +96,8 @@ For VGL's organizer
 
        cpk_name = "4cc_61_midcup"
 
-4. The Save editor checks teams against DBC7's rules. To check them against VGL's, open
-   UnlimitedToolWorks.exe, click the gear at the bottom of the left bar (Settings), and in
-   the Save editor's part of it set "AATF rules file" to rules/vgl27.4ccrules.
+4. The Save editor checks teams against DBC7's rules. To check them against VGL's, pick
+   /vg/ League 27 in the dropdown on its toolbar.
 
 
 When something goes wrong

@@ -18,7 +18,6 @@ mod teams_list;
 mod test_support;
 mod view;
 
-use studio_core::widgets::{PathKind, path_row};
 use studio_core::{CliError, HelpSection, HelpTopic, RunningPes, StudioTool, ToolContext};
 
 use crate::messages::TOOL_ID;
@@ -28,21 +27,13 @@ const AESTHETICS_FROM_EXPORTS_TIP: &str = "On when the cup's looks are compiled 
      the save's aesthetics are then read-only, behind Edit aesthetics anyway on the Appearance \
      section.";
 
-/// The AATF rules file row's picker (the settings row's `PathKind`):
-/// the one ending a member's rules file carries.
-const AATF_RULES_PICKER: PathKind = PathKind::File {
-    filter: "AATF rules",
-    extensions: &[aatf::RULES_FILE_EXTENSION],
-};
-
 /// The Save editor, as registered with the `studio` binary. `view` is the window's
 /// state.
 pub struct Tool {
     view: view::SaveView,
-    /// The AATF rules file row's edit buffer in the settings section (`path_row`
-    /// commits it to the setting on Enter or focus loss, so a half-typed path
-    /// never reaches it).
-    aatf_rules: String,
+    /// Whether the imported rulesets were read into the view: they are read on the first
+    /// `view` frame, where the data folder is known, and not again while the tool runs.
+    imports_read: bool,
     /// The running-PES probe `Tool::view` hands `view::show`: the real
     /// process list in production, a stub reporting no game under `cargo
     /// test` — the file pickers' `#[cfg]` split
@@ -56,7 +47,7 @@ impl Tool {
     pub fn new() -> Tool {
         Tool {
             view: view::SaveView::new(),
-            aatf_rules: String::new(),
+            imports_read: false,
             running: running_probe(),
         }
     }
@@ -119,12 +110,15 @@ impl StudioTool for Tool {
     }
 
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
-        // A settings error counts as an empty setting (the embedded
-        // official ruleset, Live AATF off, the aesthetics lock off).
+        // A settings error counts as the defaults (the first built-in
+        // ruleset, Live AATF off, the aesthetics lock off).
         let table = ctx.tool_settings(TOOL_ID);
         let tool_settings = settings::from_table(&table).unwrap_or_default();
-        let file =
-            session::rules::rules_file(&tool_settings.aatf_rules, ctx.paths().data_dir.as_deref());
+        if !self.imports_read {
+            self.view.imported = session::rules::imported(ctx.paths().data_dir.as_deref());
+            self.imports_read = true;
+        }
+        self.view.aatf_ruleset = tool_settings.aatf_ruleset.clone();
         self.view.live_aatf = tool_settings.live_aatf;
         self.view.aesthetics_from_exports = tool_settings.aesthetics_from_exports;
         self.view.tactics.scroll_names = tool_settings.scroll_names;
@@ -132,20 +126,26 @@ impl StudioTool for Tool {
         self.view.hide_ids = common.fpc_hide_ids();
         self.view
             .select_portraits(ui.ctx(), &common.pes_folder(), common.pes_version);
-        view::show(ui, &mut self.view, &self.running, file.as_deref());
+        view::show(ui, &mut self.view, &self.running);
         if std::mem::take(&mut self.view.request_close) {
             ctx.request_close();
         }
         if let Some(notice) = self.view.notice.take() {
             ctx.notify(notice);
         }
-        // The toolbar's toggle and the formation bar's Scroll names are
-        // settings: the table as read with only those keys replaced, so
-        // any other key survives (as `settings_view` writes `aatf_rules`).
-        if self.view.live_aatf != tool_settings.live_aatf
+        // The toolbar's ruleset dropdown and toggle and the formation
+        // bar's Scroll names are settings: the table as read with only
+        // those keys replaced, so any other key survives (as
+        // `settings_view` writes `aesthetics_from_exports`).
+        if self.view.aatf_ruleset != tool_settings.aatf_ruleset
+            || self.view.live_aatf != tool_settings.live_aatf
             || self.view.tactics.scroll_names != tool_settings.scroll_names
         {
             let mut table = table;
+            table.insert(
+                "aatf_ruleset".to_owned(),
+                toml::Value::String(self.view.aatf_ruleset.clone()),
+            );
             table.insert(
                 "live_aatf".to_owned(),
                 toml::Value::Boolean(self.view.live_aatf),
@@ -160,30 +160,14 @@ impl StudioTool for Tool {
 
     fn settings_view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
         let mut table = ctx.tool_settings(TOOL_ID);
-        let mut current = table
-            .get("aatf_rules")
-            .and_then(toml::Value::as_str)
-            .unwrap_or_default()
-            .to_owned();
         let mut aesthetics = table
             .get("aesthetics_from_exports")
             .and_then(toml::Value::as_bool)
             .unwrap_or_default();
-        let mut committed = false;
         let mut committed_aesthetics = false;
         egui::Grid::new("save_editor_settings")
             .num_columns(2)
             .show(ui, |ui| {
-                committed = path_row(
-                    ui,
-                    "AATF rules file",
-                    "aatf_rules",
-                    "The cup's rules file the Save editor checks teams against. Leave it \
-                     empty to check against the 4cc's official rules.",
-                    &mut self.aatf_rules,
-                    &mut current,
-                    AATF_RULES_PICKER,
-                );
                 // The common grid's row shape: the label cell's tooltip
                 // leads with the key, the widget's is the sentence alone.
                 let label = ui.label("Aesthetics from exports").on_hover_text(format!(
@@ -196,18 +180,13 @@ impl StudioTool for Tool {
                     .changed();
                 ui.end_row();
             });
-        // The table as read with only the changed keys replaced, so any
+        // The table as read with only the changed key replaced, so any
         // other key survives.
-        if committed {
-            table.insert("aatf_rules".to_owned(), toml::Value::String(current));
-        }
         if committed_aesthetics {
             table.insert(
                 "aesthetics_from_exports".to_owned(),
                 toml::Value::Boolean(aesthetics),
             );
-        }
-        if committed || committed_aesthetics {
             ctx.set_tool_settings(TOOL_ID, table);
         }
     }
@@ -289,18 +268,10 @@ mod tests {
         let tool = Tool::new();
         assert_eq!(tool.id(), "save-editor");
         assert_eq!(tool.label(), "Save editor");
-        assert_eq!(tool.default_settings()["aatf_rules"].as_str(), Some(""));
+        assert_eq!(
+            tool.default_settings()["aatf_ruleset"].as_str(),
+            Some("autumn26")
+        );
         assert_eq!(tool.help().topics.len(), 8);
-    }
-
-    /// The AATF rules file row's picker offers `.4ccrules` alone: the
-    /// ending every rules file a member handles carries
-    /// (`spec/aatf_rules.md` "The rules file").
-    #[test]
-    fn the_rules_file_row_picks_4ccrules_alone() {
-        let PathKind::File { extensions, .. } = AATF_RULES_PICKER else {
-            panic!("the rules file row is a file picker")
-        };
-        assert_eq!(extensions, &["4ccrules"]);
     }
 }

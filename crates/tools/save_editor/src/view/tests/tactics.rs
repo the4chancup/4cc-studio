@@ -76,9 +76,9 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
 
     // The preset bar's Copy/swap (the first menu button): the other two
     // presets ascending, a copy to then a swap with each.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, copy_swap_button(&nodes, 0), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         menu_items(&nodes),
         ["Copy to 2", "Copy to 3", "Swap with 2", "Swap with 3"],
@@ -97,9 +97,9 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
 
     // The formation bar's Copy/swap, on Kick-off: the other two
     // formations in order.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, copy_swap_button(&nodes, 1), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         menu_items(&nodes),
         [
@@ -133,9 +133,9 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
 
     // The formation menu's "Copy to" kind: out-of-possession takes the
     // shown formation's slots.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, copy_swap_button(&nodes, 1), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Copy to Out-of-possession"),
@@ -149,16 +149,16 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
 
     // Another formation's menu: on In-possession it acts on her — a
     // swap with Out-of-possession trades the two.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "In-possession"),
         &mut view,
     );
     assert_eq!(view.tactics.formation, 1, "in-possession is on screen");
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, copy_swap_button(&nodes, 1), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         menu_items(&nodes),
         [
@@ -188,9 +188,9 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
     // preset 3 holds the worked-on preset 1 afterwards.
     let preset3_before = team_entry(&view, 701).tactics.presets[2].clone();
     let preset1_now = team_entry(&view, 701).tactics.presets[0].clone();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, copy_swap_button(&nodes, 0), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Swap with 3"),
@@ -236,7 +236,7 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
         ),
     ] {
         window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-            show(ui, &mut view, &|| Vec::new(), None)
+            show(ui, &mut view, &|| Vec::new())
         });
         assert!(check(&view), "one undo restores {name}");
     }
@@ -253,11 +253,11 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
                 egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
                 true,
             )],
-            |ui| show(ui, &mut view, &|| Vec::new(), None),
+            |ui| show(ui, &mut view, &|| Vec::new()),
         );
     }
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let reopened = EditFile::load(&path).unwrap();
     let tactics = &reopened.team(701).unwrap().tactics;
@@ -301,7 +301,7 @@ fn the_formation_bar_copies_and_swaps_in_the_shown_preset() {
         "premise: the swap and the copy are real changes"
     );
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "2"),
@@ -310,17 +310,17 @@ fn the_formation_bar_copies_and_swaps_in_the_shown_preset() {
     assert_eq!(view.tactics.preset, 1, "preset 2 is on screen");
     assert_eq!(view.tactics.formation, 0, "on its Kick-off");
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, copy_swap_button(&nodes, 1), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Swap with In-possession"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, copy_swap_button(&nodes, 1), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "Copy to Out-of-possession"),
@@ -351,7 +351,7 @@ fn the_preset_selector_writes_nothing() {
     open_team_view(&mut window, &mut view, 701);
     assert_eq!(view.tactics.preset, 0, "preset 1 is on screen first");
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "2"),
@@ -363,7 +363,7 @@ fn the_preset_selector_writes_nothing() {
     assert!(!session.can_undo(), "and pushed no undo entry");
 
     // And back to preset 1: still nothing.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "1"),
@@ -399,7 +399,7 @@ fn the_preset_bars_menu_and_fluid_checkbox() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "2"),
@@ -411,9 +411,9 @@ fn the_preset_bars_menu_and_fluid_checkbox() {
     assert_ne!(preset2_before, preset3_before, "premise: presets differ");
 
     // The preset menu on preset 2: the other two ascending.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, copy_swap_button(&nodes, 0), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         menu_items(&nodes),
         ["Copy to 1", "Copy to 3", "Swap with 1", "Swap with 3"],
@@ -437,7 +437,7 @@ fn the_preset_bars_menu_and_fluid_checkbox() {
     // The bar's Fluid formation checkbox toggles the shown preset's flag:
     // one undo entry, the session marked.
     let fluid1_before = team_entry(&view, 701).tactics.presets[0].style.fluid;
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let fluid = node_labeled(&nodes, Role::CheckBox, "Fluid formation");
     assert_eq!(fluid.toggled(), Some(accesskit::Toggled::False));
     click(&mut window, fluid, &mut view);
@@ -475,7 +475,7 @@ fn the_fluid_checkbox_is_gated_on_pes15() {
         .ctx
         .all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let fluid = node_labeled(&nodes, Role::CheckBox, "Fluid formation");
     assert!(fluid.is_disabled(), "the flag is disabled on PES 15");
     assert_eq!(
@@ -530,7 +530,7 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     // and 0.52 of a unit, so the written unit is the rounded (x + 1,
     // y + 1), which a `.floor()` snap would read (x, y); the release
     // point stays on the canvas and inside no other marker.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let players = before.presets[0].formations[0].players;
     let from =
@@ -566,7 +566,7 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     assert_eq!((written.x, written.y), (x, y), "the snapped drop point");
 
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let undone = team_entry(&view, 701).tactics.presets[0].formations[0].players[index];
     assert_eq!(
@@ -580,14 +580,14 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
             egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
             true,
         )],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     let redone = team_entry(&view, 701).tactics.presets[0].formations[0].players[index];
     assert_eq!((redone.x, redone.y), (x, y), "redo moved it back");
 
     // Saved and reopened: the file holds the new spot.
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let reopened = EditFile::load(&path).unwrap();
     let saved = reopened.team(701).unwrap().tactics.presets[0].formations[0].players[index];
@@ -597,7 +597,7 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     let out = team_entry(&view, 701).tactics.starting_eleven[index];
     let inn = team_entry(&view, 701).tactics.bench_order[0];
     assert_ne!(out, inn, "premise: two different slots");
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let onto = marker_point(
         canvas,
@@ -626,9 +626,9 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
         tactics.set_pieces.penalty, starter,
         "premise: the marker's player is not already the taker"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, chip(&nodes, "Penalty kick"), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let at = marker_point(
         canvas,
@@ -650,11 +650,10 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
         members.iter().enumerate().all(|(i, s)| *s != (i + 5) as u8),
         "premise: the clicked positions' slots differ from their indices"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, chip(&nodes, "Join the attack"), &mut view);
     for member in [5_usize, 6_usize] {
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         let canvas = canvas_of(&nodes);
         let at = marker_point(
             canvas,
@@ -670,7 +669,7 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
         "the two clicked players are the setting's players"
     );
     // Join mode off again, so the pitch drags below drag.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(&mut window, chip(&nodes, "Join the attack"), &mut view);
 
     // A pitch player dropped on another on Kick-off: the two slots
@@ -688,7 +687,7 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
             "premise: a swap there too would show (preset {preset}, formation {formation})"
         );
     }
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let at = marker_point(canvas, &players, from).expect("a point on the marker a press can reach");
     let over =
@@ -704,13 +703,13 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
 
     // The same drop on preset 2's In-possession, switched to through the
     // editor's own bars: only that formation's two slots exchange.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "2"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         node_labeled(&nodes, Role::Button, "In-possession"),
@@ -724,7 +723,7 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     let before = team_entry(&view, 701).tactics;
     let players = before.presets[1].formations[1].players;
     assert_ne!(players[from], players[onto], "premise: two different slots");
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let at = marker_point(canvas, &players, from).expect("a point on the marker a press can reach");
     let over =
@@ -747,7 +746,7 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
         before.starting_eleven[1], before.starting_eleven[4],
         "premise: two different players"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let names = lineup_names(&nodes);
     drag(&mut window, centre(names[1]), centre(names[4]), &mut view);
     let mut expect = before.clone();
@@ -801,7 +800,7 @@ fn formation_label(shapes: &[egui::epaint::ClippedShape]) -> String {
 
 /// `view`'s next frame's formation name.
 fn shown_formation_name(window: &mut Headless, view: &mut SaveView) -> String {
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     formation_label(&shapes)
 }
 
@@ -933,8 +932,7 @@ fn the_pitchs_corner_names_the_shown_formation_as_the_game_does() {
     view.selected = Some(Selection::Team(718));
     assert_eq!(shown_formation_name(&mut window, &mut view), "3-3-2-2");
     for (button, name) in [("In-possession", "3-3-4"), ("Out-of-possession", "3-4-2-1")] {
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         click(
             &mut window,
             node_labeled(&nodes, Role::Button, button),
@@ -956,8 +954,7 @@ fn the_pitchs_corner_names_the_shown_formation_as_the_game_does() {
         "/gd/'s preset 1"
     );
     for (button, name) in [("2", "4-3-1-2"), ("3", "4-3-2-1")] {
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         click(
             &mut window,
             node_labeled(&nodes, Role::Button, button),
@@ -975,8 +972,7 @@ fn the_pitchs_corner_names_the_shown_formation_as_the_game_does() {
     // the shown preset and formation: back to preset 1's Kick-off first.
     view.selected = Some(Selection::Team(701));
     for button in ["1", "Kick-off"] {
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         click(
             &mut window,
             node_labeled(&nodes, Role::Button, button),
@@ -991,7 +987,7 @@ fn the_pitchs_corner_names_the_shown_formation_as_the_game_does() {
         "AMF",
         "premise: /3/'s AMF"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let from = marker_point(canvas, &players, amf).expect("a point on the AMF's marker");
     let onto = (0..104_u8)
@@ -1019,20 +1015,20 @@ fn the_pitchs_corner_names_the_shown_formation_as_the_game_does() {
         "3-3-1-3",
         "a drag keeps the name"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let players = team_entry(&view, 701).tactics.presets[0].formations[0].players;
     let at = marker_point(canvas_of(&nodes), &players, amf).expect("a point on the AMF's marker");
     click_at(&mut window, at, &mut view);
     // The popover's Position combo opened, then its CMF picked, both by
     // AccessKit clicks: a pointer click does not reach a combo's popup.
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let combo = ids
         .iter()
         .find(|(_, node)| node.role() == Role::ComboBox && node.label() == Some("Position"))
         .map(|(id, _)| *id)
         .expect("the Position combo");
     action_click(&mut window, &mut view, combo);
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let cmf = ids
         .iter()
         .find(|(_, node)| node.role() == Role::Button && node.label() == Some("CMF"))
@@ -1104,8 +1100,7 @@ fn the_tactics_editor_is_one_grid_at_the_default_pane() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let rects = stroked_rects(&shapes, 60.0);
     // The settings column's left and width: the Formation settings box
@@ -1257,8 +1252,7 @@ fn the_two_panels_frames_are_level_with_the_pitchs() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let rects = stroked_rects(&shapes, 60.0);
     let settings_left = label_bounds(&nodes, "Formation settings").x0 - 7.0;
@@ -1293,8 +1287,7 @@ fn the_automatic_settings_frame_reaches_the_lists_bottom() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let rects = stroked_rects(&shapes, 60.0);
     let settings_left = label_bounds(&nodes, "Formation settings").x0 - 7.0;
@@ -1370,7 +1363,7 @@ fn a_style_toggle_click_is_one_undo_entry() {
         .style
         .defensive_style;
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let choice = node_labeled(&nodes, Role::Button, "All Out Def.");
     click(&mut window, choice, &mut view);
     assert_eq!(
@@ -1399,7 +1392,7 @@ fn frontline_press_fits_its_choice_at_the_settings_width() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let choice = choice_below(&nodes, "Defensive style", "Frontline Press.");
     let bounds = choice.bounds().expect("the choice's bounds");
@@ -1437,7 +1430,7 @@ fn a_numbers_choice_click_is_one_undo_entry() {
     open_team_view(&mut window, &mut view, 701);
 
     // "Numbers in attack"'s "Many" is the choice under its label.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let many = choice_below(&nodes, "Numbers in attack", "Many");
     click(&mut window, many, &mut view);
     assert_eq!(
@@ -1469,10 +1462,10 @@ fn a_substitution_pick_is_one_undo_entry() {
 
     // The combo right of the Substitution label, opened by an
     // AccessKit click; its items join the tree the frame after.
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let combo = node_id_right_of(&ids, "Substitution", Role::ComboBox);
     action_click(&mut window, &mut view, combo);
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let combo_bounds = ids
         .iter()
         .find(|(id, _)| *id == combo)
@@ -1545,7 +1538,7 @@ fn the_assignments_rows_name_holders_and_arm_join() {
 
     // The captain's chip reads his name; the join list's chips read
     // the two names and one "Unassigned".
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let captain = team_entry(&view, 734).tactics.set_pieces.captain;
     assert_ne!(captain, u8::MAX, "premise: a captain is assigned");
     let captain_chip = chip(&nodes, "Captain");
@@ -1573,7 +1566,7 @@ fn the_assignments_rows_name_holders_and_arm_join() {
     // disarms.
     let third = join_chips[2];
     click(&mut window, third, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     for chip in chips_below(&nodes, "Join the attack") {
         assert_eq!(
             chip.toggled(),
@@ -1595,10 +1588,10 @@ fn the_assignments_rows_name_holders_and_arm_join() {
         added,
         "the pitch click added him"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let third = chips_below(&nodes, "Join the attack")[2];
     click(&mut window, third, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     for chip in chips_below(&nodes, "Join the attack") {
         assert_eq!(
             chip.toggled(),
@@ -1649,7 +1642,7 @@ fn the_instruction_target_is_picked_on_the_pitch() {
     let mut window = Headless::sized(1600.0, 1400.0);
     view.selected = Some(Selection::Team(734));
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let combos = instruction_combos(&nodes);
     // The disabled chips first: the target-less one reads "No target",
     // the held Tight Marking "An opponent".
@@ -1665,7 +1658,7 @@ fn the_instruction_target_is_picked_on_the_pitch() {
     let chip = chip_under(&nodes, combos[0][1]);
     assert!(!chip.is_disabled(), "Counter Target's chip is enabled");
     click(&mut window, chip, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let chip = chip_under(&nodes, instruction_combos(&nodes)[0][1]);
     assert_eq!(
         chip.toggled(),
@@ -1695,7 +1688,7 @@ fn the_instruction_target_is_picked_on_the_pitch() {
         starter,
         "the clicked starter's roster slot is the target"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let chip = chip_under(&nodes, instruction_combos(&nodes)[0][1]);
     assert_eq!(
         chip.toggled(),
@@ -1737,7 +1730,7 @@ fn the_target_chip_stays_inside_the_settings_column() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_team_view(&mut window, &mut view, 701);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     // The target chip under defence 1's combo — its label keeps the
     // whole name though the text truncates.
@@ -1788,8 +1781,7 @@ fn the_pitch_draws_a_starter_s_portrait_from_the_selected_game() {
     let canvas_max = |canvas: accesskit::Rect| egui::pos2(canvas.x1 as f32, canvas.y1 as f32);
     let mut found = false;
     for _ in 0..200 {
-        let (_, nodes, shapes) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
         let canvas = canvas_of(&nodes);
         let canvas_rect = egui::Rect::from_min_max(canvas_min(canvas), canvas_max(canvas));
         let centre = clamped_centre(
@@ -1849,7 +1841,7 @@ fn the_automatic_settings_wrap_inside_the_column_and_armed_draws_no_note() {
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_team_view(&mut window, &mut view, 701);
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let column_right = label_bounds(&nodes, "Formation settings").x0 - 7.0 + 422.0;
     let substitution = control_right_of(&nodes, "Substitution");
     assert!(
@@ -1866,7 +1858,7 @@ fn the_automatic_settings_wrap_inside_the_column_and_armed_draws_no_note() {
 
     // Arm join: no note and no Cancel or Done anywhere in the tree.
     click(&mut window, chip(&nodes, "Join the attack"), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     for label in ["Cancel", "Done"] {
         assert!(
             !nodes
@@ -1905,7 +1897,7 @@ fn the_popover_scrolls_with_the_pitch() {
     open_team_view(&mut window, &mut view, 701);
 
     // Open the popover on an outfield marker a click can reach.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let players = team_entry(&view, 701).tactics.presets[0].formations[0].players;
     let (_, at) = (0..11)
@@ -1913,7 +1905,7 @@ fn the_popover_scrolls_with_the_pitch() {
         .find_map(|index| marker_point(canvas, &players, index).map(|at| (index, at)))
         .expect("a marker a click can reach");
     click_at(&mut window, at, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas_before = canvas_of(&nodes);
     let popover_before = popover_rect(&window, &view).expect("the popover is open");
 
@@ -1931,10 +1923,10 @@ fn the_popover_scrolls_with_the_pitch() {
                     modifiers: egui::Modifiers::NONE,
                 },
             ],
-            |ui| show(ui, &mut view, &|| Vec::new(), None),
+            |ui| show(ui, &mut view, &|| Vec::new()),
         );
     }
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas_after = canvas_of(&nodes);
     let popover_after = popover_rect(&window, &view).expect("the popover still open");
     let moved_y = canvas_after.y0 - canvas_before.y0;
@@ -1971,10 +1963,10 @@ fn the_view_scrolls_to_the_grids_last_control() {
                     modifiers: egui::Modifiers::NONE,
                 },
             ],
-            |ui| show(ui, &mut view, &|| Vec::new(), None),
+            |ui| show(ui, &mut view, &|| Vec::new()),
         );
     }
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let last = node_labeled(&nodes, Role::CheckBox, "Attack/defence levels");
     assert!(
         last.bounds().expect("bounds").y1 <= 620.0,
@@ -2030,8 +2022,7 @@ fn every_view_fits_the_pane_the_minimum_window_leaves() {
             // frame late.
             let mut nodes = Vec::new();
             for _ in 0..3 {
-                let (_, n, _) =
-                    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+                let (_, n, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
                 nodes = n;
             }
             for node in nodes
@@ -2146,18 +2137,16 @@ fn medal_outline(
         .next()
 }
 
-/// Asserts each starter's badge on a frame of `view` (the rules file
-/// `rules_file`) carries `medals[index]`'s outline in its tier's
-/// colour, or none for `None`; `when` names the step in the messages.
+/// Asserts each starter's badge on a frame of `view` carries
+/// `medals[index]`'s outline in its tier's colour, or none for `None`;
+/// `when` names the step in the messages.
 fn assert_medal_outlines(
     window: &mut Headless,
     view: &mut SaveView,
-    rules_file: Option<&std::path::Path>,
     medals: [Option<team_widgets::tactics::Medal>; 11],
     when: &str,
 ) {
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules_file));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     let players = team_entry(view, 734).tactics.presets[0].formations[0].players;
     for (index, medal) in medals.iter().enumerate() {
@@ -2203,14 +2192,12 @@ fn assert_medal_outlines(
 // tier's colour — and nothing for any other tier, no tier or a failed
 // check; the tiers are read through `player_tier` under the active
 // ruleset, not typed. One view throughout, so the outlines follow an
-// edit, its undo and a rules file that stops loading, not only a fresh
-// view's first frame.
+// edit, its undo and another ruleset picked, not only a fresh view's
+// first frame.
 #[test]
 fn the_badges_name_the_starters_medal_tiers() {
     use team_widgets::tactics::Medal::{Gold, Silver};
     let path = fixture(PesVersion::Pes17, "tactics_medals");
-    let broken = path.with_file_name("broken.4ccrules");
-    std::fs::write(&broken, "definitely not a rules file").unwrap();
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(1600.0, 1400.0);
@@ -2231,7 +2218,7 @@ fn the_badges_name_the_starters_medal_tiers() {
         Some(Silver),
         Some(Gold),
     ];
-    assert_medal_outlines(&mut window, &mut view, None, medals, "the first frame");
+    assert_medal_outlines(&mut window, &mut view, medals, "the first frame");
 
     // Starter 6, a silver, edited to Speed 99: the ruleset's tier is
     // read from the best of its rating stats, Speed among them, and 99
@@ -2243,46 +2230,29 @@ fn the_badges_name_the_starters_medal_tiers() {
     edited.stats.speed = 99;
     view.session.as_mut().unwrap().edit_player(1, edited);
     medals[6] = Some(Gold);
-    assert_medal_outlines(&mut window, &mut view, None, medals, "after the edit");
+    assert_medal_outlines(&mut window, &mut view, medals, "after the edit");
 
     assert!(view.session.as_mut().unwrap().undo(), "the edit is undone");
     medals[6] = Some(Silver);
-    assert_medal_outlines(&mut window, &mut view, None, medals, "after the undo");
+    assert_medal_outlines(&mut window, &mut view, medals, "after the undo");
 
-    assert_medal_outlines(
-        &mut window,
-        &mut view,
-        Some(broken.as_path()),
-        [None; 11],
-        "under a rules file that does not load",
-    );
-}
-
-// The same bullet's other half: while the rules file does not load, no
-// badge carries an outline (the quick actions' red line reports it).
-#[test]
-fn a_rules_file_that_does_not_load_draws_no_medal_outline() {
-    let path = fixture(PesVersion::Pes17, "tactics_medals_broken_rules");
-    let broken = path.with_file_name("broken.4ccrules");
-    std::fs::write(&broken, "definitely not a rules file").unwrap();
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(1600.0, 1400.0);
-    view.selected = Some(Selection::Team(734));
-
-    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
-        show(ui, &mut view, &|| Vec::new(), Some(broken.as_path()))
-    });
-    let canvas = canvas_of(&nodes);
-    let players = team_entry(&view, 734).tactics.presets[0].formations[0].players;
-    for (index, slot) in players.iter().enumerate() {
-        let badge =
-            egui::Rect::from_center_size(clamped_centre(canvas, *slot), egui::vec2(50.0, 14.0));
-        assert!(
-            medal_outline(&shapes, badge).is_none(),
-            "starter {index} carries no outline under a file that does not load"
-        );
-    }
+    // VTL11 picked: the outlines are its reading of the starters, read
+    // here through the lib's `player_tier` under VTL11.
+    let vtl11 = aatf::builtin("vtl11").expect("VTL11 is built in");
+    let under_vtl11 = {
+        let file = view.session.as_ref().unwrap().file();
+        let team = aatf::TeamView::new(file, 734).unwrap();
+        team_entry(&view, 734).tactics.starting_eleven.map(|slot| {
+            let player = team.player(slot).expect("a starter");
+            vtl11
+                .player_tier(&team, player)
+                .expect("VTL11 reads his tier")
+                .and_then(|tier| team_widgets::tactics::Medal::from_tier_id(&tier.id))
+        })
+    };
+    assert_ne!(under_vtl11, medals, "premise: VTL11 reads them otherwise");
+    view.aatf_ruleset = "vtl11".to_owned();
+    assert_medal_outlines(&mut window, &mut view, under_vtl11, "under VTL11");
 }
 
 // The badge's right end shows the starter's overall at the position his
@@ -2315,8 +2285,7 @@ fn the_pitch_badges_show_each_starters_overall_from_his_record() {
         "premise: at least two starters' overalls differ ({expected:?})"
     );
 
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let canvas = canvas_of(&nodes);
     for (index, slot) in players.iter().enumerate() {
         let badge =

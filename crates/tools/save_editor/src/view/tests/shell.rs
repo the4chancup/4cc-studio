@@ -12,20 +12,20 @@ fn an_edit_marks_the_row_until_ctrl_s_writes_the_save() {
     let mut window = Headless::new();
 
     // 70101's Height is 180: focus the control and type a new one.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let height = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("180"))
         .expect("the Height control");
     click(&mut window, height, &mut view);
     window.frame(vec![egui::Event::Text("170".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         row(&nodes, "1 CB PLACEHOLDER ●").label(),
         Some("1 CB PLACEHOLDER ●")
@@ -38,9 +38,9 @@ fn an_edit_marks_the_row_until_ctrl_s_writes_the_save() {
 
     // Ctrl+S writes it; the dot goes.
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     row(&nodes, "1 CB PLACEHOLDER");
     assert!(
         !nodes
@@ -70,38 +70,38 @@ fn undo_and_redo_step_the_edits_back_and_forth() {
     };
 
     // Height 180 to 170, then Weight 80 to 90: two gestures, two entries.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let height = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("180"))
         .expect("the Height control");
     click(&mut window, height, &mut view);
     window.frame(vec![egui::Event::Text("170".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let weight = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("80"))
         .expect("the Weight control");
     click(&mut window, weight, &mut view);
     window.frame(vec![egui::Event::Text("90".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(basics(&view), (170, 90));
 
     // Ctrl+Z takes back the second edit only; Ctrl+Y redoes it.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         basics(&view),
@@ -109,7 +109,7 @@ fn undo_and_redo_step_the_edits_back_and_forth() {
         "the weight edit undone, height kept"
     );
     window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(basics(&view), (170, 90), "the weight edit redone");
     assert_eq!(
@@ -139,14 +139,14 @@ fn a_drag_on_a_control_is_one_undo_entry() {
     };
 
     // Drag the Height control over several frames.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let control = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("180"))
         .expect("the Height control");
     let at = centre(control);
     window.frame(pointer_at(at, true), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     for step in 1..=5 {
         window.frame(
@@ -154,11 +154,11 @@ fn a_drag_on_a_control_is_one_undo_entry() {
                 at.x + 3.0 * step as f32,
                 at.y,
             ))],
-            |ui| show(ui, &mut view, &|| Vec::new(), None),
+            |ui| show(ui, &mut view, &|| Vec::new()),
         );
     }
     window.frame(pointer_at(egui::pos2(at.x + 15.0, at.y), false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     let dragged = height(&view);
     assert_ne!(dragged, 180, "the drag changed the height");
@@ -176,7 +176,7 @@ fn a_second_gesture_on_the_same_control_is_its_own_entry() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let at = centre(
         nodes
             .iter()
@@ -184,15 +184,13 @@ fn a_second_gesture_on_the_same_control_is_its_own_entry() {
             .expect("the Height control"),
     );
     let drag = |window: &mut Headless, view: &mut SaveView, at: egui::Pos2| {
-        window.frame(pointer_at(at, true), |ui| {
-            show(ui, view, &|| Vec::new(), None)
-        });
+        window.frame(pointer_at(at, true), |ui| show(ui, view, &|| Vec::new()));
         window.frame(
             vec![egui::Event::PointerMoved(egui::pos2(at.x + 30.0, at.y))],
-            |ui| show(ui, view, &|| Vec::new(), None),
+            |ui| show(ui, view, &|| Vec::new()),
         );
         window.frame(pointer_at(egui::pos2(at.x + 30.0, at.y), false), |ui| {
-            show(ui, view, &|| Vec::new(), None)
+            show(ui, view, &|| Vec::new())
         });
     };
     drag(&mut window, &mut view, at);
@@ -228,8 +226,7 @@ fn save_asks_the_edit_mode_question_while_the_saves_own_pes_runs() {
 
     // The window's Save opens the question; its Cancel writes nothing.
     assert!(!save(&mut view, &running_own), "not written yet");
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         pairs.iter().any(|(_, node)| {
             node.value()
@@ -258,8 +255,7 @@ fn save_asks_the_edit_mode_question_while_the_saves_own_pes_runs() {
 
     // Its Save writes with the member's answer.
     assert!(!save(&mut view, &running_own));
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
         prompt::modal_button(&pairs, "PES 2021 is running", "Save"),
@@ -297,26 +293,26 @@ fn undoing_back_to_the_saved_state_clears_the_dot() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let height = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("180"))
         .expect("the Height control");
     click(&mut window, height, &mut view);
     window.frame(vec![egui::Event::Text("170".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     row(&nodes, "1 CB PLACEHOLDER ●");
     // Undoing the only edit clears the dot.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     row(&nodes, "1 CB PLACEHOLDER");
     assert!(
         !nodes
@@ -345,23 +341,23 @@ fn ctrl_shift_z_redoes_not_undoes() {
             .height
     };
     // One edit: Height 180 to 170.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let height_control = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("180"))
         .expect("the Height control");
     click(&mut window, height_control, &mut view);
     window.frame(vec![egui::Event::Text("170".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(height(&view), 170);
 
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(height(&view), 180, "Ctrl+Z undoes");
     window.frame(
@@ -370,7 +366,7 @@ fn ctrl_shift_z_redoes_not_undoes() {
             egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
             true,
         )],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(height(&view), 170, "Ctrl+Shift+Z redoes");
 }
@@ -389,17 +385,17 @@ fn ctrl_z_while_a_text_field_holds_the_keyboard_undoes_nothing() {
     let mut window = Headless::new();
 
     // Focus the Name field, then Ctrl+Z.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let field = name_field(&nodes);
     click(&mut window, field, &mut view);
     let mut wants = false;
     window.frame(Vec::new(), |ui| {
         wants = ui.ctx().egui_wants_keyboard_input();
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert!(wants, "premise: the field holds the keyboard");
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         view.session.as_ref().unwrap().revision(),
@@ -420,7 +416,7 @@ fn ctrl_z_while_a_text_field_holds_the_keyboard_undoes_nothing() {
 }
 
 // `Tool::view` draws the window through the tool impl (a settings error
-// counts as an empty `aatf_rules` setting).
+// counts as the defaults).
 #[test]
 fn the_tool_view_draws_the_window() {
     use studio_core::StudioTool;
@@ -500,10 +496,10 @@ fn the_refusal_dialog_dismisses_on_escape() {
     assert!(view.refusal.is_some());
     let mut window = Headless::new();
     // One frame for the modal to register as the top one, then Escape.
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     window.frame(
         vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert!(view.refusal.is_none(), "Escape closes it");
 }
@@ -520,7 +516,7 @@ fn an_unreadable_file_is_refused_and_keeps_the_open_save() {
     view.open(&bad);
 
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let message = format!("{}: cannot open the save", bad.display());
     assert!(
         nodes

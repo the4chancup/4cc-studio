@@ -27,13 +27,13 @@ fn the_start_page_offers_its_entries_in_order() {
         &labels,
         &[
             "New from template",
-            "Autumn 26 (the official rules)",
-            "Spring 26",
-            "VGL27",
-            "VGL26",
-            "VTL11",
-            "VTL10",
-            "DBC7 (Divegrass Before Christmas 7)",
+            "4cc Autumn 26 (the official rules)",
+            "4cc Spring 26",
+            "/vg/ League 27",
+            "/vg/ League 26",
+            "/vt/ League 11",
+            "/vt/ League 10",
+            "Divegrass Before Christmas 7",
             "Blank: one tier, no brackets, the universal rules on",
             "Sensible",
             "Weird",
@@ -279,7 +279,7 @@ fn a_template_pick_clears_the_refused_open_lines() {
 
     // Pick a template, then File > New from template…: no "Could not
     // open" line on the page's return.
-    click_prefix(&mut window, &frame.nodes, "Autumn 26", &mut view, &ctx);
+    click_prefix(&mut window, &frame.nodes, "4cc Autumn 26", &mut view, &ctx);
     assert!(view.document.is_some(), "the template opened");
     open_start_modal(&mut window, &mut view, &ctx);
     let frame = window.draw(&mut view, &ctx);

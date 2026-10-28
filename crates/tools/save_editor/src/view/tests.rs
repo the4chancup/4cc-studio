@@ -152,15 +152,11 @@ fn pointer_at(pos: egui::Pos2, pressed: bool) -> Vec<egui::Event> {
 /// A press on `from`'s centre, the pointer dragged to `onto`'s and released:
 /// a drag of `from`'s widget onto `onto`'s.
 fn drag(window: &mut Headless, from: egui::Pos2, onto: egui::Pos2, view: &mut SaveView) {
-    window.frame(pointer_at(from, true), |ui| {
-        show(ui, view, &|| Vec::new(), None)
-    });
+    window.frame(pointer_at(from, true), |ui| show(ui, view, &|| Vec::new()));
     window.frame(vec![egui::Event::PointerMoved(onto)], |ui| {
-        show(ui, view, &|| Vec::new(), None)
+        show(ui, view, &|| Vec::new())
     });
-    window.frame(pointer_at(onto, false), |ui| {
-        show(ui, view, &|| Vec::new(), None)
-    });
+    window.frame(pointer_at(onto, false), |ui| show(ui, view, &|| Vec::new()));
 }
 
 /// `entry` without what a roster slot owns (`id`, `appearance_id`,
@@ -202,9 +198,7 @@ fn press_release(
 
 /// A click on `node`: press on one frame, release on the next.
 fn click(window: &mut Headless, node: &accesskit::Node, view: &mut SaveView) {
-    press_release(window, centre(node), |ui| {
-        show(ui, view, &|| Vec::new(), None)
-    });
+    press_release(window, centre(node), |ui| show(ui, view, &|| Vec::new()));
 }
 
 /// An AccessKit `Click` action on `id`: a click delivered as the
@@ -220,7 +214,7 @@ fn action_click(window: &mut Headless, view: &mut SaveView, id: accesskit::NodeI
                 data: None,
             },
         )],
-        |ui| show(ui, view, &|| Vec::new(), None),
+        |ui| show(ui, view, &|| Vec::new()),
     );
 }
 
@@ -235,7 +229,7 @@ fn action_focus(window: &mut Headless, view: &mut SaveView, id: accesskit::NodeI
                 data: None,
             },
         )],
-        |ui| show(ui, view, &|| Vec::new(), None),
+        |ui| show(ui, view, &|| Vec::new()),
     );
 }
 
@@ -288,14 +282,14 @@ fn open_menu(
     menu: &str,
     item: &str,
 ) -> Vec<accesskit::Node> {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     if nodes.iter().any(|node| {
         node.role() == Role::Button && node.label().is_some_and(|l| l.starts_with(item))
     }) {
         return nodes;
     }
     click(window, menu_button(&nodes, menu), view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     nodes
 }
 
@@ -307,10 +301,10 @@ fn type_text(window: &mut Headless, view: &mut SaveView, text: &str) {
         events.push(key(egui::Key::Backspace, egui::Modifiers::NONE, true));
     }
     events.push(egui::Event::Text(text.to_owned()));
-    window.frame(events, |ui| show(ui, view, &|| Vec::new(), None));
+    window.frame(events, |ui| show(ui, view, &|| Vec::new()));
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, view, &|| Vec::new(), None),
+        |ui| show(ui, view, &|| Vec::new()),
     );
 }
 
@@ -356,7 +350,7 @@ fn team_row<'a>(
 
 /// A click on `team_id`'s row in the list: the team view's selection.
 fn open_team_view(window: &mut Headless, view: &mut SaveView, team_id: u32) {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     click(window, team_row(&nodes, view, team_id), view);
     assert_eq!(
         view.selected,
@@ -370,7 +364,7 @@ fn open_team_view(window: &mut Headless, view: &mut SaveView, team_id: u32) {
 /// action: the header sits below the fold on small panes, where a pointer
 /// click cannot reach it.
 fn open_appearance(window: &mut Headless, view: &mut SaveView) {
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     let (id, expanded) = pairs
         .iter()
         .find(|(_, node)| {
@@ -402,7 +396,7 @@ fn scroll_into_view(
     // bounds held for a frame, else a hover or click lands where it was.
     let mut last = None;
     for _ in 0..48 {
-        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
         // The clip the detail's ScrollArea leaves the rows: the rightmost
         // bar's span when it exists, the window's own otherwise.
         let clip = nodes
@@ -450,7 +444,7 @@ fn scroll_into_view(
                     modifiers: egui::Modifiers::NONE,
                 },
             ],
-            |ui| show(ui, view, &|| Vec::new(), None),
+            |ui| show(ui, view, &|| Vec::new()),
         );
     }
     panic!("the target never scrolled into view")
@@ -600,7 +594,7 @@ fn undo_entries(window: &mut Headless, view: &mut SaveView) -> usize {
             return count;
         }
         window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-            show(ui, view, &|| Vec::new(), None)
+            show(ui, view, &|| Vec::new())
         });
     }
     panic!("Ctrl+Z did not empty the undo stack in 64 presses")
@@ -769,11 +763,10 @@ fn tooltip_after_hover(
     view: &mut SaveView,
     pos: egui::Pos2,
 ) -> Option<String> {
-    tooltip_containing(window, view, pos, "PES ", None)
+    tooltip_containing(window, view, pos, "PES ")
 }
 
-/// `tooltip_after_hover` filtered to the tooltip node holding `needle`,
-/// drawn under `rules` (`None`: the embedded official ruleset).
+/// `tooltip_after_hover` filtered to the tooltip node holding `needle`.
 /// The hover must add a node holding `needle` to the frame the pointer
 /// left from: a label the view always draws with the same text (the
 /// ownership line, an error line) is counted there already, so it cannot
@@ -783,7 +776,6 @@ fn tooltip_containing(
     view: &mut SaveView,
     pos: egui::Pos2,
     needle: &str,
-    rules: Option<&Path>,
 ) -> Option<String> {
     let holding = |nodes: &[accesskit::Node]| -> Vec<String> {
         nodes
@@ -794,15 +786,15 @@ fn tooltip_containing(
             .collect()
     };
     let (_, resting, _) = window.frame(vec![egui::Event::PointerMoved(egui::Pos2::ZERO)], |ui| {
-        show(ui, view, &|| Vec::new(), rules)
+        show(ui, view, &|| Vec::new())
     });
     let resting = holding(&resting);
     window.frame(vec![egui::Event::PointerMoved(pos)], |ui| {
-        show(ui, view, &|| Vec::new(), rules)
+        show(ui, view, &|| Vec::new())
     });
     let count = |values: &[String], value: &String| values.iter().filter(|v| *v == value).count();
     for _ in 0..90 {
-        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
         let values = holding(&nodes);
         if let Some(added) = values
             .iter()
@@ -1149,14 +1141,25 @@ fn marker_point(
 /// A click at `pos` (press on one frame, release on the next): the
 /// release frame's nodes.
 fn click_at(window: &mut Headless, pos: egui::Pos2, view: &mut SaveView) -> Vec<accesskit::Node> {
-    press_release(window, pos, |ui| show(ui, view, &|| Vec::new(), None))
+    press_release(window, pos, |ui| show(ui, view, &|| Vec::new()))
 }
 
-/// One frame with `rules` as the active rules file (`None`: the embedded
-/// official ruleset).
-fn draw(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>) -> Vec<accesskit::Node> {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+/// One frame, its nodes.
+fn draw(window: &mut Headless, view: &mut SaveView) -> Vec<accesskit::Node> {
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     nodes
+}
+
+/// `text` loaded as an imported ruleset named `file_name` and picked, as
+/// `Tool::view` would hand the view a copy read from the data folder's
+/// `rules/` and the setting naming it.
+fn pick_imported(view: &mut SaveView, file_name: &str, text: &str) {
+    let rules = aatf::Rules::load(text).expect("the imported rules load");
+    view.imported.push(crate::session::rules::Imported {
+        file_name: file_name.to_owned(),
+        rules: std::sync::Arc::new(rules),
+    });
+    view.aatf_ruleset = file_name.to_owned();
 }
 
 /// Frames until `landed` holds for the view's worker result (bounded, so
@@ -1165,7 +1168,6 @@ fn draw(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>) -> Vec
 fn frames_until(
     window: &mut Headless,
     view: &mut SaveView,
-    rules: Option<&Path>,
     landed: impl Fn(&SaveView) -> bool,
     message: &str,
 ) -> Vec<(accesskit::NodeId, accesskit::Node)> {
@@ -1175,8 +1177,7 @@ fn frames_until(
     // a mutation run's below-normal priority, 2026-10-26).
     let deadline = Instant::now() + Duration::from_secs(120);
     loop {
-        let (_, pairs, _) =
-            window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+        let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
         if landed(view) {
             return pairs;
         }
@@ -1185,26 +1186,25 @@ fn frames_until(
     }
 }
 
-/// Frames until `pick`'s check lands: `pending` empty and the result
-/// keyed to the session's current revision, `ids` and rules file
-/// (bounded, so a worker that never replies fails rather than hangs).
-fn checked(
-    window: &mut Headless,
-    view: &mut SaveView,
-    rules: Option<&Path>,
-    pick: impl Fn(&SaveView) -> &aatf_check::TeamsCheck,
-    ids: &[u32],
-) -> Vec<accesskit::Node> {
+/// Frames until the Live AATF dock's check lands: `pending` empty and the
+/// result keyed to the session's current revision, `ids` and the active
+/// ruleset (bounded, so a worker that never replies fails rather than
+/// hangs).
+fn live_checked(window: &mut Headless, view: &mut SaveView, ids: &[u32]) -> Vec<accesskit::Node> {
     frames_until(
         window,
         view,
-        rules,
         |view| {
             let revision = view.session.as_ref().expect("an open save").revision();
-            let check = pick(view);
+            let ruleset = &view
+                .rules
+                .as_ref()
+                .expect("a frame resolved the ruleset")
+                .key;
+            let check = &view.live.check;
             check.pending.is_none()
                 && check.result.as_ref().is_some_and(|(key, _)| {
-                    key.revision == revision && key.ids == ids && key.rules_file.as_deref() == rules
+                    key.revision == revision && key.ids == ids && key.ruleset == *ruleset
                 })
         },
         "the AATF check never returned",
@@ -1327,61 +1327,6 @@ fn open_legal_714(test: &str, window: Headless) -> (SaveView, Headless) {
     (view, window)
 }
 
-/// `checked` on the dock's Live AATF check.
-fn live_checked(
-    window: &mut Headless,
-    view: &mut SaveView,
-    rules: Option<&Path>,
-    ids: &[u32],
-) -> Vec<accesskit::Node> {
-    checked(window, view, rules, |view| &view.live.check, ids)
-}
-
-/// `checked` on the floating AATF panel's check.
-fn panel_checked(
-    window: &mut Headless,
-    view: &mut SaveView,
-    rules: Option<&Path>,
-    ids: &[u32],
-) -> Vec<accesskit::Node> {
-    checked(window, view, rules, |view| &view.aatf.check, ids)
-}
-
-/// `node` clicked with `rules` as the active rules file.
-fn click_rules(
-    window: &mut Headless,
-    view: &mut SaveView,
-    node: &accesskit::Node,
-    rules: Option<&Path>,
-) {
-    press_release(window, centre(node), |ui| {
-        show(ui, view, &|| Vec::new(), rules)
-    });
-}
-
-/// The CheckBox labeled `label` toggled through its AccessKit action: a
-/// team the picker scroll has not reached sits outside the window, where
-/// a pointer click lands on nothing.
-fn tick(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>, label: &str) {
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
-    let (id, _) = pairs
-        .iter()
-        .find(|(_, node)| node.role() == Role::CheckBox && node.label() == Some(label))
-        .unwrap_or_else(|| panic!("no checkbox {label:?}"));
-    let id = *id;
-    window.frame(
-        vec![egui::Event::AccessKitActionRequest(
-            accesskit::ActionRequest {
-                action: accesskit::Action::Click,
-                target_tree: accesskit::TreeId::ROOT,
-                target_node: id,
-                data: None,
-            },
-        )],
-        |ui| show(ui, view, &|| Vec::new(), rules),
-    );
-}
-
 /// The nodes inside the window titled `title`, with their AccessKit ids
 /// (its subtree: the player list's rows share the screen). `pairs` is
 /// `frame_ids`' output.
@@ -1405,30 +1350,10 @@ fn nodes_in_window<'a>(
     nodes
 }
 
-/// The nodes inside the AATF panel's window (its subtree: the player
-/// list's rows share the screen). `pairs` is `frame_ids`' output.
-fn panel_nodes(pairs: &[(accesskit::NodeId, accesskit::Node)]) -> Vec<&accesskit::Node> {
-    nodes_in_window(pairs, "AATF violations")
-        .into_iter()
-        .map(|(_, node)| node)
-        .collect()
-}
-
-/// The panel window's Label values and Button labels, in top-to-bottom
-/// order.
-fn panel_lines(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>) -> Vec<String> {
-    window_lines(window, view, rules, "AATF violations")
-}
-
 /// The window titled `title`'s Label values and Button labels, in
 /// top-to-bottom order.
-fn window_lines(
-    window: &mut Headless,
-    view: &mut SaveView,
-    rules: Option<&Path>,
-    title: &str,
-) -> Vec<String> {
-    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+fn window_lines(window: &mut Headless, view: &mut SaveView, title: &str) -> Vec<String> {
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
     let nodes = nodes_in_window(&pairs, title);
     let mut lines: Vec<(f64, f64, String)> = Vec::new();
     for (_, node) in nodes {
@@ -1448,25 +1373,16 @@ fn window_lines(
     lines.into_iter().map(|(_, _, text)| text).collect()
 }
 
-/// `dir`'s `throw19.4ccrules` written and its path returned: the
-/// official file with the CLI's custom check that throws on captain 19
+/// The official file with the CLI's custom check that throws on captain 19
 /// (team 743's; `a_check_that_fails_on_one_team_does_not_stop_the_rest`).
-fn throw19_file(dir: &Path) -> PathBuf {
-    let path = dir.join("throw19.4ccrules");
-    std::fs::write(
-        &path,
-        aatf::official_file().replacen(
-            "fn custom_checks(team) { [] }",
-            "fn custom_checks(team) { if team.captain == 19 { throw \"boom\" } [] }",
-            1,
-        ),
+fn throw19() -> String {
+    aatf::official_file().replacen(
+        "fn custom_checks(team) { [] }",
+        "fn custom_checks(team) { if team.captain == 19 { throw \"boom\" } [] }",
+        1,
     )
-    .unwrap();
-    path
 }
 
-mod aatf_panel;
-mod aatf_panel_mechanics;
 mod abilities;
 mod appearance;
 mod comparator;
@@ -1477,6 +1393,7 @@ mod live_marks;
 mod player;
 mod prompt;
 mod quick_actions;
+mod ruleset_picker;
 mod savefile;
 mod shell;
 mod strip;
