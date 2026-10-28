@@ -228,6 +228,17 @@ leave a half-done edit or a perturbation in the tree. A
 session that stalled after its one allowed resume is not resumed again; the lead finishes the
 brief's remaining items itself or briefs a fresh session.
 
+**Sidekicks in parallel worktrees never share a `target/`.** Each worktree's builds go to its
+own `CARGO_TARGET_DIR` (`../4cc-studio-temp/wt-<x>/target`), at `CARGO_BUILD_JOBS=4` while
+three or four build at once. Cargo names a workspace crate's build output by its path relative
+to the workspace root, so every worktree writes the same file name for the same crate, and a
+build in one worktree takes another's output as up to date: on 2026-10-28 one `save_editor`
+build linked another worktree's `aatf` (a constant reported missing in a tree that has it), and
+a doc-test linked a `studio_core` without the function its own tree had just added. Cargo's
+lock on a shared folder serializes builds but does not stop this, so a shared folder makes
+every sidekick's test results suspect. Each folder costs a full build and its disk; three at 4
+jobs each keep within the machine's memory, where three at 8 would not.
+
 ## Review rounds
 
 **Second opinion.** A model reviewing its own work is bounded by its own training: same data, same

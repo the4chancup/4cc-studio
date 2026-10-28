@@ -886,7 +886,9 @@ violations list are not this tool's alone: the [Team creator](team_creator.md) s
 formation, cards and instructions to a new manager over a team that does not exist in any save
 yet. Tool crates never depend on tool crates (core plan, guardrail 1), so the widgets live in a
 lib — `libs/team_widgets`, an egui widget crate in the class the core plan already allows for
-`color_tools` and `model_viewport`: egui-dependent, `wasm32`-clean, and nothing else.
+`color_tools` and `model_viewport`: egui-dependent, `wasm32`-clean, and nothing else but
+`studio_core`'s shared widgets (the checkbox every view draws), so its controls look as the
+host's do.
 
 Contract, the same one the color picker has: a widget takes `&mut` model (`TeamEntry`,
 `TacticsPreset`, `PlayerEntry` — `pes_savefile`'s types), the version's schema for gating, and the

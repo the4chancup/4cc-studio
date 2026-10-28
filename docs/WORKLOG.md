@@ -4336,13 +4336,24 @@ briefs, review loops, gates and mutation runs as for any step.
       buttons at 15 points, hints wrapped in their column
       (`the_two_choices_are_equal_columns_with_full_width_buttons_and_wrapped_hints`, red on
       the old layout, each tolerance perturbed). A real user folder's hint takes three lines
-      at 299, egui breaking at the space after the path, never inside it. Open: the draft's
-      `.firstrun` bottom margin of 8 (egui's item spacing there), for ov2's batch
-    - [ ] ov2b a checked checkbox and a selected radio button blue in the app (the maintainer,
+      at 299, egui breaking at the space after the path, never inside it. The draft's
+      `.firstrun` margins (2 above the row, 8 below) landed with ov2b
+    - [x] ov2b a checked checkbox and a selected radio button blue in the app (the maintainer,
       2026-10-28; drafts done by the lead, DECISIONS "A checked checkbox and a selected radio
-      button are blue"): the selection fill and its text colour's tick (2 points wide, the
-      maintainer, 2026-10-28) or dot, hovered and pressed alike, on every checkbox and radio
-      the views draw
+      button are blue"; Opus sidekick, brief `.tmp/0_0_1ov/brief_ov2b.md`, report
+      `.tmp/sidelead/sk_ov2b.report.md`): `studio_core::widgets`' `checkbox`,
+      `checkbox_without_text`, `radio`, `radio_value` (`widgets/choice.rs`) paint the blue
+      and the 2-point tick or dot over egui's own widget, in its layout and state border
+      (egui's `CheckboxStyle` hook needs its `experimental` feature, the radio has none);
+      21 checkbox and 9 radio sites moved in `studio_core`, `team_widgets`,
+      `ruleset_editor`, `save_editor`, `team_widgets` now depending on `studio_core`
+      (DECISIONS "team_widgets draws the suite's checkbox from studio_core"); the first-run
+      row 2 under the title and 8 above the footer. Tests in `choice.rs` and
+      `first_run.rs`, red on egui's plain widgets; the draft's pressed tick and dot, white,
+      brought to the decision's selection text colour. The lead's `clippy.toml`
+      `disallowed-methods` against egui's own checkbox and radio (DECISIONS "egui's own
+      checkbox and radio button are disallowed"), red on `choice.rs` before its four
+      `#[expect]`s, and on a `save_editor` site put back to `ui.checkbox`
     - [ ] ov2c Live AATF's crosses as redrafted (the maintainer, 2026-10-28; DECISIONS "The
       final pass's first rulings"; drafts done): an ability stat's cross left of its label, 2
       points from the text, the column's crosses lined up and no label moved; the pitch's cross
