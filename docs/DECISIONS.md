@@ -12652,3 +12652,12 @@ pointers to review rulings passed here and failed in every clone, keeping main's
 the worklog would lose the check of its 210 live pointers into the plans and the spec, which
 caught steps left pointing at sections a phase's close had moved.
 Plan: `CONTRIBUTING.md` "Testing and verification", the gates' paragraph.
+
+## 2026-10-28 — workspace — A commit summary names what it did in the imperative
+Decision: a commit's summary that names something done puts its verbs in the imperative
+(`audit the open 0.0.1 boxes; close s, x and y4 as done`), not in the past participle (`the open
+0.0.1 boxes audited; s, x and y4 closed`); one stating what the code does from now on keeps
+the present tense (`the drafts name the suite Unlimited Tool Works where the preview does`).
+Why: a list of past participles reads like verse, and the imperative is how Conventional Commits
+and git's own messages read; a present-tense statement of the new behavior already reads plainly.
+Plan: `CONTRIBUTING.md` "Commits".

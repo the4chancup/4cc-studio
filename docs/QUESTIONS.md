@@ -24,12 +24,6 @@ names where the question came from so the context can be read there.
   capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the head;
   Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's hash
   (0.0.1f2).
-- **CI on the next push.** Main's CI has been red since `a98b973f`. The Linux cause is fixed in
-  `f056c1e2`: the section-pointer check followed pointers into the gitignored `.tmp/`. Its
-  Windows job failed earlier in its log, and those logs need a GitHub sign-in the lead does
-  not have, so whether it was the same cause shows only once the next push runs. If it is
-  still red, its first failing step's lines are all the lead needs.
-
 ## Cup practice
 
 The Music player's three below come from reading Rigdio v2.2.0's controls (worklog 10.0i,
