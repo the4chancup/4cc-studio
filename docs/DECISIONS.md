@@ -12832,3 +12832,19 @@ back where the save-wide actions are.
 Plan: `plans/aatf_rules.md` "Embedded rulesets"; `plans/save_editor.md` "Configurable AATF
 rules" (the ruleset dropdown, Multi-team AATF), "Acceptance" (SE-GUI-41);
 `plans/core/development_plan.md` "Development Plan" (0.0.1's bundle).
+
+## 2026-10-28 — save_editor — The final pass's sixth rulings: Multi-team AATF lists clean teams, green-text team lines
+Decision: Multi-team AATF lists every team of the range, `All clean` under a team with no
+error or warning, in the dialog and in the copied text; the copied text puts a `>` before each
+team's line, so a cup's thread draws it as green text; Copy to clipboard is on whenever a team
+is listed, its notice `Copied the results of N teams.`. Its list is as wide as a dialog's
+content: it was drawn 640 wide inside a window whose content is 614, and overflowed by 26. The
+formation pictures' range takes the same one row, `Teams`, the first, `to`, the last, in place
+of its From and To rows. The drag handle in the player list and the lineup lists stands 3
+points from the row's edge and 3 before the next item (8 and 9 before), so the names get the
+room. Lead's choice, applied: the `>` on the team lines alone, not the header line.
+Why: the maintainer's rulings: a clean team left out reads as one the check missed; green text
+sets each team apart in the thread; the names were cut short in the narrow lists.
+Plan: `plans/save_editor.md` "Editing UI" (the player row's handle), "Tactics editor" (the
+formation pictures' range), "Configurable AATF rules" (Multi-team AATF), "Acceptance"
+(SE-GUI-41).

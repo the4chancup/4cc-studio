@@ -28,7 +28,10 @@ names where the question came from so the context can be read there.
   `cards`), and the Name and Shirt counts' colours, tried by typing in the drafts. Drafted
   from the fifth rulings (DECISIONS "The final pass's fifth rulings"): `vet/even_gaps.png`
   (four equal gaps), `.tmp/0_0_1ov/ov7/multi.png` (Multi-team AATF; the Savefile menu opens it
-  in the drafts). Still to look at:
+  in the drafts). Drafted from the sixth rulings (DECISIONS "The final pass's sixth rulings"):
+  `.tmp/0_0_1ov/ov7/multi_clean.png` (a clean team under `All clean`, the list inside the
+  dialog, the drag handles 3 from the row's edge), `ov7/pictures_range.png` (the formation
+  pictures' range on one row). Still to look at:
   the windows' titles at 14 in white in the built app; the preview's icon where the lead
   cannot capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the
   head; Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's

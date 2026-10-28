@@ -163,6 +163,10 @@ input[type=range]:focus { outline: none; }
   min-height: 18px; }
 .plist .rows .prow:hover { background: var(--hover); }
 .plist .rows .prow.on { background: var(--sel-bg); }
+/* The drag handle in the player list and the lineup lists sits 3 points from the row's edge
+   and 3 before the place or position (the row's 4 of padding and 5 of gap pulled in), so the
+   names get the room. */
+.plist .rows .prow .handle, .lrow .handle { padding: 0; margin: 0 -2px 0 -1px; }
 /* The player's place in the roster, 01 to 23: always two digits, so no column to right-align
    them in. */
 .plist .num { color: #6e6e6e; flex: none; }
@@ -3479,11 +3483,13 @@ function databaseMenu() {
 // this a report read once and pasted elsewhere. The range is picked as the
 // formation pictures' is, its two ends side by side on one row (the save's
 // first and last team by default); the teams are checked on a worker
-// whenever it changes, the previous list kept while it runs. Only the teams
-// with an issue are listed, each under its id and name, its players' rows as
-// the dock words them, errors first; suggestions are not asked for (an
-// unused allowance is no organizer's business). Copy to clipboard copies the
-// list as plain text, a line per row, so it pastes into a cup's thread.
+// whenever it changes, the previous list kept while it runs. Every team of
+// the range is listed under its id and name: its players' rows as the dock
+// words them, errors first, or "All clean", so a clean team reads as checked,
+// not as missed; suggestions are not asked for (an unused allowance is no
+// organizer's business). Copy to clipboard copies the list as plain text, a
+// line per row, so it pastes into a cup's thread, each team's line after a
+// ">" so the thread draws it as green text.
 // sample wording: every text.
 const multiAatf = { from: null, to: null };
 function dlgMultiAatf() {
@@ -3505,8 +3511,9 @@ function multiAatfText(results) {
   const lines = [RULESETS[D.ruleset].label + ", teams " + multiAatf.from + " to " + multiAatf.to + ": "
     + n("Error") + " errors, " + n("Warning") + " warnings"];
   for (const { team, rows } of results) {
-    if (!rows || !rows.length) continue;
-    lines.push(team.id + " " + displayName(team.name));
+    if (!rows) continue;
+    lines.push(">" + team.id + " " + displayName(team.name));
+    if (!rows.length) lines.push("  All clean");
     let lastPid = null;
     for (const [sev, , pid, rule, fields] of rows) {
       if (pid !== lastPid) {
@@ -3530,9 +3537,12 @@ function drawMultiAatf() {
   const results = reversed ? [] : multiAatfResults();
   const failing = results.filter(r => r.rows && r.rows.length);
   const sampled = results.filter(r => r.rows);
-  const list = h("div", { class: "live-body", id: "multi-rows", style: "height:360px; width:640px" });
-  for (const { team, rows } of failing) {
+  // As wide as a dialog's content gets: the window's 640 less its padding
+  // and border.
+  const list = h("div", { class: "live-body", id: "multi-rows", style: "height:360px; width:614px" });
+  for (const { team, rows } of sampled) {
     list.append(h("div", { class: "grp" }, team.id + " ", ...nameSpans(team.name)));
+    if (!rows.length) list.append(h("div", { class: "drow weak" }, "All clean"));
     let lastPid = null;
     for (const [sev, , pid, rule, fields] of rows) {
       if (pid !== lastPid) {
@@ -3554,8 +3564,8 @@ function drawMultiAatf() {
     list),
     [button("Copy to clipboard", () => {
       if (navigator.clipboard) navigator.clipboard.writeText(multiAatfText(results)).catch(() => {});
-      publishNotice("Copied the issues of " + failing.length + " teams.", null, "success");
-    }, { disabled: !failing.length }), button("Close", closeWindow)], "multi-aatf");
+      publishNotice("Copied the results of " + sampled.length + " teams.", null, "success");
+    }, { disabled: !sampled.length }), button("Close", closeWindow)], "multi-aatf");
   render();
 }
 // The registered position's combo names each position in full, one
@@ -5730,9 +5740,10 @@ function dlgPictureSave() {
      button("Cancel", closeWindow)]);
 }
 // Savefile menu, Save formation pictures for a range of teams (8.34): the
-// first and last team picked from the save's teams, the folder as above, and
-// the run in the same dialog, which turns into its progress and then its
-// result, so the member sees one window from the question to the folder.
+// first and last team picked from the save's teams on one row, the folder as
+// above, and the run in the same dialog, which turns into its progress and
+// then its result, so the member sees one window from the question to the
+// folder.
 // The range is every team whose id lies between the two picks' (the save's
 // first and last by default); the count line says how many before Save is
 // pressed, and Save is off while the first comes after the last. Stop keeps
@@ -5779,8 +5790,9 @@ function drawPicturesRange() {
         "aria-hidden": on === picRange.settings ? null : "true" },
       weak("One picture per team, named by its id and name (" + pictureFileName(example, on) +
         "), an older one of that name replaced."));
+    // The range's two ends on one row, as Multi-team AATF's.
     body = h("div", {},
-      formGrid(["From", pick("from")], ["To", pick("to")],
+      formGrid(["Teams", h("span", { class: "row" }, pick("from"), weak("to"), pick("to"))],
         [null, h("span", { class: reversed ? "warn" : "weak", id: "pic-count" }, count)],
         ["Folder", h("span", { class: "row" }, folderIn,
           button("Browse…", () => {}, { title: "The native folder picker (rfd) opens here" }))]),

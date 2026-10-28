@@ -4381,6 +4381,11 @@ briefs, review loops, gates and mutation runs as for any step.
       `Gold: 6 of 8`, no `cards`; the Name and Shirt counts `#5a5a5a` under the limit, the
       warning orange
       on it, the error red past it (SE-GUI-38)
+    - [ ] ov2h the sixth rulings' looks (the maintainer, 2026-10-28; DECISIONS "The final
+      pass's sixth rulings"; drafts done, `plans/save_editor.md` "Editing UI", "Tactics
+      editor"): the drag handle 3 points from the row's edge and 3 before the place, in the
+      player list and the lineup lists; the formation pictures' range on one row, `Teams`
+      first `to` last
   - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
     the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/`; the first rulings
     drafted and planned (ov2f; the dock's kind codes kept). The two points left for later (a
@@ -4406,7 +4411,9 @@ briefs, review loops, gates and mutation runs as for any step.
       DECISIONS "The final pass's fifth rulings"), each file's `name` its description
       (`rulesets/*.rhai`; tests naming `Autumn 26` follow)
     - Multi-team AATF in the Savefile menu (`plans/save_editor.md` "Configurable AATF rules",
-      SE-GUI-41): the range's combos, the worker run, the list, Copy to clipboard
+      SE-GUI-41): the range's combos, the worker run, the list (every team, `All clean` under
+      a clean one; DECISIONS "The final pass's sixth rulings"), Copy to clipboard (each team's
+      line after a `>`)
     - when built, the spec: `spec/aatf_rules.md` "The rules file" (the pickers), "Embedded
       rulesets", "Loading and validation" (the setting), `spec/save_editor.md` "Configurable
       AATF rules" and "CLI" (the setting `check-aatf` reads)

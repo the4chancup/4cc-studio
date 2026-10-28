@@ -204,6 +204,8 @@ all side by side.
   A player row shows his place in the roster (`01` to `23`, the slot `NN` of his id, always
   two digits, so no column is kept for right-aligning a one-digit number), position and name,
   with no team name under ALL or a filter: the team row above its players already names it.
+  The row's drag handle `≡` stands 3 points from its edge and 3 before the place, as in the
+  Tactics view's lineup lists, so the name gets the room the column's narrow width leaves.
   The place, not the shirt number: it is the `NN` of his export's `NN - Name` folder and of
   his id, and General info shows the shirt number; **drag-and-drop reordering**
   replaces the up/down spinner, and moves what the spinner moves: the players' records trade
@@ -732,9 +734,10 @@ Win32 original hurt the most):
   settings, which no preset owns, are one line under the grid. The pitch painter is one
   function the view and the picture share, taking the formation it paints. The Savefile menu's
   "Save formation pictures for a range of teams…" writes one such picture per team whose id
-  lies between two teams picked in combo boxes (From and To, the save's teams by name as the
-  player list's selector lists them, the save's first and last by default; not typed ids, which
-  a member would have to look up): a count line under them ("4 teams"; "The first team comes
+  lies between two teams picked in combo boxes on one row, `Teams`, the first, `to`, the last,
+  as Multi-team AATF picks its range (the save's teams by name as the player list's selector
+  lists them, the save's first and last by default; not typed ids, which a member would have to
+  look up): a count line under them ("4 teams"; "The first team comes
   after the last" in the warning colour, Save pictures off), the folder row with Browse, the
   same checkbox, and the file-name line, which follows it. The dialog is as wide as its longer
   state, the file-name line sized for both of the checkbox's, so it keeps its width when the
@@ -1193,9 +1196,10 @@ What this editor adds on top of the lib:
   last: two combo boxes of the save's teams by id and name, the save's first and last by
   default, as the formation pictures' range picks them. Under it a line, `N teams checked, M
   with issues` (`The first team comes after the last` in the warning colour when reversed, and
-  Copy to clipboard off); then the teams with an issue, each under its id and name, its rows
-  grouped and worded as Live AATF's dock words them, errors first; then `Copy to clipboard` and
-  `Close`. The teams are checked on a worker, in parallel as `check-aatf` runs them (220 teams
+  Copy to clipboard off); then every team of the range under its id and name, its rows
+  grouped and worded as Live AATF's dock words them, errors first, or `All clean` under a team
+  with none, so a clean team reads as checked rather than missed, the list as wide as the
+  dialog's content; then `Copy to clipboard` and `Close`. The teams are checked on a worker, in parallel as `check-aatf` runs them (220 teams
   of a PES 2017 save in 2.0 s on 16 threads, 13.2 s on one), when the dialog opens and
   whenever the range changes, the previous list kept and marked as checking until the new one
   arrives; a team whose check fails is a line naming it and the error, the others still
@@ -1203,11 +1207,12 @@ What this editor adds on top of the lib:
   the organizer's), and a row's click does nothing. A dialog, not a docked panel or a
   floating window: it is a report read once and copied out, while Live AATF is where a team
   gets fixed. Copy to clipboard copies the list as plain text, a line per row: first the
-  ruleset and range with the error and warning counts, then per team its id and name, per
-  player his id and name indented two spaces (the team's own rows under `Team-wide issues`),
-  per row its severity, rule and sentence indented four, so it pastes readably into a cup's
-  thread; a notice says `Copied the issues of N teams.` (sample wording, the draft's
-  `dlgMultiAatf`).
+  ruleset and range with the error and warning counts, then per team its id and name after a
+  `>`, which a cup's thread draws as green text so each team stands out, per player his id and
+  name indented two spaces (the team's own rows under `Team-wide issues`; `All clean` there
+  under a clean team), per row its severity, rule and sentence indented four, so it pastes
+  readably into the thread; a notice says `Copied the results of N teams.` (sample wording,
+  the draft's `dlgMultiAatf`).
 - **Live AATF.** A toolbar toggle, off by default and remembered in the tool's settings
   (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
   docked at the bottom of the view lists the violations of the team the view is editing (the
@@ -1493,14 +1498,15 @@ SE-GUI-41  GIVEN the PES 17 save open under the official ruleset
            WHEN the Savefile menu's Multi-team AATF… is used
            THEN a dialog titled `Multi-team AATF (<ruleset>)` holds on one row the range's two
                 combo boxes, the save's first and last team picked, and lists, under `N teams
-                checked, M with issues`, each team with an error or a warning under its id and
-                name, its players' rows as Live AATF's dock words them and no suggestion;
-                WHEN the range is narrowed to one team THEN that team's rows alone are listed;
-                WHEN Copy to clipboard is clicked THEN the clipboard holds the list as plain
-                text, its first line the ruleset, the range and the counts, then the team's id
-                and name, each player's line indented two spaces and each row's severity, rule
-                and sentence four; WHEN the first team picked comes after the last THEN the
-                line says so in the warning colour and Copy to clipboard is off
+                checked, M with issues`, every team under its id and name, its players' rows
+                as Live AATF's dock words them and no suggestion, `All clean` under a team
+                with none; WHEN the range is narrowed to one team THEN that team alone is
+                listed; WHEN Copy to clipboard is clicked THEN the clipboard holds the list as
+                plain text, its first line the ruleset, the range and the counts, then the
+                team's id and name after a `>`, each player's line (or `All clean`) indented
+                two spaces and each row's severity, rule and sentence four; WHEN the first
+                team picked comes after the last THEN the line says so in the warning colour
+                and Copy to clipboard is off
 SE-GUI-16  GIVEN the save open on a team
            WHEN Team TOML export, then import on another team with only the gameplay section
                 chosen, runs from the interchange dialog
