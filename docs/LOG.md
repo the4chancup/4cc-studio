@@ -2786,3 +2786,4 @@ worklog passed 7,000 lines.
 - **2026-10-28** — Live AATF's every element rendered from the drafts for the maintainer's look (`.tmp/0_0_1ov/live/`); found: the drafts draw no failed check, a cross wraps two labels, two cross placements side by side.
 - **2026-10-28** — AATF violations hint at a valid value (0.0.1ov8): the heights with room, the tiers' heights, the A and B positions, a setting's wanted value, computed by the logic for every surface; the spec moved.
 - **2026-10-28** — Checked checkboxes and selected radio buttons are blue in the app (0.0.1ov2b), through `studio_core`'s shared checkbox and radio drawn over egui's; the first-run prompt takes the draft's margins.
+- **2026-10-28** — Live AATF marks each field by severity just left of its label, crosses a misfielded starter's portrait on the pitch, and lists unused allowances under Show suggestions (0.0.1ov2c, ov2f).

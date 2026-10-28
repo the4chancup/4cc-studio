@@ -4354,11 +4354,15 @@ briefs, review loops, gates and mutation runs as for any step.
       `disallowed-methods` against egui's own checkbox and radio (DECISIONS "egui's own
       checkbox and radio button are disallowed"), red on `choice.rs` before its four
       `#[expect]`s, and on a `save_editor` site put back to `ui.checkbox`
-    - [ ] ov2c Live AATF's crosses as redrafted (the maintainer, 2026-10-28; DECISIONS "The
+    - [x] ov2c Live AATF's crosses as redrafted (the maintainer, 2026-10-28; DECISIONS "The
       final pass's first rulings"; drafts done): an ability stat's cross left of its label, 2
       points from the text, the column's crosses lined up and no label moved; the pitch's cross
       an X over the whole portrait, the severity's colour in a thin black outline, its tooltip
-      over the portrait (`team_widgets::violations`, `pitch`, `save_editor`'s ability stats)
+      over the portrait (`team_widgets::violations`, `pitch`, `save_editor`'s ability stats).
+      Built with ov2f (Opus sidekick, brief `.tmp/0_0_1ov/brief_ov2cf.md`, report
+      `.tmp/sidelead/sk_ov2cf.report.md`): `pitch::paint_portrait_cross` (black strokes 7
+      wide under the colour's 5, round ends), the hover over the portrait, a press on it still
+      opening his popover
     - [ ] ov2d the player list's scroll bar outside its frame (the maintainer, 2026-10-28;
       drafts done): egui's solid bar, 4 points from the content and 6 wide, the strip kept
       while nothing scrolls; a row's fill reaching the frame's edge (`save_editor`'s
@@ -4372,7 +4376,7 @@ briefs, review loops, gates and mutation runs as for any step.
       one `studio_core` widgets function, called on every combo box and drag value of the
       suite (about 37 call sites in 10 crates, `team_widgets` and `color_tools` included),
       ST-WHEEL-01 to ST-WHEEL-03 (`plans/core/gui.md` "The wheel over a value")
-    - [ ] ov2f Live AATF's marks as ruled (the maintainer, 2026-10-28; DECISIONS "The final
+    - [x] ov2f Live AATF's marks as ruled (the maintainer, 2026-10-28; DECISIONS "The final
       pass's second rulings"; drafts done; `plans/save_editor.md` the Live AATF bullet): the
       list's check mark orange for a Warning, blue for suggestions alone; a field's mark left
       of its label everywhere (General info, Other stats, the panels' headers; the card
@@ -4383,7 +4387,16 @@ briefs, review loops, gates and mutation runs as for any step.
       its allowance's field; the player view's column gaps (ov2g); Show
       suggestions right of the toggle while it is on (`live_suggestions`), the suggestions
       asked for only then; `Team-wide issues` heading the team's own rows (DECISIONS "The
-      final pass's third rulings")
+      final pass's third rulings"). Built with ov2c: `live_marks`' `Marks::paint` before a
+      label or a panel's title (`field_cross`, `cross_after_label` and the counted label's
+      cross gone), `RowMark`'s highest severity, `unused_field` (a `height` suggestion marks
+      the Height field, the plan's list completed), `CheckKey.suggestions` with the worker
+      dropping unasked ones, `live_suggestions` in the settings, `help/02_window.md`. Tests in
+      `pitch/tests/paint.rs`, `tests/live_marks.rs` and `tests/live_aatf.rs`, red on the old
+      marks; five old mark tests merged into the per-kind
+      `each_fields_mark_stands_left_of_its_label`. Open: no acceptance scenario covers Show
+      suggestions or the mark kinds yet; the dock draws a `Team 734 /lit/` line the draft's
+      lacks (for ov6)
     - [ ] ov2g the fourth rulings' looks (the maintainer, 2026-10-28; DECISIONS "Live AATF
       replaces the AATF panel; the final pass's fourth rulings"; drafts done,
       `plans/save_editor.md` "Editing UI"): General info's and Other stats' fields 6 in from

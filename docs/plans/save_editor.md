@@ -1327,7 +1327,8 @@ What this editor adds on top of the lib:
     paid skills and the extra A positions; and for a suggestion (`Unused`), the field of its
     allowance: the Skills header for the cards, the positions grid for the A positions,
     the `Weak foot: Usage` label for the weak foot (the pair's shared label), the Injury
-    resistance field, the COM styles for `com`, the Tricks or Free cards panel for the tricks
+    resistance field, the Height field for the height (a player below his `up_to`
+    bracket's top could be taller), the COM styles for `com`, the Tricks or Free cards panel for the tricks
     and the free cards, and the skills for any other card group. A field several rows are
     about carries one mark, its tooltip their lines as the dock shows them, one per
     line. One function maps a kind to its field, a match with an arm per kind (a new kind does
