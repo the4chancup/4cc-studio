@@ -2862,6 +2862,13 @@ briefs, review loops, gates and mutation runs as for any step.
       release exe, portable over a fresh `data/`; `st_run_11/close_check.py`): two processes
       open, the window and its `--crash-monitor`, none within 15 s of `WM_CLOSE`, exit 0,
       the closing line last, no dump.
+      manual: checked 2026-10-28, the window opening when the monitor cannot start: a release
+      build of `825f1885` whose `main.rs` handed `watch_crashes` the exe's path with a `.txt`
+      extension (reverted by hand, rebuilt: 12 bytes from the clean build, the PE and debug
+      timestamps and the PDB signature), over a fresh `data/` (`.tmp/0_0_1k4c/`): the window
+      opened (`window.png`), one process and no monitor, the log's second line "the crash
+      monitor did not start, so this session writes no crash dump: cannot start the crash
+      monitor …4cc-studio.txt: The system cannot find the file…", WM_CLOSE's closing line last.
       Open: the Linux job's
       first run of `tests/crash_dump.rs` (expects SIGSEGV, 11; not run here). Reviews:
       SWE-2 S1 7 of 18, S2 1 of 5, Astra A1 (checkpoint b) 0 of 1 (`.tmp/0_0_1k4b/rulings.md`)
@@ -2878,7 +2885,9 @@ briefs, review loops, gates and mutation runs as for any step.
     `tests/subsystem.rs` reads the PE header's subsystem (2); the piped CLI tests pass on it
   - [ ] l2 ST-RUN-04 in the bundle (manual: a double-click opens no console; `team-compiler
     check` from a terminal prints there; both launchers print and their `pause` waits),
-    asked before it runs; with k3
+    asked before it runs; with k3. Runs on the cut's own bundle (0.0.1f): `just release`
+    writes the release archive, which it never overwrites, so no bundle is packed before the
+    maintainer's final pass
 - [x] 0.0.1m the window's fit and its scaling with the width (the maintainer's UI review,
   2026-10-26; `plans/core/gui.md` "Shell layout", the paragraphs "The window's size" and
   "Scaling with the width"): the first frame fits the height alone, keeping 1280 wide where
