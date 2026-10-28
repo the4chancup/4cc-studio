@@ -93,9 +93,8 @@ fn a_speed_edit_does_not_reach_the_next_players_control() {
     let a_id = file.team(702).unwrap().roster[0].player_id;
     let b_id = file.team(702).unwrap().roster[1].player_id;
     view.selected = Some(Selection::Player(702, 0));
-    // The view moves after its first frame (the centring pad reads the
-    // previous frame's widths): find the Speed row once its bounds hold,
-    // inside the clip, before aiming the pointer.
+    // The Speed row may sit below the detail pane's fold: scroll it inside
+    // the clip, where it takes a click, before aiming the pointer.
     let nodes = scroll_into_view(&mut window, &mut view, |node| {
         node.role() == Role::Label && node.value() == Some("Speed")
     });
@@ -139,9 +138,8 @@ fn an_ability_edit_marks_the_row_until_ctrl_s_writes_the_save() {
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
 
     // 70101's Speed is 77: focus the control and type a new one. The
-    // view moves after its first frame (the centring pad reads the
-    // previous frame's widths): find the Speed row once its bounds hold,
-    // inside the clip, before aiming the pointer.
+    // Speed row may sit below the detail pane's fold: scroll it inside the
+    // clip, where it takes a click, before aiming the pointer.
     let nodes = scroll_into_view(&mut window, &mut view, |node| {
         node.role() == Role::Label && node.value() == Some("Speed")
     });
@@ -263,9 +261,8 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
     view.open(&path);
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
 
-    // The view moves after its first frame (the centring pad reads the
-    // previous frame's widths): find each gated row once its bounds hold,
-    // inside the clip, before aiming the pointer.
+    // A gated row may sit below the detail pane's fold: scroll each inside
+    // the clip, where it takes a hover, before aiming the pointer.
     for (label, tooltip) in [("Physical Contact", "PES 17+"), ("Clearing", "PES 16+")] {
         let nodes = scroll_into_view(&mut window, &mut view, |node| {
             node.role() == Role::Label && node.value() == Some(label)

@@ -283,10 +283,10 @@ The settings menu is assembled from injected sections:
   once; `studio_core` owns the row, so every section's path rows commit the same way. A path's
   edit is wide enough to show a usual install path whole: Steam's `C:\Program Files
   (x86)\Steam\steamapps\common\Pro Evolution Soccer 2019`, 71 characters, at the body font,
-  so a member reads which folder is set without scrolling inside the box. In egui that path
-  measures 456 points at the 13-point body font, so the edit is 472 points with its 8-point
-  margins (the draft's 440-point box is drawn in the browser's narrower font), and the menu
-  is 660 points: the common grid's widest row (its label column, the edit and Browse) needs
+  so a member reads which folder is set without scrolling inside the box. In egui the edit is 472 points
+  with its 8-point margins (a test measures the path's galley inside the drawn edit at the
+  body font; the draft's box is 440, its 660-point body leaving no room for 472 beside the
+  label and Browse), and the menu is 660 points: the common grid's widest row (its label column, the edit and Browse) needs
   656. A tool section's row sits indented under its header with that tool's own label
   column, so a section whose labels are long widens the menu while it is open, rather than
   narrowing its path box below the path.

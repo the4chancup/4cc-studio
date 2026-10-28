@@ -2868,7 +2868,7 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] l2 ST-RUN-04 in the bundle (manual: a double-click opens no console; `team-compiler
     check` from a terminal prints there; both launchers print and their `pause` waits),
     asked before it runs; with k3
-- [ ] 0.0.1m the window's fit and its scaling with the width (the maintainer's UI review,
+- [x] 0.0.1m the window's fit and its scaling with the width (the maintainer's UI review,
   2026-10-26; `plans/core/gui.md` "Shell layout", the paragraphs "The window's size" and
   "Scaling with the width"): the first frame fits the height alone, keeping 1280 wide where
   the window fits; under the design width the shell sets the zoom factor from the native
@@ -2922,8 +2922,9 @@ briefs, review loops, gates and mutation runs as for any step.
     two list tests given their short window or an aim from the window's height; m2's settle
     frames removed. Files: `studio_core/src/theme.rs`, `team_widgets/src/cards.rs`,
     `save_editor/src/view/{abilities,mod,tests}.rs`, `view/tests/{abilities,list,live_marks}.rs`.
-    Open: three older "The view moves after its first frame" comments in
-    `view/tests/abilities.rs` (before its `scroll_into_view` loops) whose premise is gone
+    The three older "The view moves after its first frame" comments in
+    `view/tests/abilities.rs` (before its `scroll_into_view` loops), whose premise is gone,
+    say why the loops scroll (2026-10-28)
 - [x] 0.0.1n the drafts' Layout edit and scaling (the same review; `plans/core/gui.md`
   "Layout edit", the "Size:" bullet): a moved panel pinned where dropped, a columned panel
   narrowed into fewer columns, the simulated window scaled under the design width
@@ -3177,9 +3178,10 @@ briefs, review loops, gates and mutation runs as for any step.
     folder, PES 2019 folder, exports folder and a stub tool's file row (the Team compiler's
     section draws no path row yet; the stub's section is the Save editor's, two rows) and
     checks each text run against its edit. The Save editor's section widens the menu to 708
-    points while open ("Aesthetics from exports" under the header's indent). Open for the
-    top lead's draft (not changed here): its 440-point box to 472, and its fixed 660-point
-    `.settings-body`, which cannot show that widening. Two older menu tests rest the pointer
+    points while open ("Aesthetics from exports" under the header's indent). The draft's
+    440-point box stays (2026-10-28, `.tmp/0_0_1z/settings_box.py`: at 472 its 660-point
+    `.settings-body` wraps both Browse buttons under their boxes), as does its fixed body,
+    which cannot show the Save editor's widening. Two older menu tests rest the pointer
     inside the menu first: on the test's 800-point screen the sidebar's overlay covered the
     wider menu's left edge (the app lays out at least 1280 points wide). SWE-2 round S1: 2
     accepted of 5 (`.tmp/0_0_1r2/rulings.md`). Files:
@@ -4115,7 +4117,7 @@ briefs, review loops, gates and mutation runs as for any step.
     the drafts' "Size" bullet); the font trial switches faces in place (no reload, no
     fallback frame) and lists Roboto and Roboto Flex as shipped. Checked in Chromium and
     Firefox (`.tmp/draft_look/check2.py`)
-- [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
+- [x] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
   `aatf_rules` naming `rules/dbc7.4ccrules`), each finding fixed or recorded. Read 2026-10-25
@@ -4163,7 +4165,7 @@ briefs, review loops, gates and mutation runs as for any step.
     by the staged exe's `validate` and `update-logic` (a staging run: both validated, logic
     current); the readme's VGL step 4 names the settings row. Files: `scripts/release{,_test}.py`,
     `resources/bundle/README.txt`, `plans/core/development_plan.md`
-- [ ] 0.0.1cm comments that stand on their own (the maintainer, 2026-10-27; `CONTRIBUTING.md`
+- [x] 0.0.1cm comments that stand on their own (the maintainer, 2026-10-27; `CONTRIBUTING.md`
   "Code style", the bullet "A comment stands on its own"; DECISIONS "A code comment stands on
   its own"): the 1044 comments `just comment-refs` lists rewritten as plain sentences, in
   slices a review each, then the check joins `just gates`
