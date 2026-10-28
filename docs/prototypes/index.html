@@ -335,6 +335,11 @@
   button.frame0 { background: transparent; }
   button.frame0:hover:not(:disabled) { background: var(--hover); }
   select { background: var(--widget); border: 0; border-radius: 2px; padding: 1px 2px; }
+  /* An open select's list: Firefox draws it outside the page, where the page's own fonts
+     are not loaded, so without a generic family it falls to the browser's serif default.
+     The app's combo list is in the body font; the system sans is the nearest a browser
+     gives here. The page keeps no generic family (above) so a missing glyph still shows. */
+  option { font-family: var(--font-body), sans-serif; }
   input[type=text], input[type=number] { background: var(--extreme); border: 1px solid var(--stroke); border-radius: 3px; padding: 1px 4px; }
   input[type=number] { width: 52px; background: var(--widget); border: 0; text-align: center; }
   /* A DragValue has no spin arrows (the browsers draw theirs in the box). */

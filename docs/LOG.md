@@ -2748,3 +2748,5 @@ worklog passed 7,000 lines.
   the drafts following; a settings row's tooltip is the row's own tip, not the field's doc comment.
 - **2026-10-28** — Library audit, slice A2: `pes_savefile`'s unused cross-version converter deleted (`TeamToml::apply` is the conversion),
   the record writers and roster pairings shared, one schema width lookup; a bare tactics record names no roster slot.
+- **2026-10-28** — The maintainer's second look at the drafts: VTL's free cards in their own panel, every title 6 points above what it
+  heads on both views, the open dropdown lists in a sans face instead of Firefox's serif default.

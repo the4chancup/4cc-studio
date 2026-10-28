@@ -157,16 +157,18 @@ input[type=range]:focus { outline: none; }
 /* The three columns' titles on one line: Skills' row is as tall as its Cards
    left badge, which centres the title 3 points lower than a bare title, so
    the row starts 3 above the columns and the columns 3 below the view's top
-   (the badge's top where the bare titles' was). Every title then sits 6.5
-   points above the first line under it, Ability stats' spacing: no margin
-   under a title's row (the badge's lower half overlaps the gap), the label
-   blocks 2 lower, the checkbox lists 2, the positions grid 1.5. */
+   (the badge's top where the bare titles' was). Every title then sits 6
+   points above the first thing drawn under it, a field's frame or a
+   checkbox, as the team view's titles do: no margin under a title's row (the
+   badge's lower half overlaps the gap), the label blocks and the ability
+   stats 3 lower, the checkbox lists 1.5, the positions grid 1. */
 .pcols { padding-top: 3px; }
 .pcols .phead { margin: 0; }
 .pcols .phead.badged { margin: -3px 0 -3px; }
-.pcols .gen { padding-top: 2px; }
-.pcols .skcols { margin-top: 2px; }
-.pcols #pos-grid { margin-top: 1.5px; }
+.pcols .gen { padding-top: 3px; }
+.pcols .stats-grid { margin-top: 1px; }
+.pcols .skcols { margin-top: 1.5px; }
+.pcols #pos-grid { margin-top: 1px; }
 /* The skills' and COM styles' second columns start at the same x: one
    column width for both panels (and the values' pairs under them). */
 .skcols { display: flex; gap: 14px; align-items: flex-start; }
@@ -3524,7 +3526,7 @@ function rangeField(min, max, value, commit) {
 // chrome]. The count is read from the panel's own stored resize (the host's
 // layoutPanelW), never from the pane's and never past the layout's own.
 const COL_PANELS = {
-  "positions": [5, 66], "skills": [2, 165], "tricks": [2, 165], "com-styles": [2, 165],
+  "positions": [5, 66], "skills": [2, 165], "aside": [2, 165], "com-styles": [2, 165],
   "team-info": [2, 120], "cutscenes": [2, 120, 14],
   "strip-style": [4, 170, 14], "motion": [2, 194, 14],
   "tactics-settings": [2, 192, 30],
@@ -3717,7 +3719,7 @@ function playerView(p, team) {
     h("div", { class: "pcols" },
       h("div", { class: "col pcol first" }, generalPanel(p, team), otherStatsPanel(p),
         positionsPanel(p)),
-      h("div", { class: "col pcol" }, skillsPanel(p, team), tricksPanel(p), comStylesPanel(p)),
+      h("div", { class: "col pcol" }, skillsPanel(p, team), asidePanel(p), comStylesPanel(p)),
       abilityPanel(p)),
     named(collapsing("se-appearance", "Appearance", () => appearanceTab(p)), "appearance"));
 }
@@ -3846,14 +3848,20 @@ function positionsPanel(p) {
   return namedCols(h("div", { class: "col" },
     h("div", { class: "row phead" }, strong("Playable positions"), fieldMark(p, "positions")), posTable), "positions");
 }
-// The skill cards the active ruleset counts as tricks, its `tricks` card
-// group, in the game's order: the Tricks panel's, which the Skills panel
-// leaves out. None when the ruleset has no such group or its file does not
-// load: every card then stays under Skills.
-function trickCards() {
-  if (D.rulesBroken) return [];
-  const group = (RULESETS[D.ruleset].card_groups || {}).tricks || [];
-  return SKILLS.filter(k => group.includes(k));
+// The skill cards the active ruleset usually leaves out of the card limit, in
+// the game's order, and the title of the panel that holds them apart from
+// Skills: its `tricks` card group ("Tricks"), else every skill its free-card
+// rules name, those free only for a tier or the captain included ("Free
+// cards", VTL's), since a card moving between panels as a player's tier
+// changes would be harder to find. No cards when the ruleset has neither or
+// its file does not load: every card then stays under Skills.
+function asideCards() {
+  if (D.rulesBroken) return { title: "", cards: [] };
+  const rs = RULESETS[D.ruleset];
+  const tricks = (rs.card_groups || {}).tricks || [];
+  if (tricks.length) return { title: "Tricks", cards: SKILLS.filter(k => tricks.includes(k)) };
+  const free = (rs.free_specials || []).map(s => s.card);
+  return { title: "Free cards", cards: SKILLS.filter(k => free.includes(k)) };
 }
 // One skill's checkbox, gated by the version that has the skill.
 function skillCheckbox(p, k) {
@@ -3874,24 +3882,24 @@ function skillColumns(p, cards, panel) {
   return h("div", { class: "skcols" }, Array.from({ length: cols }, (_, c) =>
     h("div", { class: "col" }, cards.slice(c * per, (c + 1) * per).map(k => skillCheckbox(p, k)))));
 }
-// The skills but the ruleset's tricks, the Cards left badge in the header;
-// the tricks, the COM styles and the non-ability values are their own panels
-// stacked under it.
+// The skills but the ruleset's tricks or free cards, the Cards left badge in
+// the header; those cards, the COM styles and the non-ability values are
+// their own panels stacked under it.
 function skillsPanel(p, team) {
-  const tricks = trickCards();
+  const aside = asideCards().cards;
   return namedCols(h("div", { class: "col" },
     h("div", { class: "row phead badged" }, strong("Skills"), fieldMark(p, "skills"), cardBadges(p, team),
       fieldMark(p, "cards")),
-    skillColumns(p, SKILLS.filter(k => !tricks.includes(k)), "skills")), "skills");
+    skillColumns(p, SKILLS.filter(k => !aside.includes(k)), "skills")), "skills");
 }
-// The tricks, the cards the ruleset usually leaves out of the card limit, apart
-// from the skills a member weighs against it; no panel when the ruleset names
-// none.
-function tricksPanel(p) {
-  const tricks = trickCards();
-  if (!tricks.length) return null;
-  return namedCols(h("div", { class: "col" }, strong("Tricks"), skillColumns(p, tricks, "tricks")),
-    "tricks");
+// The Tricks or Free cards panel: the cards the ruleset usually leaves out of
+// the card limit, apart from the skills a member weighs against it; no panel
+// when the ruleset names none.
+function asidePanel(p) {
+  const { title, cards } = asideCards();
+  if (!cards.length) return null;
+  return namedCols(h("div", { class: "col" }, strong(title), skillColumns(p, cards, "aside")),
+    "aside");
 }
 // The COM playing styles, two columns of checkboxes as wide as the skills
 // panel above them (one column where it is narrowed).

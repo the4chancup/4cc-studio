@@ -12516,3 +12516,19 @@ scroll bar wrapped Ability stats under General info: the player view needs 915.4
 said), but the drafts' reserved 15-point gutter left 0.6, and less in Firefox.
 Plan: `plans/save_editor.md`, the player view's columns and its "Then Appearance" paragraph,
 and the team view's "Formation settings, the pitch and Player assignments" item.
+
+## 2026-10-28 — save_editor — A Free cards panel for a ruleset without tricks; every title 6 points above what it heads
+Decision: a ruleset with no `tricks` card group but with `free_cards` effects (VTL10, VTL11)
+shows a **Free cards** panel where the Tricks panel would be: every skill one of those effects
+names, those free only for a tier, a position or the captain included, in the game's order; a
+free COM style stays under COM playing styles. A ruleset with a `tricks` group keeps the Tricks
+panel, its free single cards (Malicia, Captaincy) under Skills. Every panel title of the player
+view now stands 6 points above the first thing drawn under it (a field's frame, a checkbox), as
+the team view's do; this replaces the earlier entry's 6.5 to the first line of text.
+Why: the maintainer's review (2026-10-28). The panel lists the cards the ruleset usually leaves
+out of the limit, as Tricks does; filtering by the player's own tier would move a card between
+panels whenever his tier changed, and a tier follows his stats, so a card would jump while
+stats are typed. The Cards left badge still counts a conditional free card by the player's own
+tier. Six points to the drawn content is the team view's spacing, which the maintainer called
+fine; the player view's label blocks and Ability stats sat 5 points from their field frames.
+Plan: `plans/save_editor.md`, the player view's "Skills" item and its titles' sentence.

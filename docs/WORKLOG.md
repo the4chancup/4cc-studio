@@ -3775,8 +3775,19 @@ briefs, review loops, gates and mutation runs as for any step.
       `title_gaps.py`, `side_space.py`, `behaviour.py` (offset 400 kept across a pick and an
       edit; Tricks under Autumn 26, none under VTL11 and DBC7), `sbw17.py` (a 17-point bar:
       one row, the pane's content 931), `errors_min.py` (no page errors; the minimum size)
-    - [ ] w6b the code: the Tricks panel (from the active ruleset's `tricks` group, none
-      when absent or broken), the titles' line and spacings, Player assignments' gaps; a test
+    - [x] w6c the drafts, the maintainer's second look (DECISIONS "A Free cards panel for a
+      ruleset without tricks"): a ruleset with no `tricks` group shows a Free cards panel of
+      the skills its `free_cards` effects name (VTL11: 17; `asideCards`, `asidePanel`); every
+      player-view title 6 points above the first thing drawn under it, as the team view's;
+      an open select's list in the body font with a sans fallback (Firefox drew it in its
+      serif default); the duplicate `RobotoFlex-OFL.txt` dropped from the drafts' assets (the
+      README holds the licence; the bundle test failed on it since 0.0.1w4a). Checked:
+      `title_gaps.py` (all 6, the three titles still at y 84), `aside.py` (Tricks 11 under
+      Autumn 26, Free cards 17 under VTL11, none under DBC7, no page errors),
+      `draft_fonts.py` (0 findings), `bundle_drafts_test.py` (OK)
+    - [ ] w6b the code: the Tricks or Free cards panel (from the active ruleset's `tricks`
+      group, else its `free_cards` effects' skills, none when neither or broken), the titles'
+      line and 6-point spacings, Player assignments' gaps; a test
       that the detail pane's offset survives a pick (the app's one ScrollArea keeps it today,
       by reading) → verify: the gates; the built window's player and team views against the
       drafts (asks before it takes focus). Waits for the maintainer's look (QUESTIONS

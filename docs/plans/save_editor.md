@@ -282,12 +282,15 @@ all side by side.
      A label and its field are never closer than 9 points on a pair and 12 in the label-left
      rows and Ability stats; the room this takes comes off the margins either side of the centred view.
   2. **Skills**, the Cards left badge in its header, the version's skills (up to 41,
-     version-gated) but the active ruleset's tricks, as checkboxes in two columns filled column
-     by column; under it **Tricks**, the skills the ruleset's `tricks` card group names, in the
-     game's order, two columns filled the same way: a member weighs a skill against the card
-     limit, while the ruleset's free trick allowance usually covers a trick, so the two read
-     apart. No Tricks panel when the ruleset has no `tricks` group or its file does not load:
-     every skill then stays under Skills. Under them **COM playing styles**, the 7 in two columns
+     version-gated) but the active ruleset's tricks or free cards, as checkboxes in two columns
+     filled column by column; under it **Tricks**, the skills the ruleset's `tricks` card group
+     names, in the game's order, two columns filled the same way: a member weighs a skill
+     against the card limit, while the ruleset's free trick allowance usually covers a trick,
+     so the two read apart. A ruleset with no `tricks` group (VTL's) shows **Free cards**
+     there instead: every skill one of its `free_cards` effects names, those free only for a
+     tier, a position or the captain included, so a card does not move between panels when a
+     player's tier changes. Neither panel when the ruleset names no such card or its file does
+     not load: every skill then stays under Skills. Under them **COM playing styles**, the 7 in two columns
      whose second starts at the skills' second's x. Every cell is one line of one height, a
      version-gated card's disabled one as tall as an enabled one, so each row of the two
      columns shares one y (the draft's disabled cells were 2 points taller, and its second
@@ -295,8 +298,9 @@ all side by side.
   3. **Ability stats**, ~25 in one column in the game's order, each label beside its number.
   The three columns' titles share one line: Skills' row is as tall as its Cards left badge, so
   it starts 3 points above the columns' top, and the columns start 3 points lower than a bare
-  title would. Every panel title of the view stands 6.5 points above the first line under it,
-  Ability stats' spacing, the badge's lower half overlapping that gap.
+  title would. Every panel title of the view stands 6 points above the first thing drawn under
+  it (a field's frame, a checkbox), the badge's lower half overlapping that gap: the spacing of
+  the team view's titles, so the two views read alike.
   Then **Appearance**, a collapsing section closed by default, below the columns (its contents
   below). Opening it makes the view taller than the pane, and the pane's scroll bar then
   floats over the view's right margin (egui 0.37's default `ScrollStyle::floating`, which
