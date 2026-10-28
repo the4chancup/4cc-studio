@@ -13033,3 +13033,13 @@ executable reads the position byte every frame, but of a formation the drag does
 commit before the release, which the step-to-step reading missed. The same check found
 the swap working as the editor's does, so that open check is closed.
 Plan: `plans/save_editor.md` "Tactics editor" ("A held starter"), SE-GUI-42.
+
+## 2026-10-29 — save_editor — The formation selector is locked on Kick-off while Fluid formation is off
+Decision: while the shown preset's Fluid formation is off (always on PES 2015, which has no
+switch), the Tactics editor's formation selector is disabled and shows Kick-off; switching
+it off moves the view back to Kick-off. The formation bar's Copy/swap menu stays enabled.
+Why: the maintainer's ask. The game fields the In-possession and Out-of-possession
+formations only while Fluid formation is on, so editing them with it off changed nothing a
+match uses and left a member wondering why. Copy/swap stays: copying Kick-off into them is
+how a member prepares them before switching Fluid formation on.
+Plan: `plans/save_editor.md` "Tactics editor" (the formation bar).

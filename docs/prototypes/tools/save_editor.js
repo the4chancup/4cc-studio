@@ -337,6 +337,11 @@ table.grid.stats-grid td { padding: 2px 6px; }
 .rate .sel.on.rc { background: #5a5a5a; color: var(--text); }
 .rate.off .sel { color: #5a5a5a; }
 .rate.off .sel:hover { background: none; color: #5a5a5a; }
+/* The formation picker while the preset's Fluid formation is off: disabled as egui fades a
+   disabled widget, its tooltip kept. */
+.fsel.off { opacity: .6; }
+.fsel.off .sel:hover { background: none; color: inherit; }
+.fsel.off .sel.on:hover { background: var(--sel-bg); color: var(--sel-fg); }
 .palette { display: inline-flex; gap: 2px; align-items: center; }
 .palette .swatch.on { outline: 1px solid var(--sel-fg); }
 .palette.off .swatch { opacity: .45; }
@@ -5526,13 +5531,19 @@ function slotPopover(t) {
 // note's text, the auto flags' labels.
 function tacticsTab(t) {
   const tac = t.tactics, pre = tacPreset(t);
+  // A preset whose Fluid formation is off fields its Kick-off formation
+  // alone (PES 2015 has no switch: always off), so the picker is disabled
+  // and stays on Kick-off; switching Fluid formation off moves it back.
+  const locked = !pre.style.fluid;
+  if (locked) S.tac.formation = 0;
   const presetSel = h("span", { class: "row", style: "gap:2px" },
     weak("Preset"), [0, 1, 2].map(i =>
       selectable(String(i + 1), S.tac.preset === i, () => S.tac.preset = i)));
-  const formationSel = h("span", { class: "row", style: "gap:2px",
-      title: "The game uses formations 2 and 3 only while the preset's fluid formation is on" },
+  const formationSel = h("span", { class: "row fsel" + (locked ? " off" : ""), style: "gap:2px",
+      title: locked ? "Formations 2 and 3 are used only while Fluid formation is on"
+        : "The game uses formations 2 and 3 only while the preset's fluid formation is on" },
     FORMATIONS.map((f, i) =>
-      selectable(f, S.tac.formation === i, () => S.tac.formation = i)));
+      selectable(f, S.tac.formation === i, () => { if (!locked) S.tac.formation = i; })));
   // Each Copy/swap menu acts on the selected preset or formation: a copy to,
   // then a swap with, each of the other two (the bar it sits in names what).
   const others = sel => [0, 1, 2].filter(b => b !== sel);

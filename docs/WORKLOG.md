@@ -4527,8 +4527,11 @@ briefs, review loops, gates and mutation runs as for any step.
     up", the maintainer's PES 17 check of 2026-10-29, which also found the swap as the
     editor's) and shown on his badge, the release writing both; the lit area (`RosterRow`
     carrying each starter's A/B ratings); the popover's combo limited to the spot's choices,
-    X and Y applying the rule. The sidekick's brief (`brief_ov10.md`) asked for the
-    step-to-step rule: its rework brief corrects it
+    X and Y applying the rule; the formation selector disabled on Kick-off while the shown
+    preset's Fluid formation is off (the maintainer, 2026-10-29; DECISIONS "The formation
+    selector is locked on Kick-off while Fluid formation is off"). The sidekick's brief
+    (`brief_ov10.md`) asked for the step-to-step rule: its rework brief corrects it and adds
+    the lock
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in

@@ -580,7 +580,12 @@ Win32 original hurt the most):
   1. The **preset bar** (Preset 1/2/3, Fluid formation, then its Copy/swap menu) level with
      the **formation bar** (Kick-off / In-possession / Out-of-possession and theirs), which
      spans the pitch's column and the next: the formations and their menu need more than the
-     pitch's width.
+     pitch's width. While the shown preset's Fluid formation is off (PES 2015 has no switch,
+     so always), the formation selector is disabled and on Kick-off, its hover
+     `Formations 2 and 3 are used only while Fluid formation is on`: the game fields the
+     other two only while it is on, so editing them there edits nothing a match uses, and
+     switching Fluid formation off moves the view back to Kick-off. Their Copy/swap menu
+     stays, a copy into them being how a member prepares them before switching it on.
   2. **Formation settings**, the pitch and **Player assignments**, the two panels exactly as
      tall as the pitch (386 points with its border) and level with it. Formation settings
      runs row by row, each offensive setting beside its defensive pair (Attacking style beside
