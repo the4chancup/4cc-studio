@@ -571,6 +571,32 @@ fn assert_left_of_label(mark: &egui::epaint::TextShape, label: accesskit::Rect, 
     );
 }
 
+/// Asserts an ability stat's `mark` has its 11-point box end 2 points
+/// (± 0.5) before the stats' label column, whose left edge is the leftmost
+/// stat label's (the labels are right-aligned against their boxes, so the
+/// widest one starts the column).
+fn assert_before_stat_column(
+    mark: &egui::epaint::TextShape,
+    nodes: &[accesskit::Node],
+    what: &str,
+) {
+    let column_left = ABILITY_STATS
+        .iter()
+        .map(|name| {
+            label_bounds(
+                nodes,
+                &pes_savefile::interchange::team_toml::labels::title_case(name),
+            )
+            .x0
+        })
+        .fold(f64::MAX, f64::min);
+    let box_right = f64::from(mark_centre(mark).x) + 5.5;
+    assert!(
+        (column_left - box_right - 2.0).abs() <= 0.5,
+        "{what}: the mark's box ends at {box_right}, 2 points before the label column at {column_left}"
+    );
+}
+
 /// The Label node whose value starts with `prefix` (a counted label's
 /// value carries its count).
 fn label_starting(nodes: &[accesskit::Node], prefix: &str) -> accesskit::Rect {
@@ -586,11 +612,12 @@ fn label_starting(nodes: &[accesskit::Node], prefix: &str) -> accesskit::Rect {
 
 /// Three ability stats one over the regulars' 77 target (still regular:
 /// a medal's recognition threshold is higher) raise a `Stat` error each:
-/// each stat's cross stands left of its label, its box 2 points from the
-/// text, the three crosses on one centre x, and no label moved from the
-/// run with Live AATF off.
+/// the labels being right-aligned, each stat's cross stands at the label
+/// column's left edge, its box ending 2 points before it whether the
+/// label is long (Attacking Prowess) or short (Speed), the three crosses
+/// on one centre x, and no label moved from the run with Live AATF off.
 #[test]
-fn the_stats_crosses_line_up_left_of_their_labels() {
+fn the_stats_marks_line_up_at_the_label_columns_left_edge() {
     let (mut view, mut window) = open_734("live_marks_stat");
     let stats = [
         ("attacking_prowess", "Attacking Prowess"),
@@ -640,7 +667,7 @@ fn the_stats_crosses_line_up_left_of_their_labels() {
         let mark = mark_on_row(&marks, bounds, label);
         assert_eq!(mark.galley.job.text, "\u{2716}", "{label}: a cross");
         assert_eq!(galley_color(mark), error, "{label}: the error colour");
-        assert_left_of_label(mark, bounds, label);
+        assert_before_stat_column(mark, &nodes, label);
         assert_eq!(
             bounds,
             label_bounds(&nodes_off, label),
@@ -818,7 +845,7 @@ fn a_warnings_mark_is_an_orange_warning_sign() {
     );
     let label = label_bounds(&nodes, "Attacking Prowess");
     let mark = mark_on_row(&field_marks(&shapes), label, "Attacking Prowess");
-    assert_left_of_label(mark, label, "Attacking Prowess");
+    assert_before_stat_column(mark, &nodes, "Attacking Prowess");
     assert_eq!(mark.galley.job.text, "\u{26a0}", "a warning sign");
     assert_eq!(
         galley_color(mark),

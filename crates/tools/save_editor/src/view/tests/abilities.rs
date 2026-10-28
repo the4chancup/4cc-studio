@@ -278,8 +278,8 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
 }
 
 // The ability stats sit in one column in the game's order, each label
-// beside its number: the 25 stats run top to bottom at one x, each
-// label's SpinButton on its row.
+// beside its number: the 25 stats run top to bottom, their labels'
+// right edges at one x, each label's SpinButton on its row.
 #[test]
 fn the_stats_fill_one_column_in_the_games_order() {
     let path = fixture(PesVersion::Pes21, "stats_column");
@@ -299,13 +299,13 @@ fn the_stats_fill_one_column_in_the_games_order() {
         .iter()
         .map(|name| pes_savefile::interchange::team_toml::labels::title_case(name))
         .collect();
-    let x0 = at(&labels[0]).x0;
+    let x1 = at(&labels[0]).x1;
     let mut top = f64::MIN;
     for label in &labels {
         let bounds = at(label);
         assert!(
-            (bounds.x0 - x0).abs() < 1.0,
-            "{label} shares the column's x0"
+            (bounds.x1 - x1).abs() < 1.0,
+            "{label} shares the column's x1"
         );
         assert!(bounds.y0 > top, "{label} sits below the stat above");
         top = bounds.y0;
@@ -314,6 +314,54 @@ fn the_stats_fill_one_column_in_the_games_order() {
             "{label}'s number beside it"
         );
     }
+}
+
+// The ability stats' labels stand right-aligned against their numbers:
+// every label's right edge at one x, 12 points before its box, centred on
+// its box's row, and the widest one starting the cell padding (6) in from
+// the panel's title, where the labels started when left-aligned.
+#[test]
+fn the_stats_labels_stand_right_aligned_twelve_before_their_boxes() {
+    let path = fixture(PesVersion::Pes21, "stats_right_aligned");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let labels: Vec<String> = pes_savefile::interchange::team_toml::labels::ABILITY_STATS
+        .iter()
+        .map(|name| pes_savefile::interchange::team_toml::labels::title_case(name))
+        .collect();
+    let right = label_bounds(&nodes, &labels[0]).x1;
+    let mut left = f64::MAX;
+    for label in &labels {
+        let bounds = label_bounds(&nodes, label);
+        let field = right_of_label(&nodes, label, Role::SpinButton)
+            .first()
+            .unwrap_or_else(|| panic!("{label}'s number"))
+            .bounds()
+            .expect("bounds");
+        assert!(
+            (bounds.x1 - right).abs() <= 0.5,
+            "{label}'s right edge {} at the column's {right}",
+            bounds.x1
+        );
+        assert!(
+            (field.x0 - bounds.x1 - 12.0).abs() <= 0.5,
+            "{label} ends 12 before its box ({} vs {})",
+            bounds.x1,
+            field.x0
+        );
+        assert!(
+            ((bounds.y0 + bounds.y1) / 2.0 - (field.y0 + field.y1) / 2.0).abs() <= 0.5,
+            "{label} centred on its box's row ({bounds:?} vs {field:?})"
+        );
+        left = left.min(bounds.x0);
+    }
+    let title = label_bounds(&nodes, "Ability stats").x0;
+    assert!(
+        (left - title - 6.0).abs() <= 0.5,
+        "the leftmost label 6 in from the title ({left} vs {title})"
+    );
 }
 
 // The playable positions' C/B/A ratings: a click stores its rating in the
