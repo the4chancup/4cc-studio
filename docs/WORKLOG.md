@@ -4392,7 +4392,9 @@ briefs, review loops, gates and mutation runs as for any step.
       Save, Save as | Undo, Redo | Player, Team, Savefile | ruleset, Live AATF, the Panels
       menu's entries moved to the Savefile and Team menus (`view/menus.rs`, the tests that open
       them through `Panels`, `help/02_window.md`; DECISIONS "The toolbar's order, no Panels
-      menu, shortcuts right of their labels")
+      menu, shortcuts right of their labels"); the views' titles 7 below the toolbar, the team
+      view's `<id> <name>` (DECISIONS "A view's title under the toolbar, the team's with its
+      id")
   - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
     the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/`; the first rulings
     drafted and planned (ov2f; the dock's kind codes kept). The two points left for later (a

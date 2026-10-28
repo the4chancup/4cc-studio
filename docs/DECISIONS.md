@@ -12903,3 +12903,15 @@ two act on the whole save, chose the Savefile menu for those; the menus switch o
 menu bar's do.
 Plan: `plans/save_editor.md` "Editing UI" (the toolbar), "Configurable AATF rules" (No AATF
 panel), "Acceptance" (SE-GUI-15).
+
+## 2026-10-28 — save_editor — A view's title under the toolbar, the team's with its id
+Decision: the player view's and the team view's titles are drawn alike, `<id> <name>`, the id
+in the weak colour (the team view now shows `701 /3/`, not the name alone), its ink as far
+below the toolbar's buttons as the first row's ink is below the title (the toolbar's margin
+left 4). Lead's choice, applied: one title function for both views, so their spacing cannot
+drift apart. Amended the same evening on the maintainer's measure: equal box gaps of 7 read
+as 9 above and 11 below on their screen (a line box's room under the baseline), so the title
+sits 2 lower, the gaps even in ink.
+Why: the maintainer's look: the titles sat almost against the toolbar; the team's id belongs
+beside its name as a player's does.
+Plan: `plans/save_editor.md` "Editing UI" (No view draws the tool's name).

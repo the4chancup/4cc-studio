@@ -259,9 +259,13 @@ all side by side.
   **nor the open save's path**: the tool's `title_detail` gives it to the idle window title,
   in square brackets, and the toolbar keeps `• unsaved changes` alone, which never takes a
   second row.
-  Each view's first line titles what it shows: the player view `<id> <name>` (`70101 QUADS
-  ONLY`), the id in the weak colour, as the list draws ids, and the name with its colours; the
-  team view the team's name with its colours.
+  Each view's first line titles what it shows, `<id> <name>`: the player view's `70101 QUADS
+  ONLY`, the team view's `701 /3/`, the id in the weak colour, as the list draws ids, and the
+  name with its colours; its ink as far below the toolbar's buttons as the view's first
+  row's ink is below its own (about 11 points each on the maintainer's screen), not close
+  under the buttons. The gaps are even in what the eye sees, not in boxes: a line box holds
+  more room under the baseline than over the capitals, so equal box gaps of 7 read as 9 above
+  and 11 below, and the title sits 2 lower to even them.
 - **The player view**: three columns side by side, then the Appearance section, the room
   the fixed columns leave split into four equal gaps: after the player list, between the
   columns, and after Ability stats (29.4 points each at the 1280 × 780 window). The first

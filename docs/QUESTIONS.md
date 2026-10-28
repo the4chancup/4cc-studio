@@ -11,38 +11,30 @@ names where the question came from so the context can be read there.
 ## Before the release
 
 - **The final pass over the built app's UI** (worklog 0.0.1f1c; the maintainer asked for it on
-  2026-10-28), under way since 2026-10-28 ~14:00. Ruled so far: DECISIONS "The final pass's
-  first rulings" and "second rulings", and "The wheel over a combo box or a drag value steps
-  its value". Drafted from the second rulings and waiting for a look, each image with its
-  reason: `.tmp/0_0_1ov/vet/list_aligned.png` (the controls above and below the list ending at
-  its frame; the roster places 01 to 23), `vet/a_rating.png` (the chosen A in `#129648`, its
-  letter white), and the Live AATF gallery `.tmp/0_0_1ov/live/` (07 the list's orange and
-  blue check marks, 08 and 10 every field mark left of its label, 12 the suggestions' blue
-  marks, 13 the dock's Suggestions group; the earlier set kept in `live_before/`); the wheel
-  stepping a combo or a number box can be tried in the drafts themselves. Drafted from the
-  fourth rulings (DECISIONS "Live AATF replaces the AATF panel; the final pass's fourth
-  rulings"): `vet/ruleset_picker.png` (the dropdown open, left of Live AATF) and
-  `.tmp/0_0_1ov/ov7/imported_open.png` (an import under its line, with its ×; the import,
-  refusal, replace and remove dialogs can be walked in the drafts, the walkthrough's
-  SE-GUI-15), `vet/gen_indent.png` (the first column's fields 6 in; the badge without
-  `cards`), and the Name and Shirt counts' colours, tried by typing in the drafts. Drafted
-  from the fifth rulings (DECISIONS "The final pass's fifth rulings"): `vet/even_gaps.png`
-  (four equal gaps), `.tmp/0_0_1ov/ov7/multi.png` (Multi-team AATF; the Savefile menu opens it
-  in the drafts). Drafted from the sixth rulings (DECISIONS "The final pass's sixth rulings"):
-  `.tmp/0_0_1ov/ov7/multi_clean.png` (a clean team under `All clean`, the list inside the
-  dialog), `ov7/pictures_range.png` (the formation pictures' range on one row). Drafted from
-  the seventh rulings (DECISIONS "The final pass's seventh rulings"): the drag handles 4 from
-  the row's edge, `.tmp/0_0_1ov/ov8/hints.png` (every hint at a valid value as the dock words
-  it) and `ov8/height_hint.png` (a player set to 183 under Autumn 26, the bracket he left
-  named; tried in the drafts by changing a height with Live AATF on);
-  `.tmp/0_0_1ov/boglo_after.png` (Set boots and gloves IDs in 4ccEditor's layout, DECISIONS
-  "Set boots and gloves IDs takes 4ccEditor's layout"); `.tmp/0_0_1ov/menus/` (the toolbar's
-  new order, each menu open, the shortcuts right of their labels; the menus switch on hover in
-  the drafts). Still to look at:
-  the windows' titles at 14 in white in the built app; the preview's icon where the lead
-  cannot capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the
-  head; Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's
-  hash (0.0.1f2).
+  2026-10-28), under way since 2026-10-28 ~14:00; what changes it asks for is drafted first
+  (the next entry), then built. Still to look at in the built app: the windows' titles at 14
+  in white; the preview's icon where the lead cannot capture it (worklog 0.0.1v: the taskbar
+  button and Alt+Tab show the tight crop of the head; Explorer's file icon on the exe). Then
+  the confirmation that freezes logic version 1's hash (0.0.1f2).
+- **Draft changes waiting for a look** (worklog 0.0.1ov2b to ov2h; each round's DECISIONS
+  entry, "The final pass's first rulings" to "seventh rulings" and the later ones), the images
+  rendered from `docs/prototypes/`, each with its reason; what can be tried is tried in the
+  drafts themselves. From the second rulings: `.tmp/0_0_1ov/vet/list_aligned.png` (the
+  controls above and below the list ending at its frame; the roster places 01 to 23),
+  `vet/a_rating.png` (the chosen A in `#129648`, its letter white), and the Live AATF gallery
+  `.tmp/0_0_1ov/live/` (07 the list's orange and blue check marks, 08 and 10 every field mark
+  left of its label, 12 the suggestions' blue marks, 13 the dock's Suggestions group); the
+  wheel stepping a combo or a number box. From the fourth: `vet/ruleset_picker.png` (the
+  dropdown open, left of Live AATF), `.tmp/0_0_1ov/ov7/imported_open.png` (an import under its
+  line, with its ×; the import, refusal, replace and remove dialogs walked as the walkthrough's
+  SE-GUI-15 says), `vet/gen_indent.png` (the first column's fields 6 in; the badge without
+  `cards`), the Name and Shirt counts' colours, tried by typing. From the fifth:
+  `vet/even_gaps.png` (four equal gaps), `ov7/multi.png` (Multi-team AATF). From the sixth:
+  `ov7/multi_clean.png` (a clean team under `All clean`, the list inside the dialog),
+  `ov7/pictures_range.png` (the formation pictures' range on one row). From the seventh: the
+  drag handles 4 from the row's edge; `.tmp/0_0_1ov/boglo_after.png` (Set boots and gloves IDs
+  in 4ccEditor's layout, polished). Then: `.tmp/0_0_1ov/titles/` (the player and team views'
+  titles 7 below the toolbar, the team's with its id).
 
 ## Cup practice
 

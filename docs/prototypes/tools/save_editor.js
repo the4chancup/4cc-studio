@@ -4026,7 +4026,7 @@ const textCount = (kind, raw) => {
 // column. Every field ends on the panel's right edge or its half's. Every
 // field is an undoable edit. The name field keeps the raw string (colour
 // codes shown as \x11c sequences); Captain marks him in the team's set
-// pieces. The id is the view's title's prefix (playerHeader).
+// pieces. The id is the view's title's prefix (viewTitle).
 function generalPanel(p, team) {
   const gl = (t, above) => h("span", { class: "gl" + (above ? " above" : "") }, t);
   const above = (label, el) => h("div", {}, gl(label, true), el);
@@ -4099,11 +4099,16 @@ function generalPanel(p, team) {
         marked("Registered position", "registered"), reg,
         marked("Playing style", "playing_style"), style))), "general");
 }
-// The view's title: the player's id, weak as the list rows draw ids, then
-// his name drawn with its colour codes.
-function playerHeader(p) {
-  return h("div", { class: "pheader strong", style: "margin-bottom:4px" },
-    h("span", { class: "weak" }, String(p.id)), " ", ...nameSpans(p.name));
+// A view's title, the player view's and the team view's alike: the id, weak
+// as the list rows draw ids, then the name drawn with its colour codes. Its
+// ink as far below the toolbar's buttons as the view's first row's ink is
+// below its own, measured in pixels, not boxes: the line box holds more
+// room under the baseline than over the capitals, so equal box gaps of 7
+// read as 9 above and 11 below on the maintainer's screen. The toolbar's 4
+// of margin and 5 more.
+function viewTitle(id, name) {
+  return h("div", { class: "pheader strong", style: "margin:5px 0 4px" },
+    h("span", { class: "weak" }, String(id)), " ", ...nameSpans(name));
 }
 // One "Make X" per tier of the active ruleset in its order, plus Set stats
 // (SE-GUI-09), in two columns under the player list. They act on the selected
@@ -4151,7 +4156,7 @@ function renderDetail() {
 // section, closed by default.
 function playerView(p, team) {
   return h("div", { id: "player-view" },
-    playerHeader(p),
+    viewTitle(p.id, p.name),
     h("div", { class: "pcols" },
       h("div", { class: "col pcol first" }, generalPanel(p, team), otherStatsPanel(p),
         positionsPanel(p)),
@@ -4168,7 +4173,7 @@ function teamView(t) {
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v)) { edit(label, () => { t[key] = v; }); render(); } } })), minV));
   return h("div", { id: "team-view" },
-    h("div", { class: "strong", style: "margin-bottom:4px" }, ...nameSpans(t.name)),
+    viewTitle(t.id, t.name),
     // The ids and the Kit slots button on the fields' row (the maintainer,
     // 2026-10-26: the Tactics below need the height).
     h("div", { class: "row" },
