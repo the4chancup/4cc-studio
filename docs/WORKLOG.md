@@ -2814,11 +2814,22 @@ briefs, review loops, gates and mutation runs as for any step.
     unclean notice at `Info`), `main.rs`, `scripts/symbolize_log.py` and its test (run by
     `doc-pointers`), `scripts/release.py`'s `-symbols.7z`; the release exe 39,195,648 B before,
     39,195,136 after, the `.pdb` 17 MB to 117 MB (`plans/core/architecture.md`)
-  - [ ] k3 ST-RUN-08 in the built window (manual, asked before it runs; with 0.0.1l's
+  - [x] k3 ST-RUN-08 in the built window (manual, asked before it runs; with 0.0.1l's
     ST-RUN-04), on a release build with a panic added by hand: the dialog, exit 101, and the
     log's frames named by `symbolize_log.py` against that build's kept exe and `.pdb`; the
     next start shows no second dialog for it, while one after a kill from Task Manager does
     (ST-RUN-09)
+    - ST-RUN-08 manual: checked 2026-10-28 by the lead on a release build of `825f1885` in
+      the `ingame` worktree with About's Copy panicking by hand (reverted, rebuilt, the
+      bundle's exe free of it), its own data folder (`.tmp/0_0_1k3/`, `k3.py`): the click
+      shows a dialog repeating "k3 test panic: About's Copy clicked" and naming `studio.log`;
+      once closed the process exits 101; the log holds the message, `about.rs:63:17` and 59
+      frames, which `scripts/symbolize_log.py` names against the kept exe and `.pdb`
+      (`about::show` at `about.rs:63`), and ends "the crash above was shown to the member"
+      (kept, symbolized, as `.tmp/0_0_1k3/symbolized.log`; the later starts rotated it out).
+      ST-RUN-09 the same day: no dialog on the first start (no earlier log) nor after the
+      reported crash; after the process was killed, a dialog before the window naming
+      `studio.old.log`; a WM_CLOSE ends the log "the window closed normally", exit 0
   - [ ] k4 the crash dump (P38, accepted on a measured condition; `plans/core/architecture.md`
     "Diagnostic logging", the "crash dump" bullet; ST-RUN-10), after k2: first the release exe
     built with and without `crash-handler`, `minidumper` and `minidump-writer` wired in a

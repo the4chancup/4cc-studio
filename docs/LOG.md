@@ -2773,3 +2773,4 @@ worklog passed 7,000 lines.
 - **2026-10-28** — Worklog bookkeeping while the final pass waits: 0.0.1j, cm and m closed (m's three stale test comments rewritten); the plan's settings path row off egui's old 13-point font; the draft's path box kept at 440 (472 wraps its Browse buttons).
 - **2026-10-28** — The marks' built-window look (o2, 0.0.1o closed): truncated rows clear their marks; the drafts' crosses go from 4 to the app's 2 points, since 4 pushes the Registered position cross into its combo.
 - **2026-10-28** — 0.0.1r's Browse in the built window at PES 2019: a folder named for the year stored as `20**`, a plain one as picked; 0.0.1r closed.
+- **2026-10-28** — k3: ST-RUN-08 and ST-RUN-09 checked on a hand-panicked release build (dialog, exit 101, the log's frames symbolized; the next start's dialog only after a kill); the panic reverted and the release rebuilt.
