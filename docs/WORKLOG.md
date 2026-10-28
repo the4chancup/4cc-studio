@@ -4363,14 +4363,21 @@ briefs, review loops, gates and mutation runs as for any step.
       `.tmp/sidelead/sk_ov2cf.report.md`): `pitch::paint_portrait_cross` (black strokes 7
       wide under the colour's 5, round ends), the hover over the portrait, a press on it still
       opening his popover
-    - [ ] ov2d the player list's scroll bar outside its frame (the maintainer, 2026-10-28;
+    - [x] ov2d the player list's scroll bar outside its frame (the maintainer, 2026-10-28;
       drafts done): egui's solid bar, 4 points from the content and 6 wide, the strip kept
       while nothing scrolls; a row's fill reaching the frame's edge (`save_editor`'s
       `player_list.rs`, replacing the reserved floating band); the controls above and below
       the list ending at its frame, not at its bar, Set stats still fitting; a row numbered by
       the player's roster place `01` to `23`, not his shirt number; a chosen A rating
       `#129648` under a white letter (DECISIONS "The final pass's second rulings"; drafts done;
-      `plans/save_editor.md` "Editing UI", the Player list bullet and the positions grid)
+      `plans/save_editor.md` "Editing UI", the Player list bullet and the positions grid).
+      Built with ov2g (Opus sidekick, brief `.tmp/0_0_1ov/brief_ov2dg.md`, rework
+      `rework_ov2dg_r1.md`, report `.tmp/sidelead/sk_ov2dg.report.md`): `player_list.rs`'s
+      frame drawn to the draft's `.rows`, `ScrollStyle::solid()`, rows at the frame's width;
+      `row_text`'s `{place:02}`; `RATING_A_FILL`. The list column is the draft's 255 without
+      egui's panel margins and separator, which `default_size(255)` had counted (17 points:
+      the frame now at 12..257 in the pane, as the draft's); a team row with an elided name
+      draws no hint
     - [ ] ov2e the wheel over a combo box or a drag value steps it (the maintainer, 2026-10-28;
       DECISIONS "The wheel over a combo box or a drag value steps its value"; drafts done):
       one `studio_core` widgets function, called on every combo box and drag value of the
@@ -4397,14 +4404,24 @@ briefs, review loops, gates and mutation runs as for any step.
       `each_fields_mark_stands_left_of_its_label`. Open: no acceptance scenario covers Show
       suggestions or the mark kinds yet; the dock draws a `Team 734 /lit/` line the draft's
       lacks (for ov6)
-    - [ ] ov2g the fourth rulings' looks (the maintainer, 2026-10-28; DECISIONS "Live AATF
+    - [x] ov2g the fourth rulings' looks (the maintainer, 2026-10-28; DECISIONS "Live AATF
       replaces the AATF panel; the final pass's fourth rulings"; drafts done,
       `plans/save_editor.md` "Editing UI"): General info's and Other stats' fields 6 in from
       their titles (the first column 350); the view's four equal gaps (after the list's frame,
       between the columns, to the window's edge: 29.4 at 1280 × 780); the Cards left badge
       `Gold: 6 of 8`, no `cards`; the Name and Shirt counts `#5a5a5a` under the limit, the
       warning orange
-      on it, the error red past it (SE-GUI-38)
+      on it, the error red past it (SE-GUI-38). Built with ov2d: `abilities.rs`'
+      `CELL_PADDING` 6 (the inset, and Ability stats' cells, which lacked the draft's outer
+      6 on each side: 157.4 wide against the draft's 169.4), the four gaps in `view::show`;
+      `cards::cards_left`'s format; `info_strip`'s `count_color`. Tests in `tests/list.rs` and
+      `tests/abilities.rs` (the frame's edges, the column's width, the four gaps at 29.4),
+      red on the old layout
+    - [ ] ov2i the ability stats' labels right-aligned as the draft draws them
+      (`td.ilabel { text-align: right }`; found by ov2dg's sidekick, 2026-10-28), each
+      stat's Live AATF mark then at the cell's left edge (the draft's `.xmark` `right:
+      calc(100% - 4px)`), so the marks stay in one column; ov2cf paints it 2 before the
+      label's text, which lines up only while the labels are left-aligned
     - [ ] ov2h the sixth rulings' looks (the maintainer, 2026-10-28; DECISIONS "The final
       pass's sixth rulings"; drafts done, `plans/save_editor.md` "Editing UI", "Tactics
       editor"): the drag handle 4 points from the row's edge and 4 before the place, in the

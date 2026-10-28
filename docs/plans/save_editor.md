@@ -179,7 +179,8 @@ all side by side.
   included. Picking a team selects its team row, so the detail shows that team's view, its
   tactics with it: a manager who picks a team usually wants its tactics next. Picking ALL keeps
   the selection.
-- **Player list**, 255 points wide and not resizable: under the design width the window scales
+- **Player list**, 255 points wide (its rows' frame and the scroll bar's strip; egui's panel
+  margins and separator come on top) and not resizable: under the design width the window scales
   instead of narrowing (`spec/core/gui.md` "Shell layout", the paragraph "Scaling with the width"), so the view always has the
   room the 1280-point layout gives it, and a list dragged wider would only take that room back.
   Its scroll bar stands outside the list's frame, egui's solid bar (4 points from the
