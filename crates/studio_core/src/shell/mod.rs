@@ -382,7 +382,7 @@ impl eframe::App for StudioApp {
             // The window is created at `DEFAULT_SIZE`; the first frame that
             // reports the monitor fits and centers it, once.
             Some(window_size::Opening::Fit) => {
-                if let Some((size, top_left)) = window_size::fit(&viewport) {
+                if let Some((size, top_left)) = window_size::fit(&viewport, zoom) {
                     egui_ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
                     egui_ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(top_left));
                     self.window_start = None;

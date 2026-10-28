@@ -318,23 +318,61 @@ mod tests {
         monitor: egui::Vec2,
         maximized: bool,
     ) -> egui::RawInput {
+        placed_input_zoomed(outer_min, size, monitor, maximized, 1.0)
+    }
+
+    /// `placed_input` for a pass running at `zoom`: egui-winit reports the
+    /// monitor, the rects and the positions in the zoomed points, so every
+    /// zoom-1 value is divided by `zoom`.
+    fn placed_input_zoomed(
+        outer_min: egui::Pos2,
+        size: egui::Vec2,
+        monitor: egui::Vec2,
+        maximized: bool,
+        zoom: f32,
+    ) -> egui::RawInput {
         let mut input = raw_input(Vec::new(), true, None, None);
-        input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size));
+        input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size / zoom));
         let info = input
             .viewports
             .get_mut(&egui::ViewportId::ROOT)
             .expect("`RawInput::default` carries the root viewport");
-        info.monitor_size = Some(monitor);
-        info.outer_rect = Some(egui::Rect::from_min_size(
-            outer_min,
-            size + egui::vec2(16.0, 39.0),
-        ));
-        info.inner_rect = Some(egui::Rect::from_min_size(
-            outer_min + egui::vec2(8.0, 31.0),
-            size,
-        ));
+        info.monitor_size = Some(monitor / zoom);
+        info.outer_rect =
+            Some(egui::Rect::from_min_size(outer_min, size + egui::vec2(16.0, 39.0)) / zoom);
+        info.inner_rect =
+            Some(egui::Rect::from_min_size(outer_min + egui::vec2(8.0, 31.0), size) / zoom);
         info.maximized = Some(maximized);
         input
+    }
+
+    /// Frames of a window `size` zoom-1 points big on `monitor` until the
+    /// shell's width zoom lands, bounded: the first frame reports at zoom 1
+    /// and queues it, the next runs at `zoom`'s points.
+    fn land_zoom(
+        ctx: &egui::Context,
+        app: &mut StudioApp,
+        size: egui::Vec2,
+        monitor: egui::Vec2,
+        maximized: bool,
+    ) {
+        let zoom = size.x / crate::shell::window_size::DEFAULT_SIZE.x;
+        run_frame(
+            ctx,
+            app,
+            placed_input_zoomed(egui::Pos2::ZERO, size, monitor, maximized, 1.0),
+        );
+        for _ in 0..10 {
+            run_frame(
+                ctx,
+                app,
+                placed_input_zoomed(egui::Pos2::ZERO, size, monitor, maximized, zoom),
+            );
+            if ctx.zoom_factor() == zoom {
+                return;
+            }
+        }
+        panic!("the width zoom did not land at {zoom}");
     }
 
     /// Whether `input`'s frame draws the Reset window button, on a fresh
@@ -449,6 +487,57 @@ mod tests {
             "at the fit on a narrow monitor, where the zoom is under 1"
         );
 
+        // The same windows on the passes where the width zoom has landed:
+        // the viewport info in the zoom's points. The 1100-wide window is
+        // off the fit at every zoom; the narrow-monitor fit is its size at
+        // zoom 1, drawn or not by the same rule.
+        let egui_ctx = test_context();
+        land_zoom(&egui_ctx, &mut app, egui::vec2(1100.0, 800.0), fhd, false);
+        assert!(
+            has_label(
+                &run_frame(
+                    &egui_ctx,
+                    &mut app,
+                    placed_input_zoomed(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1100.0, 800.0),
+                        fhd,
+                        false,
+                        1100.0 / 1280.0,
+                    ),
+                )
+                .nodes,
+                "Reset window"
+            ),
+            "resized under the width zoom"
+        );
+        let egui_ctx = test_context();
+        land_zoom(
+            &egui_ctx,
+            &mut app,
+            egui::vec2(1184.0, 800.0),
+            egui::vec2(1200.0, 2000.0),
+            false,
+        );
+        assert!(
+            !has_label(
+                &run_frame(
+                    &egui_ctx,
+                    &mut app,
+                    placed_input_zoomed(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1184.0, 800.0),
+                        egui::vec2(1200.0, 2000.0),
+                        false,
+                        1184.0 / 1280.0,
+                    ),
+                )
+                .nodes,
+                "Reset window"
+            ),
+            "at the narrow monitor's fit, in its zoom's points"
+        );
+
         // A frame reporting a monitor but no window size, and one reporting
         // neither, leave no evidence the window is off its size.
         let mut no_size = raw_input(Vec::new(), true, None, None);
@@ -501,6 +590,62 @@ mod tests {
             ],
             "restored first, then the fit centring the window on its monitor"
         );
+    }
+
+    // ST-BAR-05
+    #[test]
+    fn clicking_reset_window_under_the_width_zoom_fits_at_zoom_one_points() {
+        let Shell { mut app, _dir, .. } = shell();
+        let egui_ctx = test_context();
+        let monitor = egui::vec2(1920.0, 1080.0);
+        let size = egui::vec2(1100.0, 800.0);
+        let zoom = size.x / crate::shell::window_size::DEFAULT_SIZE.x;
+        let input = |events: Vec<egui::Event>| {
+            let mut input = placed_input_zoomed(egui::Pos2::ZERO, size, monitor, false, zoom);
+            input.events = events;
+            input
+        };
+
+        land_zoom(&egui_ctx, &mut app, size, monitor, false);
+        let nodes = run_frame(&egui_ctx, &mut app, input(Vec::new())).nodes;
+        let button = entry(&nodes, "Reset window");
+        run_frame(&egui_ctx, &mut app, input(pointer(button, true)));
+        let out = run_frame(&egui_ctx, &mut app, input(pointer(button, false)));
+
+        // The fit worked at zoom 1: 1280 x 800 centred on the 1920 x 1080
+        // monitor less the (16, 39) decorations; the commands take the
+        // zoom's points, so each is the zoom-1 answer over it.
+        let expected_size = egui::vec2(1280.0, 800.0) / zoom;
+        let expected_position = egui::pos2(312.0, 120.5) / zoom;
+        let commands = place_commands(&out);
+        assert!(
+            commands
+                .iter()
+                .all(|command| !matches!(command, egui::ViewportCommand::Maximized(_))),
+            "no Maximized on a window that was not maximized: {commands:?}"
+        );
+        for (command, expected) in [
+            (
+                commands.iter().find_map(|command| match command {
+                    egui::ViewportCommand::InnerSize(size) => Some(*size),
+                    _ => None,
+                }),
+                expected_size,
+            ),
+            (
+                commands.iter().find_map(|command| match command {
+                    egui::ViewportCommand::OuterPosition(position) => Some(position.to_vec2()),
+                    _ => None,
+                }),
+                expected_position.to_vec2(),
+            ),
+        ] {
+            let got = command.unwrap_or_else(|| panic!("a command is missing: {commands:?}"));
+            assert!(
+                (got - expected).abs().max_elem() <= 0.01,
+                "{got:?} vs {expected:?} in the zoom's points"
+            );
+        }
     }
 
     /// The frame's `Shape::Text` carrying exactly `text` painted inside the

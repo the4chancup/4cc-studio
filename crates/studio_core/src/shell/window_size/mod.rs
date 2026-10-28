@@ -263,14 +263,20 @@ pub(super) fn native_options(opening: &Opening) -> eframe::NativeOptions {
 /// The fit `viewport` calls for, once it reports the monitor's size: the inner size, and
 /// the outer position that centers the *outer* rectangle (the decorations, outer minus
 /// inner, counted; none when either rect is missing). `None` while the monitor is unknown.
-pub(super) fn fit(viewport: &egui::ViewportInfo) -> Option<(egui::Vec2, egui::Pos2)> {
-    let monitor = viewport.monitor_size?;
+/// `viewport`'s sizes are reported in the pass's points — the zoomed units `zoom` undoes —
+/// and the size and position commands take the same units, so the fit runs at zoom 1 on
+/// either side of them.
+pub(super) fn fit(viewport: &egui::ViewportInfo, zoom: f32) -> Option<(egui::Vec2, egui::Pos2)> {
+    let monitor = viewport.monitor_size? * zoom;
     let decorations = match (viewport.outer_rect, viewport.inner_rect) {
         (Some(outer), Some(inner)) => outer.size() - inner.size(),
         _ => egui::Vec2::ZERO,
-    };
+    } * zoom;
     let size = fitted_size(monitor, decorations);
-    Some((size, ((monitor - size - decorations) * 0.5).to_pos2()))
+    Some((
+        size / zoom,
+        ((monitor - size - decorations) * 0.5 / zoom).to_pos2(),
+    ))
 }
 
 /// Whether the window sits off `design` (the active class's design size), the
@@ -279,7 +285,10 @@ pub(super) fn fit(viewport: &egui::ViewportInfo) -> Option<(egui::Vec2, egui::Po
 /// undoes the zoom the rect is expressed in) is not `design` fitted to its
 /// monitor, both rounded to whole points. The position never counts, and a
 /// frame reporting no monitor or no size leaves nothing to compare, so the
-/// button is not drawn.
+/// button is not drawn. `inner_rect`, the monitor and the decorations keep
+/// the zoom the input was built with while egui rescales `screen_rect` alone
+/// at `begin_pass` — the two differ only on the pass a queued zoom lands on,
+/// and `screen / inner` carries the conversion (1 on every consistent frame).
 pub(super) fn off_design_size(
     viewport: &egui::ViewportInfo,
     screen_rect: Option<egui::Rect>,
@@ -297,7 +306,14 @@ pub(super) fn off_design_size(
     let decorations = viewport
         .outer_rect
         .map_or(egui::Vec2::ZERO, |outer| outer.size() - inner.size());
-    (screen.size() * zoom).round() != fitted_size_of(design, monitor, decorations).round()
+    let input_to_zoom_one = zoom * screen.size() / inner.size();
+    (screen.size() * zoom).round()
+        != fitted_size_of(
+            design,
+            monitor * input_to_zoom_one,
+            decorations * input_to_zoom_one,
+        )
+        .round()
 }
 
 /// What the status bar's Reset window click sends: a maximized window is
@@ -307,7 +323,7 @@ pub(super) fn reset(ctx: &egui::Context, viewport: &egui::ViewportInfo) {
     if viewport.maximized == Some(true) {
         ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(false));
     }
-    if let Some((size, top_left)) = fit(viewport) {
+    if let Some((size, top_left)) = fit(viewport, ctx.zoom_factor()) {
         ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
         ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(top_left));
     }

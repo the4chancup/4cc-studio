@@ -259,9 +259,11 @@ pub(super) fn player_assignments(
 /// A chip's padding (the draft's `.rolechip` `padding: 1px 6px`).
 const CHIP_PADDING: egui::Vec2 = egui::vec2(6.0, 1.0);
 
-/// One chip of the palette (the draft's `.rolechip`): the column's
-/// width, the holder's name left-aligned and cut with an ellipsis at
-/// the edge — the full name its hover then, `hint` when it fits.
+/// One chip of the palette (the draft's `.rolechip`): a filled button
+/// the column's width and `interact_size.y` tall — the selection fill
+/// while armed, no fill while disabled — the holder's name left-aligned
+/// and cut with an ellipsis at the edge, the full name its hover then,
+/// `hint` when it fits.
 pub(super) fn chip(
     ui: &mut egui::Ui,
     name: &str,
@@ -270,12 +272,21 @@ pub(super) fn chip(
 ) -> egui::Response {
     ui.spacing_mut().button_padding = CHIP_PADDING;
     let width = ui.available_width();
-    let response = ui.add(
-        egui::Button::selectable(armed, name.to_owned())
-            .truncate()
-            .small()
-            .min_size(egui::vec2(width, 0.0)),
-    );
+    let button = egui::Button::new(name.to_owned())
+        .selected(armed)
+        .truncate()
+        .min_size(egui::vec2(width, ui.spacing().interact_size.y));
+    // A disabled chip paints neither fill nor border but keeps its
+    // padding, so its text stands where an enabled chip's does:
+    // `.frame(false)` would drop the padding with the frame.
+    let button = if ui.is_enabled() {
+        button
+    } else {
+        button
+            .fill(egui::Color32::TRANSPARENT)
+            .stroke(egui::Stroke::NONE)
+    };
+    let response = ui.add(button);
     let chrome = 2.0 * ui.spacing().button_padding.x;
     if super::text_width(ui, name) > width - chrome {
         response.on_hover_text(name.to_owned())
@@ -286,14 +297,15 @@ pub(super) fn chip(
 
 #[cfg(test)]
 mod tests {
-    use egui::accesskit;
+    use egui::accesskit::{self, Role};
 
+    use pes_savefile::model::instruction::Instruction;
     use pes_version::PesVersion;
 
     use super::*;
     use crate::tactics::tests::{click, named_roster};
     use crate::test_support::{
-        Headless, chips_below, fixture_tactics, named_assignments, roster_rows,
+        Headless, chips_below, fixture_tactics, named_assignments, roster_rows, tactics_settings,
     };
 
     // The draft's "Player assignments" column (`.tachalf`): each of the
@@ -438,5 +450,175 @@ mod tests {
         );
         assert!(!changed, "disarming writes no record");
         assert_eq!(view.assign, None, "the armed click disarms");
+    }
+
+    // A chip paints as the draft's `.rolechip` button: its fill over its
+    // own bounds — the widgets' `weak_bg_fill` at rest, the selection
+    // fill armed — the panel column's width and `interact_size.y` tall,
+    // the join chips stepping that height plus the panel's gap.
+    #[test]
+    fn a_chip_paints_its_fill_at_the_columns_width() {
+        let mut window = Headless::sized(800.0, 1200.0);
+        let (interact, rest_fill, armed_fill, column) = {
+            let style = window.ctx.style_of(window.ctx.theme());
+            let margin = egui::Frame::group(&style).total_margin();
+            (
+                style.spacing.interact_size.y,
+                style.visuals.widgets.inactive.weak_bg_fill,
+                style.visuals.selection.bg_fill,
+                800.0 - margin.left - margin.right,
+            )
+        };
+        let version = PesVersion::Pes21;
+        let mut tactics = fixture_tactics(version);
+        named_assignments(&mut tactics);
+        // The penalty's chip armed.
+        let mut view = TacticsView {
+            assign: Some(Assign::Role(5)),
+            ..Default::default()
+        };
+        let rows = named_roster();
+        let roster = roster_rows(&rows);
+        let (nodes, shapes) = window.frame(vec![], |ui| {
+            tactics_settings(ui, "tactics", version, &mut tactics, &mut view, &roster);
+        });
+
+        // The rect shape `fill` paints at `bounds`, or `None`.
+        let painted = |fill: egui::Color32, bounds: accesskit::Rect| {
+            shapes
+                .iter()
+                .filter_map(|clipped| match &clipped.shape {
+                    egui::Shape::Rect(shape) if shape.fill == fill => Some(shape.rect),
+                    _ => None,
+                })
+                .find(|rect| {
+                    (f64::from(rect.min.x) - bounds.x0).abs() <= 0.5
+                        && (f64::from(rect.min.y) - bounds.y0).abs() <= 0.5
+                        && (f64::from(rect.max.x) - bounds.x1).abs() <= 0.5
+                        && (f64::from(rect.max.y) - bounds.y1).abs() <= 0.5
+                })
+        };
+        for (label, fill, state) in [
+            ("Long free kick", rest_fill, "at rest"),
+            ("Penalty kick", armed_fill, "armed"),
+        ] {
+            let bounds = chips_below(&nodes, label)
+                .into_iter()
+                .next()
+                .and_then(|chip| chip.bounds())
+                .unwrap_or_else(|| panic!("{label}'s chip has bounds"));
+            let rect = painted(fill, bounds)
+                .unwrap_or_else(|| panic!("{label}'s chip paints its fill {state}"));
+            assert!(
+                (rect.width() - column).abs() <= 1.0,
+                "{label}'s chip is the column's width ({:?} vs {column})",
+                rect.width()
+            );
+            assert!(
+                (rect.height() - interact).abs() <= 0.5,
+                "{label}'s chip is {interact} tall ({:?})",
+                rect.height()
+            );
+        }
+
+        // The join chips' 20-point rows: `interact_size.y` plus the
+        // panel's 2-point item gap.
+        let joins = chips_below(&nodes, "Join the attack");
+        assert_eq!(joins.len(), 3, "three join chips");
+        for pair in joins.windows(2) {
+            let (above, below) = (
+                pair[0].bounds().expect("chip bounds"),
+                pair[1].bounds().expect("chip bounds"),
+            );
+            assert!(
+                (below.y0 - above.y0 - f64::from(interact) - 2.0).abs() <= 0.5,
+                "the join chips step {interact} plus the 2-point gap ({above:?} vs {below:?})"
+            );
+        }
+    }
+
+    // A disabled chip (an instruction that takes no target) keeps no
+    // fill and no border — the draft's `.rolechip:disabled` — and its
+    // padding: the text stands `CHIP_PADDING.x` in from its left edge.
+    #[test]
+    fn a_disabled_chip_paints_neither_fill_nor_stroke() {
+        let mut window = Headless::sized(800.0, 1200.0);
+        let version = PesVersion::Pes21;
+        let mut tactics = fixture_tactics(version);
+        // Every instruction a target-less one, so all four chips are
+        // disabled, reading "No target".
+        let off =
+            instruction::encode(version, Instruction::TikiTaka).expect("PES 21 stores Tiki-Taka");
+        for entry in tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("PES 21 has instructions")
+            .iter_mut()
+            .chain(
+                tactics.presets[0]
+                    .defence_instructions
+                    .as_mut()
+                    .expect("PES 21 has instructions")
+                    .iter_mut(),
+            )
+        {
+            entry.instruction = off;
+        }
+        let mut view = TacticsView::default();
+        let rows = named_roster();
+        let roster = roster_rows(&rows);
+        let (nodes, shapes) = window.frame(vec![], |ui| {
+            tactics_settings(ui, "tactics", version, &mut tactics, &mut view, &roster);
+        });
+
+        let chips: Vec<&accesskit::Node> = nodes
+            .iter()
+            .filter(|node| {
+                node.role() == Role::Button
+                    && node.label() == Some("No target")
+                    && node.is_disabled()
+            })
+            .collect();
+        assert_eq!(chips.len(), 4, "four disabled No target chips");
+        for chip in chips {
+            let bounds = chip.bounds().expect("the chip's bounds");
+            let text_left = shapes
+                .iter()
+                .filter_map(|clipped| match &clipped.shape {
+                    egui::Shape::Text(text)
+                        if text.galley.text() == "No target"
+                            && (f64::from(text.pos.y) - bounds.y0).abs()
+                                <= bounds.y1 - bounds.y0 =>
+                    {
+                        Some(f64::from(text.pos.x))
+                    }
+                    _ => None,
+                })
+                .min_by(|a, b| (a - bounds.x0).abs().total_cmp(&(b - bounds.x0).abs()))
+                .expect("the chip's text");
+            assert!(
+                (text_left - bounds.x0 - f64::from(CHIP_PADDING.x)).abs() <= 0.5,
+                "a disabled chip keeps its padding ({text_left} vs {bounds:?})"
+            );
+            for clipped in &shapes {
+                let egui::Shape::Rect(shape) = &clipped.shape else {
+                    continue;
+                };
+                let own = (f64::from(shape.rect.min.x) - bounds.x0).abs() <= 0.5
+                    && (f64::from(shape.rect.min.y) - bounds.y0).abs() <= 0.5
+                    && (f64::from(shape.rect.max.x) - bounds.x1).abs() <= 0.5
+                    && (f64::from(shape.rect.max.y) - bounds.y1).abs() <= 0.5;
+                assert!(
+                    !(own && shape.fill != egui::Color32::TRANSPARENT),
+                    "a disabled chip paints no fill: {:?} at {bounds:?}",
+                    shape.rect
+                );
+                assert!(
+                    !(own && !shape.stroke.is_empty()),
+                    "a disabled chip paints no border: {:?} at {bounds:?}",
+                    shape.stroke
+                );
+            }
+        }
     }
 }

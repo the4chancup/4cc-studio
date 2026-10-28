@@ -1666,8 +1666,11 @@ fn every_panel_title_stands_six_above_its_first_drawn_row() {
         ),
     ] {
         let bottom = label_bounds(&nodes, title).y1;
+        // The insets the panels subtract are estimates: a title may stand
+        // a hair under the gap ("Playable positions" stands 5.84), never
+        // over it.
         assert!(
-            (under - bottom - GAP).abs() <= 0.5,
+            (-0.25..=0.0).contains(&(under - bottom - GAP)),
             "{title} stands {GAP} above its first drawn row ({under} vs {bottom})"
         );
     }

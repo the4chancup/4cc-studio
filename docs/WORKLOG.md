@@ -3805,7 +3805,7 @@ briefs, review loops, gates and mutation runs as for any step.
       `title_gaps.py` (all 6, the three titles still at y 84), `aside.py` (Tricks 11 under
       Autumn 26, Free cards 17 under VTL11, none under DBC7, no page errors),
       `draft_fonts.py` (0 findings), `bundle_drafts_test.py` (OK)
-    - [ ] w6b the code: the Tricks or Free cards panel (from the active ruleset's `tricks`
+    - [x] w6b the code: the Tricks or Free cards panel (from the active ruleset's `tricks`
       group, else its `free_cards` effects' skills, none when neither or broken), the titles'
       line and 6-point spacings, Player assignments' gaps; a test
       that the detail pane's offset survives a pick (the app's one ScrollArea keeps it today,
@@ -3828,12 +3828,18 @@ briefs, review loops, gates and mutation runs as for any step.
         selection fill armed; the app's `chip` (`tactics/assignments.rs`) is an
         `egui::Button::selectable(..).small()`: no fill at rest, about 15 tall. The rest of
         the player view, the Tricks panel and the titles match the drafts
-      - [ ] w6c the chip as the draft's: a framed `egui::Button` `.selected(armed)` at the
+      - [x] w6c the chip as the draft's: a framed `egui::Button` `.selected(armed)` at the
         widgets' 18-point height (no `.small()`), so the role rows step 39 and the join rows
         20 as the draft's do and the panel's bottom slack drops to the draft's; a disabled
         target chip (Advanced instructions' "No target") keeps no fill, as the draft's
-        `.rolechip:disabled`. Waits for the running mutation run over `team_widgets`
-        (`.tmp/lead/mutants_diff_96cbb688.status`)
+        `.rolechip:disabled`. Code done 2026-10-28 (SWE-2, brief `.tmp/0_0_1z/brief_fix1.md`,
+        reviewed): `chip` a `Button` `.selected(armed)`, `interact_size.y` tall; the role rows
+        measured at the draft's 39-point step; a disabled chip transparent and unstroked with
+        its padding kept (the sidekick's `.frame(false)` dropped the padding, the text 6
+        further left than the draft's: the lead's fix and assertion, red under it). Built team
+        view checked 2026-10-28 at `8978a0be` (`.tmp/0_0_1z/shots/31_assign.png`, `31_instr.png`):
+        the chips filled and stepped as the draft's, the panel's bottom as the draft's, "No
+        target" under the dropdowns' text
 - [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the
   maintainer, 2026-10-27: "Since the formation name work is almost done"; DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers": the
   typeface need not be the game's, its stroke thickness must match the game's label; the
@@ -3976,7 +3982,13 @@ briefs, review loops, gates and mutation runs as for any step.
         x 40 gave CB at y 15, DMF at 16 and 25, AMF at 26 and 34, SS at 35, the game's edges;
         the badges showed the test's PES 2017 overalls (CB 83, DMF 96, CF 101, AMF 101); on
         the PES 2021 save a CMF dropped at (104, 9), where CB's wider area alone holds the
-        point, took CB; every drop undone, the saves unchanged by hash
+        point, took CB; every drop undone, the saves unchanged by hash. The loop's
+        `just mutants-diff 96cbb688` at `f1ca2342` (228 mutants over `pes_savefile`,
+        `save_editor`, `studio_core`, `team_widgets`, with y6b, w4b, w6b and z2 riding
+        along): 8 survivors, each a missing assertion (the slider's width and handle travel,
+        `holds`' either-row rule, Playable positions' title gap under a 0.5 tolerance), one
+        timeout caught; triage `.tmp/lead/mutants_diff_96cbb688_triage.md`, the tests briefed
+        with w6c and z2c (`.tmp/0_0_1z/brief_fix1.md` part 3)
   - [x] y5 the slot popover's position row (the maintainer, 2026-10-28): no Position label,
     the dropdown and Make GK filling the popover's width, the button at its own width
     - [x] y5a the draft (`5d668583` and the commit after it) and `plans/save_editor.md` "The
@@ -4041,7 +4053,7 @@ briefs, review loops, gates and mutation runs as for any step.
     buttons). Plan `core/gui.md` the theme row, "Status bar" (ST-BAR-01, ST-BAR-05),
     `save_editor.md` "Editing UI" (the player rows, Playable positions, SE-GUI-40). Checked
     in Chromium and Firefox (`.tmp/draft_look/check.py`). Approved 2026-10-28 (with z4)
-  - [ ] z2 the code, once z1 is approved (its built-window look batched with 0.0.1's)
+  - [x] z2 the code, once z1 is approved (its built-window look batched with 0.0.1's)
     - [x] z2a `team_widgets` + `save_editor`: the slider's trailing fill and handle in the
       selection blue (`tactics/mod.rs` `slider`, the handle overpainted from egui's own
       geometry, which egui keeps private; the physique sliders when built), the rows'
@@ -4063,7 +4075,7 @@ briefs, review loops, gates and mutation runs as for any step.
       its width, a position label's hover text, hand cursor and click (one undo entry);
       Reset window drawn at 1100 × 800 and maximized, not at the fit; on a maximized window
       its click restores 1280 × 800 centred at (312, 121)
-    - [ ] z2c Reset window under zoom: on a 1100 × 800 window (zoom 1100/1280) its click
+    - [x] z2c Reset window under zoom: on a 1100 × 800 window (zoom 1100/1280) its click
       left the window 1100 × 688 at (402, 177). `window_size::reset` sends `fit`'s size and
       position in points at the current zoom, which egui-winit multiplies by the zoomed
       pixels-per-point (800 × 0.859 = 688), and `fit` reads the monitor and decorations in
@@ -4072,8 +4084,15 @@ briefs, review loops, gates and mutation runs as for any step.
       the zoom; `off_design_size` compares in the same zoom-1 units (its monitor and
       decorations times the zoom too). Test ST-BAR-05 at a zoom under 1 (a 1100-wide frame
       after the width zoom lands): the commands are 1280 / zoom × 800 / zoom and the centred
-      position / zoom. The ST-BAR-05/06 harness tests ran at zoom 1 only. Waits for the
-      running mutation run over `studio_core`
+      position / zoom. The ST-BAR-05/06 harness tests ran at zoom 1 only. Code done
+      2026-10-28 (SWE-2, brief `.tmp/0_0_1z/brief_fix1.md`, reviewed): `fit(viewport, zoom)`
+      for the first frame and `reset`; `off_design_size` converts the monitor and the
+      decorations by `zoom × screen / inner`, which is the zoom on a consistent frame and the
+      input's own on the pass a queued zoom lands on (the plain zoom broke the narrow-monitor
+      assertion there); tests at the landed 1100/1280 zoom. A click on exactly the landing
+      pass would centre with the input's monitor size: one frame, accepted. Built window checked
+      2026-10-28 at `8978a0be`: from 1100 × 800 the click restored 1280 × 800 at (312, 120),
+      the button gone after it
   - [ ] z3 the sidebar's active-tool bar: the draft rounds its left corners, egui draws it
     square (the maintainer, 2026-10-27, "for later")
   - [x] z4 the maintainer's second look (2026-10-27 ~21:55), drafts and plan: Reset window

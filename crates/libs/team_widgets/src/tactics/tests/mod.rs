@@ -2296,9 +2296,14 @@ fn from_tier_id_maps_the_three_medal_ids() {
 #[test]
 fn a_slider_fills_the_rail_to_the_handle_and_paints_the_handle_blue() {
     let mut window = Headless::sized(800.0, 600.0);
-    let (row_height, visuals) = {
+    let (row_height, visuals, item_gap, value_width) = {
         let style = window.ctx.style_of(window.ctx.theme());
-        (style.spacing.interact_size.y, style.visuals.clone())
+        (
+            style.spacing.interact_size.y,
+            style.visuals.clone(),
+            style.spacing.item_spacing.x,
+            style.spacing.interact_size.x,
+        )
     };
     let selection = visuals.selection.bg_fill;
     let inactive = visuals.widgets.inactive;
@@ -2323,6 +2328,22 @@ fn a_slider_fills_the_rail_to_the_handle_and_paints_the_handle_blue() {
         widget.y1 - widget.y0,
         f64::from(row_height),
         "the slider's row"
+    );
+    // The rail is the cell's width less the value box's and their gap;
+    // the value box ends at the cell's right edge.
+    assert!(
+        (widget.x1 - widget.x0 - (800.0 - f64::from(item_gap) - f64::from(value_width))).abs()
+            <= 0.5,
+        "the rail fills the cell less the value box and the gap: {widget:?}"
+    );
+    let value_box = nodes
+        .iter()
+        .find(|node| node.role() == Role::SpinButton)
+        .and_then(|node| node.bounds())
+        .expect("the value box's node");
+    assert!(
+        (value_box.x1 - 800.0).abs() <= 0.5,
+        "the value box ends at the cell's right edge: {value_box:?}"
     );
     let radius = f64::from(row_height) / 2.5;
     let inset = radius * 0.75;
@@ -2371,4 +2392,36 @@ fn a_slider_fills_the_rail_to_the_handle_and_paints_the_handle_blue() {
         handle.stroke, inactive.fg_stroke,
         "the inactive stroke kept"
     );
+
+    // The handle's centre at the range's ends: the rail's edge
+    // `radius * 0.75` in (at the mid value the inset moves it by too
+    // little to measure).
+    let handle_centre = |shapes: &[egui::epaint::ClippedShape]| {
+        f64::from(
+            shapes
+                .iter()
+                .filter_map(|clipped| match &clipped.shape {
+                    egui::Shape::Rect(shape) if shape.fill == selection => Some(shape.rect),
+                    _ => None,
+                })
+                .find(|rect| {
+                    (f64::from(rect.width()) - 2.0 * inset).abs() < 0.5
+                        && (f64::from(rect.height()) - 2.0 * radius).abs() < 0.5
+                })
+                .expect("the handle in the selection blue")
+                .center()
+                .x,
+        )
+    };
+    for (value, edge, expect_x) in [
+        (1u8, "left", widget.x0 + inset),
+        (spec.max, "right", widget.x1 - inset),
+    ] {
+        sliders.support_range = value;
+        let (_, shapes) = window.frame(vec![], |ui| slider(ui, &mut sliders, spec));
+        assert!(
+            (handle_centre(&shapes) - expect_x).abs() <= 0.5,
+            "at {value} the handle's centre is the rail's {edge} plus the inset"
+        );
+    }
 }

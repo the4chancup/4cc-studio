@@ -255,3 +255,32 @@ fn no_overalls_keep_the_position() {
         "no overalls: his CB is kept"
     );
 }
+
+// Points only `AREAS_B` holds: a position's area holds the point when
+// either row does. Slot 6's CMF dropped at (104, 9), past `AREAS_A`'s
+// right edge where CB's second row alone reaches, is offered CB alone.
+// Slot 2's CB at (2, 20) — inside CMF's and LMF's second rows only —
+// is offered the band's default CMF against the free candidate LMF,
+// the pick on his overalls.
+#[test]
+fn a_point_only_the_second_table_holds_still_offers_its_positions() {
+    let formation = formation_701_1();
+    assert_eq!(
+        dropped_position(&formation, 6, 104, 9, Some(&[70; 13])),
+        position_byte("CB"),
+        "past the edge only CB's second row holds the point"
+    );
+    let mut overalls = [70; 13];
+    overalls[usize::from(position_byte("CMF"))] = 80;
+    assert_eq!(
+        dropped_position(&formation, 2, 2, 20, Some(&overalls)),
+        position_byte("CMF"),
+        "the band's default CMF over the free LMF"
+    );
+    overalls[usize::from(position_byte("LMF"))] = 90;
+    assert_eq!(
+        dropped_position(&formation, 2, 2, 20, Some(&overalls)),
+        position_byte("LMF"),
+        "the free candidate LMF wins on a higher overall"
+    );
+}
