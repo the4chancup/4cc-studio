@@ -3930,7 +3930,7 @@ briefs, review loops, gates and mutation runs as for any step.
       0 on every one; 23 players, the held frames' swap previews included, weak foot 1 and 3
       alike). Not tested: the kicking power/swerve and body control/physical contact mapping
       (no player here has those unequal), the B bonus
-    - [ ] y4e the code, on every version (`plans/save_editor.md` "Tactics editor", the
+    - [x] y4e the code, on every version (`plans/save_editor.md` "Tactics editor", the
       pitch-drop paragraph), in two slices
       - [x] y4e1 the overall in `pes_savefile`'s player model (the lead, 2026-10-28):
         `PlayerEntry::overall_at(position) -> Option<u8>` (`model/overall.rs`, `None` past
@@ -3941,7 +3941,7 @@ briefs, review loops, gates and mutation runs as for any step.
         keeper mean's count, the B arm, the blend's rounding); PES 2015's keeper means over
         the abilities it stores (DECISIONS). 384 tests, clippy, fmt. Its cross-family review
         (a new `pub` method) rides with y4e2's
-      - [ ] y4e2 the rule in `team_widgets`' pitch drop (the rectangles, the band default,
+      - [x] y4e2 the rule in `team_widgets`' pitch drop (the rectangles, the band default,
         the candidates), `RosterRow` carrying each starter's thirteen overalls from the host,
         the y3 scans and y4d's edges as tests. Code done 2026-10-28 (SWE-2, brief
         `.tmp/0_0_1y4/brief_y4e2.md`; `RosterRow::overalls` came with y6b): `pitch/drop_rule.rs`
@@ -3950,7 +3950,11 @@ briefs, review loops, gates and mutation runs as for any step.
         less the swap previews), expected values from `.tmp/0_0_1y4/y4e2_cases.py`, plus the
         tie, the held wide candidate, the keep and no overalls; each red on a stub and under a
         perturbation (CF's y 40, `free`, the tie, the keep, the candidates' order); help
-        `08_tactics.md`. Open: the (b) cross-family review of y4e1 + y4e2
+        `08_tactics.md`. The (b) cross-family review of y4e1 + y4e2 closed 2026-10-28
+        (`.tmp/0_0_1y4/rulings_y4e.md`): SWE-2 round 1 (1 + 2 accepted), Astra round 1 (3:
+        the keep at the default untested, the plan's keep sentence wrong, `overall_at`'s doc
+        overclaiming), SWE-2 round 2 (3: the second-LMF case untested, the areas being two
+        table rows, a doc's keeper-box wording); every fix landed, each new test red first
   - [ ] y5 the slot popover's position row (the maintainer, 2026-10-28): no Position label,
     the dropdown and Make GK filling the popover's width, the button at its own width
     - [x] y5a the draft (`5d668583` and the commit after it) and `plans/save_editor.md` "The

@@ -85,8 +85,9 @@ const CANDIDATES: [u8; 11] = [2, 3, 4, 6, 7, 8, 9, 10, 12, 1, 11];
 const WIDE: [u8; 6] = [2, 3, 6, 7, 9, 10];
 
 /// The position `slot`'s marker takes released at the snapped point
-/// `(x, y)` in stored units: `current` where no position's area holds
-/// the point (the keeper's box among them), or where his own position
+/// `(x, y)` in stored units: `current` where none of the defaults' or
+/// candidates' areas holds the point (the keeper's box among them: GK
+/// is neither), or where his own position
 /// is one of the two the point offers; else the band's default — the
 /// first of `BAND_DEFAULTS` whose area holds it — or the first free
 /// candidate of `CANDIDATES` whose area holds it, whichever

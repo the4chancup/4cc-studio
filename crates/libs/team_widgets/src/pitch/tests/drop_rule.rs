@@ -182,6 +182,24 @@ fn a_free_rwf_is_tried_before_ss() {
     );
 }
 
+// A point inside his own position's area keeps it only when the point
+// offers it: with slots 4 and 7 both LMF, slot 4 dropped at (10, 20),
+// inside LMF's area, is offered CMF alone (the other LMF holds the wide
+// position) and takes it.
+#[test]
+fn a_second_lmf_inside_lmfs_area_is_offered_cmf_alone() {
+    let mut formation = formation_701_1();
+    formation.players[4].position = position_byte("LMF");
+    formation.players[7].position = position_byte("LMF");
+    let mut overalls = [70; 13];
+    overalls[usize::from(position_byte("LMF"))] = 90;
+    assert_eq!(
+        dropped_position(&formation, 4, 10, 20, Some(&overalls)),
+        position_byte("CMF"),
+        "the held LMF is not offered, so CMF is taken"
+    );
+}
+
 // Slot 3's DMF dropped at (90, 20): RMF's area holds the point but
 // slot 7 is the formation's RMF, so the candidate is none and the
 // default CMF is taken — with slot 7 turned CMF, RMF is free and wins.
