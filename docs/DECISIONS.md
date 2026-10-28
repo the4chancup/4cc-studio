@@ -12661,3 +12661,20 @@ the present tense (`the drafts name the suite Unlimited Tool Works where the pre
 Why: a list of past participles reads like verse, and the imperative is how Conventional Commits
 and git's own messages read; a present-tense statement of the new behavior already reads plainly.
 Plan: `CONTRIBUTING.md` "Commits".
+
+## 2026-10-28 — workspace — A commit's first line is at most 120 characters (recorded late)
+Decision: the rule of 2026-10-10, the maintainer's: a commit's first line is at most 120
+characters, the commit's other changes in its body. Its who and when lived as a note inside
+`CONTRIBUTING.md` "Commits", against the rule that keeps them to this file; the note is gone
+from there and recorded here.
+Why: subjects had reached 368 characters, listing every change of the commit, and `git log
+--oneline` and every history view show only the first line.
+Plan: `CONTRIBUTING.md` "Commits".
+
+## 2026-10-28 — workspace — The stall watcher never stops a run (recorded late)
+Decision: the ruling of 2026-10-24, the maintainer's: `devin_watch.py` only reports a stalled
+sidekick run; stopping it is the lead's call, after reading `git diff`. Its who and when lived as
+a note inside `RUNBOOK.md`; the note is gone from there and recorded here.
+Why: a stalled run can leave a half-done edit or a hand perturbation in the tree, which a kill
+would leave unexplained.
+Plan: `RUNBOOK.md` "Agents and harness".

@@ -69,7 +69,7 @@ edit them losslessly, and flat colors make a PNG smaller than its DDS. So on PES
 every texture of a compile is encoded, not passed through. A player's textures add up to about
 one 4096² chain, and a team has seven kits, so a team is roughly 30 chains: about 15 s of
 encoding at the 0.48 s measured above, on a fairly high-end GPU, and 16 s per chain on the CPU
-encoder, which the maintainer ruled unacceptable for a suite whose first goal is speed. A
+encoder, too slow for a suite whose first goal is speed. A
 full-cup compile is run once per set of exports, so its every texture is encoded cold: no
 conversion cache, in memory or on disk, shortens it, and the encoder's own speed is the floor.
 The levers left are the encoder's: a faster BC7 preset (`fast`, `very_fast`, `ultra_fast`),

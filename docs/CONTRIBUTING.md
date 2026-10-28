@@ -451,8 +451,7 @@ multi-crate step uses its phase, `feat(phase2): ...`). Types: `feat`, `fix`, `do
 `refactor`, `perf` (a change made for speed or memory that changes no behavior), `chore`
 (workspace, dependencies, CI). The first line is at most 120 characters: it is what `git log
 --oneline` and every tool's history view show, and a subject that lists every change of the
-commit is a body written on the wrong line (the maintainer's rule, 2026-10-10, after subjects
-of up to 368 characters). A worklog step tag (`4.y-sub b3b4c`) goes in the body, not the first
+commit is a body written on the wrong line (subjects had reached 368 characters). A worklog step tag (`4.y-sub b3b4c`) goes in the body, not the first
 line: the first line is for what changed. A summary naming something done puts every verb in
 the imperative (`docs(worklog): audit the open 0.0.1 boxes; close s, x and y4 as done`), never
 in the past participle (`the open 0.0.1 boxes audited; s, x and y4 closed as done`), which reads

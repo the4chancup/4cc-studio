@@ -224,7 +224,7 @@ gets a second background command beside it, `python ~/.claude/skills/duck/devin_
 for 20 minutes neither the session's `last_activity_at` in Devin's `sessions.db` moved nor the
 run's process tree burned CPU (a build or test burns it without any step). The watcher never
 stops the run: what to do is the lead's call, after reading `git diff`, since a stalled run can
-leave a half-done edit or a perturbation in the tree (the maintainer's ruling, 2026-10-24). A
+leave a half-done edit or a perturbation in the tree. A
 session that stalled after its one allowed resume is not resumed again; the lead finishes the
 brief's remaining items itself or briefs a fresh session.
 
