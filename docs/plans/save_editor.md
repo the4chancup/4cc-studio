@@ -716,8 +716,10 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   it. The overall is PES 2016's formula on every version whose own is not measured: PES
   2021's differs from it by up to 2 (12 of 201 points read in game), so where the two
   candidates' overalls are within 2 the editor's pick can differ from the game's. PES 2017,
-  the game DBC7 plays, is measured in game before the editor's PES 2017 drag follows the
-  rule, since a cup's own game gets first-class support. A lineup row released on the grass
+  the game DBC7 plays, follows both exactly: ten rectangle edges crossed by six players
+  dragged in its Lineup/Edit Position (CF's y 40 among them) fall where PES 2016's tables put
+  them, and PES 2016's formula gives every one of 150 overalls read there (23 players, nine
+  positions, registered, A and C), so its drag is the rule as it stands. A lineup row released on the grass
   does nothing, as in the draft: a row moves players between the lists, never on the pitch.
   While a dragged starter is held over another, that one carries the selected player's corner
   brackets (`#14fbff`), drawn over everything, and the dragged marker goes to 35% opacity over

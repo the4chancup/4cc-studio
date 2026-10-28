@@ -2750,3 +2750,5 @@ worklog passed 7,000 lines.
   the record writers and roster pairings shared, one schema width lookup; a bare tactics record names no roster slot.
 - **2026-10-28** — The maintainer's second look at the drafts: VTL's free cards in their own panel, every title 6 points above what it
   heads on both views, the open dropdown lists in a sans face instead of Firefox's serif default.
+- **2026-10-28** — y4d in PES 2017, the game DBC7 plays: the drag rule's rectangles hold at ten edges and PES 2016's overall formula gives
+  all 150 overalls read in game exactly, so the editor's PES 2017 drag is the rule as it stands; the save unchanged by hash.

@@ -3895,14 +3895,18 @@ briefs, review loops, gates and mutation runs as for any step.
       found. Answered (the maintainer, DECISIONS "The drag rule's overall is PES 2016's
       formula until a version's own is measured"): PES 2016's formula wherever a version's own
       is not measured; PES 2017, DBC7's game, measured first
-    - [ ] y4d the same check in PES 2017 (pre-Fox: cargo may run beside it), on DBC's save:
-      the rectangles' edges at a few rows (CF's first row among them) and 30+ overalls the
-      Team Sheet and the Select Position menu show against PES 2016's formula. Within 1 on
-      every point: PES 2017's drag follows the rule as is; otherwise the residuals by position
-      and ability level go to the maintainer. Brief `.tmp/0_0_1y4/brief_y4d.md`
+    - [x] y4d the same check in PES 2017 (the lead, pad + OBS, 2026-10-28,
+      `.tmp/0_0_1y4/y4d_findings.md`, the save unchanged by hash): PES 2017 has no Select
+      Position menu, so the drag panel stood in (A held, the d-pad, the panel's new position).
+      Ten edges crossed by six players of /3/ (701), each where PES 2016's tables put it: y 16
+      both ways, 26, 35 both ways, CF's 40, x 21 in three bands, x 84; the swap takes over
+      between 3.8 and 5.0 units in y. PES 2016's formula gives all 150 overalls read (residual
+      0 on every one; 23 players, the held frames' swap previews included, weak foot 1 and 3
+      alike). Not tested: the kicking power/swerve and body control/physical contact mapping
+      (no player here has those unequal), the B bonus
     - [ ] y4e the code: the rule in `team_widgets`' pitch drop (the rectangles, the band
-      default, the candidates, PES 2016's overall), on every version but PES 2017 until y4d
-      ends, with the y3 scans and y4c's points as tests
+      default, the candidates, PES 2016's overall), on every version, with the y3 scans, y4c's
+      points and y4d's edges and points as tests
 - [ ] 0.0.1z the maintainer's look at the built app (2026-10-27 ~21:10): the app's sliders
   kept, the drafts made to match
   - [x] z1 the drafts: sliders drawn as egui's (8-point rail, 11 × 14 handle, value box), the
