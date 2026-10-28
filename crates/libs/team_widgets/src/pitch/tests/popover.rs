@@ -10,8 +10,8 @@ use pes_version::PesVersion;
 
 use super::*;
 use crate::test_support::{
-    Headless, button_labels, centre, chip_under, chips_below, combo_row, controls_right_of, entry,
-    entry_id, fixture_rows, fixture_tactics, pointer_at, roster_rows,
+    Headless, button_labels, centre, chip_under, chips_below, combo_row, entry, entry_id,
+    fixture_rows, fixture_tactics, pointer_at, roster_rows,
 };
 
 // The draft's role palette: arm a chip and the note asks for its pitch
@@ -516,10 +516,7 @@ fn the_popovers_position_pick_writes_the_slot() {
     let at = marker_point(&nodes, &formation.players, index);
     window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let combo = controls_right_of(&nodes, "Position", Role::ComboBox)
-        .into_iter()
-        .next()
-        .expect("the position combo");
+    let combo = entry(&nodes, Role::ComboBox, "Position");
     let closed = window.pitch_ids(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     window.click_pitch(
         centre(combo),
@@ -618,10 +615,7 @@ fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
     let at = marker_point(&nodes, &players, index);
     window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let combo = controls_right_of(&nodes, "Position", Role::ComboBox)
-        .into_iter()
-        .next()
-        .expect("the position combo");
+    let combo = entry(&nodes, Role::ComboBox, "Position");
     window.click_pitch(
         centre(combo),
         PesVersion::Pes21,
@@ -905,7 +899,7 @@ fn a_press_outside_closes_the_popover_but_a_press_inside_does_not() {
         &roster,
     );
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let combo = controls_right_of(&nodes, "Position", Role::ComboBox)[0];
+    let combo = entry(&nodes, Role::ComboBox, "Position");
     window.click_pitch(
         centre(combo),
         PesVersion::Pes21,

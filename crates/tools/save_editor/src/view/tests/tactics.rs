@@ -1026,7 +1026,11 @@ fn the_pitchs_corner_names_the_shown_formation_as_the_game_does() {
     // The popover's Position combo opened, then its CMF picked, both by
     // AccessKit clicks: a pointer click does not reach a combo's popup.
     let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let combo = node_id_right_of(&ids, "Position", Role::ComboBox);
+    let combo = ids
+        .iter()
+        .find(|(_, node)| node.role() == Role::ComboBox && node.label() == Some("Position"))
+        .map(|(id, _)| *id)
+        .expect("the Position combo");
     action_click(&mut window, &mut view, combo);
     let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let cmf = ids

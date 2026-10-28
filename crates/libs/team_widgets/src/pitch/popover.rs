@@ -1,6 +1,6 @@
 //! The slot popover, the draft's `slotPopover`: a marker click's per-slot
-//! panel — the starter's name and roster number, the Position combo, Make
-//! GK and the X and Y fields.
+//! panel — the starter's name and roster number, the Position combo
+//! beside Make GK and the X and Y fields.
 
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::tactics::TeamTactics;
@@ -15,9 +15,11 @@ use crate::tactics::{RosterRow, TacticsView, raw_name};
 /// pitch — it stays while the slot's X and Y move him, so the fields'
 /// arrows stay under the pointer), and a press anywhere outside
 /// it closes it, as Close does. The starter's name and `player
-/// <n>` head it (`(empty roster slot)` an empty roster slot), the
-/// Position combo of the twelve outfield positions, Make GK and the X
-/// (0 to 104) and Y (0 to 48) fields and Close. The keeper's slot shows a
+/// <n>` head it (`(empty roster slot)` an empty roster slot), under it
+/// the unlabeled Position combo of the twelve outfield positions with
+/// Make GK beside it at its own width, the two filling the popover's
+/// width, and the X (0 to 104) and Y (0 to 48) fields and Close. The
+/// keeper's slot shows a
 /// disabled "GK", the two fields disabled under "The goalkeeper's spot is
 /// fixed" and Make GK disabled. Make GK exchanges the slot's
 /// `starting_eleven` entry with the keeper slot's — the formation slots
@@ -109,40 +111,67 @@ pub(super) fn slot_popover(
                 usize::from(starting_eleven[index]) + 1
             ));
         });
-        ui.horizontal(|ui| {
-            ui.label("Position");
-            if keeper {
-                ui.add_enabled_ui(false, |ui| {
-                    egui::ComboBox::from_id_salt("slot position")
-                        .selected_text("GK")
-                        .show_ui(ui, |_ui| {});
-                });
-            } else {
-                let mut position = slot.position;
-                egui::ComboBox::from_id_salt("slot position")
-                    .selected_text(position_label(slot.position))
-                    .show_ui(ui, |ui| {
-                        for (value, label) in POSITIONS.iter().enumerate().skip(1) {
-                            ui.selectable_value(&mut position, value as u8, *label);
-                        }
+        // The draft's `.pos-row`: no label — the combo's abbreviations
+        // say what it holds ("Position" is its hover and its accessible
+        // name, as the draft's `title`) — it takes the row's width less
+        // Make GK's, which keeps its own, the two spanning the popover.
+        let goal = formation.players.iter().position(|slot| slot.position == 0);
+        egui::Sides::new().shrink_left().show(
+            ui,
+            |ui| {
+                // `available_width` here is the row less Make GK's
+                // width and the gap — the popover's content width,
+                // which its other rows set. It is unbounded on the
+                // popover's sizing pass, so the combo takes 0 then and
+                // the row stays its narrowest (the draft's
+                // `.pos-row select { width: 0 }`).
+                let width = if ui.is_sizing_pass() {
+                    0.0
+                } else {
+                    ui.available_width()
+                };
+                if keeper {
+                    ui.add_enabled_ui(false, |ui| {
+                        egui::ComboBox::from_id_salt("slot position")
+                            .width(width)
+                            .selected_text("GK")
+                            .show_ui(ui, |_ui| {})
+                            .response
+                            .on_hover_text("Position")
+                            .on_disabled_hover_text("Position");
                     });
-                if position != slot.position {
-                    formation.players[index].position = position;
+                } else {
+                    let mut position = slot.position;
+                    egui::ComboBox::from_id_salt("slot position")
+                        .width(width)
+                        .selected_text(position_label(slot.position))
+                        .show_ui(ui, |ui| {
+                            for (value, label) in POSITIONS.iter().enumerate().skip(1) {
+                                ui.selectable_value(&mut position, value as u8, *label);
+                            }
+                        })
+                        .response
+                        .on_hover_text("Position");
+                    if position != slot.position {
+                        formation.players[index].position = position;
+                    }
                 }
-            }
-            if ui
-                .add_enabled(!keeper, egui::Button::new("Make GK"))
-                .on_hover_text("Swaps him into goal; the keeper takes his slot")
-                .clicked()
-            {
-                if let Some(goal) = formation.players.iter().position(|slot| slot.position == 0)
-                    && goal != index
+            },
+            |ui| {
+                if ui
+                    .add_enabled(!keeper, egui::Button::new("Make GK"))
+                    .on_hover_text("Swaps him into goal; the keeper takes his slot")
+                    .clicked()
                 {
-                    starting_eleven.swap(index, goal);
+                    if let Some(goal) = goal
+                        && goal != index
+                    {
+                        starting_eleven.swap(index, goal);
+                    }
+                    view.popover = None;
                 }
-                view.popover = None;
-            }
-        });
+            },
+        );
         ui.horizontal(|ui| {
             ui.label("X");
             ui.add_enabled(
@@ -227,7 +256,7 @@ mod tests {
         entry(&nodes, Role::Button, "Make GK");
         entry(&nodes, Role::Button, "Close");
         assert_eq!(
-            controls_right_of(&nodes, "Position", Role::ComboBox)[0].value(),
+            entry(&nodes, Role::ComboBox, "Position").value(),
             Some(position_label(formation.players[index].position)),
             "the position combo"
         );
@@ -349,10 +378,7 @@ mod tests {
         let at = marker_point(&nodes, &tactics.presets[0].formations[0].players, keeper);
         window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-        let position = controls_right_of(&nodes, "Position", Role::ComboBox)
-            .into_iter()
-            .next()
-            .expect("the position combo");
+        let position = entry(&nodes, Role::ComboBox, "Position");
         assert!(position.is_disabled(), "the keeper's position is fixed");
         assert_eq!(position.value(), Some("GK"), "and shows GK");
         for label in ["X", "Y"] {
@@ -378,6 +404,96 @@ mod tests {
             entry(&nodes, Role::Button, "Make GK").is_disabled(),
             "the keeper's Make GK is disabled"
         );
+    }
+
+    // The draft's `.pos-row`: no "Position" label — the combo's
+    // abbreviations say what it holds — it takes the row's width less
+    // Make GK's, which keeps its own, the two spanning the popover the
+    // other rows size. The keeper's disabled "GK" combo lays out the
+    // same.
+    #[test]
+    fn the_position_row_spans_the_popover() {
+        let mut window = Headless::sized(600.0, 450.0);
+        let mut tactics = fixture_tactics(PesVersion::Pes21);
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(PesVersion::Pes21);
+        let roster = roster_rows(&rows);
+        let formation = tactics.presets[0].formations[0].clone();
+        let keeper = formation
+            .players
+            .iter()
+            .position(|slot| slot.position == 0)
+            .expect("the fixture has a keeper slot");
+        // A bare Make GK's own width in this window's style.
+        let (bare, _) = window.frame(vec![], |ui| {
+            ui.add(egui::Button::new("Make GK"));
+        });
+        let own = entry(&bare, Role::Button, "Make GK")
+            .bounds()
+            .expect("the bare button's bounds");
+        let own_width = own.x1 - own.x0;
+        let spacing = f64::from(window.ctx.global_style().spacing.item_spacing.x);
+
+        for index in [4, keeper] {
+            view.popover = None;
+            let (nodes, _) =
+                window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+            let at = marker_point(&nodes, &formation.players, index);
+            window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+            let (nodes, _) =
+                window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+            assert!(
+                nodes
+                    .iter()
+                    .all(|node| { node.role() != Role::Label || node.value() != Some("Position") }),
+                "slot {index}: no \"Position\" label"
+            );
+            let popover = view
+                .popover
+                .and_then(|open| window.ctx.memory(|memory| memory.area_rect(open.area_id())))
+                .expect("the popover is open");
+            // The header's name label: the popover's top-left label.
+            let name_left = nodes
+                .iter()
+                .filter(|node| node.role() == Role::Label)
+                .filter_map(|node| node.bounds())
+                .filter(|bounds| {
+                    popover.contains(egui::pos2(
+                        ((bounds.x0 + bounds.x1) / 2.0) as f32,
+                        ((bounds.y0 + bounds.y1) / 2.0) as f32,
+                    ))
+                })
+                .map(|bounds| (bounds.y0, bounds.x0))
+                .min_by(|a, b| a.partial_cmp(b).expect("ordered bounds"))
+                .expect("the header's name label")
+                .1;
+            let combo = entry(&nodes, Role::ComboBox, "Position")
+                .bounds()
+                .expect("the combo's bounds");
+            let make_gk = entry(&nodes, Role::Button, "Make GK")
+                .bounds()
+                .expect("Make GK's bounds");
+            let close = entry(&nodes, Role::Button, "Close")
+                .bounds()
+                .expect("Close's bounds");
+            assert!(
+                (combo.x0 - name_left).abs() <= 0.5,
+                "slot {index}: the combo at the row's left ({combo:?} vs {name_left})"
+            );
+            assert!(
+                (make_gk.x1 - close.x1).abs() <= 0.5,
+                "slot {index}: Make GK at the row's right ({make_gk:?} vs {close:?})"
+            );
+            assert!(
+                (combo.x1 + spacing - make_gk.x0).abs() <= 0.5,
+                "slot {index}: the combo fills to the gap ({combo:?} vs {make_gk:?})"
+            );
+            assert!(
+                (make_gk.x1 - make_gk.x0 - own_width).abs() <= 0.5,
+                "slot {index}: Make GK keeps its own width ({} vs {own_width})",
+                make_gk.x1 - make_gk.x0
+            );
+        }
     }
 
     // The popover follows the slot's shown formation: a formation change

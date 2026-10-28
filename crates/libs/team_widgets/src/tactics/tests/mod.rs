@@ -2069,15 +2069,17 @@ fn popup_items<'a>(
 
 // The Substitution combo names the game's choices — Off, Very late and
 // Flexible on every storing version (the field is PES 15+, so PES
-// 2016's cell is not gated), Very early added on PES 2017 and 2021 — in
-// the stored order.
+// 2016's cell is not gated), Very early from PES 2017 on — in the
+// stored order.
 #[test]
 fn the_substitution_combo_names_the_games_choices() {
     let mut window = Headless::sized(800.0, 1200.0);
     for (version, very_early) in [
         (PesVersion::Pes16, false),
         (PesVersion::Pes17, true),
-        (PesVersion::Pes19, false),
+        (PesVersion::Pes18, true),
+        (PesVersion::Pes19, true),
+        (PesVersion::Pes20, true),
         (PesVersion::Pes21, true),
     ] {
         let mut tactics = fixture_tactics(version);

@@ -717,24 +717,34 @@ fn auto_row(
 }
 
 /// The Substitution combo's offered choices (the draft's list): Off,
-/// Very late and Flexible, plus Very early on the versions measured to
-/// hold it (PES 2017 and 2021). `tactics_term` words the stored value
-/// the same way, so the row and the combo cannot drift.
+/// Very late and Flexible, plus Very early from PES 2017 on (measured
+/// on 2017 and 2021, the versions between taken to match).
+/// `tactics_term` words the stored value the same way, so the row and
+/// the combo cannot drift.
 fn substitution_choices(version: PesVersion) -> Vec<(u8, &'static str)> {
     [(0, "Off"), (1, "Very late"), (2, "Flexible")]
         .into_iter()
         .chain(
-            matches!(version, PesVersion::Pes17 | PesVersion::Pes21).then_some((3, "Very early")),
+            matches!(
+                version,
+                PesVersion::Pes17
+                    | PesVersion::Pes18
+                    | PesVersion::Pes19
+                    | PesVersion::Pes20
+                    | PesVersion::Pes21
+            )
+            .then_some((3, "Very early")),
         )
         .collect()
 }
 
 /// The Substitution cell (the draft's `subs` row): the label, then the
 /// version's combo filling the rest of the cell — Off, Very late and
-/// Flexible, plus Very early on the versions measured to hold it (PES
-/// 2017 and 2021); a stored value outside the offered ones appended as
-/// its number, so the combo never misreports the save. A version that
-/// stores none keeps the disabled cell and the `PES NN+` tooltip.
+/// Flexible, plus Very early from PES 2017 on (measured on 2017 and
+/// 2021, the versions between taken to match); a stored value outside
+/// the offered ones appended as its number, so the combo never
+/// misreports the save. A version that stores none keeps the disabled
+/// cell and the `PES NN+` tooltip.
 fn substitution_cell(ui: &mut egui::Ui, version: PesVersion, substitution: &mut Option<u8>) {
     ui.label(SUBSTITUTION_LABEL);
     match substitution {

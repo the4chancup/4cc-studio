@@ -3933,7 +3933,14 @@ briefs, review loops, gates and mutation runs as for any step.
       pitch is the editor"; checked: the dropdown 113 and Make GK 58 on one row spanning
       the popover, no page error (`.tmp/fb1028/answers_check.py`)
     - [ ] y5b the code (`team_widgets` `pitch/popover.rs`) → verify: the gates; the built
-      popover against the draft (asks before it takes focus)
+      popover against the draft (asks before it takes focus). Code done 2026-10-28 (SWE-2,
+      brief `.tmp/fb1028/brief_y5b_y7b.md`): no label, "Position" the combo's hover and
+      accessible name, `egui::Sides::shrink_left` giving the combo the row less Make GK's
+      own width (0 on the popover's sizing pass, so it never widens it); test
+      `the_position_row_spans_the_popover`, red under a fixed Make GK and a fixed combo.
+      Accepted: Tab reaches Make GK before the combo (`Sides` lays the measured side out
+      first; matching the draft's order would mean measuring the button by hand). Open: the
+      built popover, with y6b's built check
   - [ ] y6 the badge's overall and medal outline (the maintainer, 2026-10-28): the starter's
     overall at his slot's position at the badge's right in white, his medal tier a 1.5-point
     outline in its colour (bronze darkened to `#8c4a20`) instead of its letter, the badge's
@@ -3953,8 +3960,9 @@ briefs, review loops, gates and mutation runs as for any step.
     taken from PES 2017 and 2021 having it, the games between them)
     - [x] y7a the draft and `plans/save_editor.md` "Tactics editor" (the Automatic
       settings' Substitution)
-    - [ ] y7b the code: `team_widgets`' `substitution_choices` offers Very early from PES
-      2017 on; its test's PES 2019 row expects it → verify: `cargo test -p team_widgets`
+    - [x] y7b the code: `team_widgets`' `substitution_choices` offers Very early from PES
+      2017 on; its test's PES 2018, 2019 and 2020 rows expect it (SWE-2, with y5b; red on
+      PES 2018 first) → verify: `cargo test -p team_widgets`
     - [ ] y7c later (the maintainer: "we'll check in detail in the future"): a look at PES
       2018, 2019 and 2020's Game Plan, Automatic settings, Substitution; the plan's "taken
       rather than looked at" goes with it
