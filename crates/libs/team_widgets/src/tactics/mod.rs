@@ -13,6 +13,7 @@ use pes_savefile::schema::fields::{
 };
 use pes_savefile::schema::{instruction, schema_for};
 use pes_version::PesVersion;
+use studio_core::widgets::checkbox;
 
 use crate::pitch::{FORMATIONS, position_label};
 
@@ -379,14 +380,16 @@ pub fn preset_selector(ui: &mut egui::Ui, view: &mut TacticsView) {
 pub fn fluid_formation(ui: &mut egui::Ui, tactics: &mut TeamTactics, view: &TacticsView) -> bool {
     let preset = &mut tactics.presets[view.preset.min(2)];
     match &mut preset.style.fluid {
-        Some(fluid) => ui.checkbox(fluid, FLUID_LABEL).changed(),
+        Some(fluid) => checkbox(ui, fluid, FLUID_LABEL).changed(),
         None => {
             let mut off = false;
-            ui.add_enabled(false, egui::Checkbox::new(&mut off, FLUID_LABEL))
-                .on_disabled_hover_text(gate_tip(TacticsField::Preset {
-                    preset: 0,
-                    field: PresetField::FluidFormation,
-                }));
+            ui.add_enabled(false, |ui: &mut egui::Ui| {
+                checkbox(ui, &mut off, FLUID_LABEL)
+            })
+            .on_disabled_hover_text(gate_tip(TacticsField::Preset {
+                preset: 0,
+                field: PresetField::FluidFormation,
+            }));
             false
         }
     }
@@ -824,11 +827,11 @@ fn substitution_cell(ui: &mut egui::Ui, version: PesVersion, substitution: &mut 
 fn auto_flag(ui: &mut egui::Ui, label: &str, value: &mut Option<bool>, field: TacticsField) {
     match value {
         Some(flag) => {
-            ui.checkbox(flag, label);
+            checkbox(ui, flag, label);
         }
         None => {
             let mut off = false;
-            ui.add_enabled(false, egui::Checkbox::new(&mut off, label))
+            ui.add_enabled(false, |ui: &mut egui::Ui| checkbox(ui, &mut off, label))
                 .on_disabled_hover_text(gate_tip(field));
         }
     }

@@ -11,7 +11,7 @@ use std::ops::RangeInclusive;
 use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::names::display_name;
-use studio_core::widgets::menu_button;
+use studio_core::widgets::{menu_button, radio_value};
 
 use crate::session::Session;
 use crate::session::database;
@@ -465,10 +465,15 @@ pub(crate) fn boglo_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
         studio_core::theme::window_title(ui, "Set boots and gloves IDs for everyone");
         ui.horizontal(|ui| {
             ui.label("Boots:");
-            ui.radio_value(&mut boglo.boots, BootsPick::Unchanged, "Unchanged");
+            radio_value(ui, &mut boglo.boots, BootsPick::Unchanged, "Unchanged");
         });
         ui.horizontal(|ui| {
-            ui.radio_value(&mut boglo.boots, BootsPick::Incremental, "Incremental from");
+            radio_value(
+                ui,
+                &mut boglo.boots,
+                BootsPick::Incremental,
+                "Incremental from",
+            );
             ui.add(egui::DragValue::new(&mut boglo.start));
             if let Some(slot) = last_slot {
                 ui.weak(format!(
@@ -478,20 +483,21 @@ pub(crate) fn boglo_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
             }
         });
         ui.horizontal(|ui| {
-            ui.radio_value(&mut boglo.boots, BootsPick::Same, "Same ID for all");
+            radio_value(ui, &mut boglo.boots, BootsPick::Same, "Same ID for all");
             ui.add(egui::DragValue::new(&mut boglo.boots_id));
         });
         ui.horizontal(|ui| {
             ui.label("Gloves:");
-            ui.radio_value(&mut boglo.gloves, GlovesPick::Unchanged, "Unchanged");
-            ui.radio_value(
+            radio_value(ui, &mut boglo.gloves, GlovesPick::Unchanged, "Unchanged");
+            radio_value(
+                ui,
                 &mut boglo.gloves,
                 GlovesPick::LikeBoots,
                 "Same as the boot IDs",
             );
         });
         ui.horizontal(|ui| {
-            ui.radio_value(&mut boglo.gloves, GlovesPick::Same, "Same ID for all");
+            radio_value(ui, &mut boglo.gloves, GlovesPick::Same, "Same ID for all");
             ui.add(egui::DragValue::new(&mut boglo.gloves_id));
         });
         ui.horizontal(|ui| {

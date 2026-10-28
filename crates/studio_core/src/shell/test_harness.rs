@@ -19,7 +19,7 @@ use crate::help::{HelpSection, HelpTarget};
 use crate::settings::Settings;
 use crate::status::ToolActivity;
 use crate::tool::{AppPaths, CliError, PlannedTool, StudioTool, ToolContext};
-use crate::widgets::{LogLine, LogPanel, PathKind, path_row};
+use crate::widgets::{LogLine, LogPanel, PathKind, checkbox_without_text, path_row};
 
 /// What `activity()` reports while a stub works: `(tool_label, progress, elapsed)`.
 pub(super) type Activity = (&'static str, Option<(usize, usize)>, Duration);
@@ -209,7 +209,7 @@ impl StudioTool for StubTool {
                         },
                     );
                     ui.label("Aesthetics from exports");
-                    ui.add(egui::Checkbox::without_text(&mut false));
+                    checkbox_without_text(ui, &mut false);
                     ui.end_row();
                 });
         }

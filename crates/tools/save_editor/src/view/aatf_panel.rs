@@ -16,6 +16,7 @@ use std::sync::Arc;
 
 use anyhow::Context;
 use pes_savefile::EditFile;
+use studio_core::widgets::{checkbox, radio_value};
 
 use crate::session::rules;
 use crate::view::aatf_check::{self, CheckKey, TeamsCheck};
@@ -249,9 +250,9 @@ fn rows(
         if let Ok(rules) = &active.rules {
             ui.weak(format!("Ruleset {} ", rules.ruleset().name));
         }
-        ui.radio_value(&mut aatf.mode, AatfMode::Current, "Current team");
-        ui.radio_value(&mut aatf.mode, AatfMode::Select, "Select teams");
-        ui.checkbox(&mut aatf.show_suggestions, "Show suggestions");
+        radio_value(ui, &mut aatf.mode, AatfMode::Current, "Current team");
+        radio_value(ui, &mut aatf.mode, AatfMode::Select, "Select teams");
+        checkbox(ui, &mut aatf.show_suggestions, "Show suggestions");
         if ui
             .button("Save a copy")
             .on_hover_text("Write the built-in official ruleset to a file")
@@ -309,10 +310,7 @@ fn rows(
             .show(ui, |ui| {
                 for entry in file.teams() {
                     let mut on = aatf.picked.contains(&entry.id);
-                    if ui
-                        .checkbox(&mut on, format!("{} {}", entry.id, entry.name))
-                        .changed()
-                    {
+                    if checkbox(ui, &mut on, format!("{} {}", entry.id, entry.name)).changed() {
                         if on {
                             aatf.picked.insert(entry.id);
                         } else {
