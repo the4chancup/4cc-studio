@@ -18,6 +18,8 @@ use crate::tactics::{Assign, FieldedMark, OpenSlot, RosterRow, TacticsView, name
 mod drop_rule;
 /// The "Starting eleven" and "Bench" lists, their rows and `swap_in`.
 mod lineup;
+/// The areas a held starter lights, and the darkening of the rest.
+mod lit_area;
 /// The slot popover a marker click opens beside its marker.
 mod popover;
 
@@ -165,25 +167,59 @@ struct Spot {
     index: usize,
     /// The formation slot.
     slot: FormationSlot,
-    /// The badge centre the marker draws and interacts at (the dragged
-    /// one's is the clamped pointer instead).
+    /// The badge centre the marker draws and interacts at (the held
+    /// one's is his spot at this step of the drag instead).
     centre: egui::Pos2,
+}
+
+/// A held marker's drag, kept in the context's temp memory under the
+/// pitch's scope from its first dragged frame to its release.
+#[derive(Clone, Copy)]
+struct Held {
+    /// The dragged slot's index in the shown formation.
+    slot: usize,
+    /// The press's offset from his badge centre, kept for the whole
+    /// drag: he stands at the pointer less it, so the point of his
+    /// marker first pressed stays under the pointer and a press on his
+    /// portrait or name does not jump his badge onto the pointer.
+    offset: egui::Vec2,
 }
 
 /// The formation selector of the formation bar (the draft's
 /// `formationSel`, moved out of `pitch` for the bar over the pitch's and
-/// the assignments' columns): the shown preset's three formations.
-/// Writes `view.formation`, never the record.
-pub fn formation_selector(ui: &mut egui::Ui, view: &mut TacticsView) {
-    ui.horizontal(|ui| {
-        for (index, label) in FORMATIONS.iter().enumerate() {
-            ui.selectable_value(&mut view.formation, index, *label);
-        }
-    })
-    .response
-    .on_hover_text(
-        "The game uses formations 2 and 3 only while the preset's fluid formation is on",
-    );
+/// the assignments' columns): the shown preset's three formations of
+/// `tactics`. While that preset fields its Kick-off formation alone, the
+/// three are disabled with Kick-off selected (`lock_to_fielded`). Writes
+/// `view.formation`, never the record.
+pub fn formation_selector(ui: &mut egui::Ui, tactics: &TeamTactics, view: &mut TacticsView) {
+    let locked = lock_to_fielded(tactics, view);
+    ui.add_enabled_ui(!locked, |ui| {
+        ui.horizontal(|ui| {
+            for (index, label) in FORMATIONS.iter().enumerate() {
+                ui.selectable_value(&mut view.formation, index, *label);
+            }
+        })
+        .response
+        .on_hover_text(
+            "The game uses formations 2 and 3 only while the preset's fluid formation is on",
+        )
+        .on_disabled_hover_text("Formations 2 and 3 are used only while Fluid formation is on");
+    });
+}
+
+/// Puts `view` on Kick-off while the shown preset of `tactics` fields its
+/// Kick-off formation alone (its Fluid formation off, always so on PES
+/// 2015, which has no switch): the game uses the other two only while it
+/// is on, so an edit there would change nothing a match uses. Answers
+/// whether the preset is so locked. `formation_selector` and `pitch` both
+/// call it first, so the pitch never shows a formation the selector
+/// cannot pick, whichever of the two a host draws first.
+fn lock_to_fielded(tactics: &TeamTactics, view: &mut TacticsView) -> bool {
+    let locked = tactics.presets[view.preset.min(2)].fielded_formations() == [0];
+    if locked {
+        view.formation = 0;
+    }
+    locked
 }
 
 /// The draft's `.pitch`: the canvas inside its 1 px border — a marker
@@ -200,8 +236,13 @@ pub fn formation_selector(ui: &mut egui::Ui, view: &mut TacticsView) {
 /// the game's select-one-then-the-other), another `Marker` exchanges the
 /// two slots' position and spot in the shown formation alone (the game's
 /// drag) — and a release on the grass writes its slot's snapped
-/// coordinates and sets its position by the game's drop rule, where a
-/// row's release does nothing. The keeper's marker
+/// coordinates and the position the game's drop rule gives there, where
+/// a row's release does nothing. A held marker moves a whole stored unit
+/// at a time with the point first pressed under the pointer, his badge
+/// showing the position the rule gives him at each step from his stored
+/// one, and the pitch
+/// outside the areas he is rated at is darkened; nothing is written
+/// until the release. The keeper's marker
 /// (position 0) is neither a drag source nor a marker's swap target; his
 /// spot is fixed. `version` is the open save's (`swap_in`'s instruction
 /// decode). Answers `true` only when `tactics` changed this frame.
@@ -214,6 +255,7 @@ pub fn pitch(
     roster: &[RosterRow<'_>],
 ) -> bool {
     ui.push_id(id_salt, |ui| {
+        lock_to_fielded(tactics, view);
         // The answer is the deep compare, as `tactics_settings`' is.
         let before = tactics.clone();
         // The popover's slot is of the scope, preset and formation it
@@ -283,6 +325,55 @@ pub fn pitch(
             };
             responses[index] = Some(marker(ui, canvas, version, tactics, view, roster, spot));
         }
+        // The held marker: the outfield one egui reports dragged. The
+        // keeper's is skipped: his slot is fixed, he is painted at his
+        // spot, never moved.
+        let dragged = order.iter().copied().find(|&index| {
+            players[index].position != 0
+                && responses[index]
+                    .as_ref()
+                    .expect("every marker interacted")
+                    .dragged()
+        });
+        // The drag as the last frame left it, and as this frame holds it:
+        // his index and his slot at this step (the spot under the
+        // pointer less the press's offset, and the position the rule
+        // gives there from his stored one). Nothing is written until the
+        // release.
+        let held_id = ui.scope_id().with("held marker");
+        let previous = ui.ctx().data(|data| data.get_temp::<Held>(held_id));
+        let held = dragged.map(|index| {
+            let held = previous
+                .filter(|held| held.slot == index)
+                .unwrap_or_else(|| Held {
+                    slot: index,
+                    // From his unclamped badge centre, the one `snap`
+                    // inverts: a press with no move then keeps his spot
+                    // even where the clamp has pushed his marker in from
+                    // the canvas' edge.
+                    offset: ui
+                        .input(|i| i.pointer.press_origin())
+                        .map_or(egui::Vec2::ZERO, |origin| {
+                            origin - badge_centre(canvas.min, players[index])
+                        }),
+                });
+            let (x, y) = ui
+                .ctx()
+                .pointer_interact_pos()
+                .map_or((players[index].x, players[index].y), |pos| {
+                    snap(pos - held.offset, canvas.min)
+                });
+            let formation = &tactics.presets[view.preset.min(2)].formations[view.formation.min(2)];
+            let position = drop_rule::dropped_position(
+                formation,
+                index,
+                x,
+                y,
+                overalls_of(roster, tactics, index),
+            );
+            ui.ctx().data_mut(|data| data.insert_temp(held_id, held));
+            (index, FormationSlot { position, x, y })
+        });
         // A drop hits the topmost marker first (the draft's `hitMarker`
         // checks back to front); the canvas' own is the grass. egui
         // reports a release to the closest widget within its 5-point
@@ -318,8 +409,10 @@ pub fn pitch(
             // formation alone, each player staying in his slot, as the
             // game's drag does (the starting-eleven exchange, which
             // reaches every formation, is the lineup rows'); over the
-            // grass, his own spot or the keeper he moves to the snapped
-            // drop point. A release egui also reports as his click (the
+            // grass, his own spot or the keeper he moves to the spot the
+            // held marker stood at, the release point less the press's
+            // offset, taking the position the rule gives there, as his
+            // badge showed it. A release egui also reports as his click (the
             // pointer moved within the click distance, though past his
             // edge) is that click, which `marker` served: no drop.
             Some((_, LineupDrag::Marker(from)))
@@ -328,21 +421,20 @@ pub fn pitch(
                     .is_some_and(egui::Response::clicked) =>
             {
                 if let Some(pos) = ui.ctx().pointer_interact_pos() {
+                    let overalls = overalls_of(roster, tactics, from);
                     let formation =
                         &mut tactics.presets[view.preset.min(2)].formations[view.formation.min(2)];
                     match swap_target(&players, &centres, canvas, pos, from) {
                         Some(onto) => formation.players.swap(from, onto),
                         None => {
-                            let (x, y) = snap(pos, canvas.min);
-                            // The dragged starter's own per-position
-                            // overalls pick his new position.
-                            let overalls = roster
-                                .get(usize::from(tactics.starting_eleven[from]))
-                                .and_then(|row| row.overalls.as_ref());
-                            formation.players[from].x = x;
-                            formation.players[from].y = y;
+                            let offset = previous
+                                .filter(|held| held.slot == from)
+                                .map_or(egui::Vec2::ZERO, |held| held.offset);
+                            let (x, y) = snap(pos - offset, canvas.min);
                             formation.players[from].position =
                                 drop_rule::dropped_position(formation, from, x, y, overalls);
+                            formation.players[from].x = x;
+                            formation.players[from].y = y;
                         }
                     }
                 }
@@ -351,23 +443,27 @@ pub fn pitch(
             // marker's release that was his click, do nothing.
             Some(_) | None => {}
         }
+        // The drag's state ends once no marker is held: at the release,
+        // whose drop has read it above, and on every idle frame.
+        if held.is_none() {
+            ui.ctx().data_mut(|data| data.remove::<Held>(held_id));
+        }
         // The paint pass reads the written record: the spots are
         // recomputed after the drop is written, so a released marker
-        // paints at his drop point on this very frame.
+        // paints at his drop point on this very frame. Painted top of the
+        // canvas down (a lower marker covers the one above it), the held
+        // one last.
         let players = tactics.presets[view.preset.min(2)].formations[view.formation.min(2)].players;
         let centres = players.map(|slot| clamp_centre(badge_centre(canvas.min, slot), canvas));
         let order = draw_order(&centres);
-        // Painted top of the canvas down (a lower marker covers the one
-        // above it), the dragged one last — the keeper's `dragged` is
-        // skipped: his slot is fixed, he is painted at his spot, never
-        // at the pointer.
-        let dragged = order.iter().copied().find(|index| {
-            players[*index].position != 0
-                && responses[*index]
-                    .as_ref()
-                    .expect("every marker interacted")
-                    .dragged()
-        });
+        // While an outfield starter is held, the pitch outside the areas
+        // he is rated at is darkened, under every marker.
+        if let Some(index) = dragged {
+            let rated = roster
+                .get(usize::from(tactics.starting_eleven[index]))
+                .map_or([false; 13], |row| row.rated);
+            lit_area::paint_dim(&painter, canvas, &rated);
+        }
         // The starter a release now would swap with — the same pick the
         // drop makes, so the mark and the release always agree. The
         // dragged marker sits on him, so it goes half transparent over
@@ -401,19 +497,22 @@ pub fn pitch(
                 ));
             }
         }
-        // The dragged marker's drawn place (the clamped pointer while
-        // he is held): the cross pass reads it too.
-        let dragged_at = dragged.map(|index| {
-            ui.ctx()
-                .pointer_interact_pos()
-                .map_or(centres[index], |pos| clamp_centre(pos, canvas))
-        });
-        if let Some(index) = dragged {
+        // The held marker's drawn place, his spot at this step (clamped
+        // like every marker's): the cross pass reads it too.
+        let dragged_at = held.map(|(_, slot)| clamp_centre(badge_centre(canvas.min, slot), canvas));
+        if let Some((index, slot)) = held {
             // He goes half transparent while he sits on a swap target.
             let mut painter = painter.clone();
             if swap.is_some() {
                 painter.multiply_opacity(0.35);
             }
+            // His badge shows the position he holds, or, over a
+            // teammate, the teammate's, which a release there gives him,
+            // with his own overall at it.
+            let shown = FormationSlot {
+                position: swap.map_or(slot.position, |target| players[target].position),
+                ..slot
+            };
             record(paint_marker(
                 &painter,
                 canvas,
@@ -422,8 +521,8 @@ pub fn pitch(
                 roster,
                 Spot {
                     index,
-                    slot: players[index],
-                    centre: dragged_at.expect("the dragged marker's centre"),
+                    slot: shown,
+                    centre: dragged_at.expect("the held marker's centre"),
                 },
                 seconds,
             ));
@@ -447,53 +546,48 @@ pub fn pitch(
         // fix must not hide under a later marker's portrait. Each is an X
         // over the starter's portrait (`paint_portrait_cross`) in the
         // marks' highest severity's colour, its tooltip their lines over
-        // the portrait. Only while the shown formation is one the shown
-        // preset fields.
-        if tactics.presets[view.preset.min(2)]
-            .fielded_formations()
-            .contains(&view.formation.min(2))
-        {
-            for index in order {
-                let marks: Vec<&FieldedMark> = roster
-                    .get(usize::from(tactics.starting_eleven[index]))
-                    .map(|row| {
-                        row.fielded
-                            .iter()
-                            .filter(|mark| {
-                                mark.preset == view.preset.min(2)
-                                    && mark.position == players[index].position
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default();
-                if marks.is_empty() {
-                    continue;
-                }
-                let centre = if Some(index) == dragged {
-                    dragged_at.expect("the dragged marker's centre")
-                } else {
-                    centres[index]
-                };
-                let portrait = portrait_rect(badge_rect(centre));
-                let color = if marks.iter().any(|mark| mark.error) {
-                    ui.visuals().error_fg_color
-                } else {
-                    ui.visuals().warn_fg_color
-                };
-                paint_portrait_cross(&painter, portrait, color);
-                ui.interact(
-                    portrait,
-                    ui.scope_id().with(("live aatf pitch cross", index)),
-                    egui::Sense::hover(),
-                )
-                .on_hover_text(
-                    marks
+        // the portrait. The shown formation is always one the preset
+        // fields: `lock_to_fielded` keeps a non-fluid preset on Kick-off.
+        for index in order {
+            let marks: Vec<&FieldedMark> = roster
+                .get(usize::from(tactics.starting_eleven[index]))
+                .map(|row| {
+                    row.fielded
                         .iter()
-                        .map(|mark| mark.line.as_str())
-                        .collect::<Vec<_>>()
-                        .join("\n"),
-                );
+                        .filter(|mark| {
+                            mark.preset == view.preset.min(2)
+                                && mark.position == players[index].position
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            if marks.is_empty() {
+                continue;
             }
+            let centre = if Some(index) == dragged {
+                dragged_at.expect("the dragged marker's centre")
+            } else {
+                centres[index]
+            };
+            let portrait = portrait_rect(badge_rect(centre));
+            let color = if marks.iter().any(|mark| mark.error) {
+                ui.visuals().error_fg_color
+            } else {
+                ui.visuals().warn_fg_color
+            };
+            paint_portrait_cross(&painter, portrait, color);
+            ui.interact(
+                portrait,
+                ui.scope_id().with(("live aatf pitch cross", index)),
+                egui::Sense::hover(),
+            )
+            .on_hover_text(
+                marks
+                    .iter()
+                    .map(|mark| mark.line.as_str())
+                    .collect::<Vec<_>>()
+                    .join("\n"),
+            );
         }
         // The next name move asks the repaint (none when every name fits).
         if let Some(still_for) = still_for {
@@ -504,6 +598,19 @@ pub fn pitch(
         *tactics != before
     })
     .inner
+}
+
+/// The per-position overalls on the roster row of the starter in
+/// `index` of the eleven, which the drop rule picks his position by;
+/// `None` for an empty slot or a host that reads none.
+fn overalls_of<'a>(
+    roster: &'a [RosterRow<'_>],
+    tactics: &TeamTactics,
+    index: usize,
+) -> Option<&'a [u8; 13]> {
+    roster
+        .get(usize::from(tactics.starting_eleven[index]))
+        .and_then(|row| row.overalls.as_ref())
 }
 
 /// A slot's badge centre on the canvas (the screen's own spot mapping,
@@ -863,7 +970,8 @@ fn marker(
 /// codes' colours (white where it has none), the captain's mark when he
 /// is the starter, and the selection corners the screen's marks lend
 /// the editor's states. `spot.centre` is the clamped badge
-/// centre (the clamped pointer while dragged); `seconds` is the name
+/// centre (a held marker's at his spot at this step, `spot.slot` the
+/// position his badge shows); `seconds` is the name
 /// scroll's clock. Answers how long until the name next moves, `None`
 /// when it fits and never moves.
 fn paint_marker(

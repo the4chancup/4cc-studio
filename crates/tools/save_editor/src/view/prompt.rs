@@ -273,6 +273,7 @@ pub(super) fn roster_for<'a>(
                 portrait: None,
                 medal: None,
                 overalls: None,
+                rated: [false; 13],
                 fielded: &[],
             }
         })

@@ -33,7 +33,8 @@ pub struct TacticsView {
     pub preset: usize,
     /// The preset's formation the lineup and pitch show: 0 kick-off, 1
     /// in-possession, 2 out-of-possession. The formation bar's
-    /// `pitch::formation_selector` is its only writer.
+    /// `pitch::formation_selector` picks it; it and `pitch::pitch` put it
+    /// back on kick-off while the preset fields that formation alone.
     pub formation: usize,
     /// The armed assignment mode, `None` when none: a pitch click then
     /// writes the role instead of opening the slot popover.
@@ -96,6 +97,11 @@ pub struct RosterRow<'a> {
     /// The player's overall at each position, indexed by the position byte
     /// (GK 0 to CF 12); `None` for an empty slot or a host that reads none.
     pub overalls: Option<[u8; 13]>,
+    /// The positions he is rated A or B at, indexed by the position byte
+    /// (GK 0 to CF 12): while his pitch marker is held, the pitch lights
+    /// their areas and darkens the rest. All `false` for an empty slot or
+    /// a host that reads none.
+    pub rated: [bool; 13],
     /// The slot's `FieldedNotA` marks (the pitch paints a `✖` left of
     /// the starter's badge on the formation a mark names); empty for a
     /// slot with none or a host that reads none.
