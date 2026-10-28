@@ -8,6 +8,15 @@ sidekick work in progress stays in `WORKLOG.md` "Issues"; this file holds nothin
 settle itself. Entries are grouped by what an answer unblocks, newest last within a group; each
 names where the question came from so the context can be read there.
 
+## Before the release
+
+- **The final pass over the built app's UI** (worklog 0.0.1f1c; the maintainer asked for it on
+  2026-10-28). The lead says when the build is ready: every 0.0.1 UI step landed, the
+  sidebar's flicker on open fixed. In the same pass: the preview's icon where the lead cannot
+  capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the head;
+  Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's hash
+  (0.0.1f2).
+
 ## Cup practice
 
 The Music player's three below come from reading Rigdio v2.2.0's controls (worklog 10.0i,

@@ -4163,8 +4163,15 @@ briefs, review loops, gates and mutation runs as for any step.
     makes it portable, so the first start asks nothing. Review: SWE-2 S1 3 of 7 accepted (two
     routed: `plans/core/gui.md` and `plans/core/distribution.md` still list the old bundle;
     a block's own CUSTOM CHECKS now kept), `.tmp/0_0_1f/rulings.md`
-  - [ ] f2 logic version 1's hash frozen (on the maintainer's confirmation), `just release
-    0.0.1`, the clean-machine check, the hand-over
+  - [ ] f1c the maintainer's final pass over the built app's UI, before anything is frozen
+    (the maintainer, 2026-10-28: "wait for one final pass of the UI from me, before it goes
+    golden"), once every UI step of 0.0.1 has landed (w4b, w6b, z2, y4e, y5b, y6b, y7b and the
+    lead's built-window checks, which ask before they take focus). Before it: the sidebar's
+    flicker on open, which the maintainer saw, reproduced and fixed by the lead. In the same
+    pass: 0.0.1v's open look outside the app's own windows (the taskbar button, Alt+Tab,
+    Explorer's file icon on the exe) → QUESTIONS "Before the release"
+  - [ ] f2 logic version 1's hash frozen (on the maintainer's confirmation, after f1c), `just
+    release 0.0.1`, the clean-machine check, the hand-over
 
 ### Phase 10 — Music tools
 
