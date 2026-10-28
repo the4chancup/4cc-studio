@@ -31,7 +31,7 @@ mod terms;
 mod tests;
 mod worker;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use pes_savefile::model::{PlayerEntry, TeamEntry};
@@ -99,6 +99,16 @@ pub(crate) struct SaveView {
     /// `Tool::view` reads them from the data folder on its first frame;
     /// none in the tests' view-only frames.
     pub(crate) imported: Vec<Imported>,
+    /// The data folder the imported rulesets' copies live in (its
+    /// `rules/`): `Tool::view` sets it with `imported`; none in the tests'
+    /// view-only frames, so an import there is refused.
+    pub(crate) data_dir: Option<PathBuf>,
+    /// The ruleset dropdown's Import rules file… picker (`rfd` on
+    /// `.4ccrules` files, stubbed in tests: the `open_dialog` pattern).
+    rules_file_dialog: comparator::OpenSaveDialog,
+    /// The import's or the ×'s dialog while one is up, or the picker due
+    /// at the frame's end; `None` otherwise.
+    rules_dialog: Option<ruleset_picker::RulesDialog>,
     /// The ruleset the quick actions, the Cards left badge, the medal
     /// outlines and Live AATF use, resolved from `aatf_ruleset` on the
     /// first frame and again only when the setting changes.
@@ -308,6 +318,9 @@ impl SaveView {
             refusal: None,
             aatf_ruleset: rules::FIRST_BUILTIN.to_owned(),
             imported: Vec::new(),
+            data_dir: None,
+            rules_file_dialog: ruleset_picker::default_rules_dialog(),
+            rules_dialog: None,
             rules: None,
             comparator: comparator::Comparator::new(),
             open_save_dialog: comparator::default_open_dialog(),
@@ -560,6 +573,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() ->
     comparator::show(ui, view);
     prompt::show(ui, view, running);
     prompt::edit_mode_dialog(ui, view, running);
+    ruleset_picker::dialog(ui, view);
     // Last so the newest refusal, raised by a modal's own Save, sits
     // above the modal that stays up behind it.
     refusal_dialog(ui, view);

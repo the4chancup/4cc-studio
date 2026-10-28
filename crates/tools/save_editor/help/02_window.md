@@ -35,7 +35,11 @@ greyed out.
 rules the quick actions, the Cards left badge and Live AATF use. Every cup's current
 rules are built in, listed by name, and the copies in the data folder's `rules` folder
 follow them. The pick is remembered. When the copy picked last is gone from the data
-folder, 4cc Autumn 26 is used instead and a notice says so.
+folder, 4cc Autumn 26 is used instead and a notice says so. **Import rules file…** at
+the bottom of the list adds a cup's `.4ccrules` file: it is copied into the data folder
+and picked, while a file with errors is refused with its errors listed, so you can fix
+it and import it again. The **×** beside an imported ruleset removes it from the list
+after asking, deleting only the data folder's copy, never the file you imported.
 
 **Comparator.** **Panels** in the toolbar, **Comparator…**, opens a floating
 window comparing the open save, edits included, against a second save:

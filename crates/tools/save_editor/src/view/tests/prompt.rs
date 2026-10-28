@@ -70,7 +70,7 @@ fn click_label(window: &mut Headless, view: &mut SaveView, label: &str) {
 /// The nodes of the `Role::Dialog` subtree holding `heading` (an
 /// `egui::Modal`'s content, as `frame_ids` reports it): the prompt's own
 /// cells, the view's behind-the-backdrop nodes left out.
-fn dialog_nodes<'a>(
+pub(super) fn dialog_nodes<'a>(
     pairs: &'a [(accesskit::NodeId, accesskit::Node)],
     heading: &str,
 ) -> Vec<&'a accesskit::Node> {

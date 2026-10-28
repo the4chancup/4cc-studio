@@ -32,8 +32,9 @@ const AESTHETICS_FROM_EXPORTS_TIP: &str = "On when the cup's looks are compiled 
 /// state.
 pub struct Tool {
     view: view::SaveView,
-    /// Whether the imported rulesets were read into the view: they are read on the first
-    /// `view` frame, where the data folder is known, and not again while the tool runs.
+    /// Whether the data folder and its imported rulesets were handed to the view: they are
+    /// read on the first `view` frame, where the data folder is known; afterwards only the
+    /// view's own import and × read the list again.
     imports_read: bool,
     /// The running-PES probe `Tool::view` hands `view::show`: the real
     /// process list in production, a stub reporting no game under `cargo
@@ -116,7 +117,8 @@ impl StudioTool for Tool {
         let table = ctx.tool_settings(TOOL_ID);
         let tool_settings = settings::from_table(&table).unwrap_or_default();
         if !self.imports_read {
-            self.view.imported = session::rules::imported(ctx.paths().data_dir.as_deref());
+            self.view.data_dir = ctx.paths().data_dir.clone();
+            self.view.imported = session::rules::imported(self.view.data_dir.as_deref());
             self.imports_read = true;
         }
         self.view.aatf_ruleset = tool_settings.aatf_ruleset.clone();
