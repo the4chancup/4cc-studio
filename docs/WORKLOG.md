@@ -4465,7 +4465,12 @@ briefs, review loops, gates and mutation runs as for any step.
     `check-aatf` (`aatf_ruleset_gone`), the toolbar dropdown (`view/ruleset_picker.rs`)
     without Import or ×, the panel and the load error gone, the bundle, the Ruleset editor's
     start page labels and a suggested file name of letters and digits alone (`/vg/` read as
-    folders); spec's CLI side moved. ov7b: Import and ×; ov7c: Multi-team AATF. The list:
+    folders); spec's CLI side moved. ov7b built (brief `brief_ov7b.md`, rework
+    `rework_ov7b_r1.md`, report `.tmp/sidelead/sk_ov7b.report.md`): `session::rules`'
+    `check_import`/`import`/`remove`, the dropdown's `Import rules file…` and each import's ×
+    with their dialogs (`view/ruleset_picker.rs`), a re-import differing only in case keeping
+    the earlier copy's name (Windows reads the two as one file); the ×'s and the dialogs' look
+    not yet seen in the built window (ov1). ov7c: Multi-team AATF. The list:
     - the toolbar's ruleset dropdown (`save_editor` view): built-ins by `name`, imports under
       a separator with an ×, `Import rules file…` after another, outside the wheel's steps;
       the import (`rfd` on `.4ccrules`, `Rules::load`, the refusal dialog with the findings,
