@@ -1,4 +1,5 @@
-//! The AATF check behind the Live AATF dock (`live_aatf`): the
+//! The AATF check behind the Live AATF dock (`live_aatf`) and the
+//! Multi-team AATF dialog (`multi_aatf`): the
 //! worker-thread check's key, pending state and spawn, the team the dock
 //! reads, the `violations_list` rows a check's results draw, and a row
 //! click's effect on the view's selection. The check runs on a worker
@@ -15,7 +16,9 @@ use pes_savefile::EditFile;
 use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::tactics::TeamTactics;
 use team_widgets::tactics::TacticsView;
-use team_widgets::violations::{ListedPlayer, SelectedPlayer, TeamViolations, violations_list};
+use team_widgets::violations::{
+    ListUse, ListedPlayer, SelectedPlayer, TeamViolations, violations_list,
+};
 
 use crate::session::rules::{self, TeamCheck};
 use crate::session::selection::TeamChoice;
@@ -43,7 +46,7 @@ pub(super) type PendingCheck = Pending<CheckKey, Vec<TeamCheck>>;
 
 /// A team check's state: the last result with its key and the check in
 /// flight, if one is (`worker::WorkerResult`'s poll-and-spawn cycle). The
-/// Live AATF dock holds one.
+/// Live AATF dock and the Multi-team AATF dialog hold one each.
 pub(super) type TeamsCheck = WorkerResult<CheckKey, Vec<TeamCheck>>;
 
 /// One frame of the check cycle for `key`: the reply polled first, so
@@ -155,15 +158,15 @@ pub(super) fn team_name(file: &EditFile, id: u32) -> &str {
 
 /// The check's results: one error-coloured line per team whose check
 /// failed (as `check-aatf` reports it), then the `violations_list` itself,
-/// its suggestions listed when `show_suggestions` says so. Returns the
-/// player whose row was clicked this frame.
+/// drawn for `list_use`. Returns the player whose row was clicked this
+/// frame.
 pub(super) fn results(
     ui: &mut egui::Ui,
     file: &EditFile,
     id_salt: impl egui::AsIdSalt,
     key: &CheckKey,
     checks: &[TeamCheck],
-    show_suggestions: bool,
+    list_use: ListUse,
 ) -> Option<SelectedPlayer> {
     // Player ids are stable inside an open file: one map serves the
     // whole roster scan, as `selection::rows` builds its own (its
@@ -201,7 +204,7 @@ pub(super) fn results(
             }),
         }
     }
-    violations_list(ui, id_salt, &teams, show_suggestions)
+    violations_list(ui, id_salt, &teams, list_use)
 }
 
 /// Team `id`'s rostered players as the list's `ListedPlayer`s, in slot

@@ -62,38 +62,62 @@ pub struct FieldedAt {
     pub position: aatf::Position,
 }
 
-/// The AATF results of `teams`, grouped per player; suggestions only when
-/// `show_suggestions`. Returns the player whose row was clicked this frame.
+/// What a host lists the results for, which decides what the list draws
+/// besides the rows.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListUse {
+    /// The team a member is making legal (the Live AATF dock): a team with
+    /// no rows gets no header, since the host's own header says it passes;
+    /// a player's row selects him on click; the suggestions follow under
+    /// their own heading when `show_suggestions`.
+    Editing {
+        /// List the suggestions too.
+        show_suggestions: bool,
+    },
+    /// A report over several teams, read and copied out (Multi-team
+    /// AATF): every team under its id and name, `All clean` under one with
+    /// no rows so it reads as checked rather than missed; the rows only
+    /// report, and no suggestion is listed.
+    Report,
+}
+
+/// The AATF results of `teams`, grouped per player, as `list_use` says.
+/// Returns the player whose row was clicked this frame.
 pub fn violations_list(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
     teams: &[TeamViolations<'_>],
-    show_suggestions: bool,
+    list_use: ListUse,
 ) -> Option<SelectedPlayer> {
     ui.push_id(id_salt, |ui| {
         let mut selected = None;
+        let selects = matches!(list_use, ListUse::Editing { .. });
         for team in teams {
-            let slots = slot_order(
-                team.violations
-                    .iter()
-                    .filter(|v| v.severity != aatf::Severity::Suggestion),
-            );
-            // A team the check found nothing wrong with gets no header of its own.
-            if slots.is_empty() {
-                continue;
+            let groups = issue_groups(team.violations);
+            match list_use {
+                ListUse::Editing { .. } => {
+                    // A team the check found nothing wrong with gets no header of its own.
+                    if groups.is_empty() {
+                        continue;
+                    }
+                    ui.strong(format!("Team {} {}", team.team_id, team.team_name));
+                }
+                ListUse::Report => {
+                    ui.strong(format!(
+                        "{} {}",
+                        team.team_id,
+                        pes_savefile::model::names::display_name(team.team_name)
+                    ));
+                    if groups.is_empty() {
+                        ui.weak("All clean");
+                    }
+                }
             }
-            ui.strong(format!("Team {} {}", team.team_id, team.team_name));
-            for slot in slots {
+            for (slot, violations) in groups {
                 group_header(ui, team, slot);
-                for severity in [aatf::Severity::Error, aatf::Severity::Warning] {
-                    for violation in team
-                        .violations
-                        .iter()
-                        .filter(|v| v.slot == slot && v.severity == severity)
-                    {
-                        if let Some(player) = row(ui, team.team_id, violation) {
-                            selected = Some(player);
-                        }
+                for violation in violations {
+                    if let Some(player) = row(ui, team.team_id, violation, selects) {
+                        selected = Some(player);
                     }
                 }
             }
@@ -102,7 +126,13 @@ pub fn violations_list(
             .iter()
             .flat_map(|team| team.violations)
             .any(|v| v.severity == aatf::Severity::Suggestion);
-        if show_suggestions && any_suggestions {
+        let suggestions_asked = matches!(
+            list_use,
+            ListUse::Editing {
+                show_suggestions: true
+            }
+        );
+        if suggestions_asked && any_suggestions {
             ui.strong("Suggestions");
             for team in teams {
                 for slot in slot_order(
@@ -116,7 +146,7 @@ pub fn violations_list(
                         .iter()
                         .filter(|v| v.slot == slot && v.severity == aatf::Severity::Suggestion)
                     {
-                        if let Some(player) = row(ui, team.team_id, violation) {
+                        if let Some(player) = row(ui, team.team_id, violation, selects) {
                             selected = Some(player);
                         }
                     }
@@ -126,6 +156,31 @@ pub fn violations_list(
         selected
     })
     .inner
+}
+
+/// A team's Error and Warning violations in the list's order: one group
+/// per slot, in the check's order (players by slot, the team's own rows
+/// last, `None`), errors before warnings inside a group. A host writing the
+/// list out as text walks this, so the text reads as the list does.
+pub fn issue_groups(violations: &[aatf::Violation]) -> Vec<(Option<u8>, Vec<&aatf::Violation>)> {
+    slot_order(
+        violations
+            .iter()
+            .filter(|v| v.severity != aatf::Severity::Suggestion),
+    )
+    .into_iter()
+    .map(|slot| {
+        let rows = [aatf::Severity::Error, aatf::Severity::Warning]
+            .into_iter()
+            .flat_map(|severity| {
+                violations
+                    .iter()
+                    .filter(move |v| v.slot == slot && v.severity == severity)
+            })
+            .collect();
+        (slot, rows)
+    })
+    .collect()
 }
 
 /// The slots the given violations fall on, in first-appearance order (the
@@ -197,9 +252,15 @@ fn layout(
 /// severity-colored proportional text, one line cut with an ellipsis (the
 /// draft's `text-overflow: ellipsis`), then `sentence` in the strong text
 /// color, wrapped so a long custom check's text stays readable; the whole row
-/// one click target. A player's row
-/// returns `SelectedPlayer` on click; a team row only hovers.
-fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<SelectedPlayer> {
+/// one click target. While `selects`, a player's row returns
+/// `SelectedPlayer` on click; a team row, or any row of a list that does
+/// not select, only hovers.
+fn row(
+    ui: &mut egui::Ui,
+    team_id: u32,
+    violation: &aatf::Violation,
+    selects: bool,
+) -> Option<SelectedPlayer> {
     let (rule, _) = violation.kind.rule();
     let (rule_color, strong_color) = {
         let visuals = ui.visuals();
@@ -229,15 +290,6 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
         egui::text::TextWrapping::wrap_at_width((ui.available_width() - RULE_COL).max(0.0)),
     );
     let height = rule_galley.size().y.max(sentence_galley.size().y);
-    let (rect, response) = ui.allocate_exact_size(
-        egui::vec2(ui.available_width(), height),
-        if violation.slot.is_some() {
-            egui::Sense::click()
-        } else {
-            egui::Sense::hover()
-        },
-    );
-    let label = violation_line(violation, team_id);
     let fielded = if let aatf::ViolationKind::FieldedNotA {
         preset, position, ..
     } = violation.kind
@@ -246,11 +298,29 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
     } else {
         None
     };
-    let select = violation.slot.map(|slot| SelectedPlayer {
-        team_id,
-        slot,
-        fielded,
-    });
+    let select = violation
+        .slot
+        .filter(|_| selects)
+        .map(|slot| SelectedPlayer {
+            team_id,
+            slot,
+            fielded,
+        });
+    let (rect, response) = ui.allocate_exact_size(
+        egui::vec2(ui.available_width(), height),
+        if select.is_some() {
+            egui::Sense::click()
+        } else {
+            egui::Sense::hover()
+        },
+    );
+    let label = violation_line(violation, team_id);
+    // A report's rows select nothing, so no tooltip talks of selecting.
+    let hover = match (select, selects) {
+        (Some(_), _) => Some("Select this player"),
+        (None, true) => Some("A team-level violation"),
+        (None, false) => None,
+    };
     row_paint(
         ui,
         response,
@@ -264,11 +334,7 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
         ],
         &label,
         select,
-        Some(if select.is_some() {
-            "Select this player"
-        } else {
-            "A team-level violation"
-        }),
+        hover,
     )
 }
 
@@ -393,7 +459,9 @@ fn setting_words(setting: &str) -> &str {
 /// What is wrong with `violation`, in the draft's `violationSentence` wording:
 /// one arm per `ViolationKind`. `team_id` is the team's, for the rules whose
 /// expected value it sets (the roster order's `team id x 100 + slot + 1`).
-fn sentence(violation: &aatf::Violation, team_id: u32) -> String {
+/// The row's text after the rule's name; a host writing the list out as
+/// text writes it so.
+pub fn sentence(violation: &aatf::Violation, team_id: u32) -> String {
     use aatf::ViolationKind as K;
     match &violation.kind {
         K::RegisteredNotA { rated_a } => format!(
@@ -573,7 +641,12 @@ mod tests {
         ) {
             let mut selected = None;
             let (nodes, shapes) = self.frame(events, |ui| {
-                selected = Some(violations_list(ui, "list", teams, show_suggestions));
+                selected = Some(violations_list(
+                    ui,
+                    "list",
+                    teams,
+                    ListUse::Editing { show_suggestions },
+                ));
             });
             (nodes, shapes, selected.expect("the list ran"))
         }
@@ -730,6 +803,92 @@ mod tests {
                 "BracketQuota: 8 players in bracket tall of red, quota 10",
             ]
         );
+    }
+
+    /// The report over two teams: 734 /lit/ of the PES 17 fixture save with
+    /// the grouping test's two short regulars (its errors, and its eight
+    /// `Unused` suggestions), and 714 /co/ given only its own check's
+    /// suggestions. Each team stands under its id and name; 714, whose
+    /// rows are all suggestions, reads `All clean`; no suggestion is
+    /// listed; a player's row reports rather than selects.
+    #[test]
+    fn a_report_heads_every_team_and_lists_no_suggestion() {
+        let mut file = fixture();
+        for id in [73401, 73404] {
+            let player = file.player_mut(id).expect("rostered");
+            assert_eq!(player.basic.height, 185, "premise: {id} is tall");
+            player.basic.height = 183;
+        }
+        let players_734 = listed_players(&file, 734);
+        let violations_734 = check(&file, 734);
+        let players_714 = listed_players(&file, 714);
+        let suggestions_714: Vec<aatf::Violation> = check(&file, 714)
+            .into_iter()
+            .filter(|v| v.severity == aatf::Severity::Suggestion)
+            .collect();
+        assert!(
+            violations_734
+                .iter()
+                .any(|v| v.severity == aatf::Severity::Suggestion),
+            "premise: 734's check holds suggestions"
+        );
+        assert!(!suggestions_714.is_empty(), "premise: 714 has suggestions");
+        let team_734 = file.team(734).expect("team 734");
+        let team_714 = file.team(714).expect("team 714");
+        let teams = [
+            TeamViolations {
+                team_id: 734,
+                team_name: &team_734.name,
+                players: &players_734,
+                violations: &violations_734,
+            },
+            TeamViolations {
+                team_id: 714,
+                team_name: &team_714.name,
+                players: &players_714,
+                violations: &suggestions_714,
+            },
+        ];
+        let mut window = Headless::new();
+        let report = |window: &mut Headless, events| {
+            let mut selected = None;
+            let (nodes, _) = window.frame(events, |ui| {
+                selected = Some(violations_list(ui, "list", &teams, ListUse::Report));
+            });
+            (nodes, selected.expect("the list ran"))
+        };
+        let (nodes, _) = report(&mut window, vec![]);
+        let height = "Height: height 183 takes no bracket (185 has room)";
+        assert_eq!(
+            drawn_lines(&nodes),
+            [
+                "734 /lit/",
+                "Player 73401  49 Muh Spooks",
+                height,
+                "Player 73404  45 Yuki-kun ^~^",
+                height,
+                "Team-wide issues",
+                "TierCount: 2 gold players, expected 1",
+                "TierCount: 0 bronze players, expected 2",
+                "TierCount: 19 regular players, expected 18",
+                "BracketQuota: 8 players in bracket tall of red, quota 10",
+                "714 /co/",
+                "All clean",
+            ]
+        );
+        let player_row = nodes
+            .iter()
+            .find(|node| node.value() == Some(height) || node.label() == Some(height))
+            .expect("a player's row");
+        assert_eq!(
+            player_row.role(),
+            Role::Label,
+            "a report's row only reports"
+        );
+        let at = centre(player_row);
+        report(&mut window, pointer_at(at, true));
+        let (_, selected) = report(&mut window, pointer_at(at, false));
+        assert_eq!(selected, None, "a click selects nobody");
     }
 
     // A group's errors come before its warnings, the check's order kept

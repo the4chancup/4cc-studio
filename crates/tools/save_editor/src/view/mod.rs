@@ -19,6 +19,7 @@ mod info_strip;
 mod live_aatf;
 mod live_marks;
 mod menus;
+mod multi_aatf;
 mod player_list;
 mod portraits;
 pub(crate) mod prompt;
@@ -138,6 +139,9 @@ pub(crate) struct SaveView {
     /// The Live AATF dock's state (the Live AATF bullet's docked panel);
     /// drawn while `live_aatf` and a save is open.
     live: live_aatf::LiveAatf,
+    /// The Multi-team AATF dialog's state (the Savefile menu's entry): open
+    /// or closed, its range and its check.
+    multi_aatf: multi_aatf::MultiAatf,
     /// The comparator's Export dialog (`rfd`, stubbed in tests — the
     /// Ruleset editor's picker pattern).
     export_dialog: comparator::SaveFileDialog,
@@ -330,6 +334,7 @@ impl SaveView {
             live_aatf: false,
             live_suggestions: false,
             live: live_aatf::LiveAatf::new(),
+            multi_aatf: multi_aatf::MultiAatf::new(),
             export_dialog: comparator::default_export_dialog(),
             cards: None,
             medals: None,
@@ -442,6 +447,7 @@ impl SaveView {
                 self.fix_database = false;
                 self.kit_slots = None;
                 self.live.check.reset();
+                self.multi_aatf.reset();
             }
             Err(error) => {
                 self.refusal = Some(Refusal {
@@ -569,6 +575,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() ->
     menus::stat_num_dialog(ui, view);
     menus::copy_swap_dialog(ui, view);
     menus::fix_database_dialog(ui, view);
+    multi_aatf::dialog(ui, view);
     generate::dialog(ui, view);
     comparator::show(ui, view);
     prompt::show(ui, view, running);

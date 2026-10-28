@@ -7,6 +7,15 @@ The **Savefile** menu works on the whole save:
   a `(C)` on the captain, height, playing style, skills and COM styles).
   A save dialog asks where to write it, with `EDIT.tsv` as the default
   name. It changes nothing in the save.
+- **Multi-team AATF…** checks a range of teams under the AATF ruleset
+  picked on the toolbar, for an organizer checking a cup's teams. Pick the
+  first and the last team of the range (the save's first and last team to
+  begin with); every team whose id lies between them is checked and listed
+  under its id and name, its problems worded as Live AATF words them, or
+  `All clean` when it has none. Suggestions are left out, since an unused
+  allowance is the manager's business. **Copy to clipboard** copies the
+  list as plain text for a cup's thread, each team's line after a `>` so
+  the thread shows it in green. The dialog only reads the save.
 - **Fix database…** is a maintenance repair behind a confirmation: it
   repairs base copies on PES 2015 to 2018 (a stray copy id is cleared, and
   a copy flag that points at nothing is cleared; later games' records have

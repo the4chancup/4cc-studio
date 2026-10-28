@@ -9,6 +9,7 @@
 //! after the violations.
 
 use studio_core::widgets::BottomDock;
+use team_widgets::violations::ListUse;
 
 use crate::view::aatf_check::{self, CheckKey, TeamsCheck};
 use crate::view::{SaveView, edit_settled};
@@ -124,7 +125,9 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                             "aatf_live",
                             result_key,
                             checks,
-                            result_key.suggestions,
+                            ListUse::Editing {
+                                show_suggestions: result_key.suggestions,
+                            },
                         );
                     }
                     clicked

@@ -293,3 +293,273 @@ fn the_locked_savefile_menu_disables_fix_database_only() {
         "the TSV item stays enabled: it writes nothing of the save's"
     );
 }
+
+/// The Multi-team AATF dialog's title under 4cc Autumn 26, the ruleset a
+/// view starts on.
+const MULTI_TITLE: &str = "Multi-team AATF (4cc Autumn 26)";
+
+/// The Savefile menu's Multi-team AATF… clicked.
+fn open_multi_aatf(window: &mut Headless, view: &mut SaveView) {
+    let nodes = open_savefile_menu(window, view);
+    click(window, menu_item(&nodes, "Multi-team AATF\u{2026}"), view);
+}
+
+/// Frames until the dialog's check of `ids` lands (bounded, so a worker
+/// that never replies fails rather than hangs). Returns the landing
+/// frame's node pairs.
+fn multi_checked(
+    window: &mut Headless,
+    view: &mut SaveView,
+    ids: &[u32],
+) -> Vec<(accesskit::NodeId, accesskit::Node)> {
+    frames_until(
+        window,
+        view,
+        |view| {
+            let check = &view.multi_aatf.check;
+            check.pending.is_none() && check.result.as_ref().is_some_and(|(key, _)| key.ids == ids)
+        },
+        "the Multi-team AATF check never returned",
+    )
+}
+
+/// The dialog's Label values and Button labels in top-to-bottom order
+/// (the view's nodes behind its backdrop left out).
+fn multi_lines(pairs: &[(accesskit::NodeId, accesskit::Node)]) -> Vec<String> {
+    let mut lines: Vec<(f64, f64, String)> = super::prompt::dialog_nodes(pairs, MULTI_TITLE)
+        .into_iter()
+        .filter_map(|node| {
+            let text = match node.role() {
+                Role::Label => node.value(),
+                _ => node.label(),
+            }?;
+            let bounds = node.bounds()?;
+            Some((bounds.y0, bounds.x0, text.to_owned()))
+        })
+        .collect();
+    lines.sort_by(|a, b| {
+        a.0.partial_cmp(&b.0)
+            .expect("drawn bounds")
+            .then(a.1.partial_cmp(&b.1).expect("drawn bounds"))
+    });
+    lines.into_iter().map(|(_, _, text)| text).collect()
+}
+
+/// The dialog's two team combos, left to right.
+fn range_combos(pairs: &[(accesskit::NodeId, accesskit::Node)]) -> Vec<&accesskit::Node> {
+    let mut combos: Vec<&accesskit::Node> = super::prompt::dialog_nodes(pairs, MULTI_TITLE)
+        .into_iter()
+        .filter(|node| node.role() == Role::ComboBox)
+        .collect();
+    combos.sort_by(|a, b| {
+        let x = |node: &&accesskit::Node| node.bounds().expect("drawn bounds").x0;
+        x(a).partial_cmp(&x(b)).expect("ordered bounds")
+    });
+    combos
+}
+
+/// `label` picked in the dialog's team combo `nth` from the left: the
+/// combo clicked open, the popup's item picked through its AccessKit
+/// action (a popup item can sit where a pointer click lands on nothing),
+/// then a click on the title, which closes the popup the action leaves
+/// open.
+fn pick_range_end(window: &mut Headless, view: &mut SaveView, nth: usize, label: &str) {
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
+    let combo = range_combos(&pairs)[nth];
+    // The popup's items stand under the combo: the player list's team row
+    // behind the dialog carries the same label.
+    let (left, right) = {
+        let bounds = combo.bounds().expect("drawn bounds");
+        (bounds.x0, bounds.x1)
+    };
+    click(window, combo, view);
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
+    let (item, _) = pairs
+        .iter()
+        .find(|(_, node)| {
+            node.role() == Role::Button
+                && node.label() == Some(label)
+                && node
+                    .bounds()
+                    .is_some_and(|bounds| (left..right).contains(&bounds.x0))
+        })
+        .unwrap_or_else(|| panic!("no team {label:?} in the combo's popup"));
+    action_click(window, view, *item);
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
+    let title = super::prompt::dialog_nodes(&pairs, MULTI_TITLE)
+        .into_iter()
+        .find(|node| node.value() == Some(MULTI_TITLE))
+        .expect("the title");
+    click(window, title, view);
+}
+
+/// The dialog's button `label`.
+fn multi_button<'a>(
+    pairs: &'a [(accesskit::NodeId, accesskit::Node)],
+    label: &str,
+) -> &'a accesskit::Node {
+    super::prompt::dialog_nodes(pairs, MULTI_TITLE)
+        .into_iter()
+        .find(|node| node.role() == Role::Button && node.label() == Some(label))
+        .unwrap_or_else(|| panic!("no {label:?} button"))
+}
+
+/// The Savefile menu's Multi-team AATF… on the PES 17 sample under 4cc
+/// Autumn 26: the title names the ruleset; the range's two combos sit on
+/// one row, on the save's first and last team; the summary counts what
+/// `check_teams` finds for the same teams; every team is listed under its
+/// id and name with no suggestion. Narrowed to one team, it lists that
+/// team alone; reversed, the line warns in the warning colour, nothing is
+/// listed and Copy to clipboard is off.
+// SE-GUI-41
+#[test]
+fn multi_team_aatf_checks_and_lists_every_team_of_the_range() {
+    let path = fixture(PesVersion::Pes17, "multi_aatf_range");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::new();
+    open_multi_aatf(&mut window, &mut view);
+    let ids = all_team_ids(&view);
+    let (names, expected_issues) = {
+        let file = view.session.as_ref().expect("the save opened").file();
+        let names: Vec<String> = ids
+            .iter()
+            .map(|&id| format!("{id} {}", display_name(&file.team(id).unwrap().name)))
+            .collect();
+        let choice = crate::session::rules::resolve("autumn26", &[]);
+        let checks = crate::session::rules::check_teams(
+            &choice.rules,
+            &crate::session::rules::team_views(file, &ids),
+        );
+        let with_issues = checks
+            .iter()
+            .filter(|check| {
+                check
+                    .as_ref()
+                    .expect("every sample team checks")
+                    .iter()
+                    .any(|violation| {
+                        matches!(
+                            violation.severity,
+                            aatf::Severity::Error | aatf::Severity::Warning
+                        )
+                    })
+            })
+            .count();
+        (names, with_issues)
+    };
+    let pairs = multi_checked(&mut window, &mut view, &ids);
+    let lines = multi_lines(&pairs);
+    assert_eq!(lines[0], MULTI_TITLE);
+
+    let combos = range_combos(&pairs);
+    assert_eq!(combos.len(), 2, "two team combos");
+    let middle = |node: &accesskit::Node| {
+        let bounds = node.bounds().expect("drawn bounds");
+        (bounds.y0 + bounds.y1) / 2.0
+    };
+    assert_eq!(
+        middle(combos[0]),
+        middle(combos[1]),
+        "the combos share a row"
+    );
+    assert_eq!(
+        combos[0].value(),
+        Some(names[0].as_str()),
+        "the save's first team"
+    );
+    assert_eq!(
+        combos[1].value(),
+        Some(names[names.len() - 1].as_str()),
+        "the save's last team"
+    );
+
+    let summary = format!("{} teams checked, {expected_issues} with issues", ids.len());
+    assert!(lines.contains(&summary), "{summary:?} in {lines:?}");
+    for name in &names {
+        assert!(lines.contains(name), "{name:?} is listed");
+    }
+    assert!(
+        !lines.iter().any(|line| line.starts_with("Unused")),
+        "no suggestion is listed"
+    );
+    assert!(!multi_button(&pairs, "Copy to clipboard").is_disabled());
+
+    // Narrowed to one team.
+    pick_range_end(&mut window, &mut view, 0, "734 /lit/");
+    pick_range_end(&mut window, &mut view, 1, "734 /lit/");
+    let pairs = multi_checked(&mut window, &mut view, &[734]);
+    let lines = multi_lines(&pairs);
+    assert!(
+        lines.contains(&"1 team checked, 1 with issues".to_owned()),
+        "{lines:?}"
+    );
+    let listed: Vec<&String> = names.iter().filter(|name| lines.contains(name)).collect();
+    assert_eq!(listed, ["734 /lit/"], "734 alone is listed");
+
+    // Reversed.
+    pick_range_end(&mut window, &mut view, 1, &names[0]);
+    let (_, pairs, shapes) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let lines = multi_lines(&pairs);
+    let warning = "The first team comes after the last";
+    assert!(lines.contains(&warning.to_owned()), "{lines:?}");
+    assert_eq!(
+        galley_color(text_shape(&shapes, warning)),
+        window
+            .ctx
+            .style_of(window.ctx.theme())
+            .visuals
+            .warn_fg_color,
+        "the warning colour"
+    );
+    assert!(
+        !names.iter().skip(1).any(|name| lines.contains(name)),
+        "nothing listed: {lines:?}"
+    );
+    assert!(multi_button(&pairs, "Copy to clipboard").is_disabled());
+}
+
+/// A team the check finds clean reads `All clean` under its line (714
+/// /co/ of the PES 15 sample, made legal by the CLI's `official_legal.toml`;
+/// the PES 17 sample holds no clean team under 4cc Autumn 26), and Copy
+/// to clipboard says how many teams it copied.
+// SE-GUI-41
+#[test]
+fn a_clean_team_reads_all_clean_and_copy_names_the_teams_copied() {
+    let (mut view, mut window) = open_legal_714("multi_aatf_clean", Headless::new());
+    open_multi_aatf(&mut window, &mut view);
+    let ids = all_team_ids(&view);
+    multi_checked(&mut window, &mut view, &ids);
+    pick_range_end(&mut window, &mut view, 0, "714 /co/");
+    pick_range_end(&mut window, &mut view, 1, "718 /f/");
+    let pairs = multi_checked(&mut window, &mut view, &[714, 715, 716, 717, 718]);
+    let lines = multi_lines(&pairs);
+    let at = lines
+        .iter()
+        .position(|line| line == "714 /co/")
+        .expect("714 is listed");
+    assert_eq!(lines[at + 1], "All clean", "{lines:?}");
+    assert_eq!(
+        lines.iter().filter(|line| *line == "All clean").count(),
+        1,
+        "the other teams have rows"
+    );
+
+    click(
+        &mut window,
+        multi_button(&pairs, "Copy to clipboard"),
+        &mut view,
+    );
+    assert_eq!(
+        view.notice.as_ref().map(|notice| notice.text.as_str()),
+        Some("Copied the results of 5 teams.")
+    );
+}
+
+/// The open save's team ids, in id order.
+fn all_team_ids(view: &SaveView) -> Vec<u32> {
+    let file = view.session.as_ref().expect("the save opened").file();
+    let mut ids: Vec<u32> = file.teams().iter().map(|team| team.id).collect();
+    ids.sort_unstable();
+    ids
+}

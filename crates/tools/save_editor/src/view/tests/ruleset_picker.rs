@@ -187,11 +187,13 @@ fn the_dropdown_is_drawn_with_no_save_open() {
     assert_eq!(dropdown(&nodes).value(), Some("4cc Autumn 26"));
 }
 
-/// No toolbar menu holds an entry naming AATF: there is no floating AATF
-/// panel, Live AATF being the window's check.
+/// No toolbar menu holds an entry for an AATF panel: there is no floating
+/// AATF panel, Live AATF being the window's check. The one entry naming
+/// AATF is the Savefile menu's Multi-team AATF…, a report on a range of
+/// teams.
 // SE-GUI-15
 #[test]
-fn no_toolbar_menu_holds_an_aatf_entry() {
+fn no_toolbar_menu_holds_an_aatf_panel_entry() {
     let path = fixture(PesVersion::Pes17, "ruleset_picker_menus");
     let mut view = SaveView::new();
     view.open(&path);
@@ -213,10 +215,16 @@ fn no_toolbar_menu_holds_an_aatf_entry() {
             .filter(|label| !before.iter().any(|seen| seen == label))
             .collect();
         assert!(!entries.is_empty(), "premise: the {menu} menu opened");
-        assert!(
-            !entries.iter().any(|entry| entry.contains("AATF")),
-            "the {menu} menu: {entries:?}"
-        );
+        let aatf: Vec<&str> = entries
+            .iter()
+            .copied()
+            .filter(|entry| entry.contains("AATF"))
+            .collect();
+        let expected: &[&str] = match menu {
+            "Savefile" => &["Multi-team AATF\u{2026}"],
+            _ => &[],
+        };
+        assert_eq!(aatf, expected, "the {menu} menu: {entries:?}");
         window.frame(
             vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
             |ui| show(ui, &mut view, &|| Vec::new()),
