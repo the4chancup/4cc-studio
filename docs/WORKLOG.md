@@ -2326,7 +2326,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         - [x] c4e a fact audit of `help/01_command_line.md` (and the upgrader's) against the
           catalog and the spec: c4b's review rounds S1 to S6 found over fifty facts the chapter's first half stated
           narrower, staler or for one engine only, and their last ones need the code read
-          (side-lead U's rulings, `.tmp/8_29/rulings.md` "Round S6c4b", routed: pre-Fox
+          (side-lead U's rulings, `.tmp/8_29/rulings.md`, round S6c4b, routed: pre-Fox
           `Common` subfolders, a shared folder's subfolder rules, the PES 2021 skeleton default's
           reason, the pre-Fox merge twin of `fmdl_merged`, how a `.skl` is packed); the second
           half (c4c) likely holds as many. c4c's sidekick found two: an installed
@@ -2787,7 +2787,7 @@ briefs, review loops, gates and mutation runs as for any step.
     limit, the endless-loop test loops), the other 18 rerun alone at 600 s with their
     siblings (`rerun_timeouts_2/`, 23 mutants): 22 caught, 1 unviable; the extra kinds 13 of
     13 caught. The timeouts are the shared machine: both runs' reruns caught every one
-- [ ] 0.0.1k the window's diagnostic log before the cut (`plans/core/architecture.md`
+- [x] 0.0.1k the window's diagnostic log before the cut (`plans/core/architecture.md`
   "Diagnostic logging", both GUI bullets; the maintainer asked 2026-10-25 about a crash report
   like Red's `crash.log`): `studio.log` in the data directory through a small `log::Log`, the
   panic hook writing the message, its location and a backtrace there and telling the member in
@@ -2830,7 +2830,7 @@ briefs, review loops, gates and mutation runs as for any step.
       ST-RUN-09 the same day: no dialog on the first start (no earlier log) nor after the
       reported crash; after the process was killed, a dialog before the window naming
       `studio.old.log`; a WM_CLOSE ends the log "the window closed normally", exit 0
-  - [ ] k4 the crash dump (P38, accepted on a measured condition; `plans/core/architecture.md`
+  - [x] k4 the crash dump (P38, accepted on a measured condition; `plans/core/architecture.md`
     "Diagnostic logging", the "crash dump" bullet; ST-RUN-10), after k2: first the release exe
     built with and without `crash-handler`, `minidumper` and `minidump-writer` wired in a
     probe; over 10 MB of growth, stop and report → verify: the measurement; ST-RUN-10, ST-RUN-11
@@ -2869,8 +2869,9 @@ briefs, review loops, gates and mutation runs as for any step.
       opened (`window.png`), one process and no monitor, the log's second line "the crash
       monitor did not start, so this session writes no crash dump: cannot start the crash
       monitor …4cc-studio.txt: The system cannot find the file…", WM_CLOSE's closing line last.
-      Open: the Linux job's
-      first run of `tests/crash_dump.rs` (expects SIGSEGV, 11; not run here). Reviews:
+      Linux: `tests/crash_dump.rs` passed in `just gates-remote` on bonfire (Debian,
+      2026-10-28; expects SIGSEGV, 11); CI's own job ran red then for another cause, the
+      section-pointer check reading the gitignored `.tmp/` (fixed the same day). Reviews:
       SWE-2 S1 7 of 18, S2 1 of 5, Astra A1 (checkpoint b) 0 of 1 (`.tmp/0_0_1k4b/rulings.md`)
 - [ ] 0.0.1l no console window in the preview (`plans/core/architecture.md` "Windows
   subsystem", DECISIONS 2026-10-25, `AttachConsole` approved): `#![windows_subsystem =
@@ -3591,7 +3592,7 @@ briefs, review loops, gates and mutation runs as for any step.
       marker 3's badge, `Headless::type_in_spin_field`. Files: `team_widgets/src/pitch/
       {lineup.rs,popover.rs,tests/{mod,paint,popover}.rs}`. Next: Astra A3
     - [x] Astra round A3 over the whole surface (two parts at `bf2c7eef`, Devin work): 4 of 4
-      accepted, under five, so Astra's loop ends (`.tmp/0_0_1s/tac_rulings.md` "Round A3": a
+      accepted, under five, so Astra's loop ends (`.tmp/0_0_1s/tac_rulings.md`, round A3: a
       grass drop on the identity eleven, the instruction repoint tested on PES 21 alone where
       PES 17 stores Counter Target as PES 21's Deep Defensive Line, the popover's Close never
       clicked, the medal letters never followed across an edit). Rework done 2026-10-27 (Opus,

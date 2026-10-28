@@ -26,6 +26,11 @@ the reader to guess which tree it means. A path that resolves nowhere is a probl
 the pointer is in `docs/` or `AGENTS.md`, or names `docs/`, `plans/` or `spec/`:
 `` `README.md` "Usage" `` in a crate is about that crate.
 
+A pointer never names a file in the scratch folder `.tmp/`, wherever it is, even one that
+exists: `.tmp/` is gitignored, so its files exist on the machine that wrote them and in no
+clone, and a pointer into one would pass there and fail in CI. A scratch file is named by its
+path alone, its place in words without the quotes (`` `.tmp/0_0_1s/tac_rulings.md`, round A3 ``).
+
 Code points at the spec alone: a pointer in `crates/` that resolves into `docs/plans/` is a
 problem, since a plan describes only what code does not do yet. The one exception is the open
 phase, whose sections stay in the plans until it closes although its code is being written:
@@ -161,6 +166,9 @@ def problems(root: Path, found: list[Pointer]) -> list[str]:
     cache: dict[Path, set[str]] = {}
     out = []
     for pointer in found:
+        if pointer.path.startswith(".tmp/"):
+            out.append(f"{pointer.source}:{pointer.line}: `{pointer.path}` points into the scratch folder, which no clone has")
+            continue
         target = resolve(root, pointer.source, pointer.path)
         where = f"{pointer.source}:{pointer.line}"
         if target is None:

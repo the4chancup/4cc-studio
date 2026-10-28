@@ -120,6 +120,17 @@ class Problems(unittest.TestCase):
         )
         self.assertEqual(self.check("crates/x/README.md", '`USAGE.md` "Flags"'), [])
 
+    def test_a_pointer_into_the_scratch_folder_fails_where_its_file_exists_too(self) -> None:
+        (self.root / ".tmp").mkdir()
+        (self.root / ".tmp" / "rulings.md").write_text("## Round A3\n", encoding="utf-8")
+        scratch = "docs/WORKLOG.md:1: `.tmp/rulings.md` points into the scratch folder, which no clone has"
+        self.assertEqual(self.check("docs/WORKLOG.md", '`.tmp/rulings.md` "Round A3"'), [scratch])
+        self.assertEqual(
+            self.check("crates/x/src/lib.rs", '// `.tmp/8_29/rulings.md` "Round S6c4b"'),
+            ["crates/x/src/lib.rs:1: `.tmp/8_29/rulings.md` points into the scratch folder, which no clone has"],
+        )
+        self.assertEqual(self.check("docs/WORKLOG.md", "the rulings in `.tmp/rulings.md`, round A3"), [])
+
     def test_code_points_at_the_spec_alone(self) -> None:
         self.assertEqual(self.check("crates/x/src/lib.rs", '//! `spec/core/gui.md` "Grid"'), [])
         self.assertEqual(

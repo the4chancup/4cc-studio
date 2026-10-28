@@ -12641,3 +12641,14 @@ button, border grey 60, corner 6, margin 6, rows 18 high 21 apart, 200 tall befo
 Rebuilding the combo as a `div` widget would change every caller and the scripts that read the
 selects; the popup over the `select` changes neither.
 Plan: `plans/core/gui.md` "Prototypes before implementation", the Look bullet.
+
+## 2026-10-28 — tooling — No section pointer names a scratch file
+Decision: a section pointer (a path, then a quoted title) never names a file under `.tmp/`; the
+section-pointer check reports one wherever it is, even when the file exists, and a scratch file
+is named by its path alone, its place in words without quotes.
+Why: `.tmp/` is gitignored, so its files exist only on the machine that wrote them: two worklog
+pointers to review rulings passed here and failed in every clone, keeping main's CI red from
+`a98b973f`. Skipping such pointers would leave a pointer the check cannot vouch for; skipping
+the worklog would lose the check of its 210 live pointers into the plans and the spec, which
+caught steps left pointing at sections a phase's close had moved.
+Plan: `CONTRIBUTING.md` "Testing and verification", the gates' paragraph.
