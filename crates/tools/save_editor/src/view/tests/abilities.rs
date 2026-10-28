@@ -52,9 +52,11 @@ fn cards_left_badges(nodes: &[accesskit::Node]) -> Vec<String> {
                 && node
                     .bounds()
                     .is_some_and(|bounds| bounds.y0 >= heading_y - 1.0)
-                && node
-                    .value()
-                    .is_some_and(|value| value.ends_with(" cards") || value == "No tier matches")
+                && node.value().is_some_and(|value| {
+                    // The badge's text is "tier: left of limit cards" or the
+                    // weak stand-in; the "Free cards" panel's own title is not.
+                    value == "No tier matches" || (value.ends_with(" cards") && value.contains(':'))
+                })
         })
         .collect();
     badges.sort_by(|a, b| {
@@ -1226,6 +1228,485 @@ fn a_rules_file_that_does_not_load_draws_no_badge() {
             .iter()
             .any(|node| node.role() == Role::CheckBox && node.label() == Some("Heading")),
         "the skills draw"
+    );
+}
+
+/// The checkbox labels under the `top` panel title down to `bottom`'s
+/// (the whole column when `bottom` is `None`), in draw order: the first
+/// column top to bottom, then the second.
+fn checkboxes_in(nodes: &[accesskit::Node], top: &str, bottom: Option<&str>) -> Vec<String> {
+    let top_y = label_bounds(nodes, top).y0;
+    let bottom_y = bottom.map_or(f64::MAX, |label| label_bounds(nodes, label).y0);
+    let mut cells: Vec<(f64, f64, String)> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::CheckBox
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.y0 > top_y + 1.0 && b.y0 < bottom_y - 1.0)
+        })
+        .filter_map(|node| {
+            node.bounds()
+                .and_then(|b| node.label().map(|label| (b.x0, b.y0, label.to_owned())))
+        })
+        .collect();
+    cells.sort_by(|a, b| {
+        a.0.partial_cmp(&b.0)
+            .expect("ordered bounds")
+            .then(a.1.partial_cmp(&b.1).expect("ordered bounds"))
+    });
+    cells.into_iter().map(|(_, _, label)| label).collect()
+}
+
+/// `name`'s index in `labels::SKILLS`, the table the cards index into.
+fn skill_index_of(name: &str) -> u8 {
+    use pes_savefile::interchange::team_toml::labels::SKILLS;
+    u8::try_from(
+        SKILLS
+            .iter()
+            .position(|&label| label == name)
+            .unwrap_or_else(|| panic!("{name} is no skill")),
+    )
+    .expect("a byte index")
+}
+
+/// `name`'s checkbox label as the cards' `title_case` draws it.
+fn card_label(name: &str) -> String {
+    pes_savefile::interchange::team_toml::labels::title_case(name)
+}
+
+/// `ids`' card labels in `SKILLS` order (the panels' draw order).
+fn card_labels(ids: &[&str]) -> Vec<String> {
+    let mut ids: Vec<u8> = ids.iter().map(|name| skill_index_of(name)).collect();
+    ids.sort_unstable();
+    ids.into_iter()
+        .map(|index| {
+            card_label(pes_savefile::interchange::team_toml::labels::SKILLS[usize::from(index)])
+        })
+        .collect()
+}
+
+/// `ruleset`'s `tricks` group's card labels in `SKILLS` order.
+fn tricks_labels(ruleset: &aatf::Ruleset) -> Vec<String> {
+    let mut ids: Vec<u8> = ruleset.card_groups["tricks"]
+        .iter()
+        .filter_map(|card| match card {
+            aatf::Card::Skill(index) => Some(*index),
+            aatf::Card::ComStyle(_) => None,
+        })
+        .collect();
+    ids.sort_unstable();
+    ids.into_iter()
+        .map(|index| {
+            card_label(pes_savefile::interchange::team_toml::labels::SKILLS[usize::from(index)])
+        })
+        .collect()
+}
+
+/// `file`'s whole ruleset written beside `path` as `name` (the no-tier
+/// test's VTL11 write), returned as the `rules_file` `show` reads.
+fn rules_file(path: &std::path::Path, file: &str, name: &str) -> PathBuf {
+    let data = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(format!("../../libs/aatf/rulesets/{file}")),
+    )
+    .unwrap();
+    let ruleset = aatf::Ruleset::from_data_block(&data).unwrap();
+    let rules_path = path.with_file_name(name);
+    std::fs::write(
+        &rules_path,
+        aatf::assemble_file(
+            &ruleset,
+            None,
+            aatf::file_sections(&data).custom_checks.as_deref(),
+        ),
+    )
+    .unwrap();
+    rules_path
+}
+
+// The Skills panel lists the version's skills but the ruleset's tricks:
+// those stand in their own panel between Skills and COM playing styles,
+// in the game's order (Autumn 26's eleven), and the rest stay under
+// Skills.
+#[test]
+fn the_tricks_panel_holds_the_rulesets_tricks() {
+    let path = fixture(PesVersion::Pes21, "tricks_panel_autumn26");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let expected = tricks_labels(aatf::Rules::official().ruleset());
+    assert_eq!(expected.len(), 11, "premise: Autumn 26's eleven tricks");
+    assert_eq!(
+        checkboxes_in(&nodes, "Tricks", Some("COM playing styles")),
+        expected,
+        "the Tricks panel's cards in the game's order"
+    );
+    let skills = checkboxes_in(&nodes, "Skills", Some("Tricks"));
+    assert_eq!(
+        skills.len(),
+        41 - expected.len(),
+        "the other skills stay under Skills"
+    );
+    for label in &expected {
+        assert!(!skills.contains(label), "{label} is not under Skills");
+    }
+    assert!(
+        skills.iter().any(|label| label == "Heading"),
+        "a paid card the group does not name stays under Skills"
+    );
+}
+
+// VGL 26's `tricks` group lists `double_touch` second and `malicia` last:
+// the panel draws the twelve in the game's order anyway.
+#[test]
+fn the_tricks_panel_draws_the_cards_in_the_games_order() {
+    let path = fixture(PesVersion::Pes21, "tricks_panel_vgl26");
+    let rules_path = rules_file(&path, "vgl26.rhai", "vgl26.4ccrules");
+    let ruleset = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap())
+        .expect("the VGL26 file loads");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
+    });
+
+    let expected = tricks_labels(ruleset.ruleset());
+    assert_eq!(expected.len(), 12, "premise: VGL 26's twelve tricks");
+    assert_eq!(
+        checkboxes_in(&nodes, "Tricks", Some("COM playing styles")),
+        expected,
+        "the Tricks panel's cards in the game's order, not the file's"
+    );
+}
+
+// A ruleset with no `tricks` group shows the skills its free-card rules
+// name instead, those free only for a tier or the captain included
+// (VTL 11's seventeen); a free COM style stays under COM playing styles.
+#[test]
+fn a_ruleset_without_tricks_shows_its_free_cards() {
+    let path = fixture(PesVersion::Pes21, "free_cards_vtl11");
+    let rules_path = rules_file(&path, "vtl11.rhai", "vtl11.4ccrules");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
+    });
+
+    // The 13 of "The free skills", the pass trio free to non-medals and
+    // the captain's Captaincy.
+    let expected = card_labels(&[
+        "no_look_pass",
+        "double_touch",
+        "rabona",
+        "acrobatic_finishing",
+        "first_time_shot",
+        "dipping_shots",
+        "rising_shots",
+        "heading",
+        "malicia",
+        "flip_flap",
+        "marseille_turn",
+        "scotch_move",
+        "crossover_turn",
+        "one_touch_pass",
+        "weighted_pass",
+        "pinpoint_crossing",
+        "captaincy",
+    ]);
+    assert_eq!(expected.len(), 17, "premise: VTL 11's free skills");
+    assert_eq!(
+        checkboxes_in(&nodes, "Free cards", Some("COM playing styles")),
+        expected,
+        "the Free cards panel's skills in the game's order"
+    );
+    assert!(
+        checkboxes_in(&nodes, "COM playing styles", None)
+            .iter()
+            .any(|label| label == "Long Ranger"),
+        "a free COM style stays under COM playing styles"
+    );
+}
+
+// A ruleset with no `tricks` group and no `free_cards` effects shows no
+// aside panel at all: every skill stays under Skills (DBC7).
+#[test]
+fn a_ruleset_without_aside_cards_shows_no_aside_panel() {
+    let path = fixture(PesVersion::Pes21, "no_aside_dbc7");
+    let rules_path = rules_file(&path, "dbc7.rhai", "dbc7.4ccrules");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
+    });
+    for title in ["Tricks", "Free cards"] {
+        assert!(!label_value(&nodes, title), "no {title} title under DBC7");
+    }
+    assert_eq!(
+        checkboxes_in(&nodes, "Skills", Some("COM playing styles")).len(),
+        41,
+        "every skill under Skills"
+    );
+}
+
+// A rules file that does not load shows no aside panel either: every
+// skill stays under Skills.
+#[test]
+fn a_rules_file_that_does_not_load_shows_no_aside_panel() {
+    let path = fixture(PesVersion::Pes21, "no_aside_load_error");
+    let bad = path.with_file_name("bad.4ccrules");
+    std::fs::write(&bad, "this is no ruleset").unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
+    });
+    for title in ["Tricks", "Free cards"] {
+        assert!(
+            !label_value(&nodes, title),
+            "no {title} title under the load error"
+        );
+    }
+    assert_eq!(
+        checkboxes_in(&nodes, "Skills", Some("COM playing styles")).len(),
+        41,
+        "every skill under Skills"
+    );
+}
+
+// A trick's tick in the Tricks panel is the same one undoable edit as a
+// skill's: the card's own `PlayerField::Skill` index.
+#[test]
+fn a_trick_tick_is_the_same_one_undoable_edit() {
+    let path = fixture(PesVersion::Pes21, "trick_tick");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    let held = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .skills
+            .skills[usize::from(skill_index_of("double_touch"))]
+    };
+    let before = held(&view);
+
+    // "Double Touch" is a trick: its checkbox sits under the Tricks
+    // title, below the fold, so the tick goes through its AccessKit
+    // action.
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes: Vec<accesskit::Node> = pairs.iter().map(|(_, node)| node.clone()).collect();
+    let tricks_y = label_bounds(&nodes, "Tricks").y0;
+    let (card, cell) = pairs
+        .iter()
+        .find(|(_, node)| node.role() == Role::CheckBox && node.label() == Some("Double Touch"))
+        .expect("the Double Touch checkbox");
+    assert!(
+        cell.bounds().expect("bounds").y0 > tricks_y,
+        "premise: the trick's checkbox is under the Tricks title"
+    );
+    let card = *card;
+    action_click(&mut window, &mut view, card);
+    assert_ne!(held(&view), before, "the tick wrote the trick's own index");
+
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(held(&view), before, "one undo restores it");
+    assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
+}
+
+// Every panel title of the view stands `TITLE_GAP` above the first thing
+// drawn under it — a field's frame, a checkbox's painted square, the
+// positions' label row's text — as the team view's titles do.
+#[test]
+fn every_panel_title_stands_six_above_its_first_drawn_row() {
+    /// The first opaque rect shape under `title`'s label, in its column:
+    /// the frame a field paints (`small`: a checkbox's painted square
+    /// instead, the small rect inside the taller control).
+    fn first_rect_under(
+        nodes: &[accesskit::Node],
+        shapes: &[egui::epaint::ClippedShape],
+        title: &str,
+        right: f64,
+        small: bool,
+    ) -> f64 {
+        let title_bounds = label_bounds(nodes, title);
+        shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Rect(shape)
+                    if shape.fill != egui::Color32::TRANSPARENT
+                        && f64::from(shape.rect.min.y) > title_bounds.y1
+                        && f64::from(shape.rect.min.x) >= title_bounds.x0 - 1.0
+                        && f64::from(shape.rect.min.x) < right
+                        && (!small
+                            || (shape.rect.width() <= 15.0 && shape.rect.height() <= 15.0))
+                        && (small || shape.rect.height() > 15.0) =>
+                {
+                    Some(f64::from(shape.rect.min.y))
+                }
+                _ => None,
+            })
+            .min_by(f64::total_cmp)
+            .unwrap_or_else(|| panic!("no rect under {title:?}"))
+    }
+    /// The first text shape under `title`'s label, in its column.
+    fn first_text_under(
+        nodes: &[accesskit::Node],
+        shapes: &[egui::epaint::ClippedShape],
+        title: &str,
+        right: f64,
+    ) -> f64 {
+        let title_bounds = label_bounds(nodes, title);
+        shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(shape)
+                    if f64::from(shape.pos.y) > title_bounds.y1
+                        && f64::from(shape.pos.x) >= title_bounds.x0 - 1.0
+                        && f64::from(shape.pos.x) < right =>
+                {
+                    Some(f64::from(shape.pos.y))
+                }
+                _ => None,
+            })
+            .min_by(f64::total_cmp)
+            .unwrap_or_else(|| panic!("no text under {title:?}"))
+    }
+
+    let path = fixture(PesVersion::Pes21, "title_gaps");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    // The columns' widths settle over the first frames.
+    for _ in 0..3 {
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    }
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    // The three columns' titles share one line.
+    let titles = ["General info", "Skills", "Ability stats"].map(|t| label_bounds(&nodes, t));
+    for pair in titles.windows(2) {
+        assert!(
+            (pair[0].y0 - pair[1].y0).abs() < 0.5,
+            "the column titles' tops share a line: {titles:?}"
+        );
+    }
+    let col2 = titles[1].x0;
+    let col3 = titles[2].x0;
+    let right = |title: &str| match title {
+        "General info" | "Other stats" | "Playable positions" => col2,
+        "Skills" | "Tricks" | "COM playing styles" => col3,
+        _ => f64::MAX,
+    };
+    const GAP: f64 = 6.0;
+    for (title, under) in [
+        (
+            "General info",
+            first_rect_under(
+                &nodes,
+                &shapes,
+                "General info",
+                right("General info"),
+                false,
+            ),
+        ),
+        (
+            "Other stats",
+            first_rect_under(&nodes, &shapes, "Other stats", right("Other stats"), false),
+        ),
+        (
+            "Playable positions",
+            first_text_under(
+                &nodes,
+                &shapes,
+                "Playable positions",
+                right("Playable positions"),
+            ),
+        ),
+        (
+            "Skills",
+            first_rect_under(&nodes, &shapes, "Skills", right("Skills"), true),
+        ),
+        (
+            "Tricks",
+            first_rect_under(&nodes, &shapes, "Tricks", right("Tricks"), true),
+        ),
+        (
+            "COM playing styles",
+            first_rect_under(
+                &nodes,
+                &shapes,
+                "COM playing styles",
+                right("COM playing styles"),
+                true,
+            ),
+        ),
+        (
+            "Ability stats",
+            first_rect_under(
+                &nodes,
+                &shapes,
+                "Ability stats",
+                right("Ability stats"),
+                false,
+            ),
+        ),
+    ] {
+        let bottom = label_bounds(&nodes, title).y1;
+        assert!(
+            (under - bottom - GAP).abs() <= 0.5,
+            "{title} stands {GAP} above its first drawn row ({under} vs {bottom})"
+        );
+    }
+}
+
+// The detail pane is one scroll area whatever row is picked: its offset
+// outlives picking another player — a member editing one part of the
+// Appearance player after player never scrolls back.
+#[test]
+fn the_detail_pane_keeps_its_scroll_offset_across_picks() {
+    let path = fixture(PesVersion::Pes17, "scroll_offset_kept");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(734);
+    view.selected = Some(Selection::Player(734, 0));
+    // Shorter than the view is tall, so the pane scrolls.
+    let mut window = Headless::sized(DEFAULT_PANE.x, 500.0);
+
+    // Scroll the pane down to a deep stat: the view's top moves off.
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::Label && node.value() == Some("Aggression")
+    });
+    let scrolled = label_bounds(&nodes, "General info").y0;
+    assert!(
+        scrolled < 30.0,
+        "premise: the pane scrolled (General info's top {scrolled})"
+    );
+
+    // Pick the next player: the same view height, so nothing clamps —
+    // and the pane stays where it was.
+    view.selected = Some(Selection::Player(734, 1));
+    for _ in 0..3 {
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    }
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        (label_bounds(&nodes, "General info").y0 - scrolled).abs() < 0.5,
+        "the offset outlives the pick ({scrolled} vs {})",
+        label_bounds(&nodes, "General info").y0
     );
 }
 

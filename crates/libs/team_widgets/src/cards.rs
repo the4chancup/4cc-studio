@@ -41,9 +41,10 @@ pub enum CardsBadge<'a> {
     NoTier,
 }
 
-/// One card kind's checkboxes in two columns `CARD_COLUMN_WIDTH` wide,
+/// `names`' cards' checkboxes in two columns `CARD_COLUMN_WIDTH` wide,
 /// `CARD_COLUMN_GAP` apart, filled column by column (the draft's
-/// `.skcols`): every card is drawn on every
+/// `.skcols`): `shown` is the indices into `names` to draw, in draw
+/// order; every card is drawn on every
 /// version; one the version cannot store stays in its cell, disabled
 /// with a `PES NN+` tooltip naming the first version that has it.
 /// Returns whether a card was ticked or unticked this frame.
@@ -52,27 +53,30 @@ pub fn card_columns(
     version: pes_version::PesVersion,
     cards: &mut [bool],
     names: &[&'static str],
+    shown: &[u8],
     field: impl Fn(u8) -> PlayerField,
 ) -> bool {
     let fields = schema_for(version).player_field_set();
     let mut changed = false;
-    let per_column = names.len().div_ceil(2);
+    let per_column = shown.len().div_ceil(2).max(1);
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = CARD_COLUMN_GAP;
-        for (column, chunk) in names.chunks(per_column).enumerate() {
+        for chunk in shown.chunks(per_column) {
             ui.vertical(|ui| {
                 ui.set_width(CARD_COLUMN_WIDTH);
-                for (index, &name) in chunk.iter().enumerate() {
-                    let index = column * per_column + index;
-                    let field = field(index as u8);
+                for &index in chunk {
+                    let field = field(index);
+                    let index = usize::from(index);
                     if fields.contains(&field) {
-                        changed |= ui.checkbox(&mut cards[index], title_case(name)).changed();
+                        changed |= ui
+                            .checkbox(&mut cards[index], title_case(names[index]))
+                            .changed();
                     } else {
                         // A card the version cannot store stays, disabled,
                         // its tooltip naming the first version that has it.
                         ui.add_enabled(
                             false,
-                            egui::Checkbox::new(&mut cards[index], title_case(name)),
+                            egui::Checkbox::new(&mut cards[index], title_case(names[index])),
                         )
                         .on_disabled_hover_text(format!("PES {}+", first_with(field).number()));
                     }
@@ -225,12 +229,14 @@ mod tests {
                         version,
                         &mut skills.skills,
                         &labels::SKILLS,
+                        &all_indices(&labels::SKILLS),
                         PlayerField::Skill,
                     ) | card_columns(
                         ui,
                         version,
                         &mut skills.com_styles,
                         &labels::COM_STYLES,
+                        &all_indices(&labels::COM_STYLES),
                         PlayerField::ComStyle,
                     ),
                 );
@@ -287,6 +293,12 @@ mod tests {
             self.style_picker(version, style, pointer_at(pos, true));
             self.style_picker(version, style, pointer_at(pos, false))
         }
+    }
+
+    /// `names`' whole index range, the pickers' `shown` when no panel
+    /// splits the kind.
+    fn all_indices(names: &[&'static str]) -> Vec<u8> {
+        (0..u8::try_from(names.len()).expect("a label table is byte-indexed")).collect()
     }
 
     /// The widget of `role` labeled `label`.
@@ -472,6 +484,75 @@ mod tests {
         );
     }
 
+    // A `shown` subset draws its own cards only, filled column by column
+    // the same way: its second column starts beside the first cell, and a
+    // second-column cell's tick writes its own index — the panels that
+    // split the skills (the ruleset's apart cards) read the same.
+    #[test]
+    fn a_subset_draws_only_its_cards_column_by_column() {
+        let mut window = Headless::new();
+        // Player 78102 of the PES 21 fixture save; the five-card subset
+        // splits 3-and-2.
+        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
+        let shown: [u8; 5] = [0, 1, 4, 21, 28];
+        let subset = |ui: &mut egui::Ui, skills: &mut PlayerSkills| {
+            card_columns(
+                ui,
+                PesVersion::Pes21,
+                &mut skills.skills,
+                &labels::SKILLS,
+                &shown,
+                PlayerField::Skill,
+            )
+        };
+        let (nodes, _) = window.frame(vec![], |ui| {
+            subset(ui, &mut skills);
+        });
+        let (drawn_skills, _) = drawn_cards(&nodes);
+        let expected: Vec<String> = shown
+            .iter()
+            .map(|&i| title_case(labels::SKILLS[usize::from(i)]))
+            .collect();
+        assert_eq!(
+            drawn_skills.iter().collect::<BTreeSet<_>>(),
+            expected.iter().collect::<BTreeSet<_>>(),
+            "the subset's cards alone"
+        );
+
+        // The second column starts at the fourth shown card beside the
+        // first cell; the column fills down in `shown` order.
+        let first = entry(&nodes, Role::CheckBox, "Scissors Feint")
+            .bounds()
+            .expect("bounds");
+        let malicia = entry(&nodes, Role::CheckBox, "Malicia")
+            .bounds()
+            .expect("bounds");
+        assert!(
+            malicia.x0 > first.x0 + 1.0 && (malicia.y0 - first.y0).abs() < 1.0,
+            "the second column starts at shown[3] beside the first cell"
+        );
+        let double_touch = entry(&nodes, Role::CheckBox, "Double Touch");
+        let dt_bounds = double_touch.bounds().expect("bounds");
+        assert!(
+            (dt_bounds.x0 - malicia.x0).abs() < 1.0 && dt_bounds.y0 > malicia.y0,
+            "the last shown card fills the second column down"
+        );
+
+        // A tick on the subset's last cell writes its own index, 28.
+        let before = skills.skills;
+        let mut changed = None;
+        window.frame(pointer_at(centre(double_touch), true), |ui| {
+            changed = Some(subset(ui, &mut skills));
+        });
+        window.frame(pointer_at(centre(double_touch), false), |ui| {
+            changed = Some(changed.unwrap() | subset(ui, &mut skills));
+        });
+        assert!(changed.unwrap(), "the tick is a change");
+        let mut expected = before;
+        expected[28] = !expected[28];
+        assert_eq!(skills.skills, expected, "exactly index 28 flipped");
+    }
+
     // The draft's `.skcols`: two 158-point columns 14 apart span the
     // literal 330, the width the host sizes their column from.
     #[test]
@@ -487,6 +568,7 @@ mod tests {
                     PesVersion::Pes21,
                     &mut skills.skills,
                     &labels::SKILLS,
+                    &all_indices(&labels::SKILLS),
                     PlayerField::Skill,
                 );
             });

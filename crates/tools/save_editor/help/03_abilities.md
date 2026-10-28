@@ -9,6 +9,13 @@ their C/B/A ratings: the chosen rating is filled, green for A, blue for B, grey
 for C, and his registered position's cell is outlined. The second column is his
 **Skills** and **COM playing styles**. The third is his **Ability stats**.
 
+Between Skills and COM playing styles a second skills panel stands when
+the rules in use set some cards apart: **Tricks** holds the ruleset's
+tricks, which its free trick allowance usually covers, and a ruleset
+without tricks shows **Free cards** instead, the skills its free-card
+rules name, including those free only for a tier, a position or the
+captain.
+
 **Counts.** The Name and Shirt labels count what the field holds, as typed:
 `(12/61)` reads as 12 bytes used of the 61 the field holds (a colour code counts
 as the ten bytes it stores). The shirt name counts letters, 18 on most versions

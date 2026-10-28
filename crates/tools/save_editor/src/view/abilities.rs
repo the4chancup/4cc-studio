@@ -1,7 +1,9 @@
 //! The player view's three columns (the draft's `playerView`/`.pcols`): General
 //! info (`info_strip::general`), Other stats and Playable positions in
 //! the first, 350 wide; Skills with the Cards left badge in its header
-//! row and COM playing styles in the second; the 25 ability stats in the
+//! row, the ruleset's apart cards (its `tricks` group, else the skills
+//! its `free_cards` effects name) and COM playing styles in the second;
+//! the 25 ability stats in the
 //! third — 36 points apart, tops aligned, wrapping to the next line where
 //! the pane cannot hold the next column. Star and playing attitude, which
 //! change only cutscenes, sit in the Appearance section's Cutscenes group
@@ -58,6 +60,10 @@ const COLUMN_GAP: f32 = 36.0;
 /// The gap between the panels of one column (the draft's `.pcol` `gap`),
 /// and between Skills' two card columns (`cards` keeps the same 14).
 const PANEL_GAP: f32 = 14.0;
+/// The gap a panel's title stands above the first thing drawn under it —
+/// a field's frame, a checkbox's painted square or a label row's text:
+/// the team view's titles' spacing, so the two views read alike.
+const TITLE_GAP: f32 = 6.0;
 
 /// The egui memory id `show` writes each column's measured width to each
 /// pass (the view's centring pad and the columns' own widths use the
@@ -151,10 +157,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         // moving the positions grid off the column's centre.
                         ui.set_min_width(info_strip::GENERAL_WIDTH);
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
-                        panel(ui, spacing, "General info", None, |ui| {
+                        panel(ui, spacing, "General info", None, 0.0, |ui| {
                             info_strip::general(ui, session, team_id, slot, player_id, marks);
                         });
-                        panel(ui, spacing, "Other stats", None, |ui| {
+                        panel(ui, spacing, "Other stats", None, 0.0, |ui| {
                             info_strip::other_stats(ui, session, player_id, &stats, marks);
                         });
                         panel(
@@ -162,6 +168,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                             spacing,
                             PLAYABLE_POSITIONS_LABEL,
                             marks.map(|marks| (marks, live_marks::MarkedField::PlayablePositions)),
+                            centered_text_inset(ui),
                             |ui| {
                                 playable_positions(ui, session, player_id, &positions);
                             },
@@ -169,17 +176,32 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     },
                 );
                 // Column 2: Skills (the Cards left badge in its header
-                // row) over COM playing styles, their two columns 158 wide.
+                // row), then the ruleset's apart cards in their own
+                // panel when it names them, then COM playing styles,
+                // their two columns 158 wide.
                 let col2 = ui.allocate_ui_with_layout(
                     egui::vec2(saved[1], ui.available_height()),
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
+                        // The cards the ruleset keeps apart: a file that
+                        // does not load shows none — every skill stays
+                        // under Skills.
+                        let aside = rules.as_ref().and_then(|active| {
+                            active
+                                .rules
+                                .as_deref()
+                                .ok()
+                                .and_then(|rules| aside_cards(rules.ruleset()))
+                        });
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
                         ui.vertical(|ui| {
                             ui.spacing_mut().item_spacing = spacing;
                             skills_changed |= skills_panel(
                                 ui,
-                                rules.as_ref(),
+                                (
+                                    rules.as_ref(),
+                                    aside.as_ref().map(|(_, cards)| cards.as_slice()),
+                                ),
                                 badge,
                                 session,
                                 (team_id, slot, marks),
@@ -187,17 +209,31 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                                 refusal,
                             );
                         });
+                        if let Some((title, aside)) = aside.as_ref() {
+                            panel(ui, spacing, title, None, card_box_inset(ui), |ui| {
+                                skills_changed |= cards::card_columns(
+                                    ui,
+                                    version,
+                                    &mut skills.skills,
+                                    &labels::SKILLS,
+                                    aside,
+                                    PlayerField::Skill,
+                                );
+                            });
+                        }
                         panel(
                             ui,
                             spacing,
                             "COM playing styles",
                             marks.map(|marks| (marks, live_marks::MarkedField::ComStyles)),
+                            card_box_inset(ui),
                             |ui| {
                                 skills_changed |= cards::card_columns(
                                     ui,
                                     version,
                                     &mut skills.com_styles,
                                     &labels::COM_STYLES,
+                                    &all_indices(&labels::COM_STYLES),
                                     PlayerField::ComStyle,
                                 );
                             },
@@ -210,7 +246,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
-                        panel(ui, spacing, "Ability stats", None, |ui| {
+                        panel(ui, spacing, "Ability stats", None, 0.0, |ui| {
                             ability_stats(ui, session, player_id, &stats, marks);
                         });
                     },
@@ -247,27 +283,54 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     }
 }
 
-/// One panel of a column: the `ui.strong` title over `add`, one item of
-/// the column's vertical — the column's `PANEL_GAP` sits between panels,
-/// `spacing` (the pane's own) restored inside. `mark` is Live AATF's
-/// held check's with the panel's field: its cross sits after the header.
+/// One panel of a column: the `ui.strong` title `TITLE_GAP` above the
+/// first thing `add` paints — `first_inset` is how deep into `add`'s
+/// first row that thing sits (a card row's painted square is centred in
+/// the taller control, `card_box_inset`; a field's frame or a label's
+/// text paints from the row's top). The title's row is top-aligned like
+/// the Skills header's `horizontal_wrapped`, so every title of the view
+/// shares the one line — `ui.horizontal`'s row would centre it in the
+/// `interact_size` height and sit it lower. One item of the column's
+/// vertical — the column's `PANEL_GAP` sits between panels, `spacing`
+/// (the pane's own) restored inside. `mark` is Live AATF's held check's
+/// with the panel's field: its cross sits after the header.
 fn panel(
     ui: &mut egui::Ui,
     spacing: egui::Vec2,
     title: &str,
     mark: Option<(live_marks::Marks<'_>, live_marks::MarkedField)>,
+    first_inset: f32,
     add: impl FnOnce(&mut egui::Ui),
 ) {
     ui.vertical(|ui| {
         ui.spacing_mut().item_spacing = spacing;
-        ui.horizontal(|ui| {
-            ui.strong(title);
-            if let Some((marks, field)) = mark {
-                marks.cross(ui, field);
-            }
-        });
+        ui.scope_builder(
+            egui::UiBuilder::new().layout(egui::Layout::left_to_right(egui::Align::Min)),
+            |ui| {
+                ui.strong(title);
+                if let Some((marks, field)) = mark {
+                    marks.cross(ui, field);
+                }
+            },
+        );
+        ui.add_space(TITLE_GAP - spacing.y - first_inset);
         add(ui);
     });
+}
+
+/// How deep into a `cards::card_columns` row its painted square sits
+/// (egui centres the `icon_width` box in the control's `interact_size`
+/// height): a card panel's title leaves it that much less of `TITLE_GAP`
+/// than a first row painted from its top takes.
+fn card_box_inset(ui: &egui::Ui) -> f32 {
+    (ui.spacing().interact_size.y - ui.spacing().icon_width) / 2.0
+}
+
+/// How deep into a `ui.horizontal` row a line of text sits (egui centres
+/// the row's content in the `interact_size` height): the positions'
+/// labels' inset — their `first_inset`.
+fn centered_text_inset(ui: &egui::Ui) -> f32 {
+    (ui.spacing().interact_size.y - ui.text_style_height(&egui::TextStyle::Body)) / 2.0
 }
 
 /// `end_row` after `index` pairs (1-based) of `per_row` are done, so a row
@@ -584,7 +647,8 @@ fn ability_stats(
 /// that tier's `card_limits`; no tier matching draws the stand-in, a
 /// file that does not load draws nothing (the quick actions report it),
 /// and a check that fails on him draws the red click line that opens the
-/// error in `refusal`, then the checkboxes in their two columns.
+/// error in `refusal`, then the checkboxes in their two columns, the
+/// skills but the `aside` indices (the aside panel's own).
 /// Returns whether a card was ticked this frame. The computed badge
 /// lives in `cards` under the `BadgeKey`
 /// it was computed for — a `Session::revision` bump, a selection change
@@ -593,7 +657,7 @@ fn ability_stats(
 /// sit after the title and after the badge.
 fn skills_panel(
     ui: &mut egui::Ui,
-    rules: Option<&ActiveRules>,
+    (rules, aside): (Option<&ActiveRules>, Option<&[u8]>),
     badge: &mut Option<(BadgeKey, OwnBadge)>,
     session: &mut Session,
     (team_id, slot, marks): (u32, u8, Option<live_marks::Marks<'_>>),
@@ -669,13 +733,69 @@ fn skills_panel(
             marks.cross(ui, live_marks::MarkedField::CardsLeft);
         }
     });
+    // The title stands `TITLE_GAP` above the first card row's painted
+    // square, as `panel`'s do.
+    ui.add_space(TITLE_GAP - ui.spacing().item_spacing.y - card_box_inset(ui));
+    let shown: Vec<u8> = all_indices(&labels::SKILLS)
+        .into_iter()
+        .filter(|index| !aside.is_some_and(|aside| aside.contains(index)))
+        .collect();
     cards::card_columns(
         ui,
         session.file().version(),
         &mut skills.skills,
         &labels::SKILLS,
+        &shown,
         PlayerField::Skill,
     )
+}
+
+/// `names`' whole index range, a `card_columns` `shown` when no panel
+/// splits the kind.
+fn all_indices(names: &[&'static str]) -> Vec<u8> {
+    (0..u8::try_from(names.len()).expect("a label table is byte-indexed")).collect()
+}
+
+/// The title and the skill indices the aside panel lists, in `SKILLS`
+/// order with none twice: the ruleset's `tricks` card group ("Tricks"),
+/// else every skill one of its `free_cards` effects names — those free
+/// only for a tier, a position or the captain included ("Free cards"),
+/// since a card moving between panels as a player's tier changes would
+/// be harder to find. `None` when the ruleset names no such card: every
+/// skill then stays under Skills.
+fn aside_cards(ruleset: &aatf::Ruleset) -> Option<(&'static str, Vec<u8>)> {
+    let mut indices: Vec<u8> = ruleset
+        .card_groups
+        .get("tricks")
+        .into_iter()
+        .flatten()
+        .filter_map(skill_index)
+        .collect();
+    if !indices.is_empty() {
+        indices.sort_unstable();
+        indices.dedup();
+        return Some(("Tricks", indices));
+    }
+    indices.extend(
+        ruleset
+            .specials
+            .iter()
+            .flat_map(|special| std::iter::once(&special.then).chain(special.then.choice.iter()))
+            .flat_map(|effects| effects.free_cards.iter())
+            .filter_map(skill_index),
+    );
+    indices.sort_unstable();
+    indices.dedup();
+    (!indices.is_empty()).then_some(("Free cards", indices))
+}
+
+/// `card`'s index when it is a skill; a COM style is no aside card (it
+/// stays under COM playing styles).
+fn skill_index(card: &aatf::Card) -> Option<u8> {
+    match card {
+        aatf::Card::Skill(index) => Some(*index),
+        aatf::Card::ComStyle(_) => None,
+    }
 }
 
 /// What `rules` read team `team_id`'s roster `slot` as on `file`: his own
@@ -815,7 +935,7 @@ mod tests {
     use pes_savefile::schema::{RecordSchema, schema_for};
     use pes_version::PesVersion;
 
-    use super::SMALL_STATS;
+    use super::{SMALL_STATS, aside_cards};
 
     /// The `2^bit_width - 1` bound `info_strip.rs`'s `max` reads, over the
     /// appearance record too (a field may live there on PES 15/16); `None`
@@ -846,6 +966,86 @@ mod tests {
                 .and_then(|(_, record)| in_record(record, field))
         })?;
         Some((1u64 << width) - 1)
+    }
+
+    /// `name`'s index in `labels::SKILLS` (a card's index is its
+    /// position there).
+    fn skill(name: &str) -> u8 {
+        u8::try_from(
+            pes_savefile::interchange::team_toml::labels::SKILLS
+                .iter()
+                .position(|&label| label == name)
+                .expect("a skill"),
+        )
+        .expect("a byte index")
+    }
+
+    /// The smallest ruleset the crate's loader accepts, holding `body`
+    /// (the `card_groups`/`specials` lines the case varies): the check
+    /// asks the tiers' counts for the squad, so a rest tier is always
+    /// there.
+    fn ruleset(body: &str) -> aatf::Ruleset {
+        let block = format!(
+            "const RULESET = #{{
+                schema: 1, name: \"x\", squad_size: 23,
+                universal: #{{ max_skill_cards: 10 }},
+                tiers: [#{{ id: \"regular\", label: \"Regular\", rate: 77, form: 4,
+                            injury_resistance: 1, weak_foot: #{{ usage: 2, accuracy: 2 }},
+                            cards: 3, a_positions: 1 }}],
+                {body}
+            }};"
+        );
+        aatf::Ruleset::from_data_block(&block).expect("the block loads")
+    }
+
+    // The aside panel's set: a `tricks` group names it, else the skills
+    // the `free_cards` effects name — a free card inside a `choice`
+    // option counts — in `SKILLS` order with none twice.
+    #[test]
+    fn the_aside_holds_the_tricks_else_the_free_skills() {
+        // A `tricks` group: its skills in SKILLS order however the file
+        // lists them (its `free_cards` specials are not read then).
+        let rs = ruleset(
+            "card_groups: #{ tricks: [\"malicia\", \"scissors_feint\"] },
+             specials: [#{ label: \"s\", then: #{ free_cards: [\"heading\"] } }],",
+        );
+        let (title, indices) = aside_cards(&rs).expect("the group names cards");
+        assert_eq!(title, "Tricks");
+        assert_eq!(indices, [skill("scissors_feint"), skill("malicia")]);
+
+        // No `tricks` group: every skill a `free_cards` effect names,
+        // a conditional special's and a choice option's included, the
+        // COM styles left out.
+        let rs = ruleset(
+            "specials: [
+                #{ label: \"free\", then: #{ free_cards: [\"malicia\", \"long_ranger\"] } },
+                #{ label: \"conditional\", when: #{ captain: true },
+                   then: #{ free_cards: [\"captaincy\"] } },
+                #{ label: \"pick\",
+                   then: #{ choice: [#{ free_cards: [\"heading\"] }, #{ cards: 1 }] } },
+            ],",
+        );
+        let (title, indices) = aside_cards(&rs).expect("the free cards name skills");
+        assert_eq!(title, "Free cards");
+        assert_eq!(
+            indices,
+            [skill("heading"), skill("malicia"), skill("captaincy")],
+            "the choice's, the conditional's and the plain effect's skills, in SKILLS order"
+        );
+
+        // A ruleset whose only free cards sit in a choice's options:
+        // they count too.
+        let rs = ruleset(
+            "specials: [#{ label: \"pick\",
+                then: #{ choice: [#{ free_cards: [\"heading\"] }, #{ cards: 1 }] } }],",
+        );
+        assert_eq!(
+            aside_cards(&rs),
+            Some(("Free cards", vec![skill("heading")]))
+        );
+
+        // Neither: no aside panel.
+        assert_eq!(aside_cards(&ruleset("")), None);
     }
 
     // Every range's top fits the field's bit width on every version

@@ -191,8 +191,9 @@ pub(super) fn role_label(field: TacticsField) -> Option<&'static str> {
 }
 
 /// The "Player assignments" group's rows (the draft's `#tac-side
-/// .tachalf`): one column of `.tset` rows 3 points apart — each of the
+/// .tachalf`): one column of `.tset` rows — each of the
 /// six takers and the captain its label over a chip the column's width,
+/// each label 4 points under the chip above it,
 /// then "Join the attack" over three chips, one per joining player. A
 /// chip click arms its mode and closes the slot popover; a click on an
 /// armed chip disarms it (the draft's `roleChip`/`joinChip`), and any
@@ -208,8 +209,7 @@ pub(super) fn player_assignments(
     // The frame fills the cell the host gives the panel (the pitch's
     // height), as `formation_settings`' does.
     ui.set_min_height(ui.available_height());
-    // `.tachalf`: rows 3 points apart; inside a `.tset`, the label 2
-    // above its chip.
+    // `.tachalf`: a label 2 above its chip, 4 under the one above.
     ui.spacing_mut().item_spacing.y = 2.0;
     for (index, role) in SET_PIECES.iter().enumerate() {
         ui.label(role.label);
@@ -224,8 +224,8 @@ pub(super) fn player_assignments(
             view.assign = (!armed).then_some(Assign::Role(index));
             view.popover = None;
         }
-        // 3 points to the next row.
-        ui.add_space(1.0);
+        // 4 points to the next row.
+        ui.add_space(2.0);
     }
     // "Join the attack" shows its three players as three rows, one per
     // joining player — `Unassigned` where fewer join — all three the

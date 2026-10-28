@@ -587,6 +587,9 @@ pub fn advanced_instructions(
     let preset = &mut tactics.presets[view.preset.min(2)];
     let before = preset.clone();
     panel(ui, "Advanced instructions", |ui| {
+        // `add_space` adds to the item gap: the rows start `TITLE_GAP`
+        // under the heading, as Formation settings' do.
+        ui.add_space(TITLE_GAP - ui.spacing().item_spacing.y);
         instructions::instruction_table(ui, version, preset, view, roster);
     });
     *preset != before
@@ -603,6 +606,9 @@ pub fn player_assignments(
     roster: &[RosterRow<'_>],
 ) {
     panel(ui, "Player assignments", |ui| {
+        // `add_space` adds to the item gap: the rows start `TITLE_GAP`
+        // under the heading, as Formation settings' do.
+        ui.add_space(TITLE_GAP - ui.spacing().item_spacing.y);
         assignments::player_assignments(
             ui,
             &tactics.set_pieces,

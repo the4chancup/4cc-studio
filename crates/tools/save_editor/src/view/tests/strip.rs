@@ -1296,6 +1296,7 @@ fn the_player_header_tops_the_player_view_alone() {
             "Other stats",
             "Playable positions",
             "Skills",
+            "Tricks",
             "COM playing styles",
             "Ability stats",
             "Shirt number",

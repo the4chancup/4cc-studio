@@ -9,8 +9,9 @@ use pes_savefile::model::instruction::Instruction;
 
 use super::*;
 use crate::test_support::{
-    Headless, centre, chip_under, combo_row, control_below, control_right_of, controls_below,
-    entry, entry_id, fixture_rows, fixture_tactics, pointer_at, roster_rows, tactics_settings,
+    Headless, centre, chip_under, chips_below, combo_row, control_below, control_right_of,
+    controls_below, entry, entry_id, fixture_rows, fixture_tactics, pointer_at, roster_rows,
+    tactics_settings,
 };
 
 impl Headless {
@@ -961,6 +962,84 @@ fn the_settings_are_six_even_rows_of_pairs() {
                 (centre - (bounds.y1 + 14.0)).abs() < 0.5,
                 "{label}'s control is centred in the box 2 under it ({centre:?} vs {:?})",
                 bounds.y1 + 14.0
+            );
+        }
+    }
+}
+
+// Player assignments' and Advanced instructions' first rows start
+// `TITLE_GAP` under their headings, as Formation settings' do (the PES
+// 15/16 "(none on this version)" line too), and each assignment's label
+// stands 4 points under the chip above it, the Join the attack label
+// included.
+#[test]
+fn the_side_panels_rows_start_title_gap_under_the_headings() {
+    let mut window = Headless::sized(800.0, 1200.0);
+    let label_y = |nodes: &[accesskit::Node], text: &str| {
+        nodes
+            .iter()
+            .find(|node| node.role() == Role::Label && node.value() == Some(text))
+            .and_then(|node| node.bounds())
+            .unwrap_or_else(|| panic!("no label {text:?}"))
+    };
+    for version in [PesVersion::Pes21, PesVersion::Pes15] {
+        let mut tactics = fixture_tactics(version);
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(version);
+        let roster = roster_rows(&rows);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+
+        // The first row of each side panel `TITLE_GAP` under its heading.
+        let assignments = label_y(&nodes, "Player assignments");
+        let first = label_y(&nodes, "Long free kick");
+        assert!(
+            (first.y0 - assignments.y1 - f64::from(TITLE_GAP)).abs() < 0.5,
+            "{version:?}: the first assignment label {TITLE_GAP} under the heading \
+             ({} vs {})",
+            first.y0,
+            assignments.y1
+        );
+        let instructions = label_y(&nodes, "Advanced instructions");
+        let first_top = match version {
+            PesVersion::Pes15 | PesVersion::Pes16 => label_y(&nodes, "(none on this version)").y0,
+            // The header cells centre their text in the control-height
+            // row: the row's top is the text's less the centring offset
+            // (the number column's "1" and the first combo's bounds give
+            // the same offset another way).
+            _ => {
+                let attack = label_y(&nodes, "Attack");
+                let inset =
+                    label_y(&nodes, "1").y0 - combo_row(&nodes, 0)[0].bounds().expect("bounds").y0;
+                attack.y0 - inset
+            }
+        };
+        assert!(
+            (first_top - instructions.y1 - f64::from(TITLE_GAP)).abs() < 0.5,
+            "{version:?}: the instructions' first row {TITLE_GAP} under the heading \
+             ({first_top} vs {})",
+            instructions.y1
+        );
+
+        // Each assignment label after the first 4 under the chip above:
+        // the role labels in order, "Join the attack" last.
+        for (label, above) in [
+            ("Short free kick", "Long free kick"),
+            ("Second free kick", "Short free kick"),
+            ("Left corner", "Second free kick"),
+            ("Right corner", "Left corner"),
+            ("Penalty kick", "Right corner"),
+            ("Captain", "Penalty kick"),
+            ("Join the attack", "Captain"),
+        ] {
+            let label_y0 = label_y(&nodes, label).y0;
+            let chip = chips_below(&nodes, above)
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| panic!("no chip under {above:?}"));
+            let chip_y1 = chip.bounds().expect("bounds").y1;
+            assert!(
+                (label_y0 - chip_y1 - 4.0).abs() < 0.5,
+                "{version:?}: {label} 4 under {above}'s chip ({label_y0} vs {chip_y1})"
             );
         }
     }

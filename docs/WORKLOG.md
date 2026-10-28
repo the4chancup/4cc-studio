@@ -3806,7 +3806,18 @@ briefs, review loops, gates and mutation runs as for any step.
       line and 6-point spacings, Player assignments' gaps; a test
       that the detail pane's offset survives a pick (the app's one ScrollArea keeps it today,
       by reading) → verify: the gates; the built window's player and team views against the
-      drafts (asks before it takes focus). The drafts approved 2026-10-28
+      drafts (asks before it takes focus). The drafts approved 2026-10-28. Code done
+      2026-10-28 (SWE-2, brief `.tmp/0_0_1w/brief_w6b.md`, report `.tmp/w6b.notes.md`,
+      reviewed): `card_columns` takes the indices to draw; `aside_cards` (Tricks sorted into
+      SKILLS order, else every free card's skill, `choice` options and conditional ones
+      included); every player-view title 6 above its first painted row, the titles' rows
+      top-aligned so the three column titles share a line (no badge shift needed: the app's
+      badge is no taller than a title); the team view's two panels 6 under their headings,
+      each assignment label 4 under the chip above; the detail pane's offset pinned across a
+      pick. Open: the built views against the drafts, with the batched checks; Player
+      assignments' panel keeps about 33 free at its bottom where the plan expects about 3
+      (the app's `.small()` chips draw 15 tall, the plan's arithmetic about 18): compare the
+      chips with the draft's there and match them
 - [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the
   maintainer, 2026-10-27: "Since the formation name work is almost done"; DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers": the
   typeface need not be the game's, its stroke thickness must match the game's label; the

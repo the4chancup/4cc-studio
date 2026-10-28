@@ -2763,3 +2763,4 @@ worklog passed 7,000 lines.
 - **2026-10-28** — y6b's code: the pitch badge shows the starter's overall at his slot's position, his medal as an outline, the captain's mark outlined (SWE-2, reviewed).
 - **2026-10-28** — y4e2's code: a starter dropped on the grass takes the position the game's formation editor gives (its two area tables, the band default, the first free candidate, his overall picking), tested on PES 2017's measured edges and PES 2021's scans (SWE-2, reviewed).
 - **2026-10-28** — w4b's code: the app draws Roboto Flex (body and the formation name's semibold), the symbols font rebuilt on its metrics, the three widths (settings 422, list 255, General info 344); Selawik's files removed (SWE-2, reviewed).
+- **2026-10-28** — w6b's code: the player view's Tricks panel (or Free cards for a ruleset without tricks), every title 6 above its content, the team view's panels' gaps; the detail pane's scroll offset pinned across picks (SWE-2, reviewed).
