@@ -186,16 +186,27 @@ input[type=range]:focus { outline: none; }
 .detail { flex: 1; min-width: 0; }
 /* The player view's fixed columns: General info over Playable positions,
    the skills in two with the COM styles and the non-ability values under
-   them, the ability stats in one, then the Appearance section. Fixed widths
-   and even gaps; the whole view centred between the player list and the
-   window's right edge, so the room the columns leave falls evenly on both
-   sides (the gap after the list equals the margin after Ability stats). */
-.pcols { display: flex; gap: 27px; align-items: flex-start; flex-wrap: wrap; }
-#player-view { width: fit-content; margin: 0 auto; }
+   them, the ability stats in one, then the Appearance section. Four equal
+   gaps share the room the columns leave: after the list, between the
+   columns, after Ability stats. The first counts from the list's frame, 22
+   points left of this pane (the list's 10-point bar strip and the 12 before
+   the pane), the last to the window's edge, 12 right of the pane (the views'
+   right margin), so the grid spans both: centred in the pane alone, the gap
+   after the list read wider than the two between the columns. The header
+   and Appearance line up with General info's title. */
+#player-view { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+  align-items: start; margin: 0 -12px 0 -22px; }
+#player-view > :first-child { grid-column: 2 / 7; grid-row: 1; }
+#player-view > :last-child { grid-column: 2 / 7; grid-row: 3; }
+.pcols { display: contents; }
+.pcols > * { grid-row: 2; }
+.pcols > :nth-child(1) { grid-column: 2; }
+.pcols > :nth-child(2) { grid-column: 4; }
+.pcols > :nth-child(3) { grid-column: 6; }
 .pcol { gap: 14px; }
 /* General info's and Other stats' fields stand 6 in from their titles, as
    the ability stats' cell padding sets theirs: the column is 6 wider than
-   the fields' 344, the gaps 3 narrower, so the view keeps its width. */
+   the fields' 344. */
 .pcol.first { width: 350px; }
 .pcols .gen { padding-left: 6px; }
 /* The three columns' titles on one line: Skills' row is as tall as its Cards
@@ -206,7 +217,7 @@ input[type=range]:focus { outline: none; }
    checkbox, as the team view's titles do: no margin under a title's row (the
    badge's lower half overlaps the gap), the label blocks and the ability
    stats 3 lower, the checkbox lists 1.5, the positions grid 1. */
-.pcols { padding-top: 3px; }
+.pcols > * { margin-top: 3px; }
 .pcols .phead { margin: 0; }
 .pcols .phead.badged { margin: -3px 0 -3px; }
 .pcols .gen { padding-top: 3px; }
@@ -234,7 +245,7 @@ input[type=range]:focus { outline: none; }
    halves are 28 apart. */
 .gen .pairs { display: grid; grid-template-columns: calc(109px + 12px + 54px) 1fr; column-gap: 28px; row-gap: 4px; }
 /* The count reads as part of its label, and keeps one width as it changes. */
-.gen .count { font-variant-numeric: tabular-nums; color: #6e6e6e; }
+.gen .count { font-variant-numeric: tabular-nums; color: #5a5a5a; }
 .gen .count.at { color: var(--warn); }
 .gen .count.over { color: var(--error); }
 /* The theme's warning colour mixed into the field's own, as the app draws
@@ -2478,10 +2489,11 @@ const snapXY = (px, py) => [
 // stats go to rate, `stats` overrides them, form/injury_resistance/weak_foot
 // are the game's numbers (stored -1), name_color rewrites the name's leading
 // colour code. label is the file's `name`, the description the ruleset
-// dropdown shows (sample wording: every label but Autumn 26's, which waits on
-// the maintainer's names for the files).
+// dropdown shows. The draft recognizes a tier by its rating and position
+// alone (recognizedTier), so VGL26's and VTL10's height-told tiers read as
+// the first one the rating reaches.
 const RULESETS = {
-  official: { label: "Autumn 26", tiers: [
+  official: { label: "4cc Autumn 26", tiers: [
     { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
       cards: 6, a_positions: 1, free: { tricks: 3, com: 2 } },
     { id: "silver", label: "Silver", rate: 92, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
@@ -2540,7 +2552,95 @@ const RULESETS = {
       cards: 48, a_positions: 13, free: {} },
   ],
     card_groups: {}, free_specials: [] },
-  // Not built in here: the draft's clean file to import (rulesets/vgl27.rhai).
+  spring26: { label: "4cc Spring 26", tiers: [
+    { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 3, weak_foot: { usage: 2, accuracy: 4 },
+      cards: 5, a_positions: 1, free: { tricks: 3, com: 2 } },
+    { id: "silver", label: "Silver", rate: 88, form: 8, injury_resistance: 3, weak_foot: { usage: 2, accuracy: 4 },
+      cards: 4, a_positions: 1, free: { tricks: 3, com: 1 } },
+    { id: "goalkeeper", label: "Goalkeeper", rate: 74, form: 4, injury_resistance: 1, weak_foot: { usage: 2, accuracy: 2 },
+      when: { positions: ["GK"] }, cards: 2, a_positions: 1, free: {} },
+    { id: "regular", label: "Regular", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 2, accuracy: 2 },
+      cards: 3, a_positions: 1, free: { tricks: 2 } },
+  ],
+    card_groups: { tricks: ["scissors_feint", "flip_flap", "marseille_turn",
+      "sombrero", "cut_behind_and_turn", "scotch_move", "rabona", "double_touch",
+      "crossover_turn", "step_on_skill", "no_look_pass"] },
+    free_specials: [ { card: "malicia" }, { card: "captaincy", captain: true } ] },
+  // Not built in: the draft's clean file to import (rulesets/autumn25.rhai, a
+  // test ruleset).
+  autumn25: { label: "4cc Autumn 25", tiers: [
+    { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 3, weak_foot: { usage: 2, accuracy: 4 },
+      cards: 5, a_positions: 1, free: { tricks: 3, com: 2 } },
+    { id: "silver", label: "Silver", rate: 88, form: 8, injury_resistance: 3, weak_foot: { usage: 2, accuracy: 4 },
+      cards: 4, a_positions: 1, free: { tricks: 3, com: 1 } },
+    { id: "goalkeeper", label: "Goalkeeper", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 2, accuracy: 2 },
+      when: { positions: ["GK"] }, cards: 2, a_positions: 1, free: {} },
+    { id: "regular", label: "Regular", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 2, accuracy: 2 },
+      cards: 3, a_positions: 1, free: { tricks: 2 } },
+  ],
+    card_groups: { tricks: ["scissors_feint", "flip_flap", "marseille_turn",
+      "sombrero", "cut_behind_and_turn", "scotch_move", "rabona", "double_touch",
+      "crossover_turn", "step_on_skill", "no_look_pass"] },
+    free_specials: [ { card: "malicia" }, { card: "captaincy", captain: true } ] },
+  vgl26: { label: "/vg/ League 26", tiers: [
+    { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 2, weak_foot: { usage: 4, accuracy: 4 },
+      stats: { place_kicking: 94, ball_winning: 94, defensive_prowess: 60 },
+      cards: 9, a_positions: 2, free: { tricks: 12, com: 2 } },
+    { id: "silver", label: "Silver", rate: 95, form: 8, injury_resistance: 2, weak_foot: { usage: 4, accuracy: 4 },
+      stats: { attacking_prowess: 99, finishing: 99, heading: 99, place_kicking: 90, ball_winning: 90,
+        defensive_prowess: 60 },
+      cards: 8, a_positions: 2, free: { tricks: 12, com: 2 } },
+    { id: "bronze", label: "Bronze", rate: 91, form: 8, injury_resistance: 2, weak_foot: { usage: 4, accuracy: 4 },
+      stats: { attacking_prowess: 96, finishing: 96, heading: 96, place_kicking: 86, ball_winning: 86,
+        defensive_prowess: 60 },
+      cards: 8, a_positions: 2, free: { tricks: 12, com: 2 } },
+    { id: "buffed", label: "Buffed", rate: 85, form: 4, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
+      when: { not_positions: ["GK"] },
+      stats: { attacking_prowess: 90, aggression: 90, jump: 75, stamina: 70, ball_winning: 65,
+        defensive_prowess: 60 },
+      cards: 7, a_positions: 2, free: { tricks: 12, com: 1 } },
+    { id: "goalkeeper", label: "Goalkeeper", rate: 72, form: 8, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
+      when: { positions: ["GK"] }, cards: 5, a_positions: 1, free: { tricks: 12, com: 1 } },
+    { id: "regular", label: "Regular", rate: 80, form: 4, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
+      stats: { aggression: 90, jump: 80, defensive_prowess: 70, ball_winning: 70, explosive_power: 70,
+        goalkeeping: 72, catching: 72, clearing: 72, reflexes: 72, coverage: 72, stamina: 65 },
+      cards: 6, a_positions: 2, free: { tricks: 12, com: 1 } },
+  ],
+    card_groups: { tricks: ["scissors_feint", "double_touch", "flip_flap", "marseille_turn",
+      "sombrero", "crossover_turn", "cut_behind_and_turn", "scotch_move",
+      "step_on_skill", "rabona", "no_look_pass", "malicia"] },
+    free_specials: [ { card: "heading" }, { card: "captaincy", captain: true } ] },
+  vtl10: { label: "/vt/ League 10", tiers: [
+    { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
+      stats: { place_kicking: 96, defensive_prowess: 58 },
+      cards: 6, a_positions: 2, free: { com: 2 } },
+    { id: "silver", label: "Silver", rate: 92, form: 8, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
+      stats: { attacking_prowess: 95, place_kicking: 88, defensive_prowess: 56, ball_winning: 88, stamina: 95,
+        aggression: 88 },
+      cards: 7, a_positions: 3, free: { com: 2 } },
+    { id: "regular", label: "Regular", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
+      stats: { attacking_prowess: 87, ball_control: 87, dribbling: 87, low_pass: 87, lofted_pass: 92,
+        finishing: 97, place_kicking: 70, swerve: 87, defensive_prowess: 73, ball_winning: 68,
+        kicking_power: 87, explosive_power: 73, physical_contact: 68, jump: 67, goalkeeping: 75,
+        catching: 70, reflexes: 73, coverage: 73, stamina: 55, tight_possession: 87, aggression: 92 },
+      cards: 7, a_positions: 2, free: { com: 1 } },
+    { id: "buffed", label: "Buffed", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
+      stats: { attacking_prowess: 92, ball_control: 87, dribbling: 92, low_pass: 87, lofted_pass: 87,
+        finishing: 92, place_kicking: 70, swerve: 87, defensive_prowess: 53, ball_winning: 68,
+        kicking_power: 92, speed: 88, explosive_power: 88, body_control: 88, physical_contact: 88,
+        goalkeeping: 75, catching: 70, reflexes: 73, coverage: 73, stamina: 60, tight_possession: 87,
+        aggression: 87 },
+      cards: 7, a_positions: 1, free: { com: 1 } },
+  ],
+    free_specials: [
+      { card: "scissors_feint" }, { card: "flip_flap" }, { card: "marseille_turn" }, { card: "sombrero" },
+      { card: "cut_behind_and_turn" }, { card: "scotch_move" }, { card: "acrobatic_finishing" },
+      { card: "heel_trick" }, { card: "first_time_shot" }, { card: "malicia" }, { card: "double_touch" },
+      { card: "crossover_turn" }, { card: "step_on_skill" },
+      { card: "one_touch_pass", tiers: ["regular", "buffed"] },
+      { card: "weighted_pass", tiers: ["regular", "buffed"] },
+      { card: "pinpoint_crossing", tiers: ["regular", "buffed"] },
+      { card: "captaincy", captain: true }, { card: "incisive_run" }, { card: "long_ranger" } ] },
   vgl27: { label: "/vg/ League 27", tiers: [
     { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 2, weak_foot: { usage: 4, accuracy: 4 },
       when: { not_positions: ["GK"] }, cards: 6, a_positions: 2, free: { tricks: 12, com: 1 } },
@@ -2558,14 +2658,13 @@ const RULESETS = {
       "step_on_skill", "rabona", "no_look_pass", "malicia"] },
     free_specials: [ { card: "captaincy", captain: true } ] },
 };
-// The rulesets built into the binary, in the dropdown's order (which ones
-// ship waits on the maintainer).
-const EMBEDDED = ["official", "dbc7", "vtl11"];
+// The rulesets built into the binary, in the dropdown's order.
+const EMBEDDED = ["official", "spring26", "vgl27", "vgl26", "vtl11", "vtl10", "dbc7"];
 // What the draft's stand-in for the file picker offers to Import rules file:
 // a clean file, one named like a built-in ruleset, and two the loader refuses
 // (8.5's broken samples, their findings as Rules::load reports them).
 const IMPORT_SAMPLES = [
-  { file: "vgl27.4ccrules", key: "vgl27" },
+  { file: "autumn25.4ccrules", key: "autumn25" },
   { file: "autumn26.4ccrules", key: "official" },
   { file: "dbc7_broken_syntax.4ccrules",
     findings: ["7:5: Expecting ',' to separate the items of this object map literal (line 7, position 5)"] },
@@ -3139,7 +3238,7 @@ const WALK = [
   ["SE-GUI-06", "PES 17 sample: star and playing attitude in the Appearance section's Cutscenes group and stronger hand in General info sit disabled in place, tooltips naming PES 19+/20+; PES 21: enabled"],
   ["SE-GUI-07", "the Appearance section below the Cutscenes group is disabled under the ownership line; the switch unlocks it; the switch is off on every open"],
   ["SE-GUI-08", "drag a list row onto another: the dragged player's name, stats and look land on the target slot, those between shift one along, while every slot keeps its id, shirt number and captain mark; the save is marked unsaved"],
-  ["SE-GUI-09", "the quick actions under the player list follow the toolbar's ruleset dropdown: Gold/Silver/Bronze/Goalkeeper/Regular under Autumn 26, /vt/ League 11 and Divegrass Before Christmas 7 their own"],
+  ["SE-GUI-09", "the quick actions under the player list follow the toolbar's ruleset dropdown: Gold/Silver/Bronze/Goalkeeper/Regular under 4cc Autumn 26, each other built-in ruleset its own tiers"],
   ["SE-GUI-11", "switch Edit aesthetics anyway on; the Appearance section's FPC group: Hide default body (or Ctrl+I) gives the hide preset and reads 'The default body is currently hidden', Show default body (or Ctrl+I again) the show preset; a player with his own boots ID keeps it"],
   ["SE-GUI-35", "the 'Aesthetics from exports' draft control off (the default): the Appearance section draws no ownership line and no switch and every path edits; on, the lock draws"],
   ["SE-GUI-12", "a team row's view, the tactics: drag a pitch marker (it snaps to the stored grid, undoable), drop a bench row on a marker to swap, arm a set-piece chip and click a marker, arm Join attack and click two markers"],
@@ -3150,7 +3249,7 @@ const WALK = [
   ["SE-GUI-26", "the Open menu: the discovered saves with version (and account folder from 19), the session's recents, then the picker; Save as keeps the replaced file as .bak"],
   ["SE-GUI-28", "PES selector at 2019 with the PES 21 sample open: the warning names both; the save keeps its version"],
   ["SE-GUI-13", "Panels, Comparator: pick the PES 21 sample (refused), then Autumn24Q; the toggles and the team filter narrow the rows, Export writes their report lines, a row click selects the player"],
-  ["SE-GUI-15", "the toolbar's ruleset dropdown, left of Live AATF: pick Divegrass Before Christmas 7 (the quick actions and the card counts follow); Import rules file...: the broken samples are refused with their errors, autumn26.4ccrules is refused for a built-in's name, vgl27.4ccrules joins the list under a line and becomes the ruleset; import it again: a confirmation replaces it; its × asks, then removes it and falls back to Autumn 26; reload the page: the choice and the imports stay"],
+  ["SE-GUI-15", "the toolbar's ruleset dropdown, left of Live AATF: pick Divegrass Before Christmas 7 (the quick actions and the card counts follow); Import rules file...: the broken samples are refused with their errors, autumn26.4ccrules is refused for a built-in's name, autumn25.4ccrules joins the list under a line and becomes the ruleset; import it again: a confirmation replaces it; its × asks, then removes it and falls back to 4cc Autumn 26; reload the page: the choice and the imports stay"],
   ["SE-GUI-30", "PES 17 sample, team 718, the Divegrass Before Christmas 7 ruleset: switch Live AATF on in the toolbar; the bottom panel lists the team's issues, errors first, under 'N issues · Divegrass Before Christmas 7'. Lower a stat over its maximum (a Stat row) to its target: the list dims, marked checking, then the row is gone and N is one less; Undo brings it back. Under the official ruleset on 718, untick the team-rows control and set each Height row's player to 180: '... passes ... with no issues'. Reload the page: Live AATF is still on"],
   ["SE-GUI-18", "Panels, Apply aesthetics patch: on the PES 21 sample the preview lists the changed players, Apply is one edit; on the PES 17 sample the same patch is refused"],
   ["SE-GUI-16", "Panels, Team file interchange: Team TOML export writes the team's file; pick 701.toml (PES 21) for the warning list, a 718 or 722 one for the refusals; Apply is one undoable edit"],
@@ -3370,8 +3469,94 @@ function databaseMenu() {
     // The whole save's teams, a range of them (8.34): a Savefile action, as
     // the TSV is.
     ["Save formation pictures for a range of teams\u2026", dlgPicturesRange],
+    ["Multi-team AATF\u2026", dlgMultiAatf],
     ["Fix database\u2026", dlgFixDb, !aesUnlocked(), ownershipTip()],
   ]);
+}
+// ---- Multi-team AATF (the Savefile menu) ----
+// An organizer's check of a range of teams under the toolbar's ruleset, in a
+// dialog, not a docked panel: Live AATF is the one team a manager is fixing,
+// this a report read once and pasted elsewhere. The range is picked as the
+// formation pictures' is, its two ends side by side on one row (the save's
+// first and last team by default); the teams are checked on a worker
+// whenever it changes, the previous list kept while it runs. Only the teams
+// with an issue are listed, each under its id and name, its players' rows as
+// the dock words them, errors first; suggestions are not asked for (an
+// unused allowance is no organizer's business). Copy to clipboard copies the
+// list as plain text, a line per row, so it pastes into a cup's thread.
+// sample wording: every text.
+const multiAatf = { from: null, to: null };
+function dlgMultiAatf() {
+  const ids = curSave().teams.map(t => t.id);
+  if (multiAatf.from == null) { multiAatf.from = Math.min(...ids); multiAatf.to = Math.max(...ids); }
+  drawMultiAatf();
+}
+// Each team of the range with its rows (errors and warnings), or null where
+// the draft holds no sample run for it.
+function multiAatfResults() {
+  return picTeamsIn(multiAatf.from, multiAatf.to).map(t => {
+    const rows = liveRows(t);
+    return { team: t, rows: rows && rows.filter(r => r[0] !== "Suggestion") };
+  });
+}
+function multiAatfText(results) {
+  const sevs = results.flatMap(r => r.rows || []);
+  const n = sev => sevs.filter(r => r[0] === sev).length;
+  const lines = [RULESETS[D.ruleset].label + ", teams " + multiAatf.from + " to " + multiAatf.to + ": "
+    + n("Error") + " errors, " + n("Warning") + " warnings"];
+  for (const { team, rows } of results) {
+    if (!rows || !rows.length) continue;
+    lines.push(team.id + " " + displayName(team.name));
+    let lastPid = null;
+    for (const [sev, , pid, rule, fields] of rows) {
+      if (pid !== lastPid) {
+        const p = team.players.find(q => q.id === pid);
+        lines.push("  " + (pid ? pid + " " + displayName(p ? p.name : "") : "Team-wide issues"));
+        lastPid = pid;
+      }
+      lines.push("    " + sev + "  " + rule + "  " + violationSentence(rule, kvOf(fields), sev));
+    }
+  }
+  return lines.join("\n");
+}
+function drawMultiAatf() {
+  const pick = key => {
+    const s = combo(curSave().teams.map(t => [String(t.id), t.id + " " + displayName(t.name)]),
+      String(multiAatf[key]), v => { multiAatf[key] = Number(v); drawMultiAatf(); });
+    s.id = "multi-" + key;
+    return s;
+  };
+  const reversed = multiAatf.from > multiAatf.to;
+  const results = reversed ? [] : multiAatfResults();
+  const failing = results.filter(r => r.rows && r.rows.length);
+  const sampled = results.filter(r => r.rows);
+  const list = h("div", { class: "live-body", id: "multi-rows", style: "height:360px; width:640px" });
+  for (const { team, rows } of failing) {
+    list.append(h("div", { class: "grp" }, team.id + " ", ...nameSpans(team.name)));
+    let lastPid = null;
+    for (const [sev, , pid, rule, fields] of rows) {
+      if (pid !== lastPid) {
+        list.append(pid ? playerHead(pid) : h("div", { class: "grp weak" }, "Team-wide issues"));
+        lastPid = pid;
+      }
+      list.append(h("div", { class: "drow " + (sev === "Error" ? "err" : "warn") },
+        h("span", { class: "f" }, rule), h("span", { class: "v" }, violationSentence(rule, kvOf(fields), sev))));
+    }
+  }
+  const summary = reversed ? h("span", { class: "warn" }, "The first team comes after the last")
+    : weak(results.length + " teams checked, " + failing.length + " with issues"
+      + (!sampled.length ? " (the draft holds no sample run for this save and ruleset)"
+        : sampled.length < results.length ? " (the draft holds sample runs for "
+          + sampled.map(r => r.team.id).join(", ") + " alone)" : ""));
+  window_("Multi-team AATF (" + RULESETS[D.ruleset].label + ")", h("div", {},
+    h("div", { class: "row" }, weak("Teams"), pick("from"), weak("to"), pick("to")),
+    h("div", { class: "row", id: "multi-summary" }, summary),
+    list),
+    [button("Copy to clipboard", () => {
+      if (navigator.clipboard) navigator.clipboard.writeText(multiAatfText(results)).catch(() => {});
+      publishNotice("Copied the issues of " + failing.length + " teams.", null, "success");
+    }, { disabled: !failing.length }), button("Close", closeWindow)], "multi-aatf");
+  render();
 }
 // The registered position's combo names each position in full, one
 // spelling throughout. Not POS_LONG: that is the roster TSV's table, whose
@@ -6035,6 +6220,10 @@ RULESETS.official.suggestions = ["cards", "tricks", "com", "weak_foot", "injury_
 RULESETS.dbc7.suggestions = [];
 RULESETS.vtl11.suggestions = [];
 RULESETS.vgl27.suggestions = ["cards", "com", "a_positions", "weak_foot", "free_cards"];
+RULESETS.vgl26.suggestions = ["cards", "com", "a_positions", "weak_foot", "free_cards"];
+RULESETS.spring26.suggestions = RULESETS.official.suggestions;
+RULESETS.autumn25.suggestions = RULESETS.official.suggestions;
+RULESETS.vtl10.suggestions = [];
 function suggestionsFor(p, t) {
   const rs = RULESETS[D.ruleset], out = [];
   const list = rs.suggestions || [];
@@ -7153,7 +7342,7 @@ function linkKeys() {
 }
 // A `dialog` value to its opener: the dialogs a menu opens with no argument
 // beyond the current selection.
-const DLGS = { "set-stats": dlgSetStats, "bump-stats": dlgBumpStats,
+const DLGS = { "set-stats": dlgSetStats, "bump-stats": dlgBumpStats, "multi-aatf": dlgMultiAatf,
   "copy-stats": () => dlgCopySwap(curPlayer(), "copy"),
   "swap-stats": () => dlgCopySwap(curPlayer(), "swap"),
   settings: dlgSettings, "ingame-face": dlgIngameFace, boglo: dlgBoglo, tsv: dlgTsv, fixdb: dlgFixDb,

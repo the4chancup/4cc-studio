@@ -244,12 +244,17 @@ all side by side.
   Each view's first line titles what it shows: the player view `<id> <name>` (`70101 QUADS
   ONLY`), the id in the weak colour, as the list draws ids, and the name with its colours; the
   team view the team's name with its colours.
-- **The player view**: three columns side by side, 27 points apart, then the Appearance
-  section, the whole centred between the player list and the window's right edge, so the gap
-  after the list equals the margin after Ability stats (the room the fixed columns leave, split
-  evenly rather than all at the right). 27, not the 36 first drawn, with General info's 6-point
-  inset below: the first column starts 6 further from the list and its labels 12, room for
-  Live AATF's marks left of them, which at 36 were clipped at the pane's edge. At the 1280 × 780 window it fits the pane with no
+- **The player view**: three columns side by side, then the Appearance section, the room
+  the fixed columns leave split into four equal gaps: after the player list, between the
+  columns, and after Ability stats (29.4 points each at the 1280 × 780 window). The first
+  counts from the list's frame, 22 points before the pane (the list's 10-point bar strip and
+  the 12 between), and the last runs to the window's edge, past the pane's own 12-point right
+  margin: the eye reads the gap from the list's last ink and to the window's edge, and a
+  view centred in the pane alone left the gap after the list wider than the gaps between the
+  columns (37 against 27). The view's title line and Appearance start at General info's
+  title. With General info's 6-point inset below, its labels stand 35 points from the list's
+  frame, room for Live AATF's marks left of them (at 36-point gaps centred in the pane they
+  were clipped at its edge). At the 1280 × 780 window it fits the pane with no
   scrolling (the draft's check), and the pane is never narrower: a narrower window scales the
   whole UI down (`spec/core/gui.md` "Scaling with the width") and the player list keeps its 255
   points, so the columns sit side by side at every size, each panel in its design's columns,
@@ -331,8 +336,8 @@ all side by side.
   field as typed: the name's bytes against the open save's field, the shirt name's letters
   against the 18 every version shows (PES 16's 16), so a longer name a PES 20/21 save holds
   reads `(20/18)`. The count says how near its limit the field is, the limit being the smaller
-  of the shown maximum and the portable one below: in the weak grey (`#6e6e6e`, the player
-  list's roster places) under it, in the warning orange on it, in the error red past it. The
+  of the shown maximum and the portable one below: in the grey of a disabled card's label
+  (`#5a5a5a`) under it, in the warning orange on it, in the error red past it. The
   field and its count carry one hover: past the portable limit below, its warning; else
   what counts (on PES 21 "Up to 61 bytes. A plain letter takes one byte, an accented letter two or
   more, and a colour code ten. A colour code is typed as \x11c and eight hex digits.", "Up to 18 letters. Western European accents (é, ü, ñ)
@@ -1135,8 +1140,8 @@ What this editor adds on top of the lib:
 - **The ruleset dropdown.** A combo box on the toolbar, left of the Live AATF toggle, drawn
   whether Live AATF is on or off: the ruleset drives the quick actions, the Cards left badge
   and which skills the Tricks or Free cards panel holds, not only the check. It lists the
-  rulesets built into the binary (`spec/aatf_rules.md` "Embedded rulesets"), each by its
-  description alone, the file's `name` ("The ruleset schema": `/vg/ League 27`, not a file
+  rulesets built into the binary, every cup's current ones in `plans/aatf_rules.md`
+  "Embedded rulesets"'s order, each by its description alone, the file's `name` ("The ruleset schema": `/vg/ League 27`, not a file
   name or a code), then under a separator the imported ones the same way, each row with an ×
   at its right end (a frameless small button: egui's combo popup holds any widget), then
   under another `Import rules file…`, a command rather than a value, so the wheel over the
@@ -1155,9 +1160,7 @@ What this editor adds on top of the lib:
     fixed, in the Ruleset editor or by hand, and imported again). A clean file is copied into
     the data folder's `rules/` under its file name and becomes the ruleset. The imported
     rulesets are the `.4ccrules` files in that folder, read at start, no list kept beside
-    them (0.0.1's bundle ships its cups' rules there, `plans/core/development_plan.md`
-    "Development Plan"),
-    so moving or editing the original changes nothing until it is imported again. A
+    them, so moving or editing the original changes nothing until it is imported again. A
     file whose description a built-in ruleset has is refused naming the clash (two rows would
     read the same, and a built-in is not replaced); one whose file name or description an
     earlier import has replaces that import once a confirmation naming it is accepted (a cup's
@@ -1182,7 +1185,29 @@ What this editor adds on top of the lib:
   violations" window, no Panels menu entry for one, no Validate rules and no Save a copy. A
   member checks the team they are making legal, which Live AATF does after every edit;
   importing validates a rules file; the Ruleset editor writes a ruleset out. An organizer's
-  check of several teams or the whole save is `check-aatf`'s (`--teams`).
+  check of several teams or the whole save is the Savefile menu's Multi-team AATF (below), or
+  `check-aatf --teams` on the command line.
+- **Multi-team AATF.** The Savefile menu's `Multi-team AATF…`, after the formation pictures'
+  range, opens a dialog, `Multi-team AATF (<ruleset>)`, for an organizer checking a cup's
+  teams, who does not use a command line. On one row `Teams`, the range's first team, `to`, its
+  last: two combo boxes of the save's teams by id and name, the save's first and last by
+  default, as the formation pictures' range picks them. Under it a line, `N teams checked, M
+  with issues` (`The first team comes after the last` in the warning colour when reversed, and
+  Copy to clipboard off); then the teams with an issue, each under its id and name, its rows
+  grouped and worded as Live AATF's dock words them, errors first; then `Copy to clipboard` and
+  `Close`. The teams are checked on a worker, in parallel as `check-aatf` runs them (220 teams
+  of a PES 2017 save in 2.0 s on 16 threads, 13.2 s on one), when the dialog opens and
+  whenever the range changes, the previous list kept and marked as checking until the new one
+  arrives; a team whose check fails is a line naming it and the error, the others still
+  listed. Suggestions are not asked for (an unused allowance is the manager's business, not
+  the organizer's), and a row's click does nothing. A dialog, not a docked panel or a
+  floating window: it is a report read once and copied out, while Live AATF is where a team
+  gets fixed. Copy to clipboard copies the list as plain text, a line per row: first the
+  ruleset and range with the error and warning counts, then per team its id and name, per
+  player his id and name indented two spaces (the team's own rows under `Team-wide issues`),
+  per row its severity, rule and sentence indented four, so it pastes readably into a cup's
+  thread; a notice says `Copied the issues of N teams.` (sample wording, the draft's
+  `dlgMultiAatf`).
 - **Live AATF.** A toolbar toggle, off by default and remembered in the tool's settings
   (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
   docked at the bottom of the view lists the violations of the team the view is editing (the
@@ -1245,8 +1270,8 @@ What this editor adds on top of the lib:
     mark of its own: its rows mark the Skills header, the group holding the card counts, in
     one mark with the skills' own (the highest severity of both, both in its tooltip), since
     a mark in the row before the badge would shift the badge whenever it showed. The first
-    column's marks stand in the room the centred view leaves before it, which its 27-point
-    column gaps and General info's inset make wide enough ("The player view"). The fields: the Height
+    column's marks stand in the gap after the list, which General info's inset widens
+    enough ("The player view"). The fields: the Height
     box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields for
     theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
     `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and
@@ -1464,6 +1489,18 @@ SE-GUI-15  GIVEN the PES 17 save open and no ruleset imported
                 built-in is imported THEN it is refused naming the built-in; WHEN the imported
                 row's × is clicked and the confirmation accepted THEN its copy is deleted, its
                 row gone, and the ruleset is the first built-in
+SE-GUI-41  GIVEN the PES 17 save open under the official ruleset
+           WHEN the Savefile menu's Multi-team AATF… is used
+           THEN a dialog titled `Multi-team AATF (<ruleset>)` holds on one row the range's two
+                combo boxes, the save's first and last team picked, and lists, under `N teams
+                checked, M with issues`, each team with an error or a warning under its id and
+                name, its players' rows as Live AATF's dock words them and no suggestion;
+                WHEN the range is narrowed to one team THEN that team's rows alone are listed;
+                WHEN Copy to clipboard is clicked THEN the clipboard holds the list as plain
+                text, its first line the ruleset, the range and the counts, then the team's id
+                and name, each player's line indented two spaces and each row's severity, rule
+                and sentence four; WHEN the first team picked comes after the last THEN the
+                line says so in the warning colour and Copy to clipboard is off
 SE-GUI-16  GIVEN the save open on a team
            WHEN Team TOML export, then import on another team with only the gameplay section
                 chosen, runs from the interchange dialog

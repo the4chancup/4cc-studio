@@ -35,25 +35,17 @@ coverage (worklog 20.0d), Phase 8's usability pass (8.4) and its shell, the Save
 and view first among Phase 8's tool views, then Phase 8's other views and Release 0.1.0 as
 above. Members get the Save editor as a **preview build, 0.0.1**, cut once its view is done:
 the shell with that tool active, and the Team compiler, the Export upgrader and the Ruleset
-editor, whose views come later, greyed out on the sidebar as the planned tools are. The bundle
-carries DBC7 as a rules file (`rules/dbc7.4ccrules`, assembled with the current logic), and its
-settings name it as the Save editor's `aatf_ruleset`: 0.0.1's window testers are DBC's managers,
-and no tool of the build writes a template out. VGL 27's rules file rides beside it
-(`rules/vgl27.4ccrules`, assembled the same way), in case VGL's organizer checks his teams in
-the Save editor: the readme's VGL section says to pick it in the toolbar's ruleset dropdown.
-The settings and the rules files live in the bundle's `data/` folder, `data/settings.toml`
-and `data/rules/`, the setting reading `dbc7.4ccrules`, since the dropdown lists the data
-folder's `rules/` as its imported rulesets (`plans/save_editor.md` "Configurable AATF rules"):
-the bundle's two files are imports already made. A settings file in `data/` makes the bundle portable
+editor, whose views come later, greyed out on the sidebar as the planned tools are. The exe
+embeds every cup's current rulesets (`plans/aatf_rules.md` "Embedded rulesets"), DBC7 and VGL27
+among them, and the bundle's settings pick DBC7 as the Save editor's `aatf_ruleset`: 0.0.1's
+window testers are DBC's managers. VGL's organizer, in case he checks his teams in the Save
+editor, picks `/vg/ League 27` in the toolbar's ruleset dropdown, as the readme's VGL section
+says. No rules file rides beside the exe: one in the data folder's `rules/` would list as an
+import, the same ruleset twice in the dropdown, its copy one × from deleted. The settings file
+lives in the bundle's `data/` folder, `data/settings.toml`, which makes the bundle portable
 (`spec/core/distribution.md` "Data location: asked on first run"), so 0.0.1's first start asks
 nothing: the location choice is what a preview's testers lose, against a check that is DBC's
-from the first open. `just release` assembles the file as the Ruleset editor writes one
-(`spec/aatf_rules.md` "The rules file": `rulesets/dbc7.rhai`'s data block, then
-`logic/logic.rhai`, then the empty CUSTOM CHECKS section), because no command of the build
-writes a template (the Ruleset editor's command line validates, updates and summarizes a file,
-and adding a command for one build-time use would be a CLI surface no member needs); the built
-exe's own `ruleset-editor validate` and `update-logic` then confirm, before packing, that the
-file loads and that its logic is current. The settings file also carries the Team compiler's
+from the first open. The settings file also carries the Team compiler's
 `multicpk_mode` and `cpk_name` at their defaults, the two lines VGL's organizer changes (below),
 so the readme can say which line to edit rather than what to add. It needs from Release 0.1.0's list the Windows
 bundle (`just release`, the `.7z` and its checksum), and from Phase 8's the GUI-subsystem exe

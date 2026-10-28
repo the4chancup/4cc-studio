@@ -12793,9 +12793,11 @@ setting reads `dbc7.4ccrules`; a description a built-in has is refused, an earli
 file name or description is replaced after a confirmation; the × asks first and deletes the
 copy, never the original; a removed or missing choice falls back to the first built-in with a
 warning notice. Also ruled: General info's and Other stats' fields stand 6 in from their
-titles as the ability stats do (the first column 350, the gaps 27, the view's width kept); the
-Cards left badge drops `cards` after the count; the Name and Shirt counts are weak under the
-limit, orange on it, red past it (the limit the smaller of the shown maximum and the portable
+titles as the ability stats do (the first column 350); the view's room is split into four
+equal gaps, the first counted from the list's frame and the last to the window's edge (29.4
+at 1280 × 780; centred in the pane, the gap after the list read 37 against 27 between the
+columns); the Cards left badge drops `cards` after the count; the Name and Shirt counts are
+the disabled card labels' grey (`#5a5a5a`) under the limit, orange on it, red past it (the limit the smaller of the shown maximum and the portable
 one, so a PES 20/21 name turns orange at 46 of 61, where its tint already began).
 Why: a member checks the team they are making legal, which Live AATF does after every edit;
 the panel's several-teams and whole-save check is an organizer's, which `check-aatf --teams`
@@ -12808,3 +12810,25 @@ the Live AATF bullet), "Editing UI" (the player view, Name and Shirt, the Cards 
 "Acceptance" (SE-GUI-15 and SE-GUI-32 rewritten, SE-GUI-30/36/38);
 `plans/core/development_plan.md` "Development Plan" (0.0.1's bundle); `plans/aatf_rules.md`
 "The interpreter".
+
+## 2026-10-28 — save_editor — The final pass's fifth rulings: every current ruleset built in, Multi-team AATF
+Decision: the exe embeds every cup's current ruleset, in the dropdown's order `4cc Autumn 26`,
+`4cc Spring 26`, `/vg/ League 27`, `/vg/ League 26`, `/vt/ League 11`, `/vt/ League 10`,
+`Divegrass Before Christmas 7`, each file's `name` its description (the 4cc's cups `4cc` then
+the season and year; VGL and VTL the league then its edition number). 0.0.1's bundle carries
+no rules file: its settings pick DBC7, built in. All seven ship in 0.0.1: the lead's check of
+which were not ready found each one's parity run recorded (spec "Development phase and
+verification"; DBC7's coverage table). The Savefile menu gains `Multi-team AATF…`, a dialog
+with the range's two team combos on one row, the teams with issues listed as the dock words
+them (no suggestions, no click-through), and Copy to clipboard copying the list as indented
+plain text. Lead's choices, applied: DBC7's description `Divegrass Before Christmas 7` (the
+docs' name for the cup, then its edition); a dialog rather than a floating window (a report
+read once and copied out); plain text with a header line of the ruleset, range and counts. The
+view's room is split into four equal gaps and the counts' grey is `#5a5a5a` (the fourth
+rulings' entry, amended the same evening).
+Why: the maintainer's answers: built-in rules are picked from a list, never lost or imported
+twice; organizers do not use a command line, so the whole-save check the panel took away comes
+back where the save-wide actions are.
+Plan: `plans/aatf_rules.md` "Embedded rulesets"; `plans/save_editor.md` "Configurable AATF
+rules" (the ruleset dropdown, Multi-team AATF), "Acceptance" (SE-GUI-41);
+`plans/core/development_plan.md` "Development Plan" (0.0.1's bundle).

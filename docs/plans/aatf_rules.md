@@ -127,6 +127,24 @@ quota fails); the last has neither
 (else a team could fall through every system). A system with `extra_height` gives quotas only to
 `exactly` brackets of one height, and its quotas add up to `squad_size`.
 
+## Embedded rulesets
+
+What exists of this is in `spec/aatf_rules.md` "Embedded rulesets".
+
+A shipped binary embeds every cup's current rulesets, not Autumn 26 alone, so a member picks
+their cup's rules from the Save editor's ruleset dropdown (`plans/save_editor.md`
+"Configurable AATF rules") rather than finding and importing a file, and a built-in ruleset is
+never a copy a member can lose. In the dropdown's order, by description: `4cc Autumn 26`, `4cc
+Spring 26`, `/vg/ League 27`, `/vg/ League 26`, `/vt/ League 11`, `/vt/ League 10`, `Divegrass
+Before Christmas 7`; the first is the default and the fallback. Each file's `name` is its
+description: for the 4cc's own cups `4cc` then the season and its year's last two digits; for
+VGL and VTL the league's name then its edition number, which counts editions, not years; for
+DBC7 the cup's name then its edition. All seven are the ones the parity runs checked (the
+spec's "Development phase and verification"; DBC7's, "Coverage of the DBC7 rules" below).
+Autumn 25 and VGL25 stay test rulesets, built into the tests alone. A cup's new edition joins
+the list, and its kind keeps its latest two, as the templates do; the older one leaves the
+list and stays a test ruleset with its fixtures.
+
 ## DBC7
 
 A test ruleset in `rulesets/dbc7.rhai` (`spec/aatf_rules.md` "Embedded rulesets": an
