@@ -11,30 +11,22 @@ names where the question came from so the context can be read there.
 ## Before the release
 
 - **The final pass over the built app's UI** (worklog 0.0.1f1c; the maintainer asked for it on
-  2026-10-28). **Ready since 2026-10-28 10:43**, built at `825f1885` (the w5 commit before its docs-only
-  amends; release build:
-  `4cc-studio-temp/ingame/target/release/4cc-studio.exe`; a portable copy with its own
-  settings and a copy of the PES 2021 save in `.tmp/0_0_1s4t_v2/app/`): every 0.0.1 UI step
-  landed, the sidebar opens with no flicker. Two choices the lead applied that the pass may
-  reverse: windows' titles at 14 in white, modals the drafts lack included (DECISIONS "A
-  window's title is its place"); the floating windows' titles centred in the drafts as
-  egui's title bar draws them (DECISIONS "A floating window's title centred"); Live AATF's
-  crosses 2 points from what they mark, the drafts' 4 brought to the app's (DECISIONS "Live
-  AATF's crosses 2 points from what they mark"). Before-and-after images of the drafts'
-  side: `.tmp/0_0_1ov/vet/titles_help.png`, `titles_comparator.png`, `crosses_field.png`,
-  `crosses_pitch.png`. In the same pass: the preview's icon where the lead cannot
-  capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the head;
-  Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's hash
-  (0.0.1f2).
-- **The drafts' controls as egui draws them** (worklog 0.0.1w1b, `9774b52a`, drafted by the
-  lead while the maintainer was away, never looked at): a combo's open list drawn as egui's
-  popup under its button rather than the system's list; the player list's rows stopping 10
-  points short of its right edge while it scrolls, the browser's own scroll bar hidden; the
-  drafts naming the suite Unlimited Tool Works where the app does (`2062ac96`). Before-and-after
-  images: `.tmp/0_0_1ov/vet/combo_open.png`, `list_band.png`, `name_about.png`,
-  `name_titlebar.png`. Its checkbox part is answered: a checked box and a selected radio button
-  are blue (DECISIONS "A checked checkbox and a selected radio button are blue"; the three
-  looks side by side in `checkbox.png`).
+  2026-10-28), under way since 2026-10-28 ~14:00. Ruled so far (DECISIONS "The final pass's
+  first rulings"): the floating windows' centred titles, the crosses' 2 points, the suite's
+  name in the drafts and egui's combo list approved; a checked checkbox and a selected radio
+  blue; the window's default client area 1280 × 780. Drafted from the maintainer's requests
+  and waiting for a look at their before-and-after images (`.tmp/0_0_1ov/vet/`, each with
+  its reason): `tick_2.png` (the blue box's tick 2 wide), `crosses_stats_left.png` (a stat's
+  cross left of its label, the crosses in one column), `crosses_pitch_portrait.png` (the
+  pitch's cross over the whole portrait, outlined in black), `list_bar.png` (the player
+  list's scroll bar outside its frame). Still to look at: the windows' titles at 14 in white
+  in the built app; the preview's icon where the lead cannot capture it (worklog 0.0.1v: the
+  taskbar button and Alt+Tab show the tight crop of the head; Explorer's file icon on the
+  exe). Then the confirmation that freezes logic version 1's hash (0.0.1f2).
+- **The rename's exe name.** The project becomes Unlimited Tool Works (`unlimited-tool-works`,
+  shorthand UTW, the exe named after the shorthand; worklog 0.0.1rn). Which spelling does the
+  exe take: `UTW.exe` or `utw.exe` (and `utw` on Linux either way)? It is also the command
+  typed for the command line (`utw save-editor ...`).
 ## Cup practice
 
 The Music player's three below come from reading Rigdio v2.2.0's controls (worklog 10.0i,

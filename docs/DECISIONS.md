@@ -12699,3 +12699,20 @@ Why: the maintainer's call at the final pass: the choices made pop to the eye. e
 checked box grey with a grey tick, which the drafts had just been brought to (0.0.1w1b); the
 drafts before that showed the browser's own blue box, which is what was reviewed.
 Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row.
+
+## 2026-10-28 — gui — The final pass's first rulings
+Decision: approved as built or drafted: the floating windows' titles centred, Live AATF's
+crosses 2 points from what they mark, the drafts naming the suite Unlimited Tool Works, a
+combo's open list as egui's popup. Changed: a checked box's tick is 2 points wide; an ability
+stat's cross stands left of its label, the column's crosses lined up (drawn over the cell's
+padding and the gap before it, so no label moves); the pitch's cross is an X over the whole
+portrait in a thin black outline; the player list's scroll bar stands outside its frame
+(egui's solid bar, 4 points from the content and 6 wide, the frame 10 points narrower), so a
+row's fill reaches the frame's edge. The project is to be renamed Unlimited Tool Works
+(`unlimited-tool-works`, shorthand UTW, the exe named after it) when most convenient.
+Why: the maintainer's look at before-and-after images of the drafts: the crosses after the
+stats' labels stood scattered, the glyph beside a pitch badge was barely seen and lost on a
+red portrait, the floating bar left every selected row 10 points short of the frame, and a
+1-point tick read thin on the blue.
+Plan: `plans/save_editor.md` "Configurable AATF rules", the field cross bullet, and "Editing
+UI", the Player list bullet; `plans/core/gui.md` "Other UI components", the Dark/light theme row.

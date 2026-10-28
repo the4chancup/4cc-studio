@@ -182,9 +182,11 @@ all side by side.
 - **Player list**, 255 points wide and not resizable: under the design width the window scales
   instead of narrowing (`spec/core/gui.md` "Shell layout", the paragraph "Scaling with the width"), so the view always has the
   room the 1280-point layout gives it, and a list dragged wider would only take that room back.
-  Its rows stop short of the scroll bar's 10-point band, which the list reserves while it
-  scrolls: egui's bar floats over the content otherwise, and its hit zone takes the marks at a
-  row's right end (their hover and click), while the quick actions below span the full width.
+  Its scroll bar stands outside the list's frame, egui's solid bar (4 points from the
+  content, 6 wide), so a selected or hovered row's fill reaches the frame's edge and the bar
+  covers none of a row's marks (their hover and click), where egui's floating bar lies over
+  the content; the strip stays while a filter leaves nothing to scroll, so the list keeps its
+  width, and the quick actions below span the full width.
   A **team row** heads each team's players, set apart from a player row by the
   faint fill under it and its name in the strong text colour (no bold: the app
   installs no bold face, and a second font file for one row costs more than it shows): the team's id, its colours
@@ -1200,8 +1202,10 @@ What this editor adds on top of the lib:
   - **The field a violation is about** gets a cross beside it when its player is selected
     (the pitch's, when his team's row is: the pitch is the team view's), drawn between the
     field's label and the field so the field keeps its x, 2 points from what it marks (the
-    Registered position label, General info's longest, leaves no more room before its combo): just left of a box whose label
-    sits at the row's left (the Height box, a stat's), after the label of a field drawn
+    Registered position label, General info's longest, leaves no more room before its combo): left of an
+    ability stat's label, 2 points from its text, so the column's crosses line up whatever
+    the labels' lengths (drawn over the cell's padding and the gap before it, so no label
+    moves); just left of a box whose label sits at the row's left (the Height box), after the label of a field drawn
     under or beside its label (the name, a combo), after the header of a panel (the
     positions grid, the skills, the COM styles), and after the Cards left badge for the badge:
     the Height box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields
@@ -1211,8 +1215,10 @@ What this editor adds on top of the lib:
     (drawn while the team view shows that preset, on each formation the preset fields that puts
     him at the violation's `position`: a fluid preset fields all three, and its others may
     field him legally; a preset not fluid fields its kick-off one alone, so its other two
-    carry no cross; the cross just left of his marker's badge, as a box's, and painted after
-    every marker, since a marker drawn later can cover the spot with its portrait),
+    carry no cross; an X over his whole portrait, its two strokes in the severity's colour
+    inside a thin black outline that keeps it seen over a red portrait, where a field's
+    glyph beside the badge was barely seen, and painted after every marker, since a marker
+    drawn later can cover his portrait with its own),
     the playing style
     for `PlayingStyleRange`, the skills for `SkillCardCap`, the COM styles for
     `ComStyleCap`, the skills or the COM styles for `RequiredCard` by its card's kind, and the

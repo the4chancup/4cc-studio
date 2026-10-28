@@ -142,13 +142,18 @@ input[type=range]:focus { outline: none; }
 .toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
 .master { display: flex; gap: 12px; align-items: flex-start; }
 .plist { width: 255px; flex: none; display: flex; flex-direction: column; gap: 4px; }
-.plist .rows { background: var(--extreme); border: 1px solid var(--stroke); min-height: 200px;
-  flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
-/* While the list scrolls its rows stop short of the scroll bar's 10-point band, as the app's
-   do: egui's bar floats over that band, unseen until the pointer nears it. The browser's
-   own bar is hidden, since its width differs between browsers and is 0 in the headless
-   probes. */
-.plist .rows.scrolls > * { margin-right: 10px; }
+/* The list's scroll bar stands outside its frame, as egui's solid bar does (4 points from
+   the content, 6 wide): a row's fill reaches the frame's edge, and the bar covers no row's
+   marks. The strip is kept while a filter leaves nothing to scroll, so the list keeps its
+   width. The browser's own bar is hidden: it sits inside the scrolling box's border, and its
+   width differs between browsers. */
+.plist .rows-box { flex: 1; display: flex; gap: 4px; min-height: 200px; }
+.plist .rows { background: var(--extreme); border: 1px solid var(--stroke);
+  flex: 1; min-width: 0; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+.plist .rows::-webkit-scrollbar { display: none; }
+.plist .vbar { flex: none; width: 6px; position: relative; }
+.plist .vbar .thumb { position: absolute; left: 0; right: 0; border-radius: 3px; background: var(--widget); }
+.plist .vbar .thumb:hover, .plist .vbar .thumb.drag { background: var(--hover); }
 /* A name too long for the row truncates, its dot and mark kept after it. */
 .plist .pname { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .plist .rows .prow { display: flex; gap: 5px; align-items: center; padding: 1px 4px; white-space: nowrap;
@@ -459,6 +464,12 @@ button.livebtn.on { background: var(--sel-bg); color: var(--sel-fg); }
    own box keeps its x; 2 px from each side, the room the Registered position
    label leaves before its combo. */
 .xmark { flex: none; margin: 0 2px; }
+/* A stat's cross stands left of its label, 2 px from the text, so a column of stats' crosses
+   lines up whatever the labels' lengths; drawn over the cell's 6 px padding and the gap before
+   it, it moves no label. */
+[data-panel=ability-stats] td.ilabel { position: relative; }
+[data-panel=ability-stats] td.ilabel .xmark { position: absolute; right: calc(100% - 4px); top: 50%;
+  transform: translateY(-50%); margin: 0; }
 .gen .pair .boxed { display: flex; align-items: center; flex: none; }
 .panel .tlist { background: var(--extreme); border: 1px solid var(--stroke);
   max-height: 180px; overflow: auto; }
@@ -3557,15 +3568,40 @@ function renderMaster() {
   const filter = h("input", { type: "text", id: "filter-box",
     placeholder: "Filter every team (name, shirt name or id)", value: S.filter,
     // No redraw: the box keeps its focus; the link still tracks the text.
-    oninput: e => { S.filter = e.target.value; renderList(rows); band(); updateLink(); } });
+    oninput: e => { S.filter = e.target.value; renderList(rows); bar(); updateLink(); } });
   const rows = h("div", { class: "rows", id: "player-rows",
-    onscroll: e => { listScroll = e.target.scrollTop; } });
-  const band = () => rows.classList.toggle("scrolls", rows.scrollHeight > rows.clientHeight);
-  box.append(sel, filter, rows, quickActions());
+    onscroll: e => { listScroll = e.target.scrollTop; bar(); } });
+  // The scroll bar beside the frame (the .rows-box rule): its handle as long as
+  // the share of the list in view, at least egui's 12 points, dragged to scroll.
+  const thumb = h("div", { class: "thumb" });
+  const vbar = h("div", { class: "vbar" }, thumb);
+  const bar = () => {
+    const view = rows.clientHeight, full = rows.scrollHeight, track = vbar.clientHeight;
+    thumb.style.display = full > view ? "" : "none";
+    if (full <= view) return;
+    const len = Math.max(12, track * view / full);
+    thumb.style.height = len + "px";
+    thumb.style.top = rows.scrollTop / (full - view) * (track - len) + "px";
+  };
+  new ResizeObserver(bar).observe(rows);
+  thumb.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    thumb.setPointerCapture(e.pointerId);
+    thumb.classList.add("drag");
+    const y0 = e.clientY, top0 = rows.scrollTop;
+    const perPx = (rows.scrollHeight - rows.clientHeight) / (vbar.clientHeight - thumb.offsetHeight);
+    const move = ev => { rows.scrollTop = top0 + (ev.clientY - y0) * perPx; };
+    thumb.addEventListener("pointermove", move);
+    thumb.addEventListener("pointerup", () => {
+      thumb.removeEventListener("pointermove", move);
+      thumb.classList.remove("drag");
+    }, { once: true });
+  });
+  box.append(sel, filter, h("div", { class: "rows-box" }, rows, vbar), quickActions());
   renderList(rows);
   // Restored once the frame's layout has given the list its height (before
   // that the offset clamps to 0), and before the frame is painted.
-  requestAnimationFrame(() => { band(); rows.scrollTop = listScroll; });
+  requestAnimationFrame(() => { rows.scrollTop = listScroll; bar(); });
   return box;
 }
 // The player list is egui's ScrollArea, whose offset outlives a frame: a
@@ -3943,8 +3979,8 @@ function abilityPanel(p) {
     const inp = h("input", { type: "number", "data-stat": s, value: p.stats[s] ?? "", min: 40, max: 99,
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v)) { set(p, x => x.stats[s], (x, v2) => x.stats[s] = v2, v, s); render(); } } });
-    // The label cell is right-aligned, so Live AATF's cross after the label
-    // stands just left of the box.
+    // Live AATF's cross is drawn left of the label (the ability-stats rule),
+    // so the column's crosses line up.
     stats.append(h("tr", {}, h("td", { class: "ilabel" }, STAT_LABEL[s], fieldMark(p, "stat:" + s)),
       h("td", {}, gated(h("span", {}, inp), minV))));
   }
@@ -4836,11 +4872,11 @@ function paintPitch(g, t, f0, live) {
       g.fillText(String(overallAt(p, s.position)), bl + MARKER.badgeW - MARKER.textInset, y + 1);
       g.textAlign = "left";
     }
-    // Live AATF's cross for a FieldedNotA about him at this spot, just left of
-    // his badge as a field's cross is left of its box; painted after every
-    // marker, since a later one's portrait can cover the spot.
+    // Live AATF's cross for a FieldedNotA about him at this spot, over his
+    // whole portrait; painted after every marker, since a later one's portrait
+    // can cover his.
     const crossRows = p && pitchCrossRows(t, p, s.position);
-    if (crossRows) crosses.push([bl - PITCH_CROSS.gap, y + 1,
+    if (crossRows) crosses.push([x, bt - MARKER.gap - MARKER.portrait / 2,
       crossRows.some(r => r[0] === "Error") ? "#ff0000" : "#ff8f00"]);
     g.save();
     g.beginPath(); g.rect(bl, y + 3, MARKER.badgeW, 20); g.clip();
@@ -4887,13 +4923,26 @@ function paintPitch(g, t, f0, live) {
   g.textAlign = "left"; g.textBaseline = "alphabetic";
   g.fillText(formationName(tacFormation(t)), FORMATION_LABEL.x, PITCH.h - FORMATION_LABEL.bottom);
   if (target >= 0) corners(g, ...badgeAt(t, target), "#14fbff");
-  g.font = "12.5px " + FONT_BODY; g.textAlign = "right"; g.textBaseline = "middle";
-  for (const [cx, cy, color] of crosses) { g.fillStyle = color; g.fillText("✖", cx, cy); }
-  g.textAlign = "left";
+  for (const [cx, cy, color] of crosses) pitchCross(g, cx, cy, color);
 }
-// The pitch's Live AATF cross: 2 px left of the badge (a field cross's
-// margin), the glyph about 11 px wide at the body size.
-const PITCH_CROSS = { gap: 2, w: 11 };
+// The pitch's Live AATF cross: an X over the whole portrait, its two strokes
+// in the severity's colour inside a thin black outline, which keeps it seen
+// over a red portrait; the field cross's glyph, about 11 px beside the badge,
+// was barely seen on the pitch.
+const PITCH_CROSS = { inset: 6, width: 5, outline: 1 };
+function pitchCross(g, cx, cy, color) {
+  const r = MARKER.portrait / 2 - PITCH_CROSS.inset;
+  g.save();
+  g.lineCap = "round";
+  for (const [style, w] of [["#000000", PITCH_CROSS.width + 2 * PITCH_CROSS.outline], [color, PITCH_CROSS.width]]) {
+    g.strokeStyle = style; g.lineWidth = w;
+    g.beginPath();
+    g.moveTo(cx - r, cy - r); g.lineTo(cx + r, cy + r);
+    g.moveTo(cx + r, cy - r); g.lineTo(cx - r, cy + r);
+    g.stroke();
+  }
+  g.restore();
+}
 // The FieldedNotA rows the pitch marks on `p`'s marker at `position`: the
 // shown preset's, about that position, while the shown formation is one the
 // preset fields (a fluid preset's three, else its kick-off one); null for
@@ -4913,8 +4962,8 @@ function pitchCrossTip(t, px, py) {
     const p = rosterPlayer(t, t.tactics.starting_eleven[i]);
     const rows = p && pitchCrossRows(t, p, f[i].position);
     if (!rows) continue;
-    const [x, y] = badgeAt(t, i), right = x - MARKER.badgeW / 2 - PITCH_CROSS.gap;
-    if (px >= right - PITCH_CROSS.w && px <= right && Math.abs(py - y) <= MARKER.badgeH / 2)
+    const [x, y] = badgeAt(t, i), top = y - MARKER.badgeH / 2 - MARKER.gap - MARKER.portrait;
+    if (Math.abs(px - x) <= MARKER.portrait / 2 && py >= top && py <= top + MARKER.portrait)
       return rows.map(r => r[3] + ": " + violationSentence(r[3], kvOf(r[4]), r[0])).join("\n");
   }
   return "";

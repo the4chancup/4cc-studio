@@ -4340,8 +4340,18 @@ briefs, review loops, gates and mutation runs as for any step.
       `.firstrun` bottom margin of 8 (egui's item spacing there), for ov2's batch
     - [ ] ov2b a checked checkbox and a selected radio button blue in the app (the maintainer,
       2026-10-28; drafts done by the lead, DECISIONS "A checked checkbox and a selected radio
-      button are blue"): the selection fill and its text colour's tick or dot, hovered and
-      pressed alike, on every checkbox and radio the views draw
+      button are blue"): the selection fill and its text colour's tick (2 points wide, the
+      maintainer, 2026-10-28) or dot, hovered and pressed alike, on every checkbox and radio
+      the views draw
+    - [ ] ov2c Live AATF's crosses as redrafted (the maintainer, 2026-10-28; DECISIONS "The
+      final pass's first rulings"; drafts done): an ability stat's cross left of its label, 2
+      points from the text, the column's crosses lined up and no label moved; the pitch's cross
+      an X over the whole portrait, the severity's colour in a thin black outline, its tooltip
+      over the portrait (`team_widgets::violations`, `pitch`, `save_editor`'s ability stats)
+    - [ ] ov2d the player list's scroll bar outside its frame (the maintainer, 2026-10-28;
+      drafts done): egui's solid bar, 4 points from the content and 6 wide, the strip kept
+      while nothing scrolls; a row's fill reaching the frame's edge (`save_editor`'s
+      `player_list.rs`, replacing the reserved floating band)
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
@@ -4353,6 +4363,13 @@ briefs, review loops, gates and mutation runs as for any step.
     as wide as tall: the maintainer, 2026-10-28), each sheet carrying the change's reason under
     its caption (the maintainer, 2026-10-28), generalized from its cases list to a
     revision pair and a link, with its test
+- [ ] 0.0.1rn the project renamed Unlimited Tool Works (the maintainer, 2026-10-28: "when most
+  convenient"): `unlimited-tool-works` as the name in paths and packages, UTW as the shorthand,
+  the exe named after it (QUESTIONS "The rename's exe name": `UTW.exe` or `utw.exe`). Before the
+  cut is the convenient time: the first release fixes the exe's name, the data folder
+  (`%APPDATA%cc-studio`) and the bundle's name, which a later rename would have to migrate.
+  To plan first: every user-visible name (exe, data folder, bundle, window class, CLI command,
+  help text), the crates' and repository's names, the CI jobs, the docs
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming
