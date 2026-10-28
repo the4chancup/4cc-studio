@@ -899,9 +899,9 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   darkened to 40% (the turf and its lines; the markers are drawn over it), as the game lights
   it: each lit area is its position's rectangle in the first table, its edges half a unit
   out from its rows through the spot mapping, a row at the table's edge (x 5 or 99, y 47)
-  reaching the canvas' edge; a band's area holds the smaller ones inside it (CB holds LB and
-  RB; CMF holds DMF, LMF, RMF and AMF; SS holds LWF, RWF and CF), so the lit rectangles never
-  overlap. These are the PES 2021 screen's edges within 1.5 points but for CF's lower one, which
+  reaching the canvas' edge. The darkening is painted as the cells the lit edges cut the
+  canvas into, each filled once when no lit rectangle holds it, so overlapping rectangles (a
+  band's and a smaller area inside it) never darken twice. These are the PES 2021 screen's edges within 1.5 points but for CF's lower one, which
   the screen draws at y 40.7 where the table's row starts at 40: the editor draws the table's,
   y 39.5, where a CF stops being offered, since the screen's own geometry for that edge is not
   read. The lit area says where he is rated, not where his position changes: the rule decides
