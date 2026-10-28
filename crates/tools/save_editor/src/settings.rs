@@ -1,8 +1,9 @@
-//! The Save editor's section of the settings file: its four keys. `check-aatf` and the window's
+//! The Save editor's section of the settings file: its five keys. `check-aatf` and the window's
 //! AATF checks read `aatf_rules`; the window reads `live_aatf` (the toolbar's Live AATF toggle),
-//! `aesthetics_from_exports` ("Aesthetics from exports", the aesthetics lock's setting) and
-//! `scroll_names` (the Tactics formation bar's checkbox). A key enters with the code that reads
-//! it, so the file never carries a setting nothing honors.
+//! `live_suggestions` (its Show suggestions checkbox), `aesthetics_from_exports` ("Aesthetics
+//! from exports", the aesthetics lock's setting) and `scroll_names` (the Tactics formation bar's
+//! checkbox). A key enters with the code that reads it, so the file never carries a setting
+//! nothing honors.
 
 use serde::{Deserialize, Serialize};
 
@@ -16,6 +17,9 @@ pub(crate) struct SaveEditorSettings {
     /// The toolbar's Live AATF toggle; on, a docked panel lists the open team's violations
     /// after every edit.
     pub(crate) live_aatf: bool,
+    /// Show suggestions, the checkbox beside the Live AATF toggle; on, Live AATF also lists
+    /// each player's unused allowances.
+    pub(crate) live_suggestions: bool,
     /// "Aesthetics from exports", off by default because the cup the suite serves first
     /// keeps its looks in the save. On, the save's aesthetics write only through the
     /// Appearance section's "Edit aesthetics anyway" switch; off, they edit as every other
@@ -33,6 +37,7 @@ impl Default for SaveEditorSettings {
         SaveEditorSettings {
             aatf_rules: String::new(),
             live_aatf: false,
+            live_suggestions: false,
             aesthetics_from_exports: false,
             scroll_names: default_scroll_names(),
         }

@@ -157,6 +157,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         revision: session.revision(),
         ids,
         rules_file: active.file.clone(),
+        // The panel's own Show suggestions hides them at drawing, so a
+        // tick shows them without a second check.
+        suggestions: true,
     };
     // A check is due when the key moved on since the last result (a rules
     // file that does not load never starts one: its error is the list).

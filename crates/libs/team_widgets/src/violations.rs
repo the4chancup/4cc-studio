@@ -8,10 +8,8 @@
 /// font's subset does not hold it.
 pub const CROSS: char = '\u{2716}';
 
-/// The gap between a cross and what it sits beside (a field's box, a
-/// label's text, a pitch badge): one figure so every mark's spacing
-/// agrees. Not wider: the Registered position label, the General info
-/// column's longest, leaves its cross no more room before the combo.
+/// The gap between a Live AATF field mark's box and the label's text it
+/// stands before: one figure so every mark's spacing agrees.
 pub const MARK_GAP: f32 = 2.0;
 
 /// A rostered player as the list's group header shows him.
@@ -164,11 +162,11 @@ pub fn violation_line(violation: &aatf::Violation, team_id: u32) -> String {
 }
 
 /// One group's header: `Player {id}  {number} {name}` for a rostered player,
-/// `Slot {slot}` for one the host lists no player for, `the team` for the
-/// team's own rows.
+/// `Slot {slot}` for one the host lists no player for, `Team-wide issues`
+/// for the team's own rows.
 fn group_header(ui: &mut egui::Ui, team: &TeamViolations<'_>, slot: Option<u8>) {
     let text = match slot {
-        None => "the team".to_string(),
+        None => "Team-wide issues".to_string(),
         Some(slot) => match team.players.iter().find(|p| p.slot == slot) {
             Some(player) => player_head(player.id, player.number, player.name),
             None => format!("Slot {slot}"),
@@ -725,7 +723,7 @@ mod tests {
                 "Height: height 183 takes no bracket (185 has room)",
                 "Player 73404  45 Yuki-kun ^~^",
                 "Height: height 183 takes no bracket (185 has room)",
-                "the team",
+                "Team-wide issues",
                 "TierCount: 2 gold players, expected 1",
                 "TierCount: 0 bronze players, expected 2",
                 "TierCount: 19 regular players, expected 18",
