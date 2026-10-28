@@ -2179,7 +2179,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     the dialogs' fields at one x, the range's teams picked in combos, the range dialog one
     width in both checkbox states. Drafts on main (`f3122871`, `e1b49843`, `5d668583`),
     the plan written (`plans/save_editor.md` "Tactics editor", "Formation pictures");
-    left: the code, with 8.34, its scenarios written with it
+    revised 2026-10-29 (DECISIONS "Formation pictures draw hidden formations, label Fluid
+    formation, and put a target on its own line"; `↳` added to the symbols font); left: the
+    code, with 8.34, its scenarios written with it
   - [ ] 8.34 after 8.33 (the maintainer, 2026-10-27): the same for a range of teams, one
     picture per team, in one go. Drafted and approved with 8.33 (above); left: the code
   - [ ] 8.29 the text pass: every line a member reads reread against CONTRIBUTING's "That text

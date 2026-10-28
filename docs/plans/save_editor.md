@@ -584,7 +584,10 @@ Win32 original hurt the most):
      so always), the formation selector is disabled and on Kick-off, its hover
      `Formations 2 and 3 are used only while Fluid formation is on`: the game fields the
      other two only while it is on, so editing them there edits nothing a match uses, and
-     switching Fluid formation off moves the view back to Kick-off. Their Copy/swap menu
+     switching Fluid formation off moves the view back to Kick-off. It locks even when the
+     other two differ from Kick-off: the view is the manager's and copies the game's, and an
+     organizer looking for formations hidden there finds them in the formation pictures
+     ("Formation pictures" below), a quicker check across teams than the view. Their Copy/swap menu
      stays, a copy into them being how a member prepares them before switching it on.
   2. **Formation settings**, the pitch and **Player assignments**, the two panels exactly as
      tall as the pitch (386 points with its border) and level with it. Formation settings
@@ -761,18 +764,28 @@ Win32 original hurt the most):
   it, with an Open folder action. The picture: the theme's panel colour under the team's name
   in its colour codes' colours, its id and the save's version (a folder of pictures from
   several saves would otherwise not say which game each came from); one row per preset,
-  labelled "Preset n"; each cell the pitch as the view paints it at its own 320 x 384, the
+  labelled "Preset n", with "Fluid On" or "Fluid Off" under it in the text colour (PES
+  2016 on), with or without the settings; each cell the pitch as the view paints it at its own 320 x 384, the
   formation's name in its corner, with none of the view's states (no drag, corners or join
   fill, a wider name held still at the badge's left). The columns are the three formations
   under their names; a preset with fluid formation off draws its Kick-off formation alone, the
-  room beside it empty, and a team with fluid off on every preset gets one column and no column
-  heads (a lone "Kick-off" would name a switch the team never makes). With the settings, a 300
-  point column at the grid's right lists each preset's settings level with its row, in the
-  Tactics editor's order: Fluid formation (PES 2016 on), the Formation settings' offensive then
-  defensive half, the Advanced instructions (PES 2017 on) with each target after an arrow, a
-  label in the text colour and its value strong at 120 points, values named as the editor's
-  controls name them, full length, a value too long cut with an ellipsis; the team's Automatic
-  settings, which no preset owns, are one line under the grid. The pitch painter is one
+  room beside it empty, unless its other two are not exact copies of Kick-off: then it draws
+  all three, as a fluid preset does, since a team can hide formations there and switch Fluid
+  formation on in a match, and the picture is the organizers' check (PES 2015, with no switch,
+  draws Kick-off alone); the other two are drawn at 60% opacity over the background, so they
+  read as unused, perhaps left there forgotten by the manager, rather than as a fluid set. A team whose every row draws one formation gets one column and no
+  column heads (a lone "Kick-off" would name a switch the team never makes). With the
+  settings, a 240 point column at the grid's right lists each preset's settings level with its
+  row, in the Tactics editor's order: the Formation settings' offensive then defensive half,
+  the Advanced instructions (PES 2017 on), each target on a line of its own under its
+  instruction, at the value's x after `↳` (the symbols font's), where on the instruction's
+  line after an arrow a name had only the room the instruction left; a label in the text
+  colour and its value strong at 120 points, values named as the editor's controls name
+  them, full length. The column holds the widest fixed value (Attacking Full-Backs) with a
+  few points to spare, and a target's name longer than that is cut with an ellipsis, rather
+  than every picture widened for the few long names (up to 282 points among the sample
+  saves' players) and left with empty room on the right. The team's Automatic settings,
+  which no preset owns, are one line under the grid. The pitch painter is one
   function the view and the picture share, taking the formation it paints. The Savefile menu's
   "Save formation pictures for a range of teams…" writes one such picture per team whose id
   lies between two teams picked in combo boxes on one row, `Teams`, the first, `to`, the last,
@@ -791,7 +804,7 @@ Win32 original hurt the most):
   the placeholder where the view shows a face. Drawing the picture: egui's Painter draws to the
   screen only, so the pitch painter draws through a small target that both the view's
   `Painter` and an `image::RgbaImage` implement, text through `ab_glyph` (already in the tree
-  through epaint), rather than a software renderer (a new dependency) or screenshot crops
+  through epaint) from the view's fonts, the symbols font after the body font for `↳`, rather than a software renderer (a new dependency) or screenshot crops
   (the view would flicker through every formation).
 - Formation edits participate in undo/redo like everything else.
 

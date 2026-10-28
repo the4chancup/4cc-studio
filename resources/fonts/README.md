@@ -16,7 +16,9 @@ like), each at its own codepoint: `scripts/make_symbols.py` builds it from one S
 `resources/symbols/`, on the body font's units per em and vertical metrics, and writes the
 drafts' copy too; `scripts/make_symbols_test.py` checks the committed files are its output.
 Each symbol's advance and ink box are those of the glyph the reviewed drafts drew it in (Segoe
-UI's, or Segoe UI Symbol's, measured; no outline copied). Licence: the repository's own.
+UI's, or Segoe UI Symbol's, measured; no outline copied), but ↳, which is → with a stem from
+its tail to the body font's cap height: Segoe UI Symbol's, half as wide, turns too short to
+read at the body size. Licence: the repository's own.
 
 `phosphor-subset.ttf` is the shell's icon font until the suite's own replaces it (worklog 8.14):
 the 19 glyphs the suite draws, cut from the regular weight of Phosphor Icons, as the

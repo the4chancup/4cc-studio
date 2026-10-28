@@ -5533,7 +5533,9 @@ function tacticsTab(t) {
   const tac = t.tactics, pre = tacPreset(t);
   // A preset whose Fluid formation is off fields its Kick-off formation
   // alone (PES 2015 has no switch: always off), so the picker is disabled
-  // and stays on Kick-off; switching Fluid formation off moves it back.
+  // and stays on Kick-off; switching Fluid formation off moves it back. It
+  // locks even when the other two differ: the view is the manager's, as the
+  // game's, and an organizer sees hidden formations in the pictures.
   const locked = !pre.style.fluid;
   if (locked) S.tac.formation = 0;
   const presetSel = h("span", { class: "row", style: "gap:2px" },
@@ -5713,25 +5715,35 @@ function tacticsTab(t) {
 // columns are the three formations (Kick-off, In-possession,
 // Out-of-possession); a preset whose fluid formation is off draws its
 // Kick-off formation alone, the one the game keeps all match, the room
-// beside it left empty. A team with fluid off on every preset gets one
-// column and no column heads: a lone "Kick-off" would name a switch the
-// team never makes. The save's version sits at the title's right: a folder
+// beside it left empty, unless its other two differ from it: a team can hide
+// formations there and switch fluid back on in a match, and the picture is
+// how an organizer sees them, so such a preset draws all three, the other
+// two dimmed (they may as well be leftovers the manager forgot). A team with
+// one formation on every row gets one column and no column heads: a lone
+// "Kick-off" would name a switch the team never makes. Under each row's
+// "Preset n", its Fluid formation in the weak colour (PES 2016 on), with or
+// without the settings. The save's version sits at the title's right: a folder
 // of pictures from several saves would otherwise not say which game each
 // came from. Drawn on a canvas here; the app paints the same pitch painter
 // into an image it writes with `image`.
 // With `settings`, a column at the grid's right lists each preset's settings
 // beside its row, as the Tactics editor's panels show them (`presetLines`),
 // and the team's Automatic settings, which no preset owns, are one line
-// under the grid.
+// under the grid. The column holds the labels and the widest fixed value
+// (Attacking Full-Backs, 115 at 120) with a few points to spare; a target's
+// name longer than the rest is cut with an ellipsis rather than widening
+// every picture for the few long names.
 const PIC = { margin: 16, gap: 12, labelW: 96, titleH: 30, headH: 22,
-  setW: 300, valueX: 120, line: 15, footH: 30,
+  setW: 240, valueX: 120, line: 15, footH: 30,
   bg: "#1b1b1b", strong: "#dcdcdc", weak: "#8c8c8c", font: "12.5px " + FONT_BODY };
 // One preset's settings as the picture lists them, top to bottom in the
-// editor's order: fluid formation (the preset bar's), Formation settings
-// (the offensive half, then the defensive), Advanced instructions, each
-// instruction with its target. [label, value] is a line, [heading] a
-// heading, null half a line's gap. Values read as the editor's controls
-// name them, full length (the picture has the room the panel lacks).
+// editor's order: Formation settings (the offensive half, then the
+// defensive), Advanced instructions, each instruction's target on a line of
+// its own under it, after ↳, where on the instruction's line a name had only
+// the room the instruction left (Fluid formation is under the row's label,
+// not here). [label, value] is a line,
+// [heading] a heading, null half a line's gap. Values read as the editor's
+// controls name them, full length (the picture has the room the panel lacks).
 // sample wording: the headings.
 function presetLines(t, pre) {
   const v = version();
@@ -5743,12 +5755,12 @@ function presetLines(t, pre) {
     const [, label] = STYLE_TOGGLES.find(([k]) => k === key);
     return [label, titleCase(pre.style[key])];
   };
-  const lines = v >= 16 ? [["Fluid formation", pre.style.fluid ? "On" : "Off"], null] : [];
-  lines.push(["Formation settings"], ...TAC_OFFENSIVE.map(line), null, ...TAC_DEFENSIVE.map(line));
+  const lines = [["Formation settings"], ...TAC_OFFENSIVE.map(line), null, ...TAC_DEFENSIVE.map(line)];
   if (v >= 17) {
-    const side = (key, name) => pre.instructions[key].map((e, i) => [name + " " + (i + 1),
-      (INSTRUCTION_LABEL[e.instruction] || titleCase(e.instruction))
-        + (takesTarget(e.instruction) && e.player !== 255 ? " → " + playerName(rosterPlayer(t, e.player)) : "")]);
+    const side = (key, name) => pre.instructions[key].flatMap((e, i) => [
+      [name + " " + (i + 1), INSTRUCTION_LABEL[e.instruction] || titleCase(e.instruction)],
+      ...(takesTarget(e.instruction) && e.player !== 255
+        ? [["", "↳ " + playerName(rosterPlayer(t, e.player))]] : [])]);
     lines.push(null, ["Advanced instructions"], ...side("attack", "Attack"), ...side("defence", "Defence"));
   }
   return lines;
@@ -5767,9 +5779,17 @@ function fitText(g, text, width) {
   while (text && g.measureText(text + "…").width > width) text = text.slice(0, -1);
   return text + "…";
 }
+// The formations a preset's row draws: the fielded ones, or all three when
+// Fluid formation is off and the other two are not exact copies of Kick-off.
+// PES 2015 has no switch, so nothing there can field them.
+function picturedFormations(pre) {
+  const [kickoff, ...rest] = pre.formations, same = f => JSON.stringify(f) === JSON.stringify(kickoff);
+  const hidden = version() >= 16 && !pre.style.fluid && !rest.every(same);
+  return hidden ? pre.formations : fieldedFormations(pre).map(i => pre.formations[i]);
+}
 function formationsPicture(t, settings = false) {
   const presets = t.tactics.presets;
-  const cols = presets.some(pre => pre.style.fluid) ? FORMATIONS.length : 1;
+  const cols = presets.some(pre => picturedFormations(pre).length > 1) ? FORMATIONS.length : 1;
   const rows = presets.length, headH = cols > 1 ? PIC.headH : 0;
   const gridW = cols * PITCH.w + (cols - 1) * PIC.gap;
   const gridH = rows * PITCH.h + (rows - 1) * PIC.gap;
@@ -5803,12 +5823,19 @@ function formationsPicture(t, settings = false) {
   presets.forEach((pre, i) => {
     g.fillStyle = PIC.strong;
     g.fillText("Preset " + (i + 1), PIC.margin, cellY(i) + 10);
-    const shown = pre.style.fluid ? pre.formations : pre.formations.slice(0, 1);
-    shown.forEach((f, j) => {
+    if (version() >= 16) {
+      g.fillStyle = PIC.weak;
+      g.fillText("Fluid " + (pre.style.fluid ? "On" : "Off"), PIC.margin, cellY(i) + 10 + PIC.line);
+    }
+    picturedFormations(pre).forEach((f, j) => {
       const cell = document.createElement("canvas");
       cell.width = PITCH.w; cell.height = PITCH.h;
       paintPitch(cell.getContext("2d"), t, f, false);
+      // A fluid-off preset's other two are hidden: drawn at 60% over the
+      // background, so they read as unused, perhaps left there forgotten.
+      g.globalAlpha = j > 0 && !pre.style.fluid ? 0.6 : 1;
       g.drawImage(cell, cellX(j), cellY(i));
+      g.globalAlpha = 1;
     });
     if (!settings) return;
     // The settings beside the row: a heading strong, a label in the text
