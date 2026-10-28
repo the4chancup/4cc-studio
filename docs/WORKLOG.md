@@ -3219,13 +3219,13 @@ briefs, review loops, gates and mutation runs as for any step.
     accepted of 5 (`.tmp/0_0_1r2/rulings.md`). Files:
     `studio_core/src/{widgets/settings_row.rs,shell/{settings_menu/,test_harness.rs}}`,
     `plans/core/gui.md`, `DECISIONS.md`
-- [ ] 0.0.1s the Save editor's main panel after 4ccEditor's layout, no tabs (the maintainer,
+- [x] 0.0.1s the Save editor's main panel after 4ccEditor's layout, no tabs (the maintainer,
   2026-10-26; prototyped first): General info with the playable positions under it, skills
   in two columns with the COM styles and the four non-ability values stacked under them, one
   ability column, Appearance a collapsed section below, the Make buttons in two columns under
   the list (AATF to the Panels menu), a team row before each team's players showing the
   team's fields and Tactics, kit slots behind a button
-  - [ ] s1 the draft (`.tmp/drafts/brief_drafts_main_panel.md`), then the maintainer's look.
+  - [x] s1 the draft (`.tmp/drafts/brief_drafts_main_panel.md`), then the maintainer's look.
     The maintainer's answers (2026-10-26, for s2's plan text): before the 0.0.1 cut ("the
     program needs to be as usable as possible before it's unveiled"; DBC7Editor stays the
     managers' fallback); the team row one click away is fine; the positions grid kept, its
@@ -3268,7 +3268,7 @@ briefs, review loops, gates and mutation runs as for any step.
     takes what the sides leave) and "Window title" (the idle title names the tool), ST-BAR-03
     and ST-TTL-01 to 03; four DECISIONS entries. Review: SWE-2 S1-S4 and Astra A1-A2, 32
     concerns accepted, the loops ended (`.tmp/lead/s2_rulings.md`)
-  - [ ] s3 the code, in slices (the view's frame and the team row; the player view's
+  - [x] s3 the code, in slices (the view's frame and the team row; the player view's
     columns; the team view), before 0.0.1o, whose marks then land on the final layout
     - [x] s3a the shell (SWE-2): the status bar's left and right slots at their content's
       width, the right capped at a third, the notice centred in what they leave
@@ -3389,8 +3389,8 @@ briefs, review loops, gates and mutation runs as for any step.
       labels' hover untested), and `half_width`'s dead second arm removed (the second half
       lays out at its content's width). Done 2026-10-26 (SWE-2); rulings
       `.tmp/0_0_1s/s3_rulings.md`. The post-Astra SWE-2 round S7: 0 of 2 accepted, the
-      review loops end. Open: the step's mutation run (grouped with o2a's; its local half's
-      baseline timed out under load and is rerun), then s3's close
+      review loops end. The step's mutation run: o2a's `mutants-diff dc02a76e` (survivors
+      `31e589a5`, `55758277`), then `mutants-diff 3d39aff3` (s5's checkpoint)
   - [x] s4 the player view's last look (the maintainer, 2026-10-26; drafted and approved,
     `.tmp/0_0_1s/player_view_request.md`; plan "Editing UI", "Full Player Customization
     (FPC)", DECISIONS "The player view's last look"): Stronger foot and hand Left | Right
@@ -3436,7 +3436,7 @@ briefs, review loops, gates and mutation runs as for any step.
     (225-232), the probe reading the I-beam over text fields to show it tells cursors apart.
     The Ruleset rail is not in the preview build (the Save editor alone is registered): its
     headless test stands for it
-  - [ ] s5 the Tactics editor's grid (the maintainer, 2026-10-26; drafted and approved,
+  - [x] s5 the Tactics editor's grid (the maintainer, 2026-10-26; drafted and approved,
     `.tmp/0_0_1s/tactics_layout_request.md`; plan "Tactics editor", DECISIONS "The Tactics
     editor is one grid"): the three-row grid, Formation settings in pairs of equal rows, the
     numbers' three-choice toggles, Join the attack's three rows, Advanced instructions' grid,
@@ -3521,7 +3521,9 @@ briefs, review loops, gates and mutation runs as for any step.
       kept until edited; a team picked in the selector selects its row (ALL keeps it); the
       hint elided before the name (the brief had it inverted; the sidekick followed the plan).
       Lead: the units an enum (`HeaderUnit`) with the manager and stadium halves their own
-      functions, in place of index arithmetic. Open: the built window. Files:
+      functions, in place of index arithmetic. The built window: the release build at `f1ca2342`, `.tmp/0_0_1z/shots/09_team.png`, the lists' and
+      Automatic settings' bottom strokes inside the pane, the three-character short name and
+      `[click for tactics]` (lead, 2026-10-28). Files:
       `save_editor/src/view/{team,player_list,mod,terms}.rs`, `view/tests/{team,list}.rs`,
       `help/{02_window,05_team}.md`
     - [x] s5's review, SWE-2 round S1 (ten parts, `.tmp/0_0_1s/tac_rulings.md`): 29 accepted,
@@ -3544,10 +3546,10 @@ briefs, review loops, gates and mutation runs as for any step.
       reworked 2026-10-27 (Opus, `brief_tac_s3_rework.md`): the XI-row swap tests drop row 1 on
       row 4 (a move would pass on adjacent rows), a marker swap on preset 2's In-possession, a
       release within the click distance over a neighbour's box is a click, a marker dropped on
-      an XI row exchanges the two (help says so). Open: S3b-1's host WHEN (preset 2 through the
-      editor), with the views' mutants brief. Files: `team_widgets/src/pitch/{lineup.rs,tests/drops.rs}`,
+      an XI row exchanges the two (help says so). S3b-1's host WHEN (preset 2 through the
+      editor) landed with the views' mutants brief, `31e589a5`. Files: `team_widgets/src/pitch/{lineup.rs,tests/drops.rs}`,
       `save_editor/src/view/tests/tactics.rs`, `help/08_tactics.md`, plan "A pitch player dropped on another"
-    - [ ] Astra over the whole surface at `4f34855a`, then the post-Astra SWE-2 loop. Round A1
+    - [x] Astra over the whole surface at `4f34855a`, then the post-Astra SWE-2 loop. Round A1
       (two parts: the pitch; the panels and the host): 9 accepted (a near-miss release read
       as a drop on a marker, the placeholder portrait the save's game's rather than the
       selected one's, the help's "without portraits", six tests passing on wrong
@@ -3568,7 +3570,7 @@ briefs, review loops, gates and mutation runs as for any step.
       swaps as one on the name does (red run seen); the instruction picks and the near-miss
       test's starter now assert their premises (each seen failing under a perturbation).
       Files: `team_widgets/src/pitch/{lineup.rs,tests/drops.rs}`, `tactics/instructions/tests.rs`
-    - [ ] Astra round A2 over the whole surface (two parts at `9f36a8bc`, Devin work): 7 of 7
+    - [x] Astra round A2 over the whole surface (two parts at `9f36a8bc`, Devin work): 7 of 7
       accepted, all tests that pass on a wrong implementation (the popover's writes, Make GK
       and the markers' states on the identity eleven, a substitution's other takers, the Y
       field, the position combo's GK entry, the Few/Medium choices, the chips' holders read
@@ -3609,7 +3611,7 @@ briefs, review loops, gates and mutation runs as for any step.
       `< 0.001` -> `<=` is equivalent for every scale (f32(0.001) an odd multiple of 2^-33, no
       difference of two scales equals it, `.tmp/0_0_1s/tolerance_proof.py`); none in
       `team_widgets` or `save_editor`. No rework brief
-  - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
+  - [x] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";
     `docs/prototypes/tools/save_editor.js` `teamFields`, `hitMarker`,
@@ -3620,7 +3622,7 @@ briefs, review loops, gates and mutation runs as for any step.
     steered off; a "Scroll names" checkbox right of the formations' Copy/swap, on by
     default, which holds a wider name still at its badge's left when off → verify: a test per
     request in the built view; the code with s5
-  - [ ] s7 the maintainer's second batch of 2026-10-27 (drafted and approved; plan "Editing
+  - [x] s7 the maintainer's second batch of 2026-10-27 (drafted and approved; plan "Editing
     UI", DECISIONS "Advanced instructions by side, a picked team's tactics, the team row's
     hint"; `save_editor.js` `DEFENDING`, `versionInstructions`, `instructionsFor`, the team
     selector's callback in `renderMaster`, `teamRow`'s `.thint`; renders
@@ -3898,7 +3900,7 @@ briefs, review loops, gates and mutation runs as for any step.
         view checked 2026-10-28 at `8978a0be` (`.tmp/0_0_1z/shots/31_assign.png`, `31_instr.png`):
         the chips filled and stepped as the draft's, the panel's bottom as the draft's, "No
         target" under the dropdowns' text
-- [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the
+- [x] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the
   maintainer, 2026-10-27: "Since the formation name work is almost done"; DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers": the
   typeface need not be the game's, its stroke thickness must match the game's label; the
   formation pictures' cells carry it too, when 8.33 comes). Drafted by side-lead D
@@ -3916,13 +3918,14 @@ briefs, review loops, gates and mutation runs as for any step.
     AMF given CMF at his own spot turns 3-3-1-3 into 3-4-3 (the position counts, not the spot).
     The drafted rule's LMF/RMF in the DMF/CMF line was wrong (3-5-2 and 3-6-1 on /f/). C4 not
     needed (x1 measured the stroke at 720p)
-  - [ ] x3 the plan text (`plans/save_editor.md` "Tactics editor", look.md's proposal with x2's
+  - [x] x3 the plan text (`plans/save_editor.md` "Tactics editor", look.md's proposal with x2's
     rule; the grid's rows and the name read one table, `save_editor`'s `POS_ROWS` today), its
     acceptance scenario, D's two draft commits on main with the draft's rule corrected (lead),
     the maintainer's look at the draft. Done but the look: "The formation's name" and SE-GUI-39;
     the draft's `formationName` reads the grid's `POS_ROWS` and gives the eight captured names
     (`.tmp/0_0_1x/draft_names_check.py`; D's drafted rule failed two); Selawik Semibold and
-    `--font-label` in the drafts. Open: the maintainer's look (QUESTIONS "Draft looks")
+    `--font-label` in the drafts. The look: approved 2026-10-28 (DECISIONS "The drafts' looks
+    of 2026-10-28")
   - [x] x4 the code (Opus, one run with y2 and round S2's rework, `.tmp/0_0_1x/brief_0_0_1x4_y2.md`):
     `team_widgets::pitch::POSITION_ROWS` the one table (the positions grid reads it, its copy in
     `save_editor` gone), `formation_name` over it, the name painted in the canvas' corner after
@@ -3933,7 +3936,7 @@ briefs, review loops, gates and mutation runs as for any step.
     SE-GUI-39 (/f/'s three, /gd/'s three, /3/'s drag and position change); red: a stub name, LMF
     and RMF in the CMF row (`3-5-2`), the label family dropped; `just gates-changed 89f884e2`.
     Lead: `TacticsView::popover_area` kept (the S2a-1 test's one key, `pub` for that test).
-    Open: the built window
+    The built window: the release build at `f1ca2342`, `.tmp/0_0_1z/shots/09_team.png`, /3/'s `3-3-1-3` in the pitch's corner (lead, 2026-10-28)
 - [ ] 0.0.1y the Tactics pitch's two swaps as the game's (the maintainer, 2026-10-27: drag
   swapping should behave as the game's, and the select-one-then-the-other way be offered "if
   easy enough"; DECISIONS 2026-10-27 "A pitch player dropped on another swaps the two slots in
@@ -3964,7 +3967,7 @@ briefs, review loops, gates and mutation runs as for any step.
     - [x] y3b, y3c dropped: a rule fitted to these scans has three unknown parts, each a study
       of its own, and a wrong guess sets positions silently; the maintainer's answer: read the
       rule from the executable (0.0.1y4)
-  - [ ] y4 the dragged player's position rule read from PES 2016's executable (the maintainer,
+  - [x] y4 the dragged player's position rule read from PES 2016's executable (the maintainer,
     2026-10-27: "the last one with a clean exe"; plan "A pitch player dropped on another",
     DECISIONS "The dragged player's position rule is read from PES 2016's executable"); does
     not hold the cut, the drop keeping the position meanwhile. The exe copied to
@@ -3982,7 +3985,7 @@ briefs, review loops, gates and mutation runs as for any step.
       RWF, CF, CB, SS holding it, whichever the dragged player's own per-position overall
       rates higher (the default on a tie). Teammates' spots never enter it: y3's switch near a
       teammate is the marker-overlap swap preview
-    - [ ] y4c check it against `.tmp/0_0_1y3/findings.md`'s four PES 2021 scans (every
+    - [x] y4c check it against `.tmp/0_0_1y3/findings.md`'s four PES 2021 scans (every
       transition within one push); a rule that reproduces them goes to the plan, then the code.
       `simulate.py` reproduces all four scans within one push on the overalls read in game
       (2026-10-27, `.tmp/0_0_1y4/overalls.md`, the save unchanged by hash: team 718's PARTY
