@@ -465,14 +465,14 @@ pub(crate) fn show(
             live_aatf::show(ui, view);
         }
         let list_panel = egui::Panel::left("save_editor_players")
-            // The draft's `.plist` width: 240 points, not resizable. Under
+            // The draft's `.plist` width: 255 points, not resizable. Under
             // the design width the window scales instead of narrowing, and
             // a list dragged wider would only take the views' room. No
             // bottom margin: the quick actions' band is the panel's
             // content's last item and runs to the pane's bottom, so the
             // pane gets no scroll bar of its own.
             .resizable(false)
-            .default_size(240.0)
+            .default_size(255.0)
             .frame(
                 egui::Frame::side_top_panel(ui.style()).inner_margin(egui::Margin {
                     left: 8,

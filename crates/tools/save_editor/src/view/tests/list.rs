@@ -1039,7 +1039,7 @@ fn the_player_rows_dot_paints_at_the_rows_right_end() {
     }
 }
 
-// The list is 240 points wide and not resizable, since under the design
+// The list is 255 points wide and not resizable, since under the design
 // width the window scales rather than narrows: a drag on the list's right
 // edge leaves it.
 #[test]
@@ -1050,13 +1050,13 @@ fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
     let mut window = Headless::new();
     let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let (before, _) = pane_frame(&shapes, window.screen);
-    // The list is a fixed 240 wide: the pane's left edge — the list's
+    // The list is a fixed 255 wide: the pane's left edge — the list's
     // right edge, measured from the window's left edge — sits at the
-    // window panel's margin plus the 240.
-    let list_edge = f64::from(PANEL_MARGIN) + 240.0;
+    // window panel's margin plus the 255.
+    let list_edge = f64::from(PANEL_MARGIN) + 255.0;
     assert!(
         (before - list_edge).abs() <= 1.0,
-        "the list is 240 wide ({before} vs {list_edge})"
+        "the list is 255 wide ({before} vs {list_edge})"
     );
 
     // A drag from the list's right edge 80 points to the right.
@@ -1067,7 +1067,7 @@ fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
     let (after, _) = pane_frame(&shapes, window.screen);
     assert!(
         (after - list_edge).abs() <= 1.0,
-        "the drag left the list at 240 ({after} vs {list_edge})"
+        "the drag left the list at 255 ({after} vs {list_edge})"
     );
 }
 

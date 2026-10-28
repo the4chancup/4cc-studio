@@ -2360,8 +2360,8 @@ fn the_formation_name_follows_the_position_and_never_counts_the_keeper() {
 }
 
 // The shown formation's name sits in the canvas' bottom-left corner,
-// white, in the `label` family at 21 pt, its text origin 5 in from the
-// canvas' left edge and its baseline 6 above the bottom edge (the
+// white, in the `label` family at 20.5 pt, its text origin 6.5 in from
+// the canvas' left edge and its baseline 6 above the bottom edge (the
 // draft's `fillText` at `PITCH.h - 6`, alphabetic baseline), painted
 // after every marker so a low one never covers it.
 #[test]
@@ -2388,8 +2388,8 @@ fn the_formation_name_sits_in_the_bottom_left_corner_after_the_markers() {
     let glyph = row.glyphs.first().expect("the name's first glyph");
     let origin = shape.pos + row.pos.to_vec2() + glyph.pos.to_vec2();
     assert!(
-        (origin.x - (canvas.left() + 5.0)).abs() <= 0.01,
-        "the text origin 5 in from the left edge ({origin:?}, canvas {canvas:?})"
+        (origin.x - (canvas.left() + 6.5)).abs() <= 0.01,
+        "the text origin 6.5 in from the left edge ({origin:?}, canvas {canvas:?})"
     );
     assert!(
         (origin.y - (canvas.bottom() - 6.0)).abs() <= 0.01,
@@ -2398,8 +2398,8 @@ fn the_formation_name_sits_in_the_bottom_left_corner_after_the_markers() {
     assert_eq!(painted_color(shape), egui::Color32::WHITE, "white");
     assert_eq!(
         shape.galley.job.sections[0].format.font_id,
-        egui::FontId::new(21.0, egui::FontFamily::Name("label".into())),
-        "the label family at 21 pt"
+        egui::FontId::new(20.5, egui::FontFamily::Name("label".into())),
+        "the label family at 20.5 pt"
     );
     let last_badge = shapes
         .iter()

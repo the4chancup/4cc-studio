@@ -40,7 +40,7 @@ from picosvg.svg_pathops import skia_path, union
 
 ROOT = Path(__file__).resolve().parents[1]
 SYMBOLS = ROOT / "resources" / "symbols"
-BODY_FONT = ROOT / "resources" / "fonts" / "Selawik-Regular.ttf"
+BODY_FONT = ROOT / "resources" / "fonts" / "RobotoFlex-Regular.ttf"
 OUTPUTS = [ROOT / "resources" / "fonts" / "symbols.ttf",
            ROOT / "docs" / "prototypes" / "assets" / "fonts" / "symbols.ttf"]
 DESIGN_UNITS_PER_EM = 2048

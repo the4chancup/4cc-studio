@@ -183,24 +183,24 @@ fn widgets_light() -> egui::style::Widgets {
 }
 
 /// Registers the suite's fonts on `ctx`: proportional text resolves from
-/// Selawik, the symbols font, the icon font and `egui-icons`, in that order,
-/// and monospace from egui's Hack, then the same four. The body font
-/// `"Selawik"` (the file `resources/fonts/Selawik-Regular.ttf` bundles) is
-/// first because a member's text must resolve
-/// from it before any other font. The symbols font `"symbols"`
+/// Roboto Flex, the symbols font, the icon font and `egui-icons`, in that
+/// order, and monospace from egui's Hack, then the same four. The body font
+/// `"Roboto Flex"` (the file `resources/fonts/RobotoFlex-Regular.ttf`
+/// bundles) is first because a member's text must resolve from it before
+/// any other font. The symbols font `"symbols"`
 /// (`resources/fonts/symbols.ttf`: the →, ✔, ⏷ and the like the views draw
-/// that Selawik lacks) follows it, so the body font keeps every character it
-/// has. The symbols are a file of their own, not glyphs of the icon font,
-/// because that file's vertical metrics are the body font's: egui centres a
-/// later font's line height on the body font's, so in the icon font's metrics
-/// a symbol would sit off the text's baseline. The icon font `"icons"` (the
-/// subset `resources/fonts/phosphor-subset.ttf` ships; `crate::icons` names
-/// its glyphs) comes ahead of egui's own icons, so the icon codepoints come
-/// from it, and is its own `icons` family too. The `label` family is
-/// `"Selawik Semibold"` (`resources/fonts/Selawik-Semibold.ttf`), then the
-/// proportional chain: the Tactics pitch's formation name, the one text
-/// the suite draws in a heavier weight, to match the game's stroke. Every
-/// build that has
+/// that Roboto Flex lacks) follows it, so the body font keeps every
+/// character it has. The symbols are a file of their own, not glyphs of the
+/// icon font, because that file's vertical metrics are the body font's: egui
+/// centres a later font's line height on the body font's, so in the icon
+/// font's metrics a symbol would sit off the text's baseline. The icon font
+/// `"icons"` (the subset `resources/fonts/phosphor-subset.ttf` ships;
+/// `crate::icons` names its glyphs) comes ahead of egui's own icons, so the
+/// icon codepoints come from it, and is its own `icons` family too. The
+/// `label` family is `"Roboto Flex Semibold"`
+/// (`resources/fonts/RobotoFlex-Semibold.ttf`), then the proportional chain:
+/// the Tactics pitch's formation name, the one text the suite draws in a
+/// heavier weight, to match the game's stroke. Every build that has
 /// `studio_core` has egui's default fonts, through its `eframe` dependency's
 /// `default_fonts`. Installed fonts resolve
 /// before the system fallback eframe registers (`Context::set_fonts` replaces the
@@ -211,9 +211,9 @@ fn widgets_light() -> egui::style::Widgets {
 fn install_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
     fonts.font_data.insert(
-        "Selawik".to_owned(),
+        "Roboto Flex".to_owned(),
         std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-            "../../../resources/fonts/Selawik-Regular.ttf"
+            "../../../resources/fonts/RobotoFlex-Regular.ttf"
         ))),
     );
     fonts.font_data.insert(
@@ -237,7 +237,7 @@ fn install_fonts(ctx: &egui::Context) {
         if let Some(light) = names.iter().position(|name| name == "Ubuntu-Light") {
             names.splice(
                 light..=light,
-                ["Selawik", "symbols", "icons"].map(str::to_owned),
+                ["Roboto Flex", "symbols", "icons"].map(str::to_owned),
             );
         }
     }
@@ -246,13 +246,13 @@ fn install_fonts(ctx: &egui::Context) {
         vec!["icons".to_owned()],
     );
     fonts.font_data.insert(
-        "Selawik Semibold".to_owned(),
+        "Roboto Flex Semibold".to_owned(),
         std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
-            "../../../resources/fonts/Selawik-Semibold.ttf"
+            "../../../resources/fonts/RobotoFlex-Semibold.ttf"
         ))),
     );
     // The semibold first, then the body text's own chain for what it lacks.
-    let mut label = vec!["Selawik Semibold".to_owned()];
+    let mut label = vec!["Roboto Flex Semibold".to_owned()];
     label.extend_from_slice(
         fonts
             .families
@@ -333,7 +333,7 @@ mod tests {
     }
 
     #[test]
-    fn installing_fonts_chains_selawik_the_symbols_and_the_icons() {
+    fn installing_fonts_chains_roboto_flex_the_symbols_and_the_icons() {
         let ctx = egui::Context::default();
         install(&ctx);
         // `Context::fonts` is populated by the first pass.
@@ -341,13 +341,13 @@ mod tests {
             .drop_without_applying_deltas();
         ctx.fonts(|fonts| {
             let definitions = fonts.definitions();
-            for name in ["Selawik", "symbols", "icons"] {
+            for name in ["Roboto Flex", "symbols", "icons"] {
                 assert!(definitions.font_data.contains_key(name), "{name} bundled");
             }
             for name in ["Ubuntu-Light", "Ubuntu-Regular"] {
                 assert!(
                     !definitions.font_data.contains_key(name),
-                    "{name} is out: the body font is Selawik"
+                    "{name} is out: the body font is Roboto Flex"
                 );
             }
             let proportional = definitions
@@ -356,7 +356,7 @@ mod tests {
                 .expect("the proportional family exists");
             assert_eq!(
                 proportional,
-                &["Selawik", "symbols", "icons", "egui-icons"],
+                &["Roboto Flex", "symbols", "icons", "egui-icons"],
                 "the body font resolves text first, then the symbols, the icons, egui's own"
             );
             let monospace = definitions
@@ -365,7 +365,7 @@ mod tests {
                 .expect("the monospace family exists");
             assert_eq!(
                 monospace,
-                &["Hack", "Selawik", "symbols", "icons", "egui-icons"],
+                &["Hack", "Roboto Flex", "symbols", "icons", "egui-icons"],
                 "monospace keeps Hack first, then the proportional chain"
             );
             assert_eq!(
@@ -376,16 +376,16 @@ mod tests {
                 "icons is its own family too"
             );
             assert!(
-                definitions.font_data.contains_key("Selawik Semibold"),
-                "Selawik Semibold bundled"
+                definitions.font_data.contains_key("Roboto Flex Semibold"),
+                "Roboto Flex Semibold bundled"
             );
             assert_eq!(
                 definitions
                     .families
                     .get(&egui::FontFamily::Name("label".into())),
                 Some(&vec![
-                    "Selawik Semibold".to_owned(),
-                    "Selawik".to_owned(),
+                    "Roboto Flex Semibold".to_owned(),
+                    "Roboto Flex".to_owned(),
                     "symbols".to_owned(),
                     "icons".to_owned(),
                     "egui-icons".to_owned(),

@@ -849,8 +849,8 @@ fn formation_label_bounds(nodes: &[accesskit::Node], label: &str) -> accesskit::
 #[test]
 fn the_settings_are_six_even_rows_of_pairs() {
     // The settings column's width as the window's width: the draft's
-    // 414 panel holds a 400-wide content.
-    let mut window = Headless::sized(414.0, 900.0);
+    // 422 panel holds a 408-wide content.
+    let mut window = Headless::sized(422.0, 900.0);
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
     let mut view = TacticsView::default();
@@ -975,7 +975,7 @@ fn the_settings_are_six_even_rows_of_pairs() {
 #[test]
 fn the_two_choice_toggle_spans_its_half() {
     // The settings column's width as the window's width.
-    let mut window = Headless::sized(414.0, 900.0);
+    let mut window = Headless::sized(422.0, 900.0);
     window
         .ctx
         .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
@@ -1057,7 +1057,7 @@ fn the_two_choice_toggle_spans_its_half() {
 // choice is clicked.
 #[test]
 fn the_numbers_are_three_choice_toggles() {
-    let mut window = Headless::sized(414.0, 900.0);
+    let mut window = Headless::sized(422.0, 900.0);
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
     tactics.presets[0].sliders.numbers_in_attack = 2;
@@ -1950,7 +1950,7 @@ fn each_side_names_its_slots_through_its_own_roster() {
 // 16 plus a half over the left's — the two rows 24 apart.
 #[test]
 fn the_automatic_settings_are_a_two_column_grid() {
-    let mut window = Headless::sized(414.0, 900.0);
+    let mut window = Headless::sized(422.0, 900.0);
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
     let mut view = TacticsView::default();
@@ -1963,7 +1963,7 @@ fn the_automatic_settings_are_a_two_column_grid() {
     // right checkboxes' (the combo sits inside its cell beside the
     // label). The columns' width is the panel's inner less 16 halved
     // (the frame's margin and stroke are 7 a side).
-    let inner = 414.0 - 14.0;
+    let inner = 422.0 - 14.0;
     let half = (inner - 16.0) / 2.0;
     let substitution_label = nodes
         .iter()

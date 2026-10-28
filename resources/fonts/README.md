@@ -1,26 +1,15 @@
 # Fonts
 
 `RobotoFlex-Regular.ttf` and `RobotoFlex-Semibold.ttf` are the suite's body font and its one
-heavier face (the Tactics pitch's formation name), replacing Selawik's two below once the code
-loads them: static instances of Roboto Flex's variable file as Google Fonts ships it
+heavier face, for the Tactics pitch's formation name alone (the weight whose stroke matches
+the game's label as egui draws it, `plans/save_editor.md` "The formation's name"): static
+instances of Roboto Flex's variable file as Google Fonts ships it
 (`github.com/google/fonts`, `ofl/robotoflex/RobotoFlex[GRAD,XOPQ,XTRA,YOPQ,YTAS,YTDE,YTFI,YTLC,YTUC,opsz,slnt,wdth,wght].ttf`,
 1,787,292 bytes, SHA-256 `9b523f7d…`), cut by fontTools' instancer at optical size 12.5 (the
 body text's size, the optical size a browser draws it at) and weight 400 and 600, every other
 axis at its default; 96,352 and 97,076 bytes, SHA-256 `219b3036…` and `2cbd1950…`. The drafts
 draw the same two files. Licence: the SIL Open Font License 1.1, `RobotoFlex-OFL.txt` beside
 them.
-
-`Selawik-Regular.ttf` is the suite's body font: Microsoft's metric twin of Segoe UI, version
-1.01 (`github.com/microsoft/Selawik` release 1.01's `selawk.ttf`, 44,224 bytes, SHA-256
-`e9d98518…`). The widths the drafts were calibrated in are Segoe UI's, which Selawik shares and
-which, unlike Segoe UI, may be bundled; it replaced egui's Ubuntu Light (too thin for the drafts'
-weight 400) and, briefly, Ubuntu Regular. The drafts draw in it too, and `symbols.ttf` takes its
-metrics from it. Licence: the SIL Open Font License 1.1, `Selawik-OFL.txt` beside it.
-
-`Selawik-Semibold.ttf` is the one heavier face, for the Tactics pitch's formation name alone,
-the weight whose stroke matches the game's label as egui draws it (`plans/save_editor.md`,
-"The formation's name"): the same release's `selawksb.ttf`, 44,192 bytes, SHA-256
-`0a9e9d05…`. Licence: the same as the regular weight's, `Selawik-OFL.txt`.
 
 `symbols.ttf` holds the symbols the views draw that the body font lacks (→, ≡, ✔, ✖ and the
 like), each at its own codepoint: `scripts/make_symbols.py` builds it from one SVG per symbol in

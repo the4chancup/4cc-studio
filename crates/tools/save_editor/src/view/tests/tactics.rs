@@ -1091,7 +1091,7 @@ fn box_at(rects: &[egui::Rect], left: f64, tol: f64) -> egui::Rect {
 // The editor's grid, the draft's `.tacgrid`: at the default pane (1224
 // x 776) the editor is one grid of three columns and three rows, so
 // every panel lines up with its neighbours — the settings panels' boxes
-// at the column's 414 width, the pitch's border 10 points past them, the
+// at the column's 422 width, the pitch's border 10 points past them, the
 // Player assignments box 10 past the pitch's right and out to the pane's
 // edge; the preset bar and the formation bar share one line's centre,
 // the formation bar's first button on the pitch's left; row 3's panels
@@ -1125,11 +1125,11 @@ fn the_tactics_editor_is_one_grid_at_the_default_pane() {
     );
     for box_ in &panels {
         assert!(
-            (f64::from(box_.width()) - 414.0).abs() <= 1.0,
-            "a settings panel 414 wide ({box_:?})"
+            (f64::from(box_.width()) - 422.0).abs() <= 1.0,
+            "a settings panel 422 wide ({box_:?})"
         );
     }
-    let pitch_left = settings_left + 414.0 + 10.0;
+    let pitch_left = settings_left + 422.0 + 10.0;
     let canvas = canvas_of(&nodes);
     assert!(
         (canvas.x0 - 1.0 - pitch_left).abs() <= 1.0,
@@ -1262,7 +1262,7 @@ fn the_two_panels_frames_are_level_with_the_pitchs() {
 
     let rects = stroked_rects(&shapes, 60.0);
     let settings_left = label_bounds(&nodes, "Formation settings").x0 - 7.0;
-    let pitch_left = settings_left + 414.0 + 10.0;
+    let pitch_left = settings_left + 422.0 + 10.0;
     let assigns_left = pitch_left + f64::from(team_widgets::pitch::PITCH_BOX.x) + 10.0;
     let settings = box_at(&rects, settings_left, 1.0);
     let pitch_box = box_at(&rects, pitch_left, 1.0);
@@ -1310,7 +1310,7 @@ fn the_automatic_settings_frame_reaches_the_lists_bottom() {
     // The lists' boxes share row 3's top — the first box right of the
     // settings column whose top is below the pitch's is theirs (the
     // stack's Advanced instructions is at settings_left).
-    let pitch_left = settings_left + 414.0 + 10.0;
+    let pitch_left = settings_left + 422.0 + 10.0;
     let pitch_box = box_at(&rects, pitch_left, 1.0);
     let row3_top = f64::from(pitch_box.max.y) + 6.0;
     let lists_bottom = rects
@@ -1384,6 +1384,40 @@ fn a_style_toggle_click_is_one_undo_entry() {
         undo_entries(&mut window, &mut view),
         1,
         "the click was one undo entry"
+    );
+}
+
+// The settings column is as narrow as the widest toggle choice allows:
+// the Defensive style's "Frontline Press." (the draft's `STYLE_SHORT`),
+// laid out in the theme's button font with the draft's choice padding of
+// 5 a side ("97 points with its padding"), fits the width one choice gets
+// at `SETTINGS_WIDTH` — the width `tactics::show` gives the drawn button.
+#[test]
+fn frontline_press_fits_its_choice_at_the_settings_width() {
+    let path = fixture(PesVersion::Pes21, "tactics_frontline_fits");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_team_view(&mut window, &mut view, 701);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let choice = choice_below(&nodes, "Defensive style", "Frontline Press.");
+    let bounds = choice.bounds().expect("the choice's bounds");
+    let choice_width = bounds.x1 - bounds.x0;
+    let style = window.ctx.global_style();
+    let font = egui::TextStyle::Button.resolve(&style);
+    let text = window.ctx.fonts_mut(|fonts| {
+        f64::from(
+            fonts
+                .layout_no_wrap("Frontline Press.".to_owned(), font, egui::Color32::WHITE)
+                .size()
+                .x,
+        )
+    });
+    let padded = text + 2.0 * 5.0;
+    assert!(
+        padded <= choice_width + 0.5,
+        "Frontline Press. and its padding fit a choice's width ({padded} vs {choice_width})"
     );
 }
 
@@ -1713,8 +1747,8 @@ fn the_target_chip_stays_inside_the_settings_column() {
         Some("3DSMAX HAS STOPPED WORKING"),
         "premise: the target names the player"
     );
-    // The settings column's right edge: the column's left and 414.
-    let column_right = label_bounds(&nodes, "Formation settings").x0 - 7.0 + 414.0;
+    // The settings column's right edge: the column's left and 422.
+    let column_right = label_bounds(&nodes, "Formation settings").x0 - 7.0 + 422.0;
     assert!(
         chip.bounds().expect("bounds").x1 <= column_right,
         "the truncating chip ends inside the settings column ({:?})",
@@ -1804,7 +1838,7 @@ fn the_pitch_draws_a_starter_s_portrait_from_the_selected_game() {
 
 // The Automatic settings row wraps inside the settings column (the
 // draft's `.row`): the Substitution pair and the three checkboxes each
-// end inside the column's 414 width. And the armed mode draws no note:
+// end inside the column's 422 width. And the armed mode draws no note:
 // no Cancel, no Done, no "Click the pitch player" line while a mode is
 // armed — the armed chip and the candidates' corner brackets say it.
 #[test]
@@ -1816,7 +1850,7 @@ fn the_automatic_settings_wrap_inside_the_column_and_armed_draws_no_note() {
     open_team_view(&mut window, &mut view, 701);
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let column_right = label_bounds(&nodes, "Formation settings").x0 - 7.0 + 414.0;
+    let column_right = label_bounds(&nodes, "Formation settings").x0 - 7.0 + 422.0;
     let substitution = control_right_of(&nodes, "Substitution");
     assert!(
         substitution.bounds().expect("field bounds").x1 <= column_right,

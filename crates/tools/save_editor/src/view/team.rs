@@ -46,13 +46,13 @@ pub(super) enum HeaderUnit {
 /// drawn `min_rect` width; the widths are fixed, a longer team name
 /// changes nothing), each unit one `allocate_ui` at its claim.
 pub(super) const TEAM_ROW: [(HeaderUnit, f32); 7] = [
-    (HeaderUnit::Name, 178.5),
-    (HeaderUnit::Short, 78.0),
-    (HeaderUnit::Colour(0), 138.0),
-    (HeaderUnit::Colour(1), 138.0),
-    (HeaderUnit::Manager, 113.0),
-    (HeaderUnit::Stadium, 109.0),
-    (HeaderUnit::KitSlots, 60.5),
+    (HeaderUnit::Name, 179.5),
+    (HeaderUnit::Short, 79.0),
+    (HeaderUnit::Colour(0), 139.0),
+    (HeaderUnit::Colour(1), 139.0),
+    (HeaderUnit::Manager, 113.5),
+    (HeaderUnit::Stadium, 110.0),
+    (HeaderUnit::KitSlots, 64.0),
 ];
 /// The view's Team field.
 pub(super) const TEAM_LABEL: &str = "Team";

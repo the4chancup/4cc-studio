@@ -821,7 +821,7 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
         "the line is painted in the error colour"
     );
 
-    // It spans the list's width, two lines at the default 240.
+    // It spans the list's width, two lines at the default 255.
     let row = nodes
         .iter()
         .find(|node| player_row(node))
@@ -839,7 +839,7 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
         "the line spans the list ({bounds:?} vs {row:?} and its {band}-point band)"
     );
     // Not elided, since a label cut to one line hides most of the error,
-    // and wrapped across the list: two body rows at the default 240, as
+    // and wrapped across the list: two body rows at the default 255, as
     // the draft draws it.
     assert!(!shape.galley.elided, "the line is not elided");
     assert!(
@@ -1000,7 +1000,7 @@ fn the_buttons_stay_put_when_the_list_scrolls() {
     );
 }
 
-// The draft's `.qagrid` inside the 240-wide `.plist` holds its labels
+// The draft's `.qagrid` inside the 255-wide `.plist` holds its labels
 // whole (plans "Editing UI", the Quick actions bullet): at the window's
 // default size no Make button's galley elides, and every control — the
 // Set stats field included — stays inside the list rows' x range.
@@ -1050,13 +1050,13 @@ fn the_quick_actions_fit_the_lists_width() {
 // The columns' fallback (plans "Editing UI", the quick actions bullet):
 // where the cells' natural widths do not fit the list each column is
 // half of it, a label too long for its half eliding (its tooltip names
-// the tier). The list is a fixed 240, so the fallback is reached by a
+// the tier). The list is a fixed 255, so the fallback is reached by a
 // long tier label, not a narrower list.
 #[test]
 fn the_columns_halve_when_the_content_widths_do_not_fit() {
     const WIDE_TIER: &str = "the longest tier in the ruleset";
     // A ruleset whose first tier's label is too long for the two
-    // columns' naturals to fit inside the list's 240.
+    // columns' naturals to fit inside the list's 255.
     let mut ruleset = aatf::Rules::official().ruleset().clone();
     ruleset.tiers[0].label = WIDE_TIER.to_owned();
     let path = fixture(PesVersion::Pes21, "quick_halved_columns");

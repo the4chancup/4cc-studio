@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -2027 967 2458">
   <!-- U+2193 DOWNWARDS ARROW. Font units (2048 per em), y up from the baseline: the group flips
-       them into SVG's y-down; the view box is the line from Selawik's ascent to its descent,
-       its width the glyph's advance. -->
+       them into SVG's y-down; the view box is the line the strokes were laid
+       out on, from ascent to descent; its width is the glyph's advance. -->
   <g transform="scale(1 -1)">
     <path fill="none" stroke="#000" stroke-width="129" d="M483.5 1376 V81 M193.5 371 L483.5 81 L773.5 371"/>
   </g>

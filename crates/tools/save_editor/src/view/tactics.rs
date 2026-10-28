@@ -25,7 +25,7 @@ use crate::session::Session;
 use crate::view::{MedalKey, SaveView, edit_team, live_marks, selected_team};
 
 /// The settings column's width (the draft's `.tacgrid` first track).
-const SETTINGS_WIDTH: f32 = 414.0;
+const SETTINGS_WIDTH: f32 = 422.0;
 /// The gap between the grid's columns (the draft's `column-gap: 10px`).
 const COLUMN_GAP: f32 = 10.0;
 /// The gap between the grid's rows (the draft's `row-gap: 6px`).
@@ -175,7 +175,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     ui.push_id((*generation, team_id), |ui| {
         let mut edited = team.tactics.clone();
         let mut changed = [false; 6];
-        // The draft's `.tacgrid`: the settings column's 414, the pitch's
+        // The draft's `.tacgrid`: the settings column's 422, the pitch's
         // own width (its canvas and border), the assignments' the rest —
         // a cell a child `Ui` like the old columns', each row's height
         // its tallest cell's (row 2's cells end at the pitch's bottom,

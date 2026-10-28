@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -2027 1764 2458">
   <!-- U+25BE BLACK DOWN-POINTING SMALL TRIANGLE. Font units (2048 per em), y up from the baseline: the group flips
-       them into SVG's y-down; the view box is the line from Selawik's ascent to its descent,
-       its width the glyph's advance. -->
+       them into SVG's y-down; the view box is the line the strokes were laid
+       out on, from ascent to descent; its width is the glyph's advance. -->
   <g transform="scale(1 -1)">
     <polygon points="518,1045 1246,1045 882,389"/>
   </g>

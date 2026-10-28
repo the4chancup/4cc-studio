@@ -141,12 +141,12 @@ const NAME_SPEED: f32 = 40.0;
 /// game's 16).
 const NAME_GAP: f32 = 16.0;
 
-/// The formation name's size: its digits 15 points tall, as the game's
-/// label's are.
-const LABEL_SIZE: f32 = 21.0;
-/// The name's text origin, in from the canvas' left edge: the face's 2
-/// point left bearing puts its ink 7 in, the game's.
-const LABEL_LEFT: f32 = 5.0;
+/// The formation name's size (the draft's `FORMATION_LABEL` font): the
+/// face's digits 15 points tall at it, as the game's label's are.
+const LABEL_SIZE: f32 = 20.5;
+/// The name's text origin, in from the canvas' left edge: the face's "3"
+/// carries a 0.6-point left bearing, so its ink starts at the game's 7.
+const LABEL_LEFT: f32 = 6.5;
 /// The name's baseline, up from the canvas' bottom edge (its digits sit
 /// on it).
 const LABEL_BOTTOM: f32 = 6.0;
@@ -623,7 +623,7 @@ fn paint_corners(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32
 
 /// The formation's name in the canvas' bottom-left corner, as the game's
 /// formation screen writes it (the draft's `FORMATION_LABEL`): white, in
-/// the `label` family (the theme's Selawik Semibold) at `LABEL_SIZE`, its
+/// the `label` family (the theme's Roboto Flex Semibold) at `LABEL_SIZE`, its
 /// text origin `LABEL_LEFT` in and its baseline `LABEL_BOTTOM` up. egui
 /// places a galley by its top-left corner and its first glyph's origin
 /// at the row's offset plus the glyph's own (the baseline, a font ascent

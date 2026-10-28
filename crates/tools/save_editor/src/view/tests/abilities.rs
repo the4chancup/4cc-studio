@@ -1722,15 +1722,15 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         "the second columns share an x ({skills_xs:?} vs {com_xs:?})"
     );
 
-    // The columns 36 points apart: each column's left minus the previous
-    // column's right edge (the card columns' second one's own width out).
-    // General info's column is 350 wide and its fields end 14 points
-    // short of that (the draft's `.combos`, 336), so Skills starts 50
-    // after the fields' edge (the draft measures 50).
+    // The columns 36 points apart: Skills' left is General info's column
+    // width and the 36 after its left — the fields' flush edge is the
+    // measured label-left rows' width inside the column, so the gap to
+    // the fields' edge moves with the body font.
     assert!(
-        (titles[1].x0 - name.x1 - 50.0).abs() <= 1.0,
-        "the Skills column 50 points after General info's fields ({:?} vs {name:?})",
-        titles[1]
+        (titles[1].x0 - titles[0].x0 - f64::from(crate::view::info_strip::GENERAL_WIDTH) - 36.0)
+            .abs()
+            <= 1.0,
+        "the Skills column the column's width and 36 after General info's ({titles:?})"
     );
     let cards_right = skills_xs[1] + f64::from(team_widgets::cards::CARD_COLUMN_WIDTH);
     assert!(

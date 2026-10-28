@@ -41,10 +41,11 @@ pub(super) const NATION_LABEL: &str = "Nation";
 /// The General info panel's Shirt number field.
 pub(super) const NUMBER_LABEL: &str = "Shirt number";
 
-/// The General info column's width (the draft's `.pcol.first` 350px: room
+/// The General info column's width (the draft's `.pcol.first` 344px: room
 /// for the longest pair label, "Injury resistance", beside its box on
-/// each half).
-pub(super) const GENERAL_WIDTH: f32 = 350.0;
+/// each half and for the label-left rows; no wider, so the player view's
+/// three columns stay on one row beside the 255-point list).
+pub(super) const GENERAL_WIDTH: f32 = 344.0;
 /// A pair's box width (the draft's `.pair` fields).
 const BOX_WIDTH: f32 = 54.0;
 /// The gap between the second half's label column and its box (the
@@ -487,7 +488,7 @@ fn label_width(ui: &egui::Ui, label: &str) -> f32 {
 /// label column, the 12, a box, the 28, the second half's label column,
 /// the 9 and a box (the draft's `.combos` `width`). Wider than
 /// `GENERAL_WIDTH` if egui's text runs wide; the panel overflows its
-/// nominal 350 then rather than shrinking a gap.
+/// nominal 344 then rather than shrinking a gap.
 pub(super) fn general_content_width(ui: &egui::Ui) -> f32 {
     // The rows' label column is the longest of their six labels,
     // "Registered position"; the second half's its longest, "Shirt number".

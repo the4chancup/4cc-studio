@@ -155,8 +155,8 @@ fn each_combo_lists_its_side_less_tight_marking() {
 #[test]
 fn the_instructions_grid_is_two_equal_columns() {
     // The settings column's width as the window's: the draft's
-    // 414 panel holds a 400-wide content.
-    let mut window = Headless::sized(414.0, 1200.0);
+    // 422 panel holds a 408-wide content.
+    let mut window = Headless::sized(422.0, 1200.0);
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
     let mut view = TacticsView::default();
@@ -807,9 +807,9 @@ fn an_elided_target_shows_the_whole_name_on_hover() {
         })
         .collect();
     let roster = roster_rows(&rows);
-    // The settings column's width as the window's (the real ~190
-    // half at 414): the name is wider.
-    let mut window = Headless::sized(414.0, 1200.0);
+    // The settings column's width as the window's (the real ~196
+    // half at 422): the name is wider.
+    let mut window = Headless::sized(422.0, 1200.0);
     window
         .ctx
         .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);

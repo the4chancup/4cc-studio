@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -2027 1739 2458">
   <!-- U+21BB CLOCKWISE OPEN CIRCLE ARROW. Font units (2048 per em), y up from the baseline: the group flips
-       them into SVG's y-down; the view box is the line from Selawik's ascent to its descent,
-       its width the glyph's advance. -->
+       them into SVG's y-down; the view box is the line the strokes were laid
+       out on, from ascent to descent; its width is the glyph's advance. -->
   <g transform="scale(1 -1)">
     <path fill="none" stroke="#000" stroke-width="129" d="M1119 993 A500 500 0 1 0 619 993"/>
     <polygon points="524,1157.5 861,1133 714,828.5"/>

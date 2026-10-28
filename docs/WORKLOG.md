@@ -3763,7 +3763,13 @@ briefs, review loops, gates and mutation runs as for any step.
       `elide_check.py` nothing elided or wrapped at scales 1, 1.5 and 2, and red on the old
       widths (`elide_check_red.py`); `draft_fonts.py` all suite text in the bundled files,
       the one fallback a member-typed "♂" in a player name (Selawik lacked it too)
-    - [ ] w4b the code (brief `.tmp/0_0_1w/brief_w4b.md`): `theme.rs`'s body and label
+    - [ ] w4b the code (brief `.tmp/0_0_1w/brief_w4b.md`; code done 2026-10-28 by SWE-2,
+      reviewed: report `.tmp/0_0_1w/report_w4b.md`; the Selawik files deleted; the
+      Frontline Press. test takes the draft's 5-point padding, the only one that fails at 414;
+      the three-column test pins the columns' lefts, 36 apart, since the fields' edge moves
+      with the font; `TEAM_ROW`'s claims re-measured; open: the built window's views at
+      1280 x 800 against the drafts, the symbols' placement on Roboto Flex's line among
+      them, with the batched checks): `theme.rs`'s body and label
       families and both chains on the Roboto Flex files, the Selawik files and their README
       rows removed, `make_symbols.py`'s `BODY_FONT` and `symbols.ttf` rebuilt (both copies),
       the formation label's `FontId` and offset, the widths' constants (settings 422, list
