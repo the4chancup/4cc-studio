@@ -1781,11 +1781,11 @@ fn the_registered_position_combo_stores_the_pick_as_one_edit() {
     assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
 }
 
-// SE-GUI-40
 // A click on a position's label registers it — the same undoable edit as
 // General info's combo (the combo reads it, the cell takes the outline,
 // the ratings untouched, the label's hover naming it); a click on the
 // already registered position's label writes nothing.
+// SE-GUI-40
 #[test]
 fn a_positions_label_click_registers_it_as_one_edit() {
     let path = fixture(PesVersion::Pes21, "registered_label_click");
