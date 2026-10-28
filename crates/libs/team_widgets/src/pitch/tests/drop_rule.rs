@@ -204,10 +204,11 @@ fn a_wide_candidate_a_teammate_holds_is_skipped() {
     );
 }
 
-// Slot 5's DMF dropped at (40, 20): the point's candidate is his own
-// DMF, so he keeps it although the default CMF rates higher.
+// Dropped at (40, 20), where the default is CMF and the candidate DMF:
+// slot 5's DMF keeps his DMF although CMF rates higher, and slot 6's
+// CMF keeps his CMF although DMF rates higher.
 #[test]
-fn the_current_position_is_kept_where_it_is_a_candidate() {
+fn the_current_position_is_kept_where_it_is_the_default_or_the_candidate() {
     let formation = formation_701_1();
     let mut overalls = [70; 13];
     overalls[usize::from(position_byte("CMF"))] = 80;
@@ -215,6 +216,13 @@ fn the_current_position_is_kept_where_it_is_a_candidate() {
         dropped_position(&formation, 5, 40, 20, Some(&overalls)),
         position_byte("DMF"),
         "his own DMF is the point's candidate"
+    );
+    let mut overalls = [70; 13];
+    overalls[usize::from(position_byte("DMF"))] = 80;
+    assert_eq!(
+        dropped_position(&formation, 6, 40, 20, Some(&overalls)),
+        position_byte("CMF"),
+        "his own CMF is the point's default"
     );
 }
 

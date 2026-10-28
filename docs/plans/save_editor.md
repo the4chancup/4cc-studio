@@ -782,11 +782,14 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   executable, the last one that is not packed, then checked in PES 2021, where it reproduces
   the four scans and the Select Position menu. Each position has a rectangle of the pitch
   (PES 2016's tables; CF's starts at stored y 40, confirmed in PES 2021). A dropped point
-  inside the dragged player's current position's rectangle keeps it; otherwise he takes the
-  band's default (the first of CB, CMF, SS whose rectangle holds the point) or the first
-  free one of LB, RB, DMF, LMF, RMF, AMF, LWF, RWF, CF, CB, SS holding it, whichever his own
-  per-position overall rates higher, the default on a tie. His teammates' spots never enter
-  it. The overall is PES 2016's formula on every version, no other version's being read: PES
+  offers two positions: the band's default (the first of CB, CMF, SS whose rectangle holds
+  the point) and the first free one of LB, RB, DMF, LMF, RMF, AMF, LWF, RWF, CF, CB, SS holding
+  it, where a central position is always free and a wide one (LB, RB, LMF, RMF, LWF, RWF) only
+  while no other slot of the formation holds it. He keeps his current position when it is one
+  of the two (or the point offers neither); otherwise he takes the one his own per-position
+  overall rates higher, the default on a tie. So a point inside his position's rectangle does
+  not always keep it: a second LMF dragged within LMF's rectangle is offered CMF alone, the
+  other LMF holding the wide one. His teammates' spots never enter it. The overall is PES 2016's formula on every version, no other version's being read: PES
   2021's differs from it by up to 2 (93 of 201 points read in game differ, 12 of them by 2),
   so where the two candidates' overalls are within 2 the editor's pick can differ from the
   game's. The formula is `pes_savefile`'s, on its player model (a player's abilities and
