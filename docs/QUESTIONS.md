@@ -34,7 +34,9 @@ names where the question came from so the context can be read there.
   the seventh rulings (DECISIONS "The final pass's seventh rulings"): the drag handles 4 from
   the row's edge, `.tmp/0_0_1ov/ov8/hints.png` (every hint at a valid value as the dock words
   it) and `ov8/height_hint.png` (a player set to 183 under Autumn 26, the bracket he left
-  named; tried in the drafts by changing a height with Live AATF on). Still to look at:
+  named; tried in the drafts by changing a height with Live AATF on);
+  `.tmp/0_0_1ov/boglo_after.png` (Set boots and gloves IDs in 4ccEditor's layout, DECISIONS
+  "Set boots and gloves IDs takes 4ccEditor's layout"). Still to look at:
   the windows' titles at 14 in white in the built app; the preview's icon where the lead
   cannot capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the
   head; Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's

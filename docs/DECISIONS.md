@@ -12869,3 +12869,19 @@ add; a hint read from what the check already read costs a few lines, where findi
 that passes every rule would run the whole check per candidate.
 Plan: `plans/aatf_rules.md` "The interpreter" (Hints at a valid value); `plans/save_editor.md`
 "Editing UI" (the player row's handle).
+
+## 2026-10-28 — save_editor — Set boots and gloves IDs takes 4ccEditor's layout
+Decision: the dialog takes the layout the maintainer designed for 4ccEditor: a group per side
+(`Boot IDs`, `Glove IDs`), its options stacked with 4ccEditor's wording, each option's field
+in one column across both groups, the incremental range's last ID read-only beside its start
+and following it, the one-ID boxes as wide as the range, `Set` (applies and closes) and
+`Close`. Lead's choices, applied: the window keeps the title the menu and the help name it by
+(`Set boots and gloves IDs for everyone`, not 4ccEditor's `Set boot/glove IDs for everyone`);
+the boot one-ID box starts at the player's boot ID (4ccEditor's starts at his glove ID); the
+buttons stay right-aligned as every dialog's are. Polished the same evening on the maintainer's
+look: each group as wide as its contents and the window as wide as the groups (42 points
+were unused on their right), the range's last ID a flat box with its number in the weak text
+grey (the disabled widget's faded text was barely readable).
+Why: the maintainer's ruling; the earlier draft laid both sides' options on one line each, so a
+radio read as the previous option's and the rows' options did not line up.
+Plan: `plans/save_editor.md` "Team operations".

@@ -4385,7 +4385,10 @@ briefs, review loops, gates and mutation runs as for any step.
       pass's sixth rulings"; drafts done, `plans/save_editor.md` "Editing UI", "Tactics
       editor"): the drag handle 4 points from the row's edge and 4 before the place, in the
       player list and the lineup lists (DECISIONS "The final pass's seventh rulings"); the
-      formation pictures' range on one row, `Teams` first `to` last
+      formation pictures' range on one row, `Teams` first `to` last; Set boots and gloves IDs
+      for everyone in 4ccEditor's layout (`plans/save_editor.md` "Team operations" table's row,
+      DECISIONS "Set boots and gloves IDs takes 4ccEditor's layout"; `view/menus.rs`'s dialog,
+      `help/05_team.md`)
   - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
     the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/`; the first rulings
     drafted and planned (ov2f; the dock's kind codes kept). The two points left for later (a

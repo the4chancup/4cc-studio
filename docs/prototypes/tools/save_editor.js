@@ -120,6 +120,21 @@ input[type=range]:focus { outline: none; }
 .pform { display: grid; grid-template-columns: auto auto; justify-content: start;
   align-items: center; gap: 3px 8px; margin: 3px 0; }
 .pform > * { justify-self: start; }
+/* Set boot/glove IDs: per group its title, then the options stacked, each one's field in a
+   column beside it (egui::Grid in a ui.group). Both groups' option columns are at least the
+   widest option's (Set incremental value:, 142.2) and their field columns the range's (two
+   boxes and the dash, 122.4), so every field starts at one x and the one-ID boxes end where
+   the range does, as in the 4ccEditor layout (egui: the grids' min_col_width). */
+.boglo { display: grid; grid-template-columns: minmax(143px, max-content) minmax(123px, max-content);
+  justify-content: start; align-items: center; gap: 6px 12px; margin-top: 6px; }
+/* Each group as wide as its options and fields, and the window as wide as the groups, as an
+   egui modal sizes to its contents: the drafts' 360 minimum left 42 unused on the groups'
+   right. */
+.window:has(.boglo) { min-width: 0; }
+.group:has(> .boglo) { width: fit-content; }
+/* The range's last ID, read-only: a flat box a shade off the panel, its number in the weak
+   text grey, readable (a disabled widget's faded #5a5a5a was not) and plainly not a field. */
+.boglo input.readout { background: var(--faint); color: #a0a0a0; opacity: 1; cursor: default; }
 .chswatch { display: inline-block; width: 12px; height: 12px; border: 1px solid #000;
   border-radius: 2px; box-sizing: border-box; vertical-align: middle; margin-right: 5px; }
 /* The toolbar's unsaved-changes label is a clickable label (egui: a Label
@@ -3643,27 +3658,36 @@ function dlgCopySwap(p, mode) {
 }
 // Set boots/gloves IDs for everyone: per side unchanged / the original's modes
 // (boots: incremental from a start, or one id for all; gloves as the boot ids
-// or one id for all). One undoable edit over the team (SE-GUI-23).
+// or one id for all). One undoable edit over the team (SE-GUI-23). The
+// maintainer's own layout from 4ccEditor: a group per side, its options
+// stacked, each option's field in one column beside it; the incremental
+// range's last id read-only (the start plus 22, slot 23's), following the
+// start as it is typed; Set applies and closes.
 function dlgBoglo() {
   const t = selTeam(), p = curPlayer();
-  const bStart = h("input", { type: "number", value: p.boots_id });
-  const bId = h("input", { type: "number", value: p.boots_id });
-  const gId = h("input", { type: "number", value: p.gloves_id });
+  const bStart = h("input", { type: "number", value: p.boots_id,
+    oninput: () => { bEnd.value = (parseInt(bStart.value, 10) || 0) + 22; } });
+  const bEnd = h("input", { type: "number", class: "readout", value: p.boots_id + 22, readOnly: true,
+    tabIndex: -1, title: "The last player's ID, read-only" });
+  // The one-ID boxes as wide as the range's two boxes and dash: sized 0 so
+  // the range alone sets the column's width, then stretched to fill it.
+  const wide = v => h("input", { type: "number", value: v, style: "width:0; min-width:100%; box-sizing:border-box" });
+  const bId = wide(p.boots_id), gId = wide(p.gloves_id);
   let bMode = "keep", gMode = "keep";
+  const opt = (side, mode, text, set) => h("label", { class: "cb" },
+    h("input", { type: "radio", name: "boglo-" + side, checked: mode === "keep", onchange: () => set(mode) }), text);
+  const setB = m => bMode = m, setG = m => gMode = m;
+  const group = (title, ...cells) => h("div", { class: "group" }, strong(title),
+    h("div", { class: "boglo" }, ...cells));
   const body = h("div", {},
-    h("p", {}, "Boots: ",
-      h("label", { class: "cb" }, h("input", { type: "radio", name: "boglo-b", checked: true, onchange: () => bMode = "keep" }), " Unchanged"),
-      h("label", { class: "cb" }, h("input", { type: "radio", name: "boglo-b", onchange: () => bMode = "inc" }), " Incremental from "),
-      bStart,
-      h("label", { class: "cb" }, h("input", { type: "radio", name: "boglo-b", onchange: () => bMode = "same" }), " Same ID for all "),
-      bId),
-    h("p", {}, "Gloves: ",
-      h("label", { class: "cb" }, h("input", { type: "radio", name: "boglo-g", checked: true, onchange: () => gMode = "keep" }), " Unchanged"),
-      h("label", { class: "cb" }, h("input", { type: "radio", name: "boglo-g", onchange: () => gMode = "boots" }), " Same as the boot IDs"),
-      h("label", { class: "cb" }, h("input", { type: "radio", name: "boglo-g", onchange: () => gMode = "same" }), " Same ID for all "),
-      gId));
+    group("Boot IDs", opt("b", "keep", "Unchanged", setB), h("span"),
+      opt("b", "inc", "Set incremental value:", setB), h("span", { class: "row" }, bStart, "–", bEnd),
+      opt("b", "same", "Set all to the same ID:", setB), bId),
+    group("Glove IDs", opt("g", "keep", "Unchanged", setG), h("span"),
+      opt("g", "boots", "Set like boot IDs", setG), h("span"),
+      opt("g", "same", "Set all to the same ID:", setG), gId));
   dlg("boglo", "Set boots and gloves IDs for everyone", body,
-    [button("OK", () => {
+    [button("Set", () => {
       const start = parseInt(bStart.value, 10), bid = parseInt(bId.value, 10),
         gid = parseInt(gId.value, 10);
       edit("Boots and gloves for everyone", () => {
@@ -3675,7 +3699,7 @@ function dlgBoglo() {
         });
       });
       closeWindow(); render();
-    }), button("Cancel", closeWindow)]);
+    }), button("Close", closeWindow)]);
 }
 // Output rosters to TSV (SE-GUI-27): the roster_data_output format, per team
 // its name alone, then number, name (raw, colour codes kept), short position,
