@@ -2761,3 +2761,4 @@ worklog passed 7,000 lines.
 - **2026-10-28** — y5b's code (the popover's position row without its label, the combo filling to Make GK) and y7b (Very early on PES 2018-2020), SWE-2, reviewed.
 - **2026-10-28** — The sidebar's flicker on the hover expand: egui faded the overlay in while the rail's widgets had already left; the overlay no longer fades.
 - **2026-10-28** — y6b's code: the pitch badge shows the starter's overall at his slot's position, his medal as an outline, the captain's mark outlined (SWE-2, reviewed).
+- **2026-10-28** — y4e2's code: a starter dropped on the grass takes the position the game's formation editor gives (its two area tables, the band default, the first free candidate, his overall picking), tested on PES 2017's measured edges and PES 2021's scans (SWE-2, reviewed).

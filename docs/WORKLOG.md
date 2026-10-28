@@ -3926,7 +3926,14 @@ briefs, review loops, gates and mutation runs as for any step.
         (a new `pub` method) rides with y4e2's
       - [ ] y4e2 the rule in `team_widgets`' pitch drop (the rectangles, the band default,
         the candidates), `RosterRow` carrying each starter's thirteen overalls from the host,
-        the y3 scans and y4d's edges as tests
+        the y3 scans and y4d's edges as tests. Code done 2026-10-28 (SWE-2, brief
+        `.tmp/0_0_1y4/brief_y4e2.md`; `RosterRow::overalls` came with y6b): `pitch/drop_rule.rs`
+        `dropped_position`, the executable's two tables, the grass drop setting the position;
+        tests on 701's formation 1 (y4d's ten edges) and 718's formations 1 and 3 (y3's scans
+        less the swap previews), expected values from `.tmp/0_0_1y4/y4e2_cases.py`, plus the
+        tie, the held wide candidate, the keep and no overalls; each red on a stub and under a
+        perturbation (CF's y 40, `free`, the tie, the keep, the candidates' order); help
+        `08_tactics.md`. Open: the (b) cross-family review of y4e1 + y4e2
   - [ ] y5 the slot popover's position row (the maintainer, 2026-10-28): no Position label,
     the dropdown and Make GK filling the popover's width, the button at its own width
     - [x] y5a the draft (`5d668583` and the commit after it) and `plans/save_editor.md` "The

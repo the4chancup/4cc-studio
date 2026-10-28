@@ -190,6 +190,171 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     );
 }
 
+// The grass drop also writes the slot's position, by the game's own
+// rule: the band's default or the first free candidate the snapped
+// point falls in, whichever his per-position overall rates higher.
+// Slot 2's CB released at stored (40, 20) — its default CMF, its
+// candidate DMF — takes the higher-rated DMF; released at (40, 12),
+// inside CB's band, he is CB again.
+#[test]
+fn a_marker_released_on_the_grass_takes_the_rules_position() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    tactics.presets[0].formations[0] = formation_701_1();
+    roster[usize::from(tactics.starting_eleven[2])].overalls =
+        Some([62, 83, 73, 73, 73, 69, 68, 68, 71, 68, 68, 70, 70]);
+    let players = tactics.presets[0].formations[0].players;
+    assert_eq!(
+        (players[2].position, players[2].x, players[2].y),
+        (position_byte("CB"), 40, 8),
+        "premise: slot 2's CB at (40, 8)"
+    );
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    let from = marker_point(&nodes, &players, 2);
+    let onto = badge_centre(
+        canvas.min,
+        FormationSlot {
+            position: 1,
+            x: 40,
+            y: 20,
+        },
+    );
+    assert!(
+        canvas.contains(onto)
+            && centres.iter().enumerate().all(|(other, centre)| {
+                other == 2 || !marker_rect(*centre, canvas).contains(onto)
+            }),
+        "premise: the release lands on free grass"
+    );
+
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(changed, "the drop changed the record");
+    let moved = tactics.presets[0].formations[0].players[2];
+    assert_eq!(
+        (moved.x, moved.y),
+        (40, 20),
+        "his spot is the snapped point"
+    );
+    assert_eq!(
+        moved.position,
+        position_byte("DMF"),
+        "his overall rated DMF over the default CMF"
+    );
+
+    // A frame first: a press hit-tests against the markers the last
+    // frame registered, still at his old spot.
+    let players = tactics.presets[0].formations[0].players;
+    let centres = centres_of(canvas, &players);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let from = marker_point(&nodes, &players, 2);
+    let onto = badge_centre(
+        canvas.min,
+        FormationSlot {
+            position: 1,
+            x: 40,
+            y: 12,
+        },
+    );
+    assert!(
+        centres
+            .iter()
+            .enumerate()
+            .all(|(other, centre)| { other == 2 || !marker_rect(*centre, canvas).contains(onto) }),
+        "premise: the release lands on free grass"
+    );
+
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(changed, "the drop changed the record");
+    let moved = tactics.presets[0].formations[0].players[2];
+    assert_eq!(
+        (moved.x, moved.y),
+        (40, 12),
+        "his spot is the snapped point"
+    );
+    assert_eq!(
+        moved.position,
+        position_byte("CB"),
+        "the point is in CB's band: he is CB again"
+    );
+}
+
+// The same drop with no overalls on the dragged starter's roster row
+// keeps his position: no overall, no pick. His spot still writes.
+#[test]
+fn a_marker_released_on_the_grass_without_overalls_keeps_his_position() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    tactics.presets[0].formations[0] = formation_701_1();
+    let players = tactics.presets[0].formations[0].players;
+    assert_eq!(
+        (players[2].position, players[2].x, players[2].y),
+        (position_byte("CB"), 40, 8),
+        "premise: slot 2's CB at (40, 8)"
+    );
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    let from = marker_point(&nodes, &players, 2);
+    let onto = badge_centre(
+        canvas.min,
+        FormationSlot {
+            position: 1,
+            x: 40,
+            y: 20,
+        },
+    );
+    assert!(
+        centres
+            .iter()
+            .enumerate()
+            .all(|(other, centre)| { other == 2 || !marker_rect(*centre, canvas).contains(onto) }),
+        "premise: the release lands on free grass"
+    );
+
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(changed, "his spot moved: the record changed");
+    let moved = tactics.presets[0].formations[0].players[2];
+    assert_eq!(
+        (moved.x, moved.y),
+        (40, 20),
+        "his spot is the snapped point"
+    );
+    assert_eq!(
+        moved.position,
+        position_byte("CB"),
+        "no overalls: his CB is kept"
+    );
+}
+
 // A pitch player dropped on another swaps the two slots in the shown
 // formation, as the game's drag does in Team Sheet/Edit Position: the
 // two slots of preset 1's Kick-off exchange position, x and y, each

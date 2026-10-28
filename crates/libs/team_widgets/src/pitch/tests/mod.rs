@@ -4,6 +4,8 @@ use pes_version::PesVersion;
 use super::*;
 use crate::test_support::{Headless, centre, control_right_of, pointer_at};
 
+/// The grass-drop position rule's tests.
+mod drop_rule;
 /// The drag-and-drop and swap tests.
 mod drops;
 /// The geometry and painted-output tests.
@@ -501,4 +503,76 @@ pub(crate) fn position_of_row(nodes: &[accesskit::Node], index: usize) -> String
         .and_then(|node| node.value())
         .unwrap_or_else(|| panic!("no lineup row {index}"))
         .to_owned()
+}
+
+/// `label`'s position byte (its index in `POSITIONS`): "GK" to "CF".
+fn position_byte(label: &str) -> u8 {
+    POSITIONS
+        .iter()
+        .position(|&name| name == label)
+        .and_then(|index| u8::try_from(index).ok())
+        .unwrap_or_else(|| panic!("{label:?} is no position label"))
+}
+
+/// A formation of the eleven `(position, x, y)` slots, as the record
+/// stores them.
+fn formation_of(slots: [(&str, u8, u8); 11]) -> Formation {
+    Formation {
+        players: slots.map(|(position, x, y)| FormationSlot {
+            position: position_byte(position),
+            x,
+            y,
+        }),
+    }
+}
+
+/// Team 701's preset 1 formation 1.
+fn formation_701_1() -> Formation {
+    formation_of([
+        ("GK", 52, 3),
+        ("CB", 64, 8),
+        ("CB", 40, 8),
+        ("RB", 88, 10),
+        ("LB", 16, 10),
+        ("DMF", 52, 18),
+        ("CMF", 75, 26),
+        ("CMF", 28, 26),
+        ("AMF", 52, 34),
+        ("CF", 38, 42),
+        ("SS", 66, 42),
+    ])
+}
+
+/// Team 718's preset 1 formation 1.
+fn formation_718_1() -> Formation {
+    formation_of([
+        ("GK", 52, 3),
+        ("SS", 69, 35),
+        ("CMF", 53, 26),
+        ("DMF", 66, 17),
+        ("CB", 32, 6),
+        ("CB", 72, 6),
+        ("CB", 52, 7),
+        ("RMF", 84, 27),
+        ("LMF", 20, 26),
+        ("DMF", 42, 17),
+        ("CF", 42, 41),
+    ])
+}
+
+/// Team 718's preset 1 formation 3.
+fn formation_718_3() -> Formation {
+    formation_of([
+        ("GK", 52, 3),
+        ("CMF", 63, 26),
+        ("CMF", 43, 26),
+        ("DMF", 65, 16),
+        ("CB", 32, 6),
+        ("CB", 72, 6),
+        ("CB", 52, 7),
+        ("RMF", 84, 27),
+        ("LMF", 20, 26),
+        ("DMF", 42, 16),
+        ("CF", 43, 40),
+    ])
 }

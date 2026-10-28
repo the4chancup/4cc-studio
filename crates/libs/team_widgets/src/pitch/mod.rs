@@ -15,6 +15,8 @@ use crate::names::append_name;
 use crate::tactics::{Assign, FieldedMark, OpenSlot, RosterRow, TacticsView, name_at, raw_name_at};
 use crate::violations::{CROSS, MARK_GAP};
 
+/// The position a marker released on the grass takes.
+mod drop_rule;
 /// The "Starting eleven" and "Bench" lists, their rows and `swap_in`.
 mod lineup;
 /// The slot popover a marker click opens beside its marker.
@@ -192,7 +194,8 @@ pub fn formation_selector(ui: &mut egui::Ui, view: &mut TacticsView) {
 /// the game's select-one-then-the-other), another `Marker` exchanges the
 /// two slots' position and spot in the shown formation alone (the game's
 /// drag) — and a release on the grass writes its slot's snapped
-/// coordinates, where a row's release does nothing. The keeper's marker
+/// coordinates and sets its position by the game's drop rule, where a
+/// row's release does nothing. The keeper's marker
 /// (position 0) is neither a drag source nor a marker's swap target; his
 /// spot is fixed. `version` is the open save's (`swap_in`'s instruction
 /// decode). Answers `true` only when `tactics` changed this frame.
@@ -325,8 +328,15 @@ pub fn pitch(
                         Some(onto) => formation.players.swap(from, onto),
                         None => {
                             let (x, y) = snap(pos, canvas.min);
+                            // The dragged starter's own per-position
+                            // overalls pick his new position.
+                            let overalls = roster
+                                .get(usize::from(tactics.starting_eleven[from]))
+                                .and_then(|row| row.overalls.as_ref());
                             formation.players[from].x = x;
                             formation.players[from].y = y;
+                            formation.players[from].position =
+                                drop_rule::dropped_position(formation, from, x, y, overalls);
                         }
                     }
                 }

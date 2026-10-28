@@ -21,7 +21,9 @@ the game picked at the top of the sidebar, out of the `download` folder
 inside the **PES folder** setting. When that folder is missing, or a file
 it lists is missing, the starters show the game's blank portrait instead.
 Dragging a pitch player to a new place moves him there, snapped to the
-positions the save can hold, and dropping him on another starter (the goalkeeper excepted)
+positions the save can hold, and gives him the position the game's own
+editor would there (which can depend on his ratings: the spot offers up
+to two positions and he takes the one he rates higher at); dropping him on another starter (the goalkeeper excepted)
 trades their places and positions in the formation on screen alone, as
 the game's own drag does: the preset's other two formations and the other
 presets keep theirs. While you hold him over the other, that one's marker
