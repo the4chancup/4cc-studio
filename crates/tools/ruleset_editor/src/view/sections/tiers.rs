@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use aatf::{MedalSystem, Ruleset, Stat, Tier, TierId};
 use pes_savefile::interchange::team_toml::labels::ABILITY_STATS;
+use studio_core::widgets::checkbox;
 
 use super::Section;
 use super::widgets;
@@ -214,7 +215,7 @@ fn tier_row(
     });
 
     cell(ui, index, drop, |ui| {
-        ui.checkbox(&mut ruleset.tiers[index].total_within_targets, "")
+        checkbox(ui, &mut ruleset.tiers[index].total_within_targets, "")
             .on_hover_text("The stats add up to at most the targets, an error past them")
     });
 
@@ -269,8 +270,7 @@ fn count_cell(ui: &mut egui::Ui, ruleset: &mut Ruleset, index: usize, medal_coun
         }
     }
     let mut rest = tier.count.is_none();
-    if ui
-        .checkbox(&mut rest, "rest")
+    if checkbox(ui, &mut rest, "rest")
         .on_hover_text("The rest of the squad: one tier at most")
         .changed()
     {
@@ -328,8 +328,7 @@ fn label_of(ids: &[(TierId, String)], id: &TierId) -> String {
 fn name_color_cell(ui: &mut egui::Ui, ruleset: &mut Ruleset, index: usize) {
     let tier = &mut ruleset.tiers[index];
     let mut on = tier.name_color.is_some();
-    if ui
-        .checkbox(&mut on, "")
+    if checkbox(ui, &mut on, "")
         .on_hover_text("This tier's names carry a colour code")
         .changed()
     {
@@ -482,7 +481,7 @@ fn stat_targets(ui: &mut egui::Ui, ruleset: &mut Ruleset, index: usize) {
                 ui.horizontal(|ui| {
                     let tier = &mut ruleset.tiers[index];
                     let mut own = tier.stats.contains_key(&stat);
-                    if ui.checkbox(&mut own, human(name)).changed() {
+                    if checkbox(ui, &mut own, human(name)).changed() {
                         if own {
                             tier.stats.insert(stat, tier.rate);
                         } else {
@@ -544,12 +543,14 @@ fn medal_systems(ui: &mut egui::Ui, ruleset: &mut Ruleset, medal_tiers: &BTreeSe
             } else {
                 "Add a medal system first"
             };
-            let checkbox = ui.horizontal(|ui| {
-                ui.add_enabled(has_systems, egui::Checkbox::new(&mut counted, label))
-                    .changed()
+            let cell = ui.horizontal(|ui| {
+                ui.add_enabled(has_systems, |ui: &mut egui::Ui| {
+                    checkbox(ui, &mut counted, label)
+                })
+                .changed()
             });
-            checkbox.response.on_hover_text(tip);
-            let toggled = checkbox.inner;
+            cell.response.on_hover_text(tip);
+            let toggled = cell.inner;
             if toggled {
                 set_counted(ruleset, index, counted);
             }

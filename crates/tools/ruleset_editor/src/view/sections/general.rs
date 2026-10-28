@@ -4,6 +4,7 @@
 
 use aatf::{NON_STAT_TARGETS, Ruleset, Stat};
 use pes_savefile::interchange::team_toml::labels::ABILITY_STATS;
+use studio_core::widgets::checkbox;
 
 use super::Section;
 use super::widgets;
@@ -63,7 +64,7 @@ fn checklist(ui: &mut egui::Ui, ruleset: &mut Ruleset, list: Checklist, names: &
     .show(ui, |ui| {
         for (index, &name) in names.iter().enumerate() {
             let mut on = holds(ruleset, list, name);
-            if ui.checkbox(&mut on, human(name)).changed() {
+            if checkbox(ui, &mut on, human(name)).changed() {
                 toggle(ruleset, list, name, on);
             }
             if index % 5 == 4 {

@@ -18,7 +18,7 @@ mod teams_list;
 mod test_support;
 mod view;
 
-use studio_core::widgets::{PathKind, path_row};
+use studio_core::widgets::{PathKind, checkbox_without_text, path_row};
 use studio_core::{CliError, HelpSection, HelpTopic, RunningPes, StudioTool, ToolContext};
 
 use crate::messages::TOOL_ID;
@@ -189,8 +189,7 @@ impl StudioTool for Tool {
                 let label = ui.label("Aesthetics from exports").on_hover_text(format!(
                     "aesthetics_from_exports: {AESTHETICS_FROM_EXPORTS_TIP}"
                 ));
-                committed_aesthetics = ui
-                    .add(egui::Checkbox::without_text(&mut aesthetics))
+                committed_aesthetics = checkbox_without_text(ui, &mut aesthetics)
                     .labelled_by(label.id)
                     .on_hover_text(AESTHETICS_FROM_EXPORTS_TIP)
                     .changed();

@@ -21,7 +21,7 @@ use pes_version::PesVersion;
 
 use crate::settings::{CommonSettings, Theme, pes_folder_pattern};
 use crate::tool::{ShellRequest, StudioTool, ToolContext};
-use crate::widgets::{PathCommit, PathKind, path_row, path_row_commit, row_label};
+use crate::widgets::{PathCommit, PathKind, checkbox, path_row, path_row_commit, row_label};
 
 use super::sidebar::{Sidebar, exe_tooltip, version_blocker, version_label};
 
@@ -169,10 +169,9 @@ impl SettingsMenu {
                 let overrides = !common.pes_folders.is_empty();
                 self.per_version |= overrides;
                 ui.label("");
-                ui.add_enabled(
-                    !overrides,
-                    egui::Checkbox::new(&mut self.per_version, "A folder per version"),
-                )
+                ui.add_enabled(!overrides, |ui: &mut egui::Ui| {
+                    checkbox(ui, &mut self.per_version, "A folder per version")
+                })
                 .on_hover_text(
                     "Gives each PES version a folder of its own, for installs \
                          whose folders do not follow one pattern.",

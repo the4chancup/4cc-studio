@@ -15,6 +15,7 @@ use pes_savefile::model::{PlayerEntry, PlayerPositions, PlayerStats};
 use pes_savefile::schema::fields::{PlayerField, PlayerText, RosterField};
 use pes_savefile::schema::{VersionSchema, portable_text_max, schema_for};
 use pes_version::PesVersion;
+use studio_core::widgets::radio;
 use team_widgets::cards;
 use team_widgets::names::append_name;
 
@@ -362,7 +363,7 @@ pub(super) fn general(
             // (the draft's `.pair > .box` `justify-content: center`).
             ui.allocate_ui(egui::vec2(BOX_WIDTH, ui.spacing().interact_size.y), |ui| {
                 ui.centered_and_justified(|ui| {
-                    let response = ui.radio(captain, "");
+                    let response = radio(ui, captain, "");
                     if response.clicked() {
                         edit_team(session, team_id, response.id.value(), |team| {
                             team.tactics.set_pieces.captain = slot;

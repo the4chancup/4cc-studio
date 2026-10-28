@@ -9,6 +9,7 @@ use pes_savefile::interchange::team_toml::labels::{self, title_case};
 use pes_savefile::model::playstyle::PlayStyle;
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::schema::{playstyle, schema_for};
+use studio_core::widgets::checkbox;
 
 /// A skills or COM styles column's width (the draft's `.skcols` 158px):
 /// the host sizes the panels that hold the two columns from it.
@@ -68,16 +69,14 @@ pub fn card_columns(
                     let field = field(index);
                     let index = usize::from(index);
                     if fields.contains(&field) {
-                        changed |= ui
-                            .checkbox(&mut cards[index], title_case(names[index]))
-                            .changed();
+                        changed |=
+                            checkbox(ui, &mut cards[index], title_case(names[index])).changed();
                     } else {
                         // A card the version cannot store stays, disabled,
                         // its tooltip naming the first version that has it.
-                        ui.add_enabled(
-                            false,
-                            egui::Checkbox::new(&mut cards[index], title_case(names[index])),
-                        )
+                        ui.add_enabled(false, |ui: &mut egui::Ui| {
+                            checkbox(ui, &mut cards[index], title_case(names[index]))
+                        })
                         .on_disabled_hover_text(format!("PES {}+", first_with(field).number()));
                     }
                 }

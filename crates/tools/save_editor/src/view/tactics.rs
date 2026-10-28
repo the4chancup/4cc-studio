@@ -16,7 +16,7 @@
 use aatf::TeamView;
 use pes_savefile::EditFile;
 use pes_savefile::model::names::display_name;
-use studio_core::widgets::menu_button;
+use studio_core::widgets::{checkbox, menu_button};
 use team_widgets::pitch::{self, FORMATIONS};
 use team_widgets::tactics::{self, FieldedMark, Medal, RosterRow};
 use team_widgets::violations::violation_line;
@@ -224,7 +224,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         let mut formbar_ui = bar(ui, pitch_left, right);
         pitch::formation_selector(&mut formbar_ui, tactics);
         copy_swap_formation_menu(&mut formbar_ui, session, team_id, tactics);
-        formbar_ui.checkbox(&mut tactics.scroll_names, "Scroll names");
+        checkbox(&mut formbar_ui, &mut tactics.scroll_names, "Scroll names");
         let row2_top = top_left.y + line + ROW_GAP;
 
         // Row 2: Formation settings, the pitch, Player assignments —
