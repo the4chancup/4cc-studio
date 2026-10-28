@@ -12690,3 +12690,12 @@ needs reviewing again, where making the drafts 1280 × 800 would have meant grow
 the new room. Found when the built windows were first laid over their drafts (0.0.1ov).
 Plan: `spec/core/gui.md` "Shell layout", "The window's size"; `plans/core/gui.md` "Prototypes
 before implementation", the Size bullet.
+
+## 2026-10-28 — gui — A checked checkbox and a selected radio button are blue
+Decision: a checked checkbox and a selected radio button are filled in the selection blue
+(`#005c80`), the tick or dot in the selection's text colour (`#c0deff`), hovered and pressed
+alike, in the app and the drafts; unchecked ones stay egui's grey box or circle.
+Why: the maintainer's call at the final pass: the choices made pop to the eye. egui draws a
+checked box grey with a grey tick, which the drafts had just been brought to (0.0.1w1b); the
+drafts before that showed the browser's own blue box, which is what was reviewed.
+Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row.

@@ -20,10 +20,21 @@ names where the question came from so the context can be read there.
   window's title is its place"); the floating windows' titles centred in the drafts as
   egui's title bar draws them (DECISIONS "A floating window's title centred"); Live AATF's
   crosses 2 points from what they mark, the drafts' 4 brought to the app's (DECISIONS "Live
-  AATF's crosses 2 points from what they mark"). In the same pass: the preview's icon where the lead cannot
+  AATF's crosses 2 points from what they mark"). Before-and-after images of the drafts'
+  side: `.tmp/0_0_1ov/vet/titles_help.png`, `titles_comparator.png`, `crosses_field.png`,
+  `crosses_pitch.png`. In the same pass: the preview's icon where the lead cannot
   capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the head;
   Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's hash
   (0.0.1f2).
+- **The drafts' controls as egui draws them** (worklog 0.0.1w1b, `9774b52a`, drafted by the
+  lead while the maintainer was away, never looked at): a combo's open list drawn as egui's
+  popup under its button rather than the system's list; the player list's rows stopping 10
+  points short of its right edge while it scrolls, the browser's own scroll bar hidden; the
+  drafts naming the suite Unlimited Tool Works where the app does (`2062ac96`). Before-and-after
+  images: `.tmp/0_0_1ov/vet/combo_open.png`, `list_band.png`, `name_about.png`,
+  `name_titlebar.png`. Its checkbox part is answered: a checked box and a selected radio button
+  are blue (DECISIONS "A checked checkbox and a selected radio button are blue"; the three
+  looks side by side in `checkbox.png`).
 ## Cup practice
 
 The Music player's three below come from reading Rigdio v2.2.0's controls (worklog 10.0i,

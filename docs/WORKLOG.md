@@ -4338,11 +4338,21 @@ briefs, review loops, gates and mutation runs as for any step.
       the old layout, each tolerance perturbed). A real user folder's hint takes three lines
       at 299, egui breaking at the space after the path, never inside it. Open: the draft's
       `.firstrun` bottom margin of 8 (egui's item spacing there), for ov2's batch
+    - [ ] ov2b a checked checkbox and a selected radio button blue in the app (the maintainer,
+      2026-10-28; drafts done by the lead, DECISIONS "A checked checkbox and a selected radio
+      button are blue"): the selection fill and its text colour's tick or dot, hovered and
+      pressed alike, on every checkbox and radio the views draw
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
     `docs/prototypes/assets/captures/`, the Overlay control over the draft (8.20's brief,
     `.tmp/8_20/brief_8_20.md`, written for a worktree since gone: rebase it on main)
+  - [ ] ov5 the vetting renderer into `scripts/` (the maintainer, 2026-10-28: "useful enough
+    to keep"): `.tmp/0_0_1ov/vet.py`, which renders a draft change's before and after from
+    `git archive` exports side by side (stacked when side by side would be over four times
+    as wide as tall: the maintainer, 2026-10-28), each sheet carrying the change's reason under
+    its caption (the maintainer, 2026-10-28), generalized from its cases list to a
+    revision pair and a link, with its test
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming
