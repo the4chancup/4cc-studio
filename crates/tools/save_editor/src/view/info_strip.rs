@@ -452,7 +452,7 @@ fn pair_half(
 /// `label`'s galley width at the body font (the panels' label columns
 /// are measured rather than hard-coded: egui's text is wider than the
 /// draft's).
-fn label_width(ui: &egui::Ui, label: &str) -> f32 {
+pub(super) fn label_width(ui: &egui::Ui, label: &str) -> f32 {
     let body = egui::TextStyle::Body.resolve(ui.style());
     ui.painter()
         .layout_no_wrap(label.to_owned(), body, egui::Color32::WHITE)
