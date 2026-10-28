@@ -224,9 +224,9 @@ pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
 /// The Savefile menu button (the draft's `databaseMenu`): Output rosters
 /// to TSV, a pure read of the open save so never locked — `rfd`'s save
 /// dialog with `EDIT.tsv` as the default name, a write error shown as the
-/// refusal — and Fix database, under the aesthetics lock with the
-/// ownership line as its disabled hover (SE-GUI-22). The menu is
-/// disabled with no save open.
+/// refusal — then Multi-team AATF, a read too (`multi_aatf`), and Fix
+/// database, under the aesthetics lock with the ownership line as its
+/// disabled hover (SE-GUI-22). The menu is disabled with no save open.
 pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     let (unlocked, version) = {
         let Some(session) = view.session.as_ref() else {
@@ -252,6 +252,10 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
                     message: format!("{error:#}"),
                 });
             }
+            ui.close();
+        }
+        if ui.button("Multi-team AATF\u{2026}").clicked() {
+            view.multi_aatf.open(session.file());
             ui.close();
         }
         if ui
