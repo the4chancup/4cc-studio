@@ -4369,13 +4369,43 @@ briefs, review loops, gates and mutation runs as for any step.
       (new in the symbols font: `theme.rs`'s symbol list test gains it) in an 11-point box,
       glyph centred; the check asked for the suggestions, the dock listing
       them under `Suggestions`, its header counting errors and warnings; a suggestion marking
-      its allowance's field; the detail pane's scroll area taking in the gap after the list
+      its allowance's field; the player view's column gaps 30, not 36 (`COLUMN_GAP`); Show
+      suggestions right of the toggle while it is on (`live_suggestions`), the suggestions
+      asked for only then; `Team-wide issues` heading the team's own rows (DECISIONS "The
+      final pass's third rulings")
   - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
     the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/`; the first rulings
     drafted and planned (ov2f; the dock's kind codes kept). Open for later (the maintainer,
     2026-10-28: "we'll get there later"): a rules file that fails to load surfaced when it is
     loaded, not only as a failed check; switching between rules files, which the maintainer
     finds awkward (what to change still to be asked)
+  - [ ] ov7 Live AATF replaces the AATF panel (the maintainer, 2026-10-28: "Live AATF covers
+    it entirely if we do the following"), drafts, plan and DECISIONS before code:
+    - a rules file carries a human-readable description shown wherever the ruleset is named
+      (for example `/vg/ League 26` for VGL26); the schema's `name` already exists
+      (`spec/aatf_rules.md` "The ruleset schema", every file under `crates/libs/aatf/rulesets/`
+      sets it to a code such as `VGL26`): to settle whether `name` takes the description or a
+      new key is added, and the cups' full names (VTL's to look up, not to invent)
+    - a dropdown left of the Live AATF toggle picks the ruleset among the embedded files,
+      shown by description alone, its last choice importing a `.4ccrules` file: validated
+      (`Rules::load`) and, if clean, copied into the app's data folder and listed; a broken
+      file is refused, to be fixed in the Ruleset editor first; the choice is remembered
+      across restarts (it replaces the `aatf_rules` path setting and the Settings menu's
+      entry for it); an imported ruleset's row carries an × that removes it (egui's combo
+      list holds any widgets), the maintainer's idea of 2026-10-28; to settle: a confirmation,
+      the fallback when the active one is removed or its copy is missing, which embedded files
+      ship (the spec embeds only Autumn 26 in a shipped binary; the 0.0.1 bundle planned
+      `rules/dbc7.4ccrules` as its setting)
+    - no Save a copy of a ruleset (the Ruleset editor's job); the Panels menu's `AATF
+      violations…` and the floating AATF panel go (SE-GUI-15 and the panel's other scenarios
+      withdrawn or rewritten for Live AATF; its whole-save, several-teams check goes with it,
+      `check-aatf` keeping the command line's); the quick actions' load-error line goes with
+      broken files
+  - [ ] ov8 a violation's sentence suggests a valid value where the check can say it cheaply
+    (the maintainer, 2026-10-28: "height 185 takes no bracket (175-184 are currently
+    allowed)", warnings too where it applies): per kind, what the hint says and what it costs
+    the script (`logic.rhai`, hashed: before logic version 1's freeze, 0.0.1f2), drafted as a
+    table for the maintainer's ruling, then the drafts' sentences and the plan
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
@@ -4393,7 +4423,8 @@ briefs, review loops, gates and mutation runs as for any step.
   cut is the convenient time: the first release fixes the exe's name, the data folder
   (`%APPDATA%\4cc-studio`) and the bundle's name, which a later rename would have to migrate.
   To plan first: every user-visible name (exe, data folder, bundle, window class, CLI command,
-  help text), the crates' and repository's names, the CI jobs, the docs
+  help text), the crates' and repository's names, the CI jobs, the docs. The local folder
+  keeps the working name `4cc-studio` until 1.0.0 (the maintainer, 2026-10-28)
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming

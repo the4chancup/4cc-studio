@@ -194,7 +194,7 @@ input[type=range]:focus { outline: none; }
    and even gaps; the whole view centred between the player list and the
    window's right edge, so the room the columns leave falls evenly on both
    sides (the gap after the list equals the margin after Ability stats). */
-.pcols { display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }
+.pcols { display: flex; gap: 30px; align-items: flex-start; flex-wrap: wrap; }
 #player-view { width: fit-content; margin: 0 auto; }
 .pcol { gap: 14px; }
 .pcol.first { width: 344px; }
@@ -441,14 +441,10 @@ table.grid.stats-grid td { padding: 2px 6px; }
    reaches over the view's right margin into the strip and takes the margin
    back as padding, so its content ends where the view's other rows do, at
    the width the app gives it (egui's scroll bar floats and takes none). The
-   pane holds the scroll; the view itself keeps no strip of its own. On the
-   left the pane takes in the 12-point gap after the player list the same way,
-   so a Live AATF mark left of a first-column label draws in that gap rather
-   than clipped at the pane's edge. */
+   pane holds the scroll; the view itself keeps no strip of its own. */
 .center.filled { scrollbar-gutter: auto; padding-right: calc(12px + var(--sbw, 0px)); }
 .center.filled .detail { overflow: auto; min-height: 0; scrollbar-gutter: stable;
-  margin-right: calc(-12px - var(--sbw, 0px)); padding-right: 12px;
-  margin-left: -12px; padding-left: 12px; }
+  margin-right: calc(-12px - var(--sbw, 0px)); padding-right: 12px; }
 .live-panel { flex: none; margin-top: 6px; }
 .live-divider { height: 4px; cursor: ns-resize; }
 .live-divider:hover { background: var(--hover); }
@@ -3168,7 +3164,7 @@ function renderToolbar() {
   return h("div", { class: "toolbar", "data-panel": "toolbar" },
     openMenu(), saveBtn, button("Save as", saveAs), playerMenu(), teamMenu(), databaseMenu(),
     panelsMenu(), undoBtn, redoBtn,
-    liveButton(),
+    liveButton(), LIVE.on ? suggestionsToggle() : null,
     // The save's path is in the window title (`titleDetail`): beside the
     // unsaved mark it could wrap the toolbar onto a second row.
     dirty() ? unsavedLabel() : null);
@@ -6142,7 +6138,7 @@ function aatfPanel() {
       lastTeam = team; lastPid = null; lastIsTeam = false;
     }
     if (pid === 0) {
-      if (!lastIsTeam) { list.append(h("div", { class: "grp weak" }, "the team")); lastIsTeam = true; }
+      if (!lastIsTeam) { list.append(h("div", { class: "grp weak" }, "Team-wide issues")); lastIsTeam = true; }
     } else if (pid !== lastPid) {
       list.append(playerHead(pid));
       lastPid = pid; lastIsTeam = false;
@@ -6197,6 +6193,7 @@ function aatfPanel() {
 // log panel widget's frame (index.html): the chevron collapses it to the
 // header, the divider above it drags its height.
 const LIVE = { on: localStorage.getItem("save_editor.live_aatf") === "true",
+  sugg: localStorage.getItem("save_editor.live_suggestions") === "true",
   collapsed: false, height: 150, sig: null, result: null, checking: false, timer: null };
 function setLive(on) {
   LIVE.on = on; LIVE.sig = null; LIVE.result = null;
@@ -6212,6 +6209,17 @@ function liveButton() {
   b.className = "livebtn" + (LIVE.on ? " on" : "");
   b.id = "live-toggle";
   return b;
+}
+// Show suggestions, right of the toggle and only while Live AATF is on (it
+// says what the check asks for): off by default and remembered, as the
+// toggle is; on, the check asks for the unused allowances too, so the blue
+// marks and the dock's Suggestions group appear. sample wording: the tooltip.
+function suggestionsToggle() {
+  const c = cb("Show suggestions", LIVE.sugg, v => {
+    LIVE.sugg = v; localStorage.setItem("save_editor.live_suggestions", String(v)); });
+  c.id = "live-suggestions";
+  c.title = "Also list each player's unused allowances (cards, free tricks, weak foot...)";
+  return c;
 }
 // While Live AATF is on, its result marks the editor itself, so a manager sees
 // what to fix where they fix it. The rows of the last result when it is that
@@ -6314,7 +6322,7 @@ const liveTeam = () => selTeam();
 // ruleset) starts a check.
 const liveSig = () => {
   const t = liveTeam();
-  return [D.ruleset, S.saveKey, t.id, D.liveTeamRows, JSON.stringify(t.players),
+  return [D.ruleset, S.saveKey, t.id, D.liveTeamRows, LIVE.sugg, JSON.stringify(t.players),
     JSON.stringify(t.tactics)].join("|");
 };
 // Called by render(). The real check runs on a worker once the edit settles
@@ -6359,8 +6367,8 @@ function liveRow(row, team) {
       return total > Number(kv.limit) ? [sev, team.id, pid, rule, "total=" + total + ";limit=" + kv.limit] : null;
     }
     case "Height": return p.height === Number(kv.height) ? row : null;
-    // Re-read whole from the tactics by `fieldedRows`.
-    case "FieldedNotA": return null;
+    // Re-read whole from the tactics by `fieldedRows`, from the cards by `cardRows`.
+    case "FieldedNotA": case "Cards": return null;
     case "Special":
       if (kv.label === "The registered position must be rated A")
         return p.positions.playable[p.positions.registered] !== "A" ? row : null;
@@ -6395,18 +6403,37 @@ function fieldedRows(t) {
   });
   return rows;
 }
+// Cards re-read from the record: a player paying for more cards than his
+// tier's budget, so a card ticked past it raises the error. The draft's budget
+// (cardLimits) leaves out the specials and can read low (a manlet's extra card
+// and A position), so it is moved by the edit as StatTotal is: the save as
+// opened passed (the sample run has no Cards row), so whatever the draft read
+// short then is added back, and only cards bought since count against it.
+function cardRows(t) {
+  const rs = RULESETS[D.ruleset];
+  const opened = SAVES[S.saveKey].teams.find(o => o.id === t.id);
+  return t.players.flatMap(p => {
+    const tier = recognizedTier(p, rs);
+    const was = opened && opened.players.find(q => q.id === p.id);
+    if (!tier || !was) return [];
+    const c = cardLimits(p, t, tier), shortThen = Math.max(0, -cardLimits(was, opened, tier).left);
+    return c.left + shortThen < 0
+      ? [["Error", t.id, p.id, "Cards", "paid=" + c.paid + ";limit=" + (c.limit + shortThen)]] : [];
+  });
+}
 // The team's rows, errors first, each severity in the check's order (by slot,
 // the team's rows last); `null` when the draft holds no sample run for it.
 function liveRows(t) {
   const sample = S.saveKey === "pes17" ? AATF_ROWS[D.ruleset] : null;
   if (!sample || !sample.some(r => r[1] === t.id)) return null;
-  // The suggestions are asked for too, so a player whose only rows are
-  // suggestions gets his blue check mark and the dock says why.
+  // With Show suggestions on, the suggestions are asked for too, so a player
+  // whose only rows are suggestions gets his blue check mark and the dock says
+  // why; off, none: no blue mark anywhere.
   const kvText = s => Object.entries(s).map(([k, v]) => k + "=" + v).join(";");
-  const suggestions = t.players.flatMap(p =>
+  const suggestions = !LIVE.sugg ? [] : t.players.flatMap(p =>
     suggestionsFor(p, t).map(s => ["Suggestion", t.id, p.id, "Unused", kvText(s)]));
   const rows = sample.filter(r => r[1] === t.id).map(r => liveRow(r, t)).filter(Boolean)
-    .concat(fieldedRows(t), suggestions);
+    .concat(fieldedRows(t), cardRows(t), suggestions);
   // A player's FieldedNotA rows after his sampled ones, the players by slot.
   const order = r => r[2] ? r[2] % 100 : 1000;
   rows.sort((a, b) => order(a) - order(b));
@@ -6459,7 +6486,7 @@ function livePanel() {
       lastPid = null;
     }
     if (pid !== lastPid) {
-      body.append(pid ? playerHead(pid) : h("div", { class: "grp weak" }, "the team"));
+      body.append(pid ? playerHead(pid) : h("div", { class: "grp weak" }, "Team-wide issues"));
       lastPid = pid;
     }
     body.append(h("div", { class: "drow sel " + (sev === "Error" ? "err" : sev === "Warning" ? "warn" : ""),

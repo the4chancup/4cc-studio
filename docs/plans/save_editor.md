@@ -244,10 +244,12 @@ all side by side.
   Each view's first line titles what it shows: the player view `<id> <name>` (`70101 QUADS
   ONLY`), the id in the weak colour, as the list draws ids, and the name with its colours; the
   team view the team's name with its colours.
-- **The player view**: three columns side by side, 36 points apart, then the Appearance
+- **The player view**: three columns side by side, 30 points apart, then the Appearance
   section, the whole centred between the player list and the window's right edge, so the gap
   after the list equals the margin after Ability stats (the room the fixed columns leave, split
-  evenly rather than all at the right). At the 1280 × 780 window it fits the pane with no
+  evenly rather than all at the right). 30, not the 36 first drawn: the 12 points the gaps
+  give up move the first column 6 further from the list, room for Live AATF's marks left of
+  its labels, which at 36 were clipped at the pane's edge. At the 1280 × 780 window it fits the pane with no
   scrolling (the draft's check), and the pane is never narrower: a narrower window scales the
   whole UI down (`spec/core/gui.md` "Scaling with the width") and the player list keeps its 255
   points, so the columns sit side by side at every size, each panel in its design's columns,
@@ -1173,9 +1175,14 @@ What this editor adds on top of the lib:
   (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
   docked at the bottom of the view lists the violations of the team the view is editing (the
   selected row's team, else the selector's), errors first, grouped per
-  player as the AATF panel does, then, under a `Suggestions` heading, the team's unused
-  allowances as the panel words them (the check asks for them, so a player whose list mark
-  is blue has his reason in the dock), under the header `N issues · <ruleset>`, counting
+  player as the AATF panel does, the team's own under `Team-wide issues`, then, while **Show
+  suggestions** is on, under a `Suggestions` heading, the team's unused allowances as the
+  panel words them. Show suggestions is a checkbox right of the toggle, drawn only while Live
+  AATF is on, off by default and remembered (`live_suggestions`); on, the check asks for the
+  suggestions, so a player whose list mark is blue has his reason in the dock, and off, no
+  blue mark is drawn anywhere: a suggestion is no failure, and most players of a cup team
+  have an allowance unused (in the PES 17 sample under the official rules, most of the two checked teams' players, for
+  their free tricks), so unasked they would tint the whole list. The header reads `N issues · <ruleset>`, counting
   errors and warnings, or `<team> passes <ruleset> with no issues.` once neither is left;
   clicking a row selects that player (a
   `FieldedNotA` row selects his team's row instead, the named preset shown on the first of
@@ -1229,9 +1236,8 @@ What this editor adds on top of the lib:
     mark of its own: its rows mark the Skills header, the group holding the card counts, in
     one mark with the skills' own (the highest severity of both, both in its tooltip), since
     a mark in the row before the badge would shift the badge whenever it showed. The first
-    column's labels sit at the view's left edge, so the detail pane's scroll area takes in the
-    12-point gap after the player list, the view's content keeping its place, and a mark
-    there draws in that gap rather than clipped at the pane's edge. The fields: the Height
+    column's marks stand in the room the centred view leaves before it, which its 30-point
+    column gaps make wide enough ("The player view"). The fields: the Height
     box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields for
     theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
     `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and

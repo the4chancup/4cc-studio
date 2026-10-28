@@ -12735,8 +12735,9 @@ check for the suggestions too and the dock lists them under a `Suggestions` head
 violations, its header still counting errors and warnings (a blue mark with no row saying why
 would be a dead end); a suggestion marks the field of its allowance; the card budget's rows
 mark the Skills header, in one mark with the skills' own (the maintainer's, once asked: a mark
-before the badge would shift it); the detail pane's scroll area takes in the 12-point gap after the player list, so a
-mark left of a first-column label is not clipped at the pane's edge, no column moving.
+before the badge would shift it); the player view's column gaps narrowed from 36 to 30, so
+the first column stands 6 points further from the list and a mark left of its labels is not
+clipped at the pane's edge (the maintainer's pick over the pane taking in the list's gap).
 Why: the maintainer's look at the redrafts and at every element Live AATF draws: the controls
 reaching past the frame made the column two widths; the place is the number the roster and
 the exports use; after their labels the crosses wrapped the Registered position and `Weak
@@ -12758,3 +12759,18 @@ would miss every control built with egui's own constructor. A behaviour only a d
 lost in a comparison of pixels, hence the plan's new Behaviour rule for the drafts.
 Plan: `plans/core/gui.md` "The wheel over a value", "Prototypes before implementation" (the
 Behaviour bullet) and "Acceptance" (ST-WHEEL-01 to ST-WHEEL-03).
+
+## 2026-10-28 — save_editor — The final pass's third rulings
+Decision: suggestions show only while a new **Show suggestions** checkbox, right of the Live
+AATF toggle and drawn only while it is on (off by default, remembered as `live_suggestions`),
+is checked: off, the check does not ask for them and no blue mark is drawn. The dock heads a
+team's own rows `Team-wide issues` (was `the team`). The player view's column gaps are 30
+points (were 36), the first column 6 further from the list, where Live AATF's marks left of
+its labels had been clipped; the detail pane no longer takes in the list's gap. The project
+folder keeps the working name `4cc-studio` until 1.0.0. Approved as drafted: Live AATF asking
+for the suggestions and listing them under `Suggestions`; the wheel over a value.
+Why: the maintainer's look at the second set: under the official rules most players of the
+sample's checked teams have an unused allowance (their free tricks), so unasked suggestions
+tinted the whole list blue; the column move is the maintainer's pick over the pane fix.
+Plan: `plans/save_editor.md` "Editing UI", the player view bullet, and "Configurable AATF
+rules", the Live AATF bullet; worklog 0.0.1rn for the folder.

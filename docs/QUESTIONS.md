@@ -24,6 +24,12 @@ names where the question came from so the context can be read there.
   cannot capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the
   head; Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's
   hash (0.0.1f2).
+- **The rulesets' descriptions** (worklog 0.0.1ov7): the ruleset dropdown names each embedded
+  file by a description alone, such as `/vg/ League 26`. Which description does each take,
+  and which files ship in the dropdown? The files today, by their `name`: Autumn 26, Spring
+  26, VGL27, VGL26, VTL11, VTL10, DBC7 (and the test rulesets Autumn 25, VGL25). The docs
+  name VGL the /vg/ League, VTL the /vt/ League and DBC Divegrass Before Christmas; the 4cc's
+  own name for its seasons ("4chan Cup Autumn 26"?) is not written anywhere.
 
 ## Cup practice
 
