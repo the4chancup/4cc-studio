@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -2027 1650 2458">
+  <!-- U+24D8 CIRCLED LATIN SMALL LETTER I. Font units (2048 per em), y up from the baseline: the group flips
+       them into SVG's y-down; the view box is the line the strokes were laid
+       out on, from ascent to descent; its width is the glyph's advance. Drawn in the
+       warning sign's stroke, bar and dot, its circle as tall as the sign's triangle, so the
+       two Live AATF marks read as one family. -->
+  <g transform="scale(1 -1)">
+    <circle fill="none" stroke="#000" stroke-width="129" cx="825" cy="711" r="680"/>
+    <rect x="755" y="264" width="140" height="600"/>
+    <circle cx="825" cy="1074" r="85"/>
+  </g>
+</svg>

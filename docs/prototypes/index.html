@@ -798,6 +798,36 @@ document.addEventListener("mousedown", e => {
 document.addEventListener("keydown", e => {
   if (comboOpen && e.key === "Escape") { e.stopPropagation(); closeComboPopup(); }
 }, true);
+// The wheel over a closed combo or a number box steps its value: wheel up the item above or one
+// more, clamped at the ends, as Windows' own controls do, which members know from 4ccEditor.
+// A notch is one step; a touchpad's small deltas add up to one (WHEEL_NOTCH). A wheel that
+// began by scrolling a pane keeps scrolling it while it sweeps over such controls, until it has
+// rested WHEEL_REST ms: scrolling the player view must not edit the boxes it passes.
+const WHEEL_NOTCH = 50, WHEEL_REST = 500;
+let paneWheelAt = -Infinity, wheelSum = 0;
+document.addEventListener("wheel", e => {
+  const el = e.target.closest && e.target.closest("select, input[type=number]");
+  if (!el || el.disabled || el === comboOpen || e.deltaY === 0 || e.timeStamp - paneWheelAt < WHEEL_REST) {
+    paneWheelAt = e.timeStamp;
+    return;
+  }
+  e.preventDefault();
+  wheelSum += e.deltaMode ? e.deltaY * WHEEL_NOTCH : e.deltaY;
+  if (Math.abs(wheelSum) < WHEEL_NOTCH) return;
+  const up = wheelSum < 0;
+  wheelSum = 0;
+  if (el.tagName === "SELECT") {
+    const i = Math.min(el.options.length - 1, Math.max(0, el.selectedIndex + (up ? -1 : 1)));
+    if (i === el.selectedIndex) return;
+    el.selectedIndex = i;
+  } else {
+    const before = el.value;
+    if (up) el.stepUp(); else el.stepDown();
+    if (el.value === before) return;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  el.dispatchEvent(new Event("change", { bubbles: true }));
+}, { passive: false, capture: true });
 function selectable(label, on, toggle, title) {
   return h("span", { class: "sel" + (on ? " on" : ""), title, onclick: () => { toggle(); structural(); } }, label);
 }

@@ -4351,11 +4351,31 @@ briefs, review loops, gates and mutation runs as for any step.
     - [ ] ov2d the player list's scroll bar outside its frame (the maintainer, 2026-10-28;
       drafts done): egui's solid bar, 4 points from the content and 6 wide, the strip kept
       while nothing scrolls; a row's fill reaching the frame's edge (`save_editor`'s
-      `player_list.rs`, replacing the reserved floating band)
+      `player_list.rs`, replacing the reserved floating band); the controls above and below
+      the list ending at its frame, not at its bar, Set stats still fitting; a row numbered by
+      the player's roster place `01` to `23`, not his shirt number; a chosen A rating
+      `#129648` under a white letter (DECISIONS "The final pass's second rulings"; drafts done;
+      `plans/save_editor.md` "Editing UI", the Player list bullet and the positions grid)
+    - [ ] ov2e the wheel over a combo box or a drag value steps it (the maintainer, 2026-10-28;
+      DECISIONS "The wheel over a combo box or a drag value steps its value"; drafts done):
+      one `studio_core` widgets function, called on every combo box and drag value of the
+      suite (about 37 call sites in 10 crates, `team_widgets` and `color_tools` included),
+      ST-WHEEL-01 to ST-WHEEL-03 (`plans/core/gui.md` "The wheel over a value")
+    - [ ] ov2f Live AATF's marks as ruled (the maintainer, 2026-10-28; DECISIONS "The final
+      pass's second rulings"; drafts done; `plans/save_editor.md` the Live AATF bullet): the
+      list's check mark orange for a Warning, blue for suggestions alone; a field's mark left
+      of its label everywhere (General info, Other stats, the panels' headers; the card
+      budget's rows on the Skills header's mark with the skills'), a red `✖`, an orange `⚠` or a blue `ⓘ`
+      (new in the symbols font: `theme.rs`'s symbol list test gains it) in an 11-point box,
+      glyph centred; the check asked for the suggestions, the dock listing
+      them under `Suggestions`, its header counting errors and warnings; a suggestion marking
+      its allowance's field; the detail pane's scroll area taking in the gap after the list
   - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
-    the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/` (QUESTIONS "Live
-    AATF's whole look", with the four things found on the way); the maintainer's rulings
-    then drafted and planned before code
+    the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/`; the first rulings
+    drafted and planned (ov2f; the dock's kind codes kept). Open for later (the maintainer,
+    2026-10-28: "we'll get there later"): a rules file that fails to load surfaced when it is
+    loaded, not only as a failed check; switching between rules files, which the maintainer
+    finds awkward (what to change still to be asked)
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
@@ -4369,9 +4389,9 @@ briefs, review loops, gates and mutation runs as for any step.
     revision pair and a link, with its test
 - [ ] 0.0.1rn the project renamed Unlimited Tool Works (the maintainer, 2026-10-28: "when most
   convenient"): `unlimited-tool-works` as the name in paths and packages, UTW as the shorthand,
-  the exe named after it (QUESTIONS "The rename's exe name": `UTW.exe` or `utw.exe`). Before the
+  the exe `UTW.exe` (`utw` on Linux; DECISIONS "The final pass's second rulings"). Before the
   cut is the convenient time: the first release fixes the exe's name, the data folder
-  (`%APPDATA%cc-studio`) and the bundle's name, which a later rename would have to migrate.
+  (`%APPDATA%\4cc-studio`) and the bundle's name, which a later rename would have to migrate.
   To plan first: every user-visible name (exe, data folder, bundle, window class, CLI command,
   help text), the crates' and repository's names, the CI jobs, the docs
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on

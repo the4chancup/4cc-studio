@@ -186,7 +186,9 @@ all side by side.
   content, 6 wide), so a selected or hovered row's fill reaches the frame's edge and the bar
   covers none of a row's marks (their hover and click), where egui's floating bar lies over
   the content; the strip stays while a filter leaves nothing to scroll, so the list keeps its
-  width, and the quick actions below span the full width.
+  width. The controls above and below it (the team combo, the filter, the quick actions) end
+  at the frame's right edge, not at the bar's, so the column reads as one box; Set stats and
+  its box still fit at that width.
   A **team row** heads each team's players, set apart from a player row by the
   faint fill under it and its name in the strong text colour (no bold: the app
   installs no bold face, and a second font file for one row costs more than it shows): the team's id, its colours
@@ -199,8 +201,11 @@ all side by side.
   row replaces the team bar above the old tabs: the team is one click away from its players,
   where a manager looks for it, rather than a strip that took a row from every player. A
   save opens on ALL with the list's first player row selected.
-  A player row shows number, position and name, with no team name under ALL or a filter:
-  the team row above its players already names it; **drag-and-drop reordering**
+  A player row shows his place in the roster (`01` to `23`, the slot `NN` of his id, always
+  two digits, so no column is kept for right-aligning a one-digit number), position and name,
+  with no team name under ALL or a filter: the team row above its players already names it.
+  The place, not the shirt number: it is the `NN` of his export's `NN - Name` folder and of
+  his id, and General info shows the shirt number; **drag-and-drop reordering**
   replaces the up/down spinner, and moves what the spinner moves: the players' records trade
   places between the ids, each id staying in its roster slot (`base_copy_id` traded so each
   matches its new slot, and the in-game face run's face structure and hairstyle staying too:
@@ -277,7 +282,7 @@ all side by side.
      each row centred in the
      panel, each position's label centred over its ratings (over the B), the registered one
      outlined, its corners rounded as the widgets' are (every frame and field in the view is
-     rounded; the theme's own radius, not a second one); the chosen rating filled: A green, B the selection's blue, C a grey square, so
+     rounded; the theme's own radius, not a second one); the chosen rating filled: A a deep green (`#129648`) under a white letter, B the selection's blue, C a grey square, so
      the three tell apart at a glance and an unrated position still shows its C. A click on
      a position's label makes it the registered position, the same undoable edit as General
      info's combo, where the eye already is when choosing among the ratings.
@@ -1168,8 +1173,11 @@ What this editor adds on top of the lib:
   (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
   docked at the bottom of the view lists the violations of the team the view is editing (the
   selected row's team, else the selector's), errors first, grouped per
-  player as the AATF panel does, under the header `N issues · <ruleset>`, or `<team> passes
-  <ruleset> with no issues.` once the list is empty; clicking a row selects that player (a
+  player as the AATF panel does, then, under a `Suggestions` heading, the team's unused
+  allowances as the panel words them (the check asks for them, so a player whose list mark
+  is blue has his reason in the dock), under the header `N issues · <ruleset>`, counting
+  errors and warnings, or `<team> passes <ruleset> with no issues.` once neither is left;
+  clicking a row selects that player (a
   `FieldedNotA` row selects his team's row instead, the named preset shown on the first of
   its formations that carries the cross, since the pitch its mark is on is the team
   view's). The
@@ -1181,7 +1189,7 @@ What this editor adds on top of the lib:
   as checking, until the new one arrives. The panel is the log panel widget's frame (its chevron collapses it to the header,
   its divider resizes it). At the bottom, not at a side: the player list holds the left and the
   views need their width (the player view's three columns), and a bottom strip is where the Team compiler's
-  log already sits. The floating AATF panel stays for several teams at once, suggestions,
+  log already sits. The floating AATF panel stays for several teams at once,
   Validate rules and Save a copy; its whole-save check runs on a worker too, its teams in
   parallel as `check-aatf` runs them (220 teams of a PES 2017 save in 2.0 s on 16 threads, 13.2
   s on one). The toggle is drawn as a button, framed, its label a play sign (`▶`, U+25B6,
@@ -1193,23 +1201,39 @@ What this editor adds on top of the lib:
   where they fix it:
   - **The player list** marks each listed player of the checked team, at the row's right end
     after its unsaved-changes dot: a cross (`✖`, U+2716) in the error colour on a player with
-    an Error-severity violation, a check mark in the success colour otherwise (warnings and
-    suggestions are not failures, as `check-aatf`'s exit code counts them); both glyphs are in
-    egui's bundled emoji fonts, which the theme keeps after its own in the fallback chain. Its tooltip the
-    player's errors and warnings as the dock counts them, a zero count left out (`2
-    errors, 1 warning`, `1 warning`), and `No errors` when there are neither. Players of other teams, with ALL picked, carry none: they are not checked. The
-    team's own violations (no slot) mark the team's row the same way.
-  - **The field a violation is about** gets a cross beside it when its player is selected
-    (the pitch's, when his team's row is: the pitch is the team view's), drawn between the
-    field's label and the field so the field keeps its x, 2 points from what it marks (the
-    Registered position label, General info's longest, leaves no more room before its combo): left of an
-    ability stat's label, 2 points from its text, so the column's crosses line up whatever
-    the labels' lengths (drawn over the cell's padding and the gap before it, so no label
-    moves); just left of a box whose label sits at the row's left (the Height box), after the label of a field drawn
-    under or beside its label (the name, a combo), after the header of a panel (the
-    positions grid, the skills, the COM styles), and after the Cards left badge for the badge:
-    the Height box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields
-    for theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
+    an Error-severity row, else a check mark (`✔`, U+2714; warnings and suggestions are not
+    failures, as `check-aatf`'s exit code counts them), in the warning orange when one of his
+    rows is a Warning, in the link blue when his rows are suggestions alone, in the success
+    colour when he has none; both glyphs are the suite's symbols font's. Its tooltip the
+    player's rows as the dock counts them, a zero count left out (`2 errors, 1 warning`,
+    `1 suggestion`), and `No errors` when he has none. Players of other teams, with ALL
+    picked, carry none: they are not checked. The team's own rows (no slot) mark the team's
+    row the same way.
+  - **The field a row is about** gets a mark when its player is selected (the pitch's, when
+    his team's row is: the pitch is the team view's), for the highest severity among its
+    rows: a cross (`✖`) in the error colour for an Error, a warning sign (`⚠`, U+26A0) in the
+    warning orange for a Warning, a circled i (`ⓘ`, U+24D8) in the link blue for suggestions
+    alone, all three the symbols font's (`ⓘ` drawn for it in the warning sign's stroke and
+    height, so the two read as one family; a plain `!` and `i` were too slight to see). Not
+    the list's check marks: on a field a check would read as "this field passes", which a
+    field with a row does not. Every mark is drawn in an 11-point box, the widest glyph's (the
+    warning sign, 10.6 at 12.5), its glyph centred, so a column's marks line up by their
+    centres. The
+    mark's box stands left of the field's label, 2 points from its text,
+    drawn outside the label's box over the margin before it, so no label moves or wraps
+    (after the label, the Registered position and `Weak foot: Usage` labels wrapped to a
+    second line) and the marks of a column of labels line up whatever the labels' lengths:
+    General info's and Other stats' labels, an ability stat's (over the cell's padding), a
+    panel's header for a row about the panel as a whole (the positions grid, the skills, the
+    Tricks or Free cards panel, the COM styles). The Skills header's Cards left badge has no
+    mark of its own: its rows mark the Skills header, the group holding the card counts, in
+    one mark with the skills' own (the highest severity of both, both in its tooltip), since
+    a mark in the row before the badge would shift the badge whenever it showed. The first
+    column's labels sit at the view's left edge, so the detail pane's scroll area takes in the
+    12-point gap after the player list, the view's content keeping its place, and a mark
+    there draws in that gap rather than clipped at the pane's edge. The fields: the Height
+    box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields for
+    theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
     `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and
     `APositions`, the player's spot on the named preset's Tactics pitch for `FieldedNotA`
     (drawn while the team view shows that preset, on each formation the preset fields that puts
@@ -1221,18 +1245,20 @@ What this editor adds on top of the lib:
     drawn later can cover his portrait with its own),
     the playing style
     for `PlayingStyleRange`, the skills for `SkillCardCap`, the COM styles for
-    `ComStyleCap`, the skills or the COM styles for `RequiredCard` by its card's kind, and the
-    Skills header's Cards left badge for `Cards` and `MinCards`, which no one field causes:
+    `ComStyleCap`, the skills or the COM styles for `RequiredCard` by its card's kind, the
+    Skills header for `Cards` and `MinCards` (the Cards left badge's), which no one field causes:
     `Cards`' budget counts every card kind and the extra A positions, `MinCards`' count the
-    paid skills and the extra A positions. A field several violations are about
-    carries one cross, in the colour of the highest severity among them (a suggestion alone
-    draws none), its tooltip their lines as the AATF panel shows them, one per line. One
-    function maps a kind to its field, a match with an arm per kind (a new kind does not
-    compile past it); the kinds about no single field (`NoTier`, `StatTotal`, `Special`,
-    `Custom`, `RosterOrder`, the suggestions) mark the player's row alone, and the
-    team-level ones the team's.
+    paid skills and the extra A positions; and for a suggestion (`Unused`), the field of its
+    allowance: the Skills header for the cards, the positions grid for the A positions,
+    the `Weak foot: Usage` label for the weak foot (the pair's shared label), the Injury
+    resistance field, the COM styles for `com`, the Tricks or Free cards panel for the tricks
+    and the free cards, and the skills for any other card group. A field several rows are
+    about carries one mark, its tooltip their lines as the AATF panel shows them, one per
+    line. One function maps a kind to its field, a match with an arm per kind (a new kind does
+    not compile past it); the kinds about no single field (`NoTier`, `StatTotal`, `Special`,
+    `Custom`, `RosterOrder`) mark the player's row alone, and the team-level ones the team's.
     A field the view does not show (the Appearance section closed, another preset's
-    pitch) carries its cross when shown.
+    pitch) carries its mark when shown.
   - While a check is in flight the marks keep the previous result, as the list does. A check
     that fails (a script error in the rules file) clears every mark: the dock shows the
     failure, and a mark from an older result would claim a check that no longer ran.

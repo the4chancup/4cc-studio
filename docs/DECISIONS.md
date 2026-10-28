@@ -12716,3 +12716,45 @@ red portrait, the floating bar left every selected row 10 points short of the fr
 1-point tick read thin on the blue.
 Plan: `plans/save_editor.md` "Configurable AATF rules", the field cross bullet, and "Editing
 UI", the Player list bullet; `plans/core/gui.md` "Other UI components", the Dark/light theme row.
+
+## 2026-10-28 — save_editor — The final pass's second rulings
+Decision: approved as redrafted: the 2-point tick, the stats' crosses left of their labels, the
+pitch's X over the portrait, the list's scroll bar outside its frame. Changed: the controls
+above and below the player list end at its frame, not at its bar; a player row numbers the
+player by his place in the roster (`01` to `23`), not his shirt number; a chosen A rating is
+`#129648` under a white letter. Live AATF: a player whose rows hold a Warning gets an orange
+check mark in the list, one whose rows are suggestions alone a blue one (an Error still a red
+cross, none a green check); a field's mark stands left of its label wherever there is room,
+General info's, Other stats' and the panels' headers included, and is a red cross for an
+Error, an orange warning sign (`⚠`) for a Warning, a blue circled i (`ⓘ`, drawn into the
+symbols font) for suggestions alone, each in an 11-point box with its glyph centred (a plain
+`!` and `i`, tried first, were too slight). The dock's rows keep naming a kind by its code before its
+sentence. The exe is `UTW.exe` (`utw` on Linux): the command line is second-class, so its
+users can type the capitals. Applied by the lead, from those rulings: Live AATF asks the
+check for the suggestions too and the dock lists them under a `Suggestions` heading after the
+violations, its header still counting errors and warnings (a blue mark with no row saying why
+would be a dead end); a suggestion marks the field of its allowance; the card budget's rows
+mark the Skills header, in one mark with the skills' own (the maintainer's, once asked: a mark
+before the badge would shift it); the detail pane's scroll area takes in the 12-point gap after the player list, so a
+mark left of a first-column label is not clipped at the pane's edge, no column moving.
+Why: the maintainer's look at the redrafts and at every element Live AATF draws: the controls
+reaching past the frame made the column two widths; the place is the number the roster and
+the exports use; after their labels the crosses wrapped the Registered position and `Weak
+foot: Usage` labels; a check mark on a field would read as "this field passes"; the `i` drawn
+2 points from a label crowded it.
+Plan: `plans/save_editor.md` "Editing UI", the Player list bullet and the positions grid, and
+"Configurable AATF rules", the Live AATF bullet and its marks; worklog 0.0.1rn for the exe.
+
+## 2026-10-28 — gui — The wheel over a combo box or a drag value steps its value
+Decision: a notch of the mouse wheel over a closed combo box or a drag value steps it by one
+item or one unit (up the item above or one more), clamped, through the control's own change
+path; a wheel that began by scrolling a pane keeps scrolling it over such controls until it
+has rested 500 ms; one `studio_core` function applies it to every combo box and drag value of
+the suite, the drafts do the same, and three ST-WHEEL scenarios pin it.
+Why: the maintainer's request: 4ccEditor's controls, Windows' own, step on the wheel and
+members use it. The rest rule, notch size and the one shared function are the lead's: without
+the rule, scrolling the player view would edit every box it swept; a wrapper per widget kind
+would miss every control built with egui's own constructor. A behaviour only a draft shows is
+lost in a comparison of pixels, hence the plan's new Behaviour rule for the drafts.
+Plan: `plans/core/gui.md` "The wheel over a value", "Prototypes before implementation" (the
+Behaviour bullet) and "Acceptance" (ST-WHEEL-01 to ST-WHEEL-03).

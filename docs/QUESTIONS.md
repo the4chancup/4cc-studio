@@ -11,32 +11,20 @@ names where the question came from so the context can be read there.
 ## Before the release
 
 - **The final pass over the built app's UI** (worklog 0.0.1f1c; the maintainer asked for it on
-  2026-10-28), under way since 2026-10-28 ~14:00. Ruled so far (DECISIONS "The final pass's
-  first rulings"): the floating windows' centred titles, the crosses' 2 points, the suite's
-  name in the drafts and egui's combo list approved; a checked checkbox and a selected radio
-  blue; the window's default client area 1280 × 780. Drafted from the maintainer's requests
-  and waiting for a look at their before-and-after images (`.tmp/0_0_1ov/vet/`, each with
-  its reason): `tick_2.png` (the blue box's tick 2 wide), `crosses_stats_left.png` (a stat's
-  cross left of its label, the crosses in one column), `crosses_pitch_portrait.png` (the
-  pitch's cross over the whole portrait, outlined in black), `list_bar.png` (the player
-  list's scroll bar outside its frame). Still to look at: the windows' titles at 14 in white
-  in the built app; the preview's icon where the lead cannot capture it (worklog 0.0.1v: the
-  taskbar button and Alt+Tab show the tight crop of the head; Explorer's file icon on the
-  exe). Then the confirmation that freezes logic version 1's hash (0.0.1f2).
-- **Live AATF's whole look** (the maintainer asked for it, 2026-10-28, not vetted before):
-  every element it draws, rendered from the drafts with each kind injected into a copy's
-  recorded run, captioned with what it shows and its tooltips: `.tmp/0_0_1ov/live/` (01 the
-  toggle; 02-06 the dock with issues, collapsed, checking, passing, failed; 07 the player
-  list's marks; 08-10 the field crosses; 11 the pitch's). Found on the way: the drafts draw no
-  failed check (06: the plan clears every mark and shows the failure); a cross makes the
-  "Registered position" and "Weak foot: Usage" labels wrap to a second line (08); the Height,
-  Weight and Age crosses stand just left of their boxes while the stats' now stand left of
-  their labels (08, 09); the dock's rows name a violation by its kind's code
-  (`PlayingStyleRange`, `WeakFootUsage`) before its sentence (02).
-- **The rename's exe name.** The project becomes Unlimited Tool Works (`unlimited-tool-works`,
-  shorthand UTW, the exe named after the shorthand; worklog 0.0.1rn). Which spelling does the
-  exe take: `UTW.exe` or `utw.exe` (and `utw` on Linux either way)? It is also the command
-  typed for the command line (`utw save-editor ...`).
+  2026-10-28), under way since 2026-10-28 ~14:00. Ruled so far: DECISIONS "The final pass's
+  first rulings" and "second rulings", and "The wheel over a combo box or a drag value steps
+  its value". Drafted from the second rulings and waiting for a look, each image with its
+  reason: `.tmp/0_0_1ov/vet/list_aligned.png` (the controls above and below the list ending at
+  its frame; the roster places 01 to 23), `vet/a_rating.png` (the chosen A in `#129648`, its
+  letter white), and the Live AATF gallery `.tmp/0_0_1ov/live/` (07 the list's orange and
+  blue check marks, 08 and 10 every field mark left of its label, 12 the suggestions' blue
+  marks, 13 the dock's Suggestions group; the earlier set kept in `live_before/`); the wheel
+  stepping a combo or a number box can be tried in the drafts themselves. Still to look at:
+  the windows' titles at 14 in white in the built app; the preview's icon where the lead
+  cannot capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the
+  head; Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's
+  hash (0.0.1f2).
+
 ## Cup practice
 
 The Music player's three below come from reading Rigdio v2.2.0's controls (worklog 10.0i,
