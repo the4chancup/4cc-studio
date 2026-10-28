@@ -28,15 +28,16 @@ impl Term {
         match self {
             Term::Ability(get) => u32::from(get(stats)),
             Term::KeeperMean(gets) => {
-                let held: Vec<u32> = gets
+                let (sum, count) = gets
                     .iter()
-                    .filter_map(|get| get(stats).map(u32::from))
-                    .collect();
+                    .filter_map(|get| get(stats))
+                    .fold((0, 0), |(sum, count), value| {
+                        (sum + u32::from(value), count + 1)
+                    });
                 // Every version stores goalkeeping and catching (Saving on
                 // PES 15); a bare record holding neither counts 0 rather
                 // than dividing by zero.
-                let count = u32::try_from(held.len().max(1)).expect("at most three abilities");
-                held.iter().sum::<u32>() / count
+                sum / count.max(1)
             }
             Term::TwoBit => 1,
         }
@@ -152,7 +153,7 @@ impl PlayerEntry {
     /// as the game's formation screen shows it; `None` for a byte past CF.
     /// The twenty weighted terms, each `max(1, value - 25)`, summed and
     /// rounded to hundredths' units; the position's bonus (registered, A,
-    /// B); at his registered position, a keeper's aside, 60% of that and 40%
+    /// B); at his registered position, unless it is GK, 60% of that and 40%
     /// of the blend table at the first nineteen terms' mean; clamped to
     /// 40-109.
     pub fn overall_at(&self, position: u8) -> Option<u8> {
@@ -169,10 +170,11 @@ impl PlayerEntry {
         let bonus = if registered {
             REGISTERED[col]
         } else {
-            let rating = PLAYABLE_ORDER
+            let slot = PLAYABLE_ORDER
                 .iter()
                 .position(|&p| p == position)
-                .map_or(0, |i| self.positions.playable[i]);
+                .expect("PLAYABLE_ORDER holds every position byte below 13");
+            let rating = self.positions.playable[slot];
             // 3, a rating no save holds, reads as an A, as the executable's
             // "at least A" test does.
             match rating {
