@@ -321,4 +321,18 @@ exclude_re = [
     # column, since the `left` line after it subtracts too and stays measured.
     "save_editor/src/view/quick_actions\\.rs:\\d+:30: replace - with \\+ in set_stats_cell",
     "save_editor/src/view/quick_actions\\.rs:\\d+:60: replace - with [+/] in set_stats_cell",
+    # dds_convert: `pass_through` is a shortcut that skips decoding a DDS whose blocks the
+    # target keeps. Replaced by `Ok(None)`, the cache falls back to `decode_dds` + `convert`,
+    # whose `Decoded` carries the same block data (`mip_data`'s slices) and whose encoder takes
+    # the same `compatible` test and builds the same `container` from them: the same bytes,
+    # only the discarded RGBA decode's time spent.
+    "dds_convert/src/dds\\.rs:\\d+:\\d+: replace pass_through -> Result<Option<Vec<u8>>, ConvertError> with Ok\\(None\\)",
+    # pes_savefile: `TeamToml::apply` stages only the players its roster names, and copies each
+    # staged player back over his index after `apply_players`, which finds players by the
+    # roster's ids (the roster itself never changes in `apply`). Its filter's `&&` -> `||` and
+    # `==` -> `!=` stage more players (every one with a non-zero id, on any roster holding two
+    # different ids), each copied back unpatched: the same save, only the clones' time spent.
+    # Pinned by column, the closure's other operators staying measured.
+    "pes_savefile/src/interchange/team_toml/team\\.rs:\\d+:32: replace && with \\|\\| in TeamToml::apply",
+    "pes_savefile/src/interchange/team_toml/team\\.rs:\\d+:80: replace == with != in TeamToml::apply",
 ]
