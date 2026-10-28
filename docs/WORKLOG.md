@@ -3753,6 +3753,24 @@ briefs, review loops, gates and mutation runs as for any step.
       takes focus)
   - [ ] w5 a modal window's title at the drafts' 14 points (`.window .title`), a text style of
     its own, where the app draws egui's `Heading` (15 after w2r1)
+  - [ ] w6 the maintainer's review of 2026-10-28 (DECISIONS "A Tricks panel under Skills" and
+    "Panel titles on one line and 6.5 points above their content")
+    - [x] w6a the drafts (lead): the Tricks panel (`trickCards`, `skillColumns`); the three
+      column titles at one y (84, from 81 and 87) and every player-view title 6.5 points
+      above its first line (General info 7); Player assignments and Advanced instructions 6
+      under their titles, Player assignments' rows 4 apart (3 left free); the detail pane's
+      scroll offset kept across picks and edits; the drafts' window drawn wider by the
+      browser's scroll-bar width (`--sbw`, the panes' bars in that strip), since Firefox's
+      wider bar wrapped Ability stats under General info. Checked (`.tmp/fb1028/`):
+      `title_gaps.py`, `side_space.py`, `behaviour.py` (offset 400 kept across a pick and an
+      edit; Tricks under Autumn 26, none under VTL11 and DBC7), `sbw17.py` (a 17-point bar:
+      one row, the pane's content 931), `errors_min.py` (no page errors; the minimum size)
+    - [ ] w6b the code: the Tricks panel (from the active ruleset's `tricks` group, none
+      when absent or broken), the titles' line and spacings, Player assignments' gaps; a test
+      that the detail pane's offset survives a pick (the app's one ScrollArea keeps it today,
+      by reading) → verify: the gates; the built window's player and team views against the
+      drafts (asks before it takes focus). Waits for the maintainer's look (QUESTIONS
+      0.0.1w3)
 - [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the
   maintainer, 2026-10-27: "Since the formation name work is almost done"; DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers": the
   typeface need not be the game's, its stroke thickness must match the game's label; the

@@ -2742,3 +2742,5 @@ worklog passed 7,000 lines.
   view keeps one row.
 - **2026-10-28** — The Save editor's CLI asks the tool's running-game probe, which the tests set: a gate run no longer fails with a PES
   open (closes the worklog's two issues on the process list).
+- **2026-10-28** — The maintainer's draft review: a Tricks panel under Skills (the ruleset's `tricks` group), the player view's titles on one
+  line and evenly spaced, the team view's two panels' spacing, the scroll kept across picks, and a scroll-bar strip so Firefox draws the app's widths.

@@ -12483,3 +12483,36 @@ shares the list, has only about 10 points to spare at the 1280-point window, so 
 grow by the gutter alone (at 255 with General info at 350 the player view wraps), and General
 info needs 339 in Roboto Flex. Three of the list's 13 cut names on /3/ and /f/ now show whole.
 Plan: `plans/save_editor.md`, the "Player list" and "General info" bullets.
+
+## 2026-10-28 — save_editor — A Tricks panel under Skills holds the ruleset's tricks
+Decision: the player view's Skills panel lists the version's skills but those the active
+ruleset's `tricks` card group names; a **Tricks** panel under it lists those, in the game's
+order, two columns like the skills'. A ruleset with no `tricks` group, or a rules file that
+does not load, shows no Tricks panel and every skill stays under Skills. The group is the
+ruleset's own: six of the nine built-in rulesets have one (Autumn 25 and 26, Spring 26, VGL 25
+to 27); DBC7, VTL10 and VTL11 do not (VTL's free trick-like cards are single free cards), so
+they show none.
+Why: the maintainer's request (2026-10-28). A member weighs a skill against the card limit,
+while the ruleset's free trick allowance usually covers a trick; one list of 41 mixed the two.
+The card economy already reads card groups by name (`spec/aatf_rules.md`), and `tricks` is the
+name every ruleset with such a group gives it.
+Plan: `plans/save_editor.md`, the player view's "Skills" item.
+
+## 2026-10-28 — save_editor — Panel titles on one line and 6.5 points above their content; the detail pane keeps its scroll offset across picks
+Decision: the player view's three column titles share one line, halfway between where
+General info's and Skills' sat (Skills' row, as tall as its badge, starts 3 points above the
+columns, and the columns 3 lower); every panel title of the view stands 6.5 points above the
+first line under it (Ability stats' spacing). In the team view Player assignments and Advanced
+instructions start 6 points under their titles, as Formation settings does, and each
+assignment's label stands 4 points under the button above it (3 of the panel's height left at
+its bottom). The detail pane's scroll offset outlives picking another row. The drafts draw
+their window wider by the browser's scroll-bar width, a strip their scrolling panes put their
+bars in, so their content has the app's width in any browser.
+Why: the maintainer's review (2026-10-28): Skills' title sat 6 points below General info's, the
+margins under titles ran from 0 to 10.5 points, and switching players reset the pane, which
+made editing one part of the Appearance across a squad a chore. In the drafts Firefox's wider
+scroll bar wrapped Ability stats under General info: the player view needs 915.4 of the
+931-point pane, 15.6 to spare in the app (not "about 10" as the entry on the 255-point list
+said), but the drafts' reserved 15-point gutter left 0.6, and less in Firefox.
+Plan: `plans/save_editor.md`, the player view's columns and its "Then Appearance" paragraph,
+and the team view's "Formation settings, the pitch and Player assignments" item.

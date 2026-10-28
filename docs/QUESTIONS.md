@@ -39,7 +39,13 @@ names where the question came from so the context can be read there.
   whole, Player assignments 8 narrower; the pitch's formation name in Roboto Flex's semibold
   (Selawik Semibold before); the player list 15 points wider (255), taking the Tactics
   view's spare strip on the right, General info 6 narrower (344) so the player view keeps
-  its columns on one row. The app's code follows once you approve (0.0.1w4b).
+  its columns on one row. With your review of 2026-10-28 (0.0.1w6a): a Tricks panel under
+  Skills holds the active ruleset's tricks (none under VTL11 or DBC7, which have no such
+  group); the three column titles on one line, every title 6.5 points above its content;
+  Player assignments and Advanced instructions 6 under their titles, the assignments' rows 4
+  apart; switching players keeps the scroll; and the drafts' window is drawn wider by your
+  browser's scroll-bar width, its bar in that strip, so Firefox lays out what the app does.
+  The app's code follows once you approve (0.0.1w4b, w6b).
 - **Track D's drafts, 8.30, 8.32, 8.33 and 8.34**, revised with your answers of 2026-10-27
   (DECISIONS "Formation pictures, the formation's name and the nation names: the maintainer's
   answers"): branch `side/drafts2`, each step's renders and proposed plan text in

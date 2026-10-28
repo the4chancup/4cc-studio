@@ -250,7 +250,12 @@
      layout"), on a desktop-colored page, so the draft shows what fits at that size. The
      harness, not the UI, like the draft controls. Its transform makes the fixed-position
      menus, dialogs and the help window place themselves inside it, as egui's do. */
-  .win { flex: none; margin: 8px 16px 12px; width: var(--win-w, 50vw); height: var(--win-h, 50vh);
+  /* The window is drawn wider than its size by --sbw, the browser's scroll-bar width (0
+     where scroll bars overlay the content): a strip on its right where the scrolling panes
+     put their bars, so the content gets the width the app gives it, whose scroll bars float
+     over the content and take none (the browsers' bars differ, 15 points in Chromium and wider
+     in Firefox, where the player view's third column wrapped under the first). */
+  .win { flex: none; margin: 8px 16px 12px; width: calc(var(--win-w, 50vw) + var(--sbw, 0px)); height: var(--win-h, 50vh);
     display: flex; flex-direction: column; overflow: hidden; position: relative;
     transform: translateZ(0); background: var(--panel);
     border: 1px solid #000; box-shadow: 0 8px 32px #000c; }
@@ -295,13 +300,17 @@
   .top, .bottom { background: var(--panel); padding: 3px 8px; display: flex; gap: 8px; align-items: center; }
   .top { border-bottom: 1px solid var(--stroke); }
   .bottom { border-top: 1px solid var(--stroke); min-height: 26px; }
+  /* The status bar's contents end where the window's size does, its frame running on
+     over the scroll-bar strip. */
+  .bottom { padding-right: calc(8px + var(--sbw, 0px)); }
   .main { flex: 1; display: flex; min-height: 0; position: relative; }
   .rail { border-right: 1px solid var(--stroke); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
   /* The icon font the rail draws its 24 px glyphs in (the subset in
      assets/fonts/, egui-phosphor's codepoints; licence above). */
   @font-face { font-family: "Phosphor"; src: url("assets/fonts/phosphor-subset.ttf"); }
   .ph { font-family: "Phosphor"; font-size: 24px; line-height: 1; }
-  .center { flex: 1; overflow: auto; padding: 8px 12px 40px; min-width: 0; }
+  /* Its scroll bar in the window's strip, kept while nothing scrolls (the .win comment). */
+  .center { flex: 1; overflow: auto; padding: 8px 12px 40px; min-width: 0; scrollbar-gutter: stable; }
   .data { width: 590px; border-left: 1px solid var(--stroke); display: flex; flex-direction: column; min-height: 0; }
   .data pre { flex: 1; margin: 0; overflow: auto; background: var(--extreme); padding: 6px; font: 12px/1.2 var(--font-mono); color: #b4b4b4; }
   .data pre div { white-space: pre; min-height: 14px; }
@@ -562,14 +571,29 @@ function fitted(monitorW, monitorH) {
 // at 1280, 0.75 at 960; under the design width the layout is exactly 1280
 // and its drawn right edge runs the border's 2px under the frame.
 const DESIGN_W = 1280;
-const winScale = () =>
-  Math.min(1, document.getElementById("win").offsetWidth / DESIGN_W);
+// The browser's scroll-bar width, the strip the window is drawn wider by (the .win rule):
+// measured once as the gutter a box keeps for its bar, which is what the scrolling panes
+// keep (a bar itself can be hidden while its gutter stays, as headless Chromium does), 0
+// where scroll bars overlay the content.
+const SBW = (() => {
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:absolute; visibility:hidden; width:100px; height:100px;"
+    + " overflow:auto; scrollbar-gutter:stable";
+  document.body.append(probe);
+  const width = probe.offsetWidth - probe.clientWidth;
+  probe.remove();
+  return width;
+})();
+document.documentElement.style.setProperty("--sbw", SBW + "px");
+// The window's width without that strip: the size the app's window has.
+const winWidth = () => document.getElementById("win").offsetWidth - SBW;
+const winScale = () => Math.min(1, winWidth() / DESIGN_W);
 // The drawn scale's layout box: the design width and the window's height in
 // points (the height never scales: a shorter window just shows fewer points).
 function applyScale() {
   const win = document.getElementById("win"), body = document.getElementById("win-body");
   const s = winScale();
-  body.style.width = (s < 1 ? DESIGN_W : win.clientWidth) + "px";
+  body.style.width = (s < 1 ? DESIGN_W + SBW : win.clientWidth) + "px";
   body.style.height =
     (win.clientHeight - document.getElementById("titlebar").offsetHeight) / s + "px";
   body.style.transform = "scale(" + s + ")";
@@ -619,7 +643,7 @@ function sizeWindow(which) {
 function sizeLabel() {
   const win = document.getElementById("win"), label = document.getElementById("win-size-label");
   if (!label) return;
-  const w = win.offsetWidth, hgt = win.offsetHeight, s = winScale();
+  const w = winWidth(), hgt = win.offsetHeight, s = winScale();
   label.textContent = "Window " + w + " × " + hgt + ", " + Math.round(100 * w / screen.width) + "% × "
     + Math.round(100 * hgt / screen.height) + "% of the monitor (" + screen.width + " × " + screen.height + ")"
     + (s < 1 ? ", scale " + Math.round(s * 100) + "%" : "")
@@ -1110,8 +1134,9 @@ function drawHelp() {
   // it (plans/core/gui.md "Help window").
   if (!S.helpWindow) {
     const area = document.getElementById("win");
-    const w = Math.round(area.clientWidth * 0.9), hgt = Math.round(area.clientHeight * 0.9);
-    S.helpWindow = { x: Math.round((area.clientWidth - w) / 2),
+    const areaW = area.clientWidth - SBW;
+    const w = Math.round(areaW * 0.9), hgt = Math.round(area.clientHeight * 0.9);
+    S.helpWindow = { x: Math.round((areaW - w) / 2),
       y: Math.round((area.clientHeight - hgt) / 2), w, h: hgt };
   }
   const geo = S.helpWindow;
@@ -2821,7 +2846,7 @@ function copyLayout() {
   // Rectangles in the window's content area (under #titlebar, inside #win's
   // border), which .main's top left is.
   const winBox = document.getElementById("win").getBoundingClientRect();
-  const wh = Math.round(winBox.width) + "x" + Math.round(winBox.height);
+  const wh = Math.round(winBox.width - SBW) + "x" + Math.round(winBox.height);
   const zoom = Math.round(devicePixelRatio * 100) + "%";
   const scr = viewScreen();
   const fmt = r => { const p = rectPoints(r);

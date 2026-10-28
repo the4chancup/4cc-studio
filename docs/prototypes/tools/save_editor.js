@@ -154,6 +154,19 @@ input[type=range]:focus { outline: none; }
 #player-view { width: fit-content; margin: 0 auto; }
 .pcol { gap: 14px; }
 .pcol.first { width: 344px; }
+/* The three columns' titles on one line: Skills' row is as tall as its Cards
+   left badge, which centres the title 3 points lower than a bare title, so
+   the row starts 3 above the columns and the columns 3 below the view's top
+   (the badge's top where the bare titles' was). Every title then sits 6.5
+   points above the first line under it, Ability stats' spacing: no margin
+   under a title's row (the badge's lower half overlaps the gap), the label
+   blocks 2 lower, the checkbox lists 2, the positions grid 1.5. */
+.pcols { padding-top: 3px; }
+.pcols .phead { margin: 0; }
+.pcols .phead.badged { margin: -3px 0 -3px; }
+.pcols .gen { padding-top: 2px; }
+.pcols .skcols { margin-top: 2px; }
+.pcols #pos-grid { margin-top: 1.5px; }
 /* The skills' and COM styles' second columns start at the same x: one
    column width for both panels (and the values' pairs under them). */
 .skcols { display: flex; gap: 14px; align-items: flex-start; }
@@ -282,7 +295,13 @@ table.grid.stats-grid td { padding: 2px 6px; }
 .tacgrid .tacbar { margin: 0; white-space: nowrap; }
 /* The formations and their Copy/swap need more than the pitch's width. */
 #tac-formbar { grid-column: 2 / 4; }
-#tac-side .tachalf { gap: 3px; }
+/* Each assignment's label 4 points under the button above it: the panel is
+   as tall as the pitch, and its eight rows leave 10 points free, 3 of them
+   kept at the bottom. */
+#tac-side .tachalf { gap: 4px; }
+/* Player assignments and Advanced instructions start 6 points under their
+   titles, as Formation settings does. */
+#tac-side .tachalf, .tacinstr { padding-top: 6px; }
 /* Formation settings row by row: each offensive setting beside its
    defensive pair, every row the same height, the panel's free height
    shared among them. */
@@ -366,13 +385,15 @@ table.grid.stats-grid td { padding: 2px 6px; }
 .center.filled { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 6px; }
 .center.filled .view-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .center.filled .master { flex: 1; min-height: 0; align-items: stretch; }
-/* The scroll bar's strip is kept while nothing scrolls, so opening
-   Appearance does not shift the view. This stands for egui's floating
-   scroll bar, which takes no space: the built view reserves nothing, its
-   margin being room enough. The Tactics view fills its pane and never
-   scrolls, so it keeps no strip: the list's width has it. */
-.center.filled .detail { overflow: auto; min-height: 0; scrollbar-gutter: stable; }
-.center.filled .detail:has(.tacgrid) { scrollbar-gutter: auto; }
+/* The detail pane scrolls on its own, its bar in the window's scroll-bar
+   strip (the host's .win rule), kept while nothing scrolls: the pane
+   reaches over the view's right margin into the strip and takes the margin
+   back as padding, so its content ends where the view's other rows do, at
+   the width the app gives it (egui's scroll bar floats and takes none). The
+   pane holds the scroll; the view itself keeps no strip of its own. */
+.center.filled { scrollbar-gutter: auto; padding-right: calc(12px + var(--sbw, 0px)); }
+.center.filled .detail { overflow: auto; min-height: 0; scrollbar-gutter: stable;
+  margin-right: calc(-12px - var(--sbw, 0px)); padding-right: 12px; }
 .live-panel { flex: none; margin-top: 6px; }
 .live-divider { height: 4px; cursor: ns-resize; }
 .live-divider:hover { background: var(--hover); }
@@ -3503,7 +3524,7 @@ function rangeField(min, max, value, commit) {
 // chrome]. The count is read from the panel's own stored resize (the host's
 // layoutPanelW), never from the pane's and never past the layout's own.
 const COL_PANELS = {
-  "positions": [5, 66], "skills": [2, 165], "com-styles": [2, 165],
+  "positions": [5, 66], "skills": [2, 165], "tricks": [2, 165], "com-styles": [2, 165],
   "team-info": [2, 120], "cutscenes": [2, 120, 14],
   "strip-style": [4, 170, 14], "motion": [2, 194, 14],
   "tactics-settings": [2, 192, 30],
@@ -3672,10 +3693,18 @@ function quickActions() {
 }
 // The detail view: a player row shows the player view (the fixed columns,
 // then the Appearance section), a team row the team view. No tabs.
+// The pane is one egui ScrollArea whatever row is picked, so its offset
+// outlives a frame and a pick: switching players leaves the view where the
+// member had it (editing one part of the Appearance player after player),
+// clamped where the new view is shorter, as egui clamps it.
+let detailScroll = 0;
 function renderDetail() {
-  const d = h("div", { class: "detail" });
+  const d = h("div", { class: "detail", onscroll: e => { detailScroll = e.target.scrollTop; } });
   if (isTeamSel()) d.append(teamView(selTeam()));
   else { const p = curPlayer(); d.append(playerView(p, teamOf(p))); }
+  // Restored once the frame's layout has given the pane its height, as the
+  // player list's offset is.
+  requestAnimationFrame(() => { d.scrollTop = detailScroll; });
   return d;
 }
 // The player view (v3, after 4ccEditor's layout): the coloured name as the
@@ -3688,7 +3717,7 @@ function playerView(p, team) {
     h("div", { class: "pcols" },
       h("div", { class: "col pcol first" }, generalPanel(p, team), otherStatsPanel(p),
         positionsPanel(p)),
-      h("div", { class: "col pcol" }, skillsPanel(p, team), comStylesPanel(p)),
+      h("div", { class: "col pcol" }, skillsPanel(p, team), tricksPanel(p), comStylesPanel(p)),
       abilityPanel(p)),
     named(collapsing("se-appearance", "Appearance", () => appearanceTab(p)), "appearance"));
 }
@@ -3815,13 +3844,20 @@ function positionsPanel(p) {
         h("div", { class: "plabel", title: "Make " + pos + " the registered position",
           onclick: () => register(pos) }, pos), rating(pos))))));
   return namedCols(h("div", { class: "col" },
-    h("div", { class: "row" }, strong("Playable positions"), fieldMark(p, "positions")), posTable), "positions");
+    h("div", { class: "row phead" }, strong("Playable positions"), fieldMark(p, "positions")), posTable), "positions");
 }
-// The skills in two columns filled column by column (one where the panel
-// cannot hold two), the Cards left badge in the header; the COM styles and
-// the non-ability values are their own panels stacked under it.
-function skillsPanel(p, team) {
-  const skillCb = k => gated(h("label", { class: "cb" },
+// The skill cards the active ruleset counts as tricks, its `tricks` card
+// group, in the game's order: the Tricks panel's, which the Skills panel
+// leaves out. None when the ruleset has no such group or its file does not
+// load: every card then stays under Skills.
+function trickCards() {
+  if (D.rulesBroken) return [];
+  const group = (RULESETS[D.ruleset].card_groups || {}).tricks || [];
+  return SKILLS.filter(k => group.includes(k));
+}
+// One skill's checkbox, gated by the version that has the skill.
+function skillCheckbox(p, k) {
+  return gated(h("label", { class: "cb" },
     h("input", { type: "checkbox", checked: p.skills.includes(k), "data-skill": k,
       onchange: e => {
         set(p, x => x.skills.join(","), (x, v) => {
@@ -3830,14 +3866,32 @@ function skillsPanel(p, team) {
           x.skills = arr;
         }, e.target.checked, "skill");
         render(); } }), " ", titleCase(k)), skillMinVersion(SKILLS.indexOf(k)));
-  const cols = colCount("skills"), per = Math.ceil(SKILLS.length / cols);
-  const skcols = [];
-  for (let c = 0; c < cols; c++)
-    skcols.push(h("div", { class: "col" }, SKILLS.slice(c * per, (c + 1) * per).map(skillCb)));
+}
+// Skill checkboxes in the panel's columns, filled column by column (one where
+// the panel cannot hold two).
+function skillColumns(p, cards, panel) {
+  const cols = colCount(panel), per = Math.ceil(cards.length / cols);
+  return h("div", { class: "skcols" }, Array.from({ length: cols }, (_, c) =>
+    h("div", { class: "col" }, cards.slice(c * per, (c + 1) * per).map(k => skillCheckbox(p, k)))));
+}
+// The skills but the ruleset's tricks, the Cards left badge in the header;
+// the tricks, the COM styles and the non-ability values are their own panels
+// stacked under it.
+function skillsPanel(p, team) {
+  const tricks = trickCards();
   return namedCols(h("div", { class: "col" },
-    h("div", { class: "row" }, strong("Skills"), fieldMark(p, "skills"), cardBadges(p, team),
+    h("div", { class: "row phead badged" }, strong("Skills"), fieldMark(p, "skills"), cardBadges(p, team),
       fieldMark(p, "cards")),
-    h("div", { class: "skcols" }, skcols)), "skills");
+    skillColumns(p, SKILLS.filter(k => !tricks.includes(k)), "skills")), "skills");
+}
+// The tricks, the cards the ruleset usually leaves out of the card limit, apart
+// from the skills a member weighs against it; no panel when the ruleset names
+// none.
+function tricksPanel(p) {
+  const tricks = trickCards();
+  if (!tricks.length) return null;
+  return namedCols(h("div", { class: "col" }, strong("Tricks"), skillColumns(p, tricks, "tricks")),
+    "tricks");
 }
 // The COM playing styles, two columns of checkboxes as wide as the skills
 // panel above them (one column where it is narrowed).
@@ -3853,7 +3907,7 @@ function comStylesPanel(p) {
         render(); } }), " ", titleCase(k));
   const cols = colCount("com-styles"), per = Math.ceil(COM_STYLES.length / cols);
   return namedCols(h("div", { class: "col" },
-    h("div", { class: "row" }, strong("COM playing styles"), fieldMark(p, "com_styles")),
+    h("div", { class: "row phead" }, strong("COM playing styles"), fieldMark(p, "com_styles")),
     h("div", { class: "skcols" },
       Array.from({ length: cols }, (_, c) =>
         h("div", { class: "col" }, COM_STYLES.slice(c * per, (c + 1) * per).map(comCb))))),

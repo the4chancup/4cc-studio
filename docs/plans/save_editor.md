@@ -159,10 +159,10 @@ all side by side.
 ┌──────────────────────┬────────────────────────────────────────────────────────────────┐
 │ [team selector ▾]    │ 70101 QUADS ONLY                                               │
 │ [filter 🔍]          │ General info         Skills  Gold: 6 of 8   Ability stats      │
-│ 701 ■■ /3/           │ Name (10/61)         ☐ Scissors… ☐ Malicia  Attacking Prowess 77│
+│ 701 ■■ /3/           │ Name (10/61)         ☐ Heading  ☐ Man Mar…  Attacking Prowess 77│
 │  ≡ 1 GK /3/ QUADS ON…│ [QUADS ONLY       ]  ☐ Flip Flap ☐ …        Ball Control     77│
 │  ≡ 2 CB /3/ UNCANN… ●│ Shirt (11/18)        ⋮                      ⋮                  │
-│  ⋮ (drag to reorder) │ [PLACEHOLDER      ]  COM playing styles                        │
+│  ⋮ (drag to reorder) │ [PLACEHOLDER      ]  Tricks, COM playing styles                │
 │ 718 ■■ /f/           │ Height [189] Number [1]   ☐ Trickster ☐ Long Ball Expert       │
 │  ⋮                   │ ⋮  Other stats, Playable positions                             │
 │ [Make Gold][Make Silver]                                                              │
@@ -281,18 +281,31 @@ all side by side.
      as the checkboxes' labels are, not the weak one: the weak grey read too dark beside them.
      A label and its field are never closer than 9 points on a pair and 12 in the label-left
      rows and Ability stats; the room this takes comes off the margins either side of the centred view.
-  2. **Skills**, the Cards left badge in its header, up to 41 checkboxes (version-gated) in two
-     columns filled column by column; under it **COM playing styles**, the 7 in two columns
+  2. **Skills**, the Cards left badge in its header, the version's skills (up to 41,
+     version-gated) but the active ruleset's tricks, as checkboxes in two columns filled column
+     by column; under it **Tricks**, the skills the ruleset's `tricks` card group names, in the
+     game's order, two columns filled the same way: a member weighs a skill against the card
+     limit, while the ruleset's free trick allowance usually covers a trick, so the two read
+     apart. No Tricks panel when the ruleset has no `tricks` group or its file does not load:
+     every skill then stays under Skills. Under them **COM playing styles**, the 7 in two columns
      whose second starts at the skills' second's x. Every cell is one line of one height, a
      version-gated card's disabled one as tall as an enabled one, so each row of the two
      columns shares one y (the draft's disabled cells were 2 points taller, and its second
      column ended 24 points lower).
   3. **Ability stats**, ~25 in one column in the game's order, each label beside its number.
+  The three columns' titles share one line: Skills' row is as tall as its Cards left badge, so
+  it starts 3 points above the columns' top, and the columns start 3 points lower than a bare
+  title would. Every panel title of the view stands 6.5 points above the first line under it,
+  Ability stats' spacing, the badge's lower half overlapping that gap.
   Then **Appearance**, a collapsing section closed by default, below the columns (its contents
   below). Opening it makes the view taller than the pane, and the pane's scroll bar then
   floats over the view's right margin (egui 0.37's default `ScrollStyle::floating`, which
   takes no room), so nothing shifts when it appears and the view reserves no strip for it:
-  the margin the centring leaves is room enough.
+  the margin the centring leaves is room enough. The pane is one scroll area whatever row is
+  picked, so its offset outlives a pick: choosing another player leaves the view where it
+  was (clamped where the new view is shorter), and a member editing one part of Appearance
+  player after player never scrolls back to it. A scroll area keyed by the player would reset
+  it on every pick.
 - **The view fills its pane**: the list and the quick actions under it take the pane's whole
   height, and the detail ends at the pane's bottom, with no margin below that would give the
   pane a scroll bar of its own.
@@ -508,7 +521,10 @@ Win32 original hurt the most):
      the same distance above its control. The settings column is as narrow as the widest
      toggle choice allows ("Frontline Press.", two such choices a half). Player assignments
      lists the set-piece takers, the captain and **Join the attack** as three rows, one per
-     joining player, all three one picker (below).
+     joining player, all three one picker (below); each label stands 4 points under the
+     button above it, which leaves 3 of the panel's height free at its bottom. Player
+     assignments and Advanced instructions start 6 points under their titles, as Formation
+     settings does.
   3. **Advanced instructions** over **Automatic settings** in the settings column, beside the
      **starting eleven and bench** lists, which span the other two columns, each list half of
      them (twelve 18-point rows, padded 4 points top and bottom: the eleven with a row to spare,
