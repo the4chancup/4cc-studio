@@ -3763,7 +3763,7 @@ briefs, review loops, gates and mutation runs as for any step.
       `elide_check.py` nothing elided or wrapped at scales 1, 1.5 and 2, and red on the old
       widths (`elide_check_red.py`); `draft_fonts.py` all suite text in the bundled files,
       the one fallback a member-typed "♂" in a player name (Selawik lacked it too)
-    - [ ] w4b the code (brief `.tmp/0_0_1w/brief_w4b.md`; code done 2026-10-28 by SWE-2,
+    - [x] w4b the code (brief `.tmp/0_0_1w/brief_w4b.md`; code done 2026-10-28 by SWE-2,
       reviewed: report `.tmp/0_0_1w/report_w4b.md`; the Selawik files deleted; the
       Frontline Press. test takes the draft's 5-point padding, the only one that fails at 414;
       the three-column test pins the columns' lefts, 36 apart, since the fields' edge moves
@@ -3776,7 +3776,11 @@ briefs, review loops, gates and mutation runs as for any step.
       255, General info 344) and every test
       that pins a width or a row count re-measured → verify: the gates; the built window's
       player and team views at 1280 x 800 with the same rows as the drafts (asks before it
-      takes focus)
+      takes focus). Built window looked at 2026-10-28 (release at `f1ca2342`,
+      `.tmp/0_0_1z/shots/04_opened.png`, `09_team.png`): Roboto Flex throughout, the
+      symbols (menu arrows, the unsaved dot, Live AATF's triangle) on the text's line, no
+      wrapped row in either view; the player-by-player comparison with the drafts stays
+      the maintainer's final pass (f1c)
   - [ ] w5 a modal window's title at the drafts' 14 points (`.window .title`), a text style of
     its own, where the app draws egui's `Heading` (15 after w2r1)
   - [ ] w6 the maintainer's review of 2026-10-28 (DECISIONS "A Tricks panel under Skills" and
@@ -3818,6 +3822,18 @@ briefs, review loops, gates and mutation runs as for any step.
       assignments' panel keeps about 33 free at its bottom where the plan expects about 3
       (the app's `.small()` chips draw 15 tall, the plan's arithmetic about 18): compare the
       chips with the draft's there and match them
+      - [x] the built window checked 2026-10-28 (`.tmp/0_0_1z/shots/assign_side_by_side.png`,
+        draft by `.tmp/0_0_1z/draft_assign.py`): the draft's `.rolechip` is a `button`, filled
+        `--widget` #3c3c3c, 18 tall (`button { min-height: 18px }`), `--hover` on hover, the
+        selection fill armed; the app's `chip` (`tactics/assignments.rs`) is an
+        `egui::Button::selectable(..).small()`: no fill at rest, about 15 tall. The rest of
+        the player view, the Tricks panel and the titles match the drafts
+      - [ ] w6c the chip as the draft's: a framed `egui::Button` `.selected(armed)` at the
+        widgets' 18-point height (no `.small()`), so the role rows step 39 and the join rows
+        20 as the draft's do and the panel's bottom slack drops to the draft's; a disabled
+        target chip (Advanced instructions' "No target") keeps no fill, as the draft's
+        `.rolechip:disabled`. Waits for the running mutation run over `team_widgets`
+        (`.tmp/lead/mutants_diff_96cbb688.status`)
 - [ ] 0.0.1x the formation's name on the pitch (worklog 8.32, moved into 0.0.1 by the
   maintainer, 2026-10-27: "Since the formation name work is almost done"; DECISIONS 2026-10-27 "Formation pictures, the formation's name and the nation names: the maintainer's answers": the
   typeface need not be the game's, its stroke thickness must match the game's label; the
@@ -3954,22 +3970,29 @@ briefs, review loops, gates and mutation runs as for any step.
         (`.tmp/0_0_1y4/rulings_y4e.md`): SWE-2 round 1 (1 + 2 accepted), Astra round 1 (3:
         the keep at the default untested, the plan's keep sentence wrong, `overall_at`'s doc
         overclaiming), SWE-2 round 2 (3: the second-LMF case untested, the areas being two
-        table rows, a doc's keeper-box wording); every fix landed, each new test red first
-  - [ ] y5 the slot popover's position row (the maintainer, 2026-10-28): no Position label,
+        table rows, a doc's keeper-box wording); every fix landed, each new test red first.
+        Built window checked 2026-10-28 (release at `f1ca2342`, `.tmp/0_0_1z/drop_edges.sh`,
+        `.tmp/0_0_1z/shots/26_sheet.png`): on the PES 2017 save, 701's slot 2 dropped at
+        x 40 gave CB at y 15, DMF at 16 and 25, AMF at 26 and 34, SS at 35, the game's edges;
+        the badges showed the test's PES 2017 overalls (CB 83, DMF 96, CF 101, AMF 101); on
+        the PES 2021 save a CMF dropped at (104, 9), where CB's wider area alone holds the
+        point, took CB; every drop undone, the saves unchanged by hash
+  - [x] y5 the slot popover's position row (the maintainer, 2026-10-28): no Position label,
     the dropdown and Make GK filling the popover's width, the button at its own width
     - [x] y5a the draft (`5d668583` and the commit after it) and `plans/save_editor.md` "The
       pitch is the editor"; checked: the dropdown 113 and Make GK 58 on one row spanning
       the popover, no page error (`.tmp/fb1028/answers_check.py`)
-    - [ ] y5b the code (`team_widgets` `pitch/popover.rs`) → verify: the gates; the built
+    - [x] y5b the code (`team_widgets` `pitch/popover.rs`) → verify: the gates; the built
       popover against the draft (asks before it takes focus). Code done 2026-10-28 (SWE-2,
       brief `.tmp/fb1028/brief_y5b_y7b.md`): no label, "Position" the combo's hover and
       accessible name, `egui::Sides::shrink_left` giving the combo the row less Make GK's
       own width (0 on the popover's sizing pass, so it never widens it); test
       `the_position_row_spans_the_popover`, red under a fixed Make GK and a fixed combo.
       Accepted: Tab reaches Make GK before the combo (`Sides` lays the measured side out
-      first; matching the draft's order would mean measuring the button by hand). Open: the
-      built popover, with y6b's built check
-  - [ ] y6 the badge's overall and medal outline (the maintainer, 2026-10-28): the starter's
+      first; matching the draft's order would mean measuring the button by hand). Built
+      popover checked 2026-10-28 (`.tmp/0_0_1z/shots/11_popover_zoom.png`): the combo and
+      Make GK span the popover's row, no label
+  - [x] y6 the badge's overall and medal outline (the maintainer, 2026-10-28): the starter's
     overall at his slot's position at the badge's right in white, his medal tier a 1.5-point
     outline in its colour (bronze darkened to `#8c4a20`) instead of its letter, the badge's
     texts at 11.5 pt 2 in from its ends (the badge stays 50), the captain's mark outlined
@@ -3980,7 +4003,7 @@ briefs, review loops, gates and mutation runs as for any step.
       PES 2017 and 201 of 201 read in PES 2021 within 2 (`.tmp/fb1028/overall_port_check.py`);
       captures `.tmp/fb1028/badges_*.png`, no page error; the margins and the captain's
       outline measured on the maintainer's 720p capture (`.tmp/fb1028/cap_pixels.py`)
-    - [ ] y6b the code, after y4e1 (`team_widgets`' pitch paint and `RosterRow`, the save
+    - [x] y6b the code, after y4e1 (`team_widgets`' pitch paint and `RosterRow`, the save
       editor's host filling the overalls) → verify: the gates, the paint tests' medal letter
       (`team_widgets` `pitch/tests/paint.rs`) turned into the outline's; the built pitch
       against the draft (asks before it takes focus). Code done 2026-10-28 (SWE-2, brief
@@ -3992,7 +4015,11 @@ briefs, review loops, gates and mutation runs as for any step.
       `a_medal_outlines_the_badge_in_its_tiers_colour`,
       `the_pitch_badges_show_each_starters_overall_from_his_record`, each red first and under
       a perturbation (position 0's overall, inset 3, one player's overalls for all, the old
-      bronze). Open: the built pitch, with the batched built-window checks
+      bronze). Built pitch checked 2026-10-28 (`.tmp/0_0_1z/shots/09_pitch_zoom.png`): the
+      overall white at the right, gold and bronze outlines (`#8c4a20` sampled), the captain's
+      outlined mark; a portrait's baked-in ribbon can disagree with the outline (WIP's silver
+      ribbon, bronze under the active ruleset, "Bronze: -1 of 4 cards"): the ribbon is the
+      cup's art, the outline the rules in use
   - [ ] y7 Substitution's Very early on PES 2018 to 2020 too (the maintainer, 2026-10-28:
     taken from PES 2017 and 2021 having it, the games between them)
     - [x] y7a the draft and `plans/save_editor.md` "Tactics editor" (the Automatic
@@ -4014,7 +4041,7 @@ briefs, review loops, gates and mutation runs as for any step.
     buttons). Plan `core/gui.md` the theme row, "Status bar" (ST-BAR-01, ST-BAR-05),
     `save_editor.md` "Editing UI" (the player rows, Playable positions, SE-GUI-40). Checked
     in Chromium and Firefox (`.tmp/draft_look/check.py`). Approved 2026-10-28 (with z4)
-  - [x] z2 the code, once z1 is approved (its built-window look batched with 0.0.1's)
+  - [ ] z2 the code, once z1 is approved (its built-window look batched with 0.0.1's)
     - [x] z2a `team_widgets` + `save_editor`: the slider's trailing fill and handle in the
       selection blue (`tactics/mod.rs` `slider`, the handle overpainted from egui's own
       geometry, which egui keeps private; the physique sliders when built), the rows'
@@ -4031,6 +4058,22 @@ briefs, review loops, gates and mutation runs as for any step.
       decorations);
       ST-BAR-05/06's special-tool clauses wait for ST-WIN-03 (special tools' declared
       sizes, not built: the class is always the main one)
+    - [x] z2 built window checked 2026-10-28 (release at `f1ca2342`, `.tmp/0_0_1z/shots/`):
+      the sliders' blue fill and handle, rows without the team, the prompt's table alone and
+      its width, a position label's hover text, hand cursor and click (one undo entry);
+      Reset window drawn at 1100 × 800 and maximized, not at the fit; on a maximized window
+      its click restores 1280 × 800 centred at (312, 121)
+    - [ ] z2c Reset window under zoom: on a 1100 × 800 window (zoom 1100/1280) its click
+      left the window 1100 × 688 at (402, 177). `window_size::reset` sends `fit`'s size and
+      position in points at the current zoom, which egui-winit multiplies by the zoomed
+      pixels-per-point (800 × 0.859 = 688), and `fit` reads the monitor and decorations in
+      those zoomed points too (the centre for a 2234-point monitor). Fix: `reset` fits at
+      zoom 1 (monitor and decorations times the zoom) and sends size and position divided by
+      the zoom; `off_design_size` compares in the same zoom-1 units (its monitor and
+      decorations times the zoom too). Test ST-BAR-05 at a zoom under 1 (a 1100-wide frame
+      after the width zoom lands): the commands are 1280 / zoom × 800 / zoom and the centred
+      position / zoom. The ST-BAR-05/06 harness tests ran at zoom 1 only. Waits for the
+      running mutation run over `studio_core`
   - [ ] z3 the sidebar's active-tool bar: the draft rounds its left corners, egui draws it
     square (the maintainer, 2026-10-27, "for later")
   - [x] z4 the maintainer's second look (2026-10-27 ~21:55), drafts and plan: Reset window
@@ -4230,8 +4273,10 @@ briefs, review loops, gates and mutation runs as for any step.
     the opening frame while egui faded the overlay `Area` in over its 0.2 s `animation_time`
     (opening frame at alpha 0x15); the overlay now has `fade_in(false)`, test
     `the_overlay_opens_opaque_on_every_open` (red: frame fill `#02_02_02_15`, not the panel's
-    `#1B_1B_1B_FF`). Open: the built window's hover expand, with the batched built-window
-    checks. In the same
+    `#1B_1B_1B_FF`). Built window checked 2026-10-28 (release at `f1ca2342`,
+    `.tmp/0_0_1z/shots/02_hover_sheet.png`): two hover opens captured frame by frame, each
+    going from the rail to the full opaque overlay in one frame, no dim or half-empty frame
+    between. In the same
     pass: 0.0.1v's open look outside the app's own windows (the taskbar button, Alt+Tab,
     Explorer's file icon on the exe) → QUESTIONS "Before the release"
   - [ ] f2 logic version 1's hash frozen (on the maintainer's confirmation, after f1c), `just
