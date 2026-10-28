@@ -5013,6 +5013,89 @@ function dropTarget(t, px, py, skip) {
   const i = hitMarker(t, px, py, skip);
   return i >= 0 && tacFormation(t).players[i].position === "GK" ? -1 : i;
 }
+// A held marker's badge centre: the pointer less the press's offset, snapped
+// to the stored grid, so he moves a whole unit at a time (2.8 px across, 6.8
+// down) and stands where a release would put him.
+const heldSpot = d => snapXY(d.px - d.ox, d.py - d.oy);
+function heldBadge(d) {
+  const [x, y] = heldSpot(d);
+  return clampBadge(pitchX(x), pitchY(y));
+}
+// Each position's area, the game's own two tables (PES 2016's executable):
+// [y_min, y_max, x_min, x_max] in stored units, bounds inclusive. A point
+// inside either row is inside the area; the second widens the first's left
+// and central rows to the pitch's edges and its top rows to y 48 (the right
+// side's it leaves at x 99, as the game has them). The lit areas are the
+// first table's.
+const POSITION_AREAS = {
+  GK: [0, 3, 52, 56], CB: [4, 15, 5, 99], LB: [4, 15, 5, 20], RB: [4, 15, 84, 99],
+  DMF: [16, 25, 21, 83], CMF: [16, 34, 5, 99], LMF: [16, 34, 5, 20], RMF: [16, 34, 84, 99],
+  AMF: [26, 34, 21, 83], LWF: [35, 47, 5, 20], RWF: [35, 47, 84, 99], SS: [35, 47, 5, 99],
+  CF: [40, 47, 21, 83] };
+const POSITION_AREAS_WIDE = {
+  GK: [0, 3, 52, 56], CB: [4, 15, 0, 104], LB: [4, 15, 0, 20], RB: [4, 15, 84, 99],
+  DMF: [16, 25, 21, 83], CMF: [16, 34, 0, 104], LMF: [16, 34, 0, 20], RMF: [16, 34, 84, 99],
+  AMF: [26, 34, 21, 83], LWF: [35, 48, 0, 20], RWF: [35, 48, 84, 99], SS: [35, 48, 0, 104],
+  CF: [40, 48, 21, 83] };
+const inArea = ([y0, y1, x0, x1], x, y) => y0 <= y && y <= y1 && x0 <= x && x <= x1;
+const areaHolds = (pos, x, y) =>
+  inArea(POSITION_AREAS[pos], x, y) || inArea(POSITION_AREAS_WIDE[pos], x, y);
+// The positions a spot offers slot i of formation f, as the game's drag and
+// its Select Position menu offer them: the band's default (the first of CB,
+// CMF, SS whose area holds the spot) and the first free one of LB, RB, DMF,
+// LMF, RMF, AMF, LWF, RWF, CF, CB, SS holding it. A central position is
+// always free; a wide one only while no other slot holds it.
+const WIDE_POSITIONS = ["LB", "RB", "LMF", "RMF", "LWF", "RWF"];
+function spotChoices(f, i, x, y) {
+  const free = pos => !WIDE_POSITIONS.includes(pos)
+    || f.players.every((s, j) => j === i || s.position !== pos);
+  const def = ["CB", "CMF", "SS"].find(pos => areaHolds(pos, x, y));
+  const cand = ["LB", "RB", "DMF", "LMF", "RMF", "AMF", "LWF", "RWF", "CF", "CB", "SS"]
+    .find(pos => areaHolds(pos, x, y) && free(pos));
+  return [...new Set([def, cand].filter(Boolean))];
+}
+// The position slot i takes at the spot (x, y), coming from `cur`: kept
+// while the spot offers it (or offers nothing: the keeper's box), else the
+// one of the two his own overall rates higher, the default on a tie. The
+// game applies it at every step of a drag, so the path matters, not only
+// the end: an LMF dragged along the left keeps LMF wherever LMF is offered.
+// An empty roster slot keeps `cur`: no overall, no pick.
+function ruledPosition(t, f, i, x, y, cur) {
+  const choices = spotChoices(f, i, x, y), p = rosterPlayer(t, t.tactics.starting_eleven[i]);
+  if (!choices.length || choices.includes(cur) || !p) return cur;
+  if (choices.length === 1) return choices[0];
+  const [def, cand] = choices;
+  return overallAt(p, cand) > overallAt(p, def) ? cand : def;
+}
+// The wide band each smaller area lies inside: once the band is lit, the
+// smaller one adds nothing, and leaving it out keeps the lit rectangles apart.
+const AREA_BAND = { LB: "CB", RB: "CB", DMF: "CMF", LMF: "CMF", RMF: "CMF", AMF: "CMF",
+  LWF: "SS", RWF: "SS", CF: "SS" };
+// An area on the canvas: each edge half a unit out from its row through the
+// spot mapping, and a row at the table's edge (x 5 or 99, y 47) reaching the
+// canvas' edge, as the game's lit panels do.
+function areaRect(pos) {
+  const [y0, y1, x0, x1] = POSITION_AREAS[pos];
+  const left = x0 <= 5 ? 0 : pitchX(x0 - 0.5), right = x1 >= 99 ? PITCH.w : pitchX(x1 + 0.5);
+  const top = y1 >= 47 ? 0 : pitchY(y1 + 0.5), bottom = pitchY(y0 - 0.5);
+  return [left, top, right - left, bottom - top];
+}
+// While a player is held the game lights the areas of the positions he is
+// rated A or B at and darkens the rest of the pitch to 40% (the turf and its
+// lines; the markers are drawn over it). Not where his position changes: the
+// drop rule decides that, from every position's area and his overalls.
+function dimOutsideLit(g, p) {
+  if (!p) return;
+  const rated = POSITIONS.filter(pos => ["A", "B"].includes(p.positions.playable[pos]));
+  const lit = rated.filter(pos => !rated.includes(AREA_BAND[pos]));
+  g.save();
+  g.beginPath();
+  g.rect(0, 0, PITCH.w, PITCH.h);
+  for (const pos of lit) g.rect(...areaRect(pos));
+  g.fillStyle = "rgba(0,0,0,0.6)";
+  g.fill("evenodd");
+  g.restore();
+}
 // The turf, painted once: eleven equal bands, dark at both ends, and a fixed
 // grain (seeded noise, luma deviation about 3.5, as the texture's).
 let turfCache = null;
@@ -5107,6 +5190,7 @@ function paintPitch(g, t, f0, live) {
   g.drawImage(turf(), 0, 0);
   drawLines(g);
   const f = f0.players, tac = t.tactics;
+  if (d && d.moved && !d.gk) dimOutsideLit(g, rosterPlayer(t, tac.starting_eleven[d.i]));
   const joined = tac.players_to_join_attack;
   // The dragged marker is drawn last, over every other.
   const order = drawOrder(t, f0).filter(i => !(d && d.moved && d.i === i));
@@ -5121,7 +5205,11 @@ function paintPitch(g, t, f0, live) {
     const s = f[i], roster = tac.starting_eleven[i], p = rosterPlayer(t, roster);
     const dragged = d && d.i === i && d.moved;
     g.globalAlpha = dragged && target >= 0 ? 0.35 : 1;
-    const [x, y] = dragged ? clampBadge(d.px, d.py) : badgeAt(t, i, f0);
+    const [x, y] = dragged ? heldBadge(d) : badgeAt(t, i, f0);
+    // A held marker's badge shows the position he holds at this step, or,
+    // over a teammate, the teammate's, which a release there gives him: the
+    // game's badge shows the same.
+    const shown = !dragged ? s.position : target >= 0 ? f[target].position : d.pos;
     const bl = x - MARKER.badgeW / 2, bt = y - MARKER.badgeH / 2;
     const img = portraitOf(p);
     if (img) g.drawImage(img, x - MARKER.portrait / 2, bt - MARKER.gap - MARKER.portrait,
@@ -5141,13 +5229,13 @@ function paintPitch(g, t, f0, live) {
       g.stroke();
     }
     g.textBaseline = "middle"; g.textAlign = "left";
-    g.fillStyle = POS_COLOUR(s.position); g.font = MARKER.badgeFont + "px " + FONT_BODY;
-    g.fillText(s.position, bl + MARKER.textInset, y + 1);
+    g.fillStyle = POS_COLOUR(shown); g.font = MARKER.badgeFont + "px " + FONT_BODY;
+    g.fillText(shown, bl + MARKER.textInset, y + 1);
     // His overall at the slot's position at the badge's right end, where the
     // game draws it, white as the game's.
     if (p) {
       g.fillStyle = "#ffffff"; g.textAlign = "right";
-      g.fillText(String(overallAt(p, s.position)), bl + MARKER.badgeW - MARKER.textInset, y + 1);
+      g.fillText(String(overallAt(p, shown)), bl + MARKER.badgeW - MARKER.textInset, y + 1);
       g.textAlign = "left";
     }
     // Live AATF's cross for a FieldedNotA about him at this spot, over his
@@ -5258,9 +5346,14 @@ function pitchCanvas(t) {
     if (i < 0) return;
     e.preventDefault();
     // The keeper's marker takes clicks (popover, assignment) but is not
-    // dragged: Edit mode does not move him.
-    S.pitchDrag = { i, px, py, x0: px, y0: py, moved: false,
-      gk: tacFormation(t).players[i].position === "GK" };
+    // dragged: Edit mode does not move him. The press's offset from the
+    // badge centre (ox, oy) is kept for the whole drag, so the point of the
+    // marker first pressed stays under the pointer.
+    const [bx, by] = badgeAt(t, i);
+    // pos is the position he holds while dragged, ruled at every step.
+    const pos = tacFormation(t).players[i].position;
+    S.pitchDrag = { i, px, py, x0: px, y0: py, ox: px - bx, oy: py - by, moved: false,
+      gk: pos === "GK", pos };
   });
   // A bench row dropped on the pitch: onto a marker swaps the two roster
   // spots; an XI row swaps the two starters; onto grass does nothing.
@@ -5286,7 +5379,9 @@ document.addEventListener("pointermove", e => {
   const cv = document.getElementById("pitch"); if (!cv) return;
   [d.px, d.py] = pitchPoint(cv, e);
   if (!d.gk && Math.abs(d.px - d.x0) + Math.abs(d.py - d.y0) > 4) d.moved = true;
-  drawPitch(selTeam());
+  const t = selTeam();
+  if (d.moved) d.pos = ruledPosition(t, tacFormation(t), d.i, ...heldSpot(d), d.pos);
+  drawPitch(t);
 });
 // A press anywhere but inside the player's box closes it (a press on another
 // marker then opens that one's).
@@ -5320,9 +5415,10 @@ document.addEventListener("pointerup", e => {
   if (lx < 0 || ly < 0 || lx > cv.width || ly > cv.height) { render(); return; }
   const onto = dropTarget(t, lx, ly, d.i);
   if (onto >= 0) { swapOnPitch(t, d.i, onto); render(); return; }
-  const [x, y] = snapXY(lx, ly);
+  const [x, y] = snapXY(lx - d.ox, ly - d.oy);
+  const pos = ruledPosition(t, tacFormation(t), d.i, x, y, d.pos);
   edit("Move on pitch", () => {
-    const s = tacFormation(t).players[d.i]; s.x = x; s.y = y; });
+    const s = tacFormation(t).players[d.i]; s.x = x; s.y = y; s.position = pos; });
   render();
 });
 
@@ -5388,16 +5484,26 @@ function benchList(t) {
 // sits on the marker's bottom-left corner as it was when opened, and it stays
 // there while the player moves, so the X and Y arrows stay under the pointer;
 // a press outside it closes it.
+// The Position combo's list: the positions the slot's spot offers (the
+// game's Select Position menu lists the same), his own first when the spot
+// offers neither of them.
+function popoverChoices(f, i) {
+  const s = f.players[i], choices = spotChoices(f, i, s.x, s.y);
+  return choices.includes(s.position) ? choices : [s.position, ...choices];
+}
 function slotPopover(t) {
   const pop = S.slotPop; if (!pop) return null;
-  const i = pop.i, s = tacFormation(t).players[i];
+  const i = pop.i, f = tacFormation(t), s = f.players[i];
   const roster = t.tactics.starting_eleven[i], p = rosterPlayer(t, roster);
   // The keeper's slot is fixed: Edit mode does not move him.
   const num = (label, get, put, max) => h("span", {}, label + " ",
     h("input", { type: "number", min: 0, max, value: get(), disabled: s.position === "GK",
       title: s.position === "GK" ? "The goalkeeper's spot is fixed" : "",
       onchange: e => { const v = parseInt(e.target.value, 10);
-        if (!Number.isNaN(v) && v >= 0 && v <= max) { edit("formation " + label, () => put(v)); render(); } } }));
+        if (!Number.isNaN(v) && v >= 0 && v <= max) {
+          edit("formation " + label, () => {
+            put(v); s.position = ruledPosition(t, f, i, s.x, s.y, s.position); });
+          render(); } } }));
   return h("div", { class: "tpopover",
       style: "left:" + pop.x + "px; top:" + pop.y + "px" },
     h("div", { class: "strong" }, ...(p ? nameSpans(p.name) : ["(empty roster slot)"]),
@@ -5407,7 +5513,7 @@ function slotPopover(t) {
     h("div", { class: "row pos-row" },
       s.position === "GK"
         ? combo([["GK", "GK"]], "GK", () => {}, { disabled: true, title: "Position" })
-        : combo(POSITIONS.slice(1).map(x => [x, x]), s.position, v => {
+        : combo(popoverChoices(f, i).map(x => [x, x]), s.position, v => {
           edit("formation position", () => { s.position = v; }); render(); }, { title: "Position" }),
       button("Make GK", () => { makeGk(t, i); S.slotPop = null; render(); },
         { disabled: s.position === "GK", title: "Swaps him into goal; the keeper takes his slot" })),

@@ -4513,6 +4513,16 @@ briefs, review loops, gates and mutation runs as for any step.
     preset's) and correct the other. The drafts' official sample was stale the same way and
     is re-recorded from the current build (Height and BracketQuota now computed by the drafts'
     `heightRows`)
+  - [ ] ov10 the pitch drag as the game's (the maintainer, 2026-10-28; DECISIONS "The pitch
+    drag follows the game's"; drafted, `plans/save_editor.md` "Tactics editor" "A held
+    starter" and the popover, SE-GUI-42): in `team_widgets`' pitch, the held marker snapped
+    to whole units with the press's offset kept, the position ruled at every step
+    (`drop_rule::dropped_position` from the held one) and shown on his badge, the release
+    writing both; the lit area (`RosterRow` carrying each starter's A/B ratings); the
+    popover's combo limited to the spot's choices, X and Y applying the rule. Also to check
+    in PES 2021 (pad + OBS): where a swap leaves the teammate; the executable sends him to
+    the dragged slot's last written point with its held position, where the editor's swap
+    gives him the dragged starter's spot and position
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
