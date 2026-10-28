@@ -1757,7 +1757,6 @@ fn only_the_checked_teams_rows_are_marked() {
     view.live_aatf = true;
     let _nodes = live_checked(&mut window, &mut view, None, &[734]);
     view.team = TeamChoice::All;
-    let team_name = team_entry(&view, 734).name;
     // Under ALL his row sits below the fold: the wheel scrolls the list
     // until it shows (bounded, so an unreachable one fails rather than
     // hangs).
@@ -1789,13 +1788,33 @@ fn only_the_checked_teams_rows_are_marked() {
             let team_bounds = team_row(&nodes, &view, 734)
                 .bounds()
                 .expect("the team row's bounds");
-            let of_team = format!(" {team_name} ");
+            // His team's rows are the player rows between its team row
+            // and the next team row's (a row's label names no team).
+            let file = view.session.as_ref().unwrap().file();
+            let next_y0 = file
+                .teams()
+                .iter()
+                .filter_map(|team| {
+                    let label = format!("{} {}", team.id, display_name(&team.name));
+                    nodes
+                        .iter()
+                        .find(|node| {
+                            node.role() == Role::Button && node.label() == Some(label.as_str())
+                        })
+                        .and_then(|node| node.bounds())
+                        .map(|bounds| bounds.y0)
+                })
+                .filter(|y0| *y0 > team_bounds.y0)
+                .fold(f64::MAX, f64::min);
             let mut his_rows: Vec<accesskit::Rect> = nodes
                 .iter()
                 .filter_map(|node| {
-                    (player_row(node) && node.label().is_some_and(|label| label.contains(&of_team)))
-                        .then(|| node.bounds())
-                        .flatten()
+                    (player_row(node)
+                        && node.bounds().is_some_and(|bounds| {
+                            bounds.y0 >= team_bounds.y1 && bounds.y0 < next_y0
+                        }))
+                    .then(|| node.bounds())
+                    .flatten()
                 })
                 .collect();
             his_rows.push(team_bounds);

@@ -533,7 +533,25 @@ fn playable_positions(
                     );
                     ui.horizontal(|ui| {
                         ui.add_space(((POS_CELL_WIDTH - galley.size().x) / 2.0).max(0.0));
-                        ui.label(*name);
+                        // A label's click makes its position the registered
+                        // one (the draft's `.plabel`), the same edit as
+                        // General info's Registered position combo; on the
+                        // registered position's own label it writes nothing,
+                        // so no empty undo entry.
+                        let response = ui
+                            .add(
+                                egui::Label::new(*name)
+                                    .sense(egui::Sense::click())
+                                    .selectable(false),
+                            )
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .on_hover_text(format!("Make {name} the registered position"));
+                        if response.clicked() && index != usize::from(positions.registered) {
+                            edit_player(session, player_id, response.id.value(), |player| {
+                                player.positions.registered =
+                                    u8::try_from(index).expect("a POSITIONS index is a byte");
+                            });
+                        }
                     });
                     ui.horizontal(|ui| {
                         ui.spacing_mut().item_spacing.x = RATING_GAP;

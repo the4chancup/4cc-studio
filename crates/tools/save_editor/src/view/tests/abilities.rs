@@ -173,7 +173,7 @@ fn an_ability_edit_marks_the_row_until_ctrl_s_writes_the_save() {
         |ui| show(ui, &mut view, &|| Vec::new(), None),
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    row(&nodes, "1 CB /3/ PLACEHOLDER ●");
+    row(&nodes, "1 CB PLACEHOLDER ●");
     assert_eq!(
         std::fs::read(&path).unwrap(),
         original,
@@ -187,7 +187,7 @@ fn an_ability_edit_marks_the_row_until_ctrl_s_writes_the_save() {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    row(&nodes, "1 CB /3/ PLACEHOLDER");
+    row(&nodes, "1 CB PLACEHOLDER");
     assert_eq!(
         std::fs::read(&bak).unwrap(),
         original,
@@ -396,6 +396,45 @@ fn y_of(nodes: &[accesskit::Node], label: &str) -> f64 {
         .y0
 }
 
+/// The outline strokes' shapes, painted in the selection colour (the
+/// registered position's cell mark, the draft's `.poscell.reg`).
+fn outlines(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::epaint::RectShape> {
+    let selection = egui::Visuals::dark().selection.stroke.color;
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape)
+                if shape.fill == egui::Color32::TRANSPARENT && shape.stroke.color == selection =>
+            {
+                Some(shape.clone())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// The rect holding `position`'s cell widgets (its label over its C
+/// to A ratings, the cell's own edges 3.5 out on each side).
+fn cell_rect(nodes: &[accesskit::Node], position: &str) -> egui::Rect {
+    let label = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some(position))
+        .unwrap_or_else(|| panic!("no label {position:?}"));
+    let ratings = rating_buttons(nodes, position);
+    let (x0, x1, top) = (
+        label.bounds().expect("bounds").x0 as f32,
+        label.bounds().expect("bounds").x1 as f32,
+        label.bounds().expect("bounds").y0 as f32,
+    );
+    egui::Rect::from_min_max(
+        egui::pos2(x0.min(ratings[0].bounds().expect("bounds").x0 as f32), top),
+        egui::pos2(
+            x1.max(ratings[2].bounds().expect("bounds").x1 as f32),
+            ratings[2].bounds().expect("bounds").y1 as f32,
+        ),
+    )
+}
+
 // The positions grid, the draft's `POS_ROWS` and `#pos-grid`: the 13
 // playable positions in five rows by line of the pitch, left wing to
 // right wing — LWF CF SS RWF / LMF AMF RMF / CMF DMF / LB CB RB / GK,
@@ -404,45 +443,6 @@ fn y_of(nodes: &[accesskit::Node], label: &str) -> f64 {
 // cell outlined with the widgets' radius.
 #[test]
 fn the_positions_grid_draws_five_centered_rows_with_the_registered_outlined() {
-    /// The outline strokes' shapes, painted in the selection colour (the
-    /// registered position's cell mark, the draft's `.poscell.reg`).
-    fn outlines(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::epaint::RectShape> {
-        let selection = egui::Visuals::dark().selection.stroke.color;
-        shapes
-            .iter()
-            .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Rect(shape)
-                    if shape.fill == egui::Color32::TRANSPARENT
-                        && shape.stroke.color == selection =>
-                {
-                    Some(shape.clone())
-                }
-                _ => None,
-            })
-            .collect()
-    }
-    /// The rect holding `position`'s cell widgets (its label over its C
-    /// to A ratings, the cell's own edges 3.5 out on each side).
-    fn cell_rect(nodes: &[accesskit::Node], position: &str) -> egui::Rect {
-        let label = nodes
-            .iter()
-            .find(|node| node.role() == Role::Label && node.value() == Some(position))
-            .unwrap_or_else(|| panic!("no label {position:?}"));
-        let ratings = rating_buttons(nodes, position);
-        let (x0, x1, top) = (
-            label.bounds().expect("bounds").x0 as f32,
-            label.bounds().expect("bounds").x1 as f32,
-            label.bounds().expect("bounds").y0 as f32,
-        );
-        egui::Rect::from_min_max(
-            egui::pos2(x0.min(ratings[0].bounds().expect("bounds").x0 as f32), top),
-            egui::pos2(
-                x1.max(ratings[2].bounds().expect("bounds").x1 as f32),
-                ratings[2].bounds().expect("bounds").y1 as f32,
-            ),
-        )
-    }
-
     let path = fixture(PesVersion::Pes21, "positions_grid");
     let mut view = SaveView::new();
     view.open(&path);
@@ -1779,6 +1779,90 @@ fn the_registered_position_combo_stores_the_pick_as_one_edit() {
         1
     );
     assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
+}
+
+// SE-GUI-40
+// A click on a position's label registers it — the same undoable edit as
+// General info's combo (the combo reads it, the cell takes the outline,
+// the ratings untouched, the label's hover naming it); a click on the
+// already registered position's label writes nothing.
+#[test]
+fn a_positions_label_click_registers_it_as_one_edit() {
+    let path = fixture(PesVersion::Pes21, "registered_label_click");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
+    let registered = |view: &SaveView| player_entry(view, 70101).positions.registered;
+    let playable = |view: &SaveView| player_entry(view, 70101).positions.playable;
+    assert_eq!(registered(&view), 1, "premise: registered CB");
+    let ratings = playable(&view);
+    assert!(
+        !view.session.as_ref().unwrap().can_undo(),
+        "premise: a clean session"
+    );
+
+    // The label's hover names what its click does.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let ss = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some("SS"))
+        .expect("the SS label");
+    assert_eq!(
+        tooltip_containing(
+            &mut window,
+            &mut view,
+            centre(ss),
+            "the registered position",
+            None
+        ),
+        Some("Make SS the registered position".to_owned()),
+        "the label's hover"
+    );
+
+    click(&mut window, ss, &mut view);
+    assert_eq!(registered(&view), 11, "the click registered SS");
+    assert_eq!(playable(&view), ratings, "every rating untouched");
+    assert!(
+        view.session.as_ref().unwrap().can_undo(),
+        "the one undo entry"
+    );
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let combo = right_of_label(&nodes, "Registered position", Role::ComboBox)
+        .first()
+        .copied()
+        .expect("the registered combo");
+    assert_eq!(
+        combo.value(),
+        Some("SS - Second Striker"),
+        "the combo reads SS"
+    );
+    let strokes = outlines(&shapes);
+    assert_eq!(strokes.len(), 1, "exactly one outlined cell");
+    assert!(
+        strokes[0].rect.contains_rect(cell_rect(&nodes, "SS")),
+        "the outline is around the SS cell, got {:?}",
+        strokes[0].rect
+    );
+
+    // One undo brings CB back; a click on the now-registered CB's label
+    // writes nothing.
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(registered(&view), 1, "the undo restores CB");
+    assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let cb = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some("CB"))
+        .expect("the CB label");
+    click(&mut window, cb, &mut view);
+    assert!(
+        !view.session.as_ref().unwrap().can_undo(),
+        "the already-registered position's label writes no entry"
+    );
+    assert_eq!(registered(&view), 1, "and the registered stays CB");
 }
 
 // The same bullet's two-choice toggles (the draft's `.rate.lr`): Stronger

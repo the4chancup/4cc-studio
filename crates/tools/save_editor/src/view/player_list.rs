@@ -94,9 +94,6 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         .show(ui, |ui| {
             quick_actions::show(ui, view);
         });
-    // A filter in use lists every team; the rows also name their team under
-    // `ALL` (the draft's `tshort`).
-    let show_team = !view.filter.trim().is_empty() || view.team == TeamChoice::All;
     // A drop works on a row of the dragged player's own team, in one team's
     // list or under ALL where each team's rows run unbroken under its team
     // row; drag is off while a filter is typed, where neighbouring rows are
@@ -108,7 +105,6 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         // selectable occupies).
         row_height: ui.spacing().interact_size.y,
         draggable: view.filter.trim().is_empty(),
-        show_team,
     };
     // Live AATF's held check: the rows of the team it is for carry its
     // marks, the other teams' none.
@@ -152,17 +148,14 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     });
 }
 
-/// How the list draws one row, computed once in `show`: the row's height,
-/// whether player rows drag (no filter typed) and whether the list
-/// crosses teams (`ALL` or a filter in use, the draft's `tshort`).
+/// How the list draws one row, computed once in `show`: the row's height
+/// and whether player rows drag (no filter typed).
 #[derive(Clone, Copy)]
 struct RowLayout {
     /// The row's height (`interact_size.y`, what a selectable occupies).
     row_height: f32,
     /// Player rows drag and take drops.
     draggable: bool,
-    /// Player rows name their team.
-    show_team: bool,
 }
 
 /// The team selector: `ALL`, then each team by name in the save's order.
@@ -368,8 +361,7 @@ fn team_row(
     }
 }
 
-/// One list row: number, position, the team's name while the list crosses
-/// teams (`ALL` or a filter in use), and the name with its colour codes drawn.
+/// One list row: number, position, and the name with its colour codes drawn.
 /// The whole row is one click target; a click selects it. `draggable` (no
 /// filter typed) also makes it a drag source and a drop target: a drop on
 /// a row of the dragged player's own team moves him to it
@@ -389,7 +381,7 @@ fn player_row(
     let dirty = session.player_dirty(row.team_id, row.slot);
     let is_selected = *selected == Some(Selection::Player(row.team_id, row.slot));
     let row_height = layout.row_height;
-    let mut job = row_text(team, player, row, layout.show_team);
+    let mut job = row_text(team, player, row);
     // The unsaved dot paints at the row's right end, never inside the
     // text: a row the name overflows keeps it. The label and the hover
     // keep its text.
@@ -486,14 +478,13 @@ fn player_row(
     }
 }
 
-/// The row's text as one `LayoutJob`: number, position, team name while the
-/// list crosses teams, then the name's runs, each colored as `name_spans`
-/// gives it (`None` runs the normal text color, `append_name`).
+/// The row's text as one `LayoutJob`: number, position, then the name's
+/// runs, each colored as `name_spans` gives it (`None` runs the normal
+/// text color, `append_name`).
 fn row_text(
     team: Option<&TeamEntry>,
     player: Option<&PlayerEntry>,
     row: &Row,
-    show_team: bool,
 ) -> egui::text::LayoutJob {
     let mut job = egui::text::LayoutJob::default();
     let number = team
@@ -504,9 +495,6 @@ fn row_text(
         .copied()
         .unwrap_or("?");
     job.append(&format!("{number} {position}"), 0.0, plain_format());
-    if show_team && let Some(name) = team.map(|team| team.name.as_str()) {
-        job.append(&format!(" {name}"), 0.0, plain_format());
-    }
     match player {
         Some(player) => {
             job.append(" ", 0.0, plain_format());

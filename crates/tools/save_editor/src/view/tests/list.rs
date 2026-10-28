@@ -59,7 +59,7 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
     assert_eq!(items, expected, "the selector's entries");
 
     // Click 701's entry: the list holds only its players, headed by its
-    // own row (their rows name the team "/3/").
+    // own row.
     let (_, nodes, _) =
         window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let (item, _) = nodes
@@ -93,12 +93,11 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
         drawn >= 20 && drawn < rostered,
         "a full first page, not the whole save ({drawn} of {rostered})"
     );
-    // The first row is team 701's first rostered player: number, position,
-    // team name and display name.
-    assert!(
-        nodes
-            .iter()
-            .any(|node| node.label() == Some("1 CB /3/ PLACEHOLDER")),
+    // The first row is team 701's first rostered player: number, position
+    // and display name.
+    assert_eq!(
+        row_labels(&nodes).first().map(String::as_str),
+        Some("1 CB PLACEHOLDER"),
         "the first row"
     );
 
@@ -192,10 +191,10 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
         show(ui, &mut view, &|| Vec::new(), None)
     });
 
-    // 70202 of team 702 is listed, his row naming his team under a filter.
+    // 70202 of team 702 is listed under a filter.
     let row = nodes
         .iter()
-        .find(|node| node.role() == Role::Button && node.label() == Some("1 GK /a/ QUALITY"))
+        .find(|node| node.role() == Role::Button && node.label() == Some("1 GK QUALITY"))
         .expect("the filtered row");
     click(&mut window, row, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -220,8 +219,9 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         assert!(
-            nodes.iter().any(|node| node.role() == Role::Button
-                && node.label() == Some("1 GK /a/ QUALITY")),
+            nodes
+                .iter()
+                .any(|node| node.role() == Role::Button && node.label() == Some("1 GK QUALITY")),
             "{typed:?} finds 70202"
         );
     }
@@ -241,7 +241,7 @@ fn the_selected_row_reports_selected() {
         .iter()
         .partition(|node| node.toggled() == Some(accesskit::Toggled::True));
     assert_eq!(selected.len(), 1, "exactly one row selected");
-    assert_eq!(selected[0].label(), Some("1 CB /3/ PLACEHOLDER"));
+    assert_eq!(selected[0].label(), Some("1 CB PLACEHOLDER"));
     assert!(
         rest.iter()
             .all(|node| node.toggled() == Some(accesskit::Toggled::False))
@@ -332,24 +332,35 @@ fn a_long_name_truncates_instead_of_wrapping_the_row() {
 #[test]
 fn scrolling_to_the_end_of_all_selects_the_last_player() {
     let path = fixture(PesVersion::Pes21, "scroll_to_end");
-    let file = EditFile::load(&path).unwrap();
-    // The last rostered slot of the last team, as the row labels it.
-    let team = file.teams().last().expect("teams exist");
-    let (_, roster_slot) = team
+    let mut file = EditFile::load(&path).unwrap();
+    // The last rostered slot of the last team, renamed so its label —
+    // which carries no team name — cannot be another team's too.
+    let team_id = file.teams().last().expect("teams exist").id;
+    let last_id = file
+        .team(team_id)
+        .expect("the last team")
         .roster
         .iter()
-        .enumerate()
         .rev()
-        .find(|(_, slot)| slot.player_id != 0)
-        .expect("the last team has a rostered slot");
-    let player = file.player(roster_slot.player_id).expect("the last player");
+        .find(|slot| slot.player_id != 0)
+        .expect("the last team has a rostered slot")
+        .player_id;
+    file.player_mut(last_id).unwrap().name = "LAST".to_owned();
+    file.save(&path).unwrap();
+    let file = EditFile::load(&path).unwrap();
+    let slot = file
+        .team(team_id)
+        .expect("the last team")
+        .roster
+        .iter()
+        .find(|slot| slot.player_id == last_id)
+        .expect("the renamed slot");
+    let player = file.player(last_id).expect("the last player");
     let label = format!(
-        "{} {} {} {}",
-        roster_slot.number,
+        "{} {} LAST",
+        slot.number,
         pes_savefile::interchange::team_toml::labels::POSITIONS
-            [usize::from(player.positions.registered)],
-        team.name,
-        pes_savefile::model::names::display_name(&player.name)
+            [usize::from(player.positions.registered)]
     );
 
     let mut view = SaveView::new();
@@ -384,7 +395,7 @@ fn scrolling_to_the_end_of_all_selects_the_last_player() {
     let last = row(&nodes, &label);
     click(&mut window, last, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let id = roster_slot.player_id.to_string();
+    let id = last_id.to_string();
     assert!(
         nodes.iter().any(|node| {
             node.role() == Role::Label && node.value().is_some_and(|value| value.starts_with(&id))
@@ -490,7 +501,34 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
     file.player_mut(70101).unwrap().name = "FIRST".to_owned();
     file.player_mut(70102).unwrap().name = "SECOND".to_owned();
+    // Team 702's first rostered player renamed too: a row's label carries
+    // no team name, so the drop target's cannot be another team's too.
+    let other_id = file
+        .team(702)
+        .unwrap()
+        .roster
+        .iter()
+        .find(|slot| slot.player_id != 0)
+        .expect("team 702 rosters someone")
+        .player_id;
+    file.player_mut(other_id).unwrap().name = "OTHER".to_owned();
     file.save(&path).unwrap();
+    let other_label = {
+        let slot = file
+            .team(702)
+            .unwrap()
+            .roster
+            .iter()
+            .find(|slot| slot.player_id == other_id)
+            .expect("the renamed slot");
+        let player = file.player(other_id).unwrap();
+        format!(
+            "{} {} OTHER",
+            slot.number,
+            pes_savefile::interchange::team_toml::labels::POSITIONS
+                [usize::from(player.positions.registered)]
+        )
+    };
 
     let mut view = SaveView::new();
     view.open(&path);
@@ -501,8 +539,8 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
 
     // A drag onto another team's row: nothing moves.
     let before = row_labels(&nodes);
-    let from = centre(row(&nodes, "2 CB /3/ SECOND"));
-    let other = centre(row(&nodes, "1 CB /a/ PLACEHOLDER"));
+    let from = centre(row(&nodes, "2 CB SECOND"));
+    let other = centre(row(&nodes, &other_label));
     drag(&mut window, from, other, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
@@ -516,7 +554,7 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     // A drag of the team row itself onto a player row: nothing moves.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let from = centre(team_row(&nodes, &view, 701));
-    let onto = centre(row(&nodes, "1 CB /3/ FIRST"));
+    let onto = centre(row(&nodes, "1 CB FIRST"));
     drag(&mut window, from, onto, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
@@ -528,7 +566,7 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     assert!(!view.session.as_ref().unwrap().can_undo());
 
     // A drag onto the team row: nothing moves.
-    let from = centre(row(&nodes, "2 CB /3/ SECOND"));
+    let from = centre(row(&nodes, "2 CB SECOND"));
     let onto = centre(team_row(&nodes, &view, 701));
     drag(&mut window, from, onto, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -542,13 +580,13 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
 
     // A drag onto the player's own team's row: the records trade, as in
     // one team's list.
-    let from = centre(row(&nodes, "2 CB /3/ SECOND"));
-    let onto = centre(row(&nodes, "1 CB /3/ FIRST"));
+    let from = centre(row(&nodes, "2 CB SECOND"));
+    let onto = centre(row(&nodes, "1 CB FIRST"));
     drag(&mut window, from, onto, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
         &row_labels(&nodes)[..2],
-        ["1 CB /3/ SECOND ●", "2 CB /3/ FIRST ●"],
+        ["1 CB SECOND ●", "2 CB FIRST ●"],
         "the drop on his own team moved him"
     );
 }
@@ -577,12 +615,12 @@ fn under_a_filter_a_drag_moves_nothing() {
     let labels_before = row_labels(&nodes);
     assert_eq!(
         labels_before,
-        ["1 CB /3/ QQ FIRST", "3 CB /3/ QQ THIRD"],
+        ["1 CB QQ FIRST", "3 CB QQ THIRD"],
         "premise: the filter lists the two"
     );
 
-    let from = centre(row(&nodes, "1 CB /3/ QQ FIRST"));
-    let onto = centre(row(&nodes, "3 CB /3/ QQ THIRD"));
+    let from = centre(row(&nodes, "1 CB QQ FIRST"));
+    let onto = centre(row(&nodes, "3 CB QQ THIRD"));
     drag(&mut window, from, onto, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(

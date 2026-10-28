@@ -4014,14 +4014,20 @@ briefs, review loops, gates and mutation runs as for any step.
     buttons). Plan `core/gui.md` the theme row, "Status bar" (ST-BAR-01, ST-BAR-05),
     `save_editor.md` "Editing UI" (the player rows, Playable positions, SE-GUI-40). Checked
     in Chromium and Firefox (`.tmp/draft_look/check.py`). Approved 2026-10-28 (with z4)
-  - [ ] z2 the code, once z1 is approved: the slider's trailing fill and blue handle
-    (`team_widgets` `tactics/mod.rs` `slider`, the physique sliders when built), the rows'
-    team name gone (`save_editor` `view/player_list.rs`), the prompt's two lines gone
-    (`view/prompt.rs`), the label click (SE-GUI-40),
-    Reset window (`studio_core` `shell/status_bar.rs`, ST-BAR-01's test, ST-BAR-05, ST-BAR-06:
-    drawn only off the active class's design size or maximized), the prompt as wide as its
-    widest row up to nine tenths of the window, each row on one line (`view/prompt.rs`'s
-    Modal, whose grid today sits in a vertical-only scroll area)
+  - [ ] z2 the code, once z1 is approved
+    - [x] z2a `team_widgets` + `save_editor`: the slider's trailing fill and handle in the
+      selection blue (`tactics/mod.rs` `slider`, the handle overpainted from egui's own
+      geometry, which egui keeps private; the physique sliders when built), the rows'
+      team name gone (`view/player_list.rs`), the prompt's two lines gone and its width
+      its widest row's up to nine tenths of the window, a wider row scrolling sideways
+      (`view/prompt.rs`), a positions label's click registers it (SE-GUI-40,
+      `view/abilities.rs`); help pages 02 and 03. Open: the built-window look; the
+      handle's stroke brightens on hovering the value box too (egui strokes it from the
+      slider part alone), cosmetic
+    - [ ] z2b `studio_core`: Reset window (`shell/status_bar.rs`, ST-BAR-01's test,
+      ST-BAR-05, ST-BAR-06: drawn only off the active class's design size or maximized);
+      ST-BAR-05/06's special-tool clauses wait for ST-WIN-03 (special tools' declared
+      sizes, not built: the class is always the main one)
   - [ ] z3 the sidebar's active-tool bar: the draft rounds its left corners, egui draws it
     square (the maintainer, 2026-10-27, "for later")
   - [x] z4 the maintainer's second look (2026-10-27 ~21:55), drafts and plan: Reset window

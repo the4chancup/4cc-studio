@@ -308,35 +308,33 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() ->
         return;
     };
     let mut answer = None;
-    let path = view
-        .session
-        .as_ref()
-        .expect("the prompt opens only on a session")
-        .path()
-        .display()
-        .to_string();
     let response = egui::Modal::new(egui::Id::unique("save_editor_unsaved")).show(ui.ctx(), |ui| {
+        // The modal is as wide as its widest row, at most nine tenths of
+        // the window's width: `set_max_width` caps the content (the frame's
+        // margins and stroke make up the rest), and a wider row scrolls
+        // sideways inside the table, every cell on one line.
+        let chrome = egui::Frame::popup(ui.style()).total_margin().sum().x;
+        ui.set_max_width((ui.ctx().content_rect().width() * 0.9 - chrome).max(0.0));
         ui.heading("Unsaved changes");
-        ui.label("The open save has unsaved changes.");
-        egui::ScrollArea::vertical()
-            .max_height(240.0)
-            .show(ui, |ui| {
-                egui::Grid::new("unsaved changes")
-                    .num_columns(3)
-                    .show(ui, |ui| {
-                        for head in ["Item", "Old value", "New value"] {
-                            ui.weak(head);
-                        }
+        egui::ScrollArea::both().max_height(240.0).show(ui, |ui| {
+            egui::Grid::new("unsaved changes")
+                .num_columns(3)
+                .show(ui, |ui| {
+                    fn cell(ui: &mut egui::Ui, text: egui::WidgetText) {
+                        ui.add(egui::Label::new(text).wrap_mode(egui::TextWrapMode::Extend));
+                    }
+                    for head in ["Item", "Old value", "New value"] {
+                        cell(ui, egui::RichText::new(head).weak().into());
+                    }
+                    ui.end_row();
+                    for (item, label, old, new) in &prompt.rows {
+                        cell(ui, format!("{item} · {label}").into());
+                        cell(ui, egui::RichText::new(old).monospace().into());
+                        cell(ui, egui::RichText::new(new).monospace().into());
                         ui.end_row();
-                        for (item, label, old, new) in &prompt.rows {
-                            ui.label(format!("{item} · {label}"));
-                            ui.monospace(old);
-                            ui.monospace(new);
-                            ui.end_row();
-                        }
-                    });
-            });
-        ui.weak(format!("Save writes them to {path}. Discard loses them."));
+                    }
+                });
+        });
         ui.horizontal(|ui| {
             if ui.button("Save").clicked() {
                 answer = Some(Answer::Save);

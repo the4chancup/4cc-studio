@@ -8,8 +8,7 @@ picking a team selects its row, so the right side shows the team's fields and ta
 (ALL keeps what you had selected). The
 list below it holds a row per team and, under it, one per player: the team's row shows
 its id, its two colours and its name followed by `[click for tactics]`, a player's row
-his shirt number, position, the team
-when the list crosses teams, and the name as the game draws it, colors included. A `●` on
+his shirt number, position and name as the game draws it, colors included. A `●` on
 a row marks a player or the team itself with unsaved changes. The filter box above the
 list finds a team, or a player of any team, by part of a name, shirt name or id, so you
 can find someone without knowing their team first. With the filter empty, drag a player

@@ -2288,3 +2288,87 @@ fn from_tier_id_maps_the_three_medal_ids() {
         assert_eq!(Medal::from_tier_id(id), None, "{id:?} is no medal");
     }
 }
+
+// A slider at a mid value paints the rail's fill from the rail's left
+// to the handle's centre — egui's own overhang of the widgets' corner
+// radius tucking the fill under the handle — and the handle itself in
+// the selection blue, the inactive state's stroke kept.
+#[test]
+fn a_slider_fills_the_rail_to_the_handle_and_paints_the_handle_blue() {
+    let mut window = Headless::sized(800.0, 600.0);
+    let (row_height, visuals) = {
+        let style = window.ctx.style_of(window.ctx.theme());
+        (style.spacing.interact_size.y, style.visuals.clone())
+    };
+    let selection = visuals.selection.bg_fill;
+    let inactive = visuals.widgets.inactive;
+    let mut sliders = fixture_tactics(PesVersion::Pes21).presets[0]
+        .sliders
+        .clone();
+    sliders.support_range = 5;
+    let spec = SLIDERS
+        .iter()
+        .find(|spec| spec.label == "Support range")
+        .expect("the Support range spec");
+    let (nodes, shapes) = window.frame(vec![], |ui| slider(ui, &mut sliders, spec));
+
+    // The rail widget's rect is the slider's node, `row_height` tall;
+    // the handle's centre travels each end's `radius * 0.75` inset.
+    let widget = nodes
+        .iter()
+        .find(|node| node.role() == Role::Slider)
+        .and_then(|node| node.bounds())
+        .expect("the slider's node");
+    assert_eq!(
+        widget.y1 - widget.y0,
+        f64::from(row_height),
+        "the slider's row"
+    );
+    let radius = f64::from(row_height) / 2.5;
+    let inset = radius * 0.75;
+    let centre_x = widget.x0 + inset + (4.0 / 9.0) * (widget.x1 - widget.x0 - 2.0 * inset);
+
+    let selection_rects = || {
+        shapes.iter().filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape) if shape.fill == selection => Some(shape),
+            _ => None,
+        })
+    };
+    let fill = selection_rects()
+        .map(|shape| shape.rect)
+        .find(|rect| (f64::from(rect.height()) - 8.0).abs() < 1.0)
+        .expect("the rail's fill in the selection blue");
+    assert!(
+        (f64::from(fill.min.x) - widget.x0).abs() <= 1.0,
+        "the fill starts at the rail's left ({:?} vs {widget:?})",
+        fill.min.x
+    );
+    let overhang = f64::from(inactive.corner_radius.nw);
+    assert!(
+        (f64::from(fill.max.x) - centre_x - overhang).abs() <= 1.0,
+        "the fill reaches the handle's centre plus the corner overhang ({:?} vs {centre_x})",
+        fill.max.x
+    );
+
+    // The 18-point row's 10.8 x 14.4 handle, filled the selection blue,
+    // centred on the value's x, the inactive stroke kept.
+    let handle = selection_rects()
+        .find(|shape| {
+            (f64::from(shape.rect.width()) - 2.0 * inset).abs() < 0.5
+                && (f64::from(shape.rect.height()) - 2.0 * radius).abs() < 0.5
+        })
+        .expect("the handle in the selection blue");
+    assert!(
+        (f64::from(handle.rect.center().x) - centre_x).abs() <= 0.5,
+        "the handle centred on the value's x ({:?} vs {centre_x})",
+        handle.rect.center().x
+    );
+    assert!(
+        (f64::from(handle.rect.center().y) - (widget.y0 + widget.y1) / 2.0).abs() <= 0.5,
+        "the handle centred on the rail"
+    );
+    assert_eq!(
+        handle.stroke, inactive.fg_stroke,
+        "the inactive stroke kept"
+    );
+}

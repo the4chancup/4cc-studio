@@ -440,7 +440,7 @@ fn the_checks_follow_the_selected_rows_team_under_a_filter() {
         window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let (target, _) = nodes
         .iter()
-        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("2 CB /a/ QUALITY"))
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("2 CB QUALITY"))
         .expect("the filtered row");
     action_click(&mut window, &mut view, *target);
     assert!(

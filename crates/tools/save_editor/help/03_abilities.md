@@ -6,7 +6,8 @@ age, nationality, shirt number and captaincy, stronger foot and hand, registered
 position and playing style. Under it are **Other stats** (form, injury
 resistance, weak foot usage and accuracy) and his **Playable positions** with
 their C/B/A ratings: the chosen rating is filled, green for A, blue for B, grey
-for C, and his registered position's cell is outlined. The second column is his
+for C, and his registered position's cell is outlined; a click on a position's
+name makes it his registered position. The second column is his
 **Skills** and **COM playing styles**. The third is his **Ability stats**.
 
 Between Skills and COM playing styles a second skills panel stands when

@@ -368,9 +368,29 @@ fn run_copy_swap(window: &mut Headless, view: &mut SaveView, item: &str, label: 
     let combo = dialog_control(&nodes, "Player", Role::ComboBox);
     click(window, combo, view);
     let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    // A list row can carry the same label, so the pick is scoped to the
+    // open combo's popup — the `Role::ListBox` subtree egui builds for it.
+    let parent: HashMap<accesskit::NodeId, accesskit::NodeId> = nodes
+        .iter()
+        .flat_map(|(id, node)| node.children().iter().map(move |child| (*child, *id)))
+        .collect();
+    let by_id: HashMap<accesskit::NodeId, &accesskit::Node> =
+        nodes.iter().map(|(id, node)| (*id, node)).collect();
+    let in_listbox = |mut at: accesskit::NodeId| {
+        for _ in 0..64 {
+            if by_id[&at].role() == Role::ListBox {
+                return true;
+            }
+            let Some(id) = parent.get(&at) else {
+                return false;
+            };
+            at = *id;
+        }
+        panic!("a node deeper than 64")
+    };
     let (option, _) = nodes
         .iter()
-        .find(|(_, node)| node.label() == Some(label))
+        .find(|(id, node)| node.label() == Some(label) && in_listbox(*id))
         .unwrap_or_else(|| panic!("no {label:?} in the player combo"));
     action_click(window, view, *option);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));

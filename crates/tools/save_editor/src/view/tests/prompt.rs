@@ -152,6 +152,15 @@ fn prompt_rows(
         .collect()
 }
 
+/// The prompt's painted rect: the modal's `egui::Area` id is the one
+/// `prompt::show` registers (the `Role::Dialog` node carries no bounds).
+fn prompt_rect(window: &mut Headless) -> egui::Rect {
+    window
+        .ctx
+        .memory(|memory| memory.area_rect(egui::Id::unique("save_editor_unsaved")))
+        .expect("the prompt's area")
+}
+
 /// Whether the prompt ("Unsaved changes") is up.
 fn prompt_drawn(nodes: &[accesskit::Node]) -> bool {
     label_value(nodes, "Unsaved changes") && label_value(nodes, "Item")
@@ -217,6 +226,133 @@ fn the_prompt_lists_each_changed_field_in_the_views_terms() {
             ),
         ],
         "exactly the two rows, each naming him and the field"
+    );
+}
+
+// SE-GUI-05: the prompt is its heading, the table and the three answers —
+// no "unsaved changes" line under the heading and no line about the path
+// above the buttons (the title and the answers already say both).
+#[test]
+fn the_prompt_shows_only_the_table_and_the_answers() {
+    let path = fixture(PesVersion::Pes21, "prompt_no_prose");
+    let mut view = dirty_view(&path);
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = dialog_nodes(&pairs, "Unsaved changes");
+    assert!(
+        !nodes
+            .iter()
+            .any(|node| node.value() == Some("The open save has unsaved changes.")),
+        "no unsaved-changes line under the heading"
+    );
+    assert!(
+        !nodes.iter().any(|node| {
+            node.value()
+                .is_some_and(|value| value.starts_with("Save writes them to"))
+        }),
+        "no line about the path above the buttons"
+    );
+}
+
+// SE-GUI-05: the prompt is as wide as its widest row up to nine tenths of
+// the window: a row between egui's 600-point default area and the cap
+// sits on one line, the modal at least as wide.
+#[test]
+fn a_row_wider_than_the_default_keeps_one_line() {
+    let path = fixture(PesVersion::Pes21, "prompt_wide_row");
+    let mut view = SaveView::new();
+    view.open(&path);
+    // A name of fifty-two letters: the Name row lands between egui's
+    // 600-point default area and nine tenths of the window.
+    let mut edited = player_entry(&view, 70101);
+    edited.name = "N".repeat(52);
+    view.session.as_mut().unwrap().edit_player(1, edited);
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let rows = prompt_rows(&pairs, "Unsaved changes");
+    let [(item, old, new)] = rows.as_slice() else {
+        panic!("the one Name row: {rows:?}")
+    };
+    assert_eq!(
+        (old.as_str(), new.as_str()),
+        ("PLACEHOLDER", "N".repeat(52).as_str()),
+        "the Name row"
+    );
+    let dialog = dialog_nodes(&pairs, "Unsaved changes");
+    let item_bounds = dialog
+        .iter()
+        .find(|node| node.value() == Some(item.as_str()))
+        .and_then(|node| node.bounds())
+        .expect("the Name row's item cell");
+    // The row's three cells share one y, each one line tall.
+    let cells: Vec<accesskit::Rect> = dialog
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Label
+                && node.bounds().is_some_and(|bounds| {
+                    (bounds.y0 - item_bounds.y0).abs() < 1.0 && bounds.x0 >= item_bounds.x0 - 1.0
+                })
+        })
+        .filter_map(|node| node.bounds())
+        .collect();
+    assert_eq!(cells.len(), 3, "the row's three cells: {cells:?}");
+    assert!(
+        cells.iter().all(|bounds| bounds.y1 - bounds.y0 < 25.0),
+        "each cell is one line ({cells:?})"
+    );
+    let span = cells
+        .iter()
+        .map(|bounds| bounds.x1)
+        .fold(f64::MIN, f64::max)
+        - item_bounds.x0;
+    assert!(span > 600.0, "premise: the row is wider than 600 ({span})");
+    assert!(
+        span < f64::from(window.screen.x) * 0.9,
+        "premise: under nine tenths of the window ({span})"
+    );
+    let dialog_rect = prompt_rect(&mut window);
+    assert!(
+        f64::from(dialog_rect.width()) >= span - 1.0,
+        "the modal is at least as wide as the row ({dialog_rect:?} vs {span})"
+    );
+}
+
+// SE-GUI-05: a row wider than nine tenths of the window caps the modal
+// there and scrolls sideways inside the table.
+#[test]
+fn a_row_past_the_cap_scrolls_sideways() {
+    let path = fixture(PesVersion::Pes21, "prompt_over_cap");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut edited = player_entry(&view, 70101);
+    edited.name = "N".repeat(150);
+    view.session.as_mut().unwrap().edit_player(1, edited);
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let dialog = dialog_nodes(&pairs, "Unsaved changes");
+    let dialog_rect = prompt_rect(&mut window);
+    let cap = f64::from(window.screen.x) * 0.9;
+    assert!(
+        (f64::from(dialog_rect.width()) - cap).abs() <= 1.0,
+        "the modal caps at nine tenths of the window ({dialog_rect:?} vs {cap})"
+    );
+    assert!(
+        dialog.iter().any(|node| {
+            node.role() == Role::ScrollBar
+                && node
+                    .bounds()
+                    .is_some_and(|bounds| bounds.x1 - bounds.x0 > bounds.y1 - bounds.y0)
+        }),
+        "a horizontal scroll bar inside the prompt"
     );
 }
 
