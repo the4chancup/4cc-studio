@@ -11,8 +11,15 @@ names where the question came from so the context can be read there.
 ## Before the release
 
 - **The final pass over the built app's UI** (worklog 0.0.1f1c; the maintainer asked for it on
-  2026-10-28). The lead says when the build is ready: every 0.0.1 UI step landed, the
-  sidebar's flicker on open fixed. In the same pass: the preview's icon where the lead cannot
+  2026-10-28). **Ready since 2026-10-28 10:43**, built at `825f1885` (the w5 commit before its docs-only
+  amends; release build:
+  `4cc-studio-temp/ingame/target/release/4cc-studio.exe`; a portable copy with its own
+  settings and a copy of the PES 2021 save in `.tmp/0_0_1s4t_v2/app/`): every 0.0.1 UI step
+  landed, the sidebar opens with no flicker. Two choices the lead applied that the pass may
+  reverse: windows' titles at 14 in white, modals the drafts lack included (DECISIONS "A
+  window's title is its place"); the floating windows' titles centred in the drafts as
+  egui's title bar draws them (DECISIONS "A floating window's title centred"). In the same
+  pass: the preview's icon where the lead cannot
   capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the head;
   Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's hash
   (0.0.1f2).

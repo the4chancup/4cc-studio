@@ -1346,6 +1346,35 @@ fn a_backdrop_click_on_the_question_closes_it_and_keeps_the_prompt() {
     assert_eq!(std::fs::read(&path).unwrap(), original, "nothing wrote");
 }
 
+// The prompt's title draws in the window-title style (the drafts'
+// `.window .title`): 14 points in the strong colour, not `Heading`'s 15,
+// which a page's heading keeps.
+#[test]
+fn the_prompts_title_is_14_points_and_strong() {
+    let path = fixture(PesVersion::Pes21, "prompt_title_style");
+    let mut view = dirty_view(&path);
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    // The modal's first frame is a sizing pass; the second's shapes are
+    // painted.
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let title = text_shape(&shapes, "Unsaved changes");
+    assert_eq!(
+        title.galley.job.sections[0].format.font_id.size, 14.0,
+        "the drafts' .window .title"
+    );
+    let strong = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .strong_text_color();
+    assert_eq!(
+        title.galley.job.sections[0].format.color, strong,
+        "the title's strong colour"
+    );
+}
+
 // `roster_names` and `roster_for` carry the display name and the
 // record's own name, colour codes kept (the coloured runs' source).
 #[test]

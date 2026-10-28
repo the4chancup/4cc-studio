@@ -49,10 +49,13 @@ impl FirstRun {
     pub(super) fn show(&mut self, egui_ctx: &egui::Context, ctx: &mut ToolContext) {
         let mut choice = None;
         egui::Modal::new(egui::Id::unique("first-run-data-location")).show(egui_ctx, |ui| {
-            ui.heading(format!(
-                "Where should {} keep its settings and data?",
-                crate::APP_NAME
-            ));
+            crate::theme::window_title(
+                ui,
+                format!(
+                    "Where should {} keep its settings and data?",
+                    crate::APP_NAME
+                ),
+            );
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     if ui.button("Next to the program").clicked() {

@@ -33,8 +33,9 @@ struct Headless {
     screen: egui::Vec2,
 }
 
-/// What a frame drew: its AccessKit nodes and its platform output (the
-/// clipboard's `CopyText` command).
+/// What a frame drew: its AccessKit nodes, its platform output (the
+/// clipboard's `CopyText` command) and the shapes it painted (a text's
+/// size and colour, which no node carries).
 struct Frame {
     nodes: Vec<accesskit::Node>,
     platform: egui::PlatformOutput,
@@ -42,6 +43,7 @@ struct Frame {
     /// `repaint_delay` is zero): an animation, a scroll among them, is
     /// still moving.
     repaints: bool,
+    shapes: Vec<egui::epaint::ClippedShape>,
 }
 
 impl Headless {
@@ -106,6 +108,7 @@ impl Headless {
             .expect("every frame produces the root viewport")
             .repaint_delay
             .is_zero();
+        let shapes = std::mem::take(&mut output.shapes);
         // Nothing renders here, so the frame's texture deltas are
         // dropped on purpose.
         output.drop_without_applying_deltas();
@@ -113,6 +116,7 @@ impl Headless {
             nodes: update.nodes.into_iter().map(|(_, node)| node).collect(),
             platform,
             repaints,
+            shapes,
         }
     }
 

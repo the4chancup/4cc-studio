@@ -177,7 +177,7 @@ pub(crate) fn kit_slots_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     let generation = view.generation;
     let response =
         egui::Modal::new(egui::Id::unique("save_editor_kit_slots")).show(ui.ctx(), |ui| {
-            ui.heading("Kit slot assignments");
+            studio_core::theme::window_title(ui, "Kit slot assignments");
             ui.push_id(("team", generation, team_id), |ui| {
                 kit_slots(ui, session, team_id, schema, &team);
             });

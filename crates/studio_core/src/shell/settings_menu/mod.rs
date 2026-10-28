@@ -100,7 +100,7 @@ impl SettingsMenu {
         }
         let modal = egui::Modal::new(egui::Id::unique("settings-menu")).show(egui_ctx, |ui| {
             ui.set_min_width(WIDTH);
-            ui.heading("Settings");
+            crate::theme::window_title(ui, "Settings");
             self.common_grid(ui, tools, ctx, sidebar);
             let pending = self.pending.take();
             for (index, tool) in tools.iter_mut().enumerate() {

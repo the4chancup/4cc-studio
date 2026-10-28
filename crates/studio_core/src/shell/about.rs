@@ -49,7 +49,7 @@ pub(crate) fn show(
 ) -> bool {
     let block = version_block(paths, pes_version);
     let modal = egui::Modal::new(egui::Id::unique("about-4cc-studio")).show(ctx, |ui| {
-        ui.heading(format!("About {}", crate::APP_NAME));
+        crate::theme::window_title(ui, format!("About {}", crate::APP_NAME));
         ui.label(egui::RichText::new(&block).monospace());
         let mut help = false;
         ui.horizontal(|ui| {

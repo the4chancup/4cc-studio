@@ -179,7 +179,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             .to_string(),
     };
     let mut open = aatf.open;
-    egui::Window::new(format!("AATF violations ({ruleset_label})"))
+    let title = studio_core::theme::window_title_text(format!("AATF violations ({ruleset_label})"));
+    egui::Window::new(title)
         .id(egui::Id::unique("save_editor_aatf_panel"))
         .default_width(620.0)
         .collapsible(false)

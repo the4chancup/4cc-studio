@@ -162,7 +162,7 @@ pub(crate) fn dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     let mut close = false;
     let response =
         egui::Modal::new(egui::Id::unique("save_editor_generate")).show(ui.ctx(), |ui| {
-            ui.heading(generate.file.title());
+            studio_core::theme::window_title(ui, generate.file.title());
             if is_stripped(file, generate.player_id) {
                 ui.label(format!(
                     "{name} is stripped, so the game reads the database tables rather \

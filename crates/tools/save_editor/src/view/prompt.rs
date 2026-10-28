@@ -315,7 +315,7 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() ->
         // sideways inside the table, every cell on one line.
         let chrome = egui::Frame::popup(ui.style()).total_margin().sum().x;
         ui.set_max_width((ui.ctx().content_rect().width() * 0.9 - chrome).max(0.0));
-        ui.heading("Unsaved changes");
+        studio_core::theme::window_title(ui, "Unsaved changes");
         egui::ScrollArea::both().max_height(240.0).show(ui, |ui| {
             egui::Grid::new("unsaved changes")
                 .num_columns(3)
@@ -402,7 +402,7 @@ pub(super) fn edit_mode_dialog(
     let mut cancel = false;
     let response =
         egui::Modal::new(egui::Id::unique("save_editor_edit_mode")).show(ui.ctx(), |ui| {
-            ui.heading(format!("{game} is running"));
+            studio_core::theme::window_title(ui, format!("{game} is running"));
             ui.label(
                 "If the game's Edit mode is open, close it before saving. The game writes its own \
                  copy of the save when you leave Edit mode, so a save written while it is open \

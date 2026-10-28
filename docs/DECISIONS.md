@@ -12594,3 +12594,25 @@ would sink every PES 2015 keeper (one keeper ability at 0 takes a 70 keeper to t
 and PES 2015's own formula is not read. Averaging what is stored keeps the terms on PES 2016's
 scale.
 Plan: `plans/save_editor.md` "Tactics editor", the pitch-drop paragraph's formula.
+
+## 2026-10-28 — studio_core — A window's title is its place, not its draft: every modal's and floating window's title at 14
+Decision: the window-title style (proportional 14, strong colour) is drawn by every `egui::Modal`'s
+title line and passed as every `egui::Window`'s title (Help, Comparator, AATF violations); a page's
+heading (a help topic's, a ruleset section's) keeps `Heading`'s 15. Modal titles with no draft
+element (the Ruleset editor's "Save changes to …?" and its "Not saved") take it too.
+Why: the drafts give every window's title 14 (`.window .title`, `.help-win .title`, `.panel .title`),
+and egui's title bar falls back to `Heading` only when the title carries no style of its own, so a
+`RichText` title reaches it; a rule by place needs no draft lookup for the next dialog, where a rule
+by draft would leave each undrafted modal at 15 beside its drafted neighbours. The strong colour
+is the drafts' `var(--strong)`: egui's `heading()` sets only the size, not the colour.
+Plan: `plans/core/gui.md` "Dark/light theme" row, the window title's sentence.
+
+## 2026-10-28 — drafts — A floating window's title centred, as egui's title bar draws it
+Decision: the drafts' help window and floating panels (Comparator, AATF violations) centre their
+title in the room the close button leaves, where they had it on the left; the app keeps egui's
+title bar, which centres it.
+Why: egui's `Window` puts the title between two growing spacers, with no alignment option; a
+left-aligned title in the app would mean drawing the title bar by hand (its drag, collapse and
+close), code egui already carries, for a difference the drafts can absorb, as they copy egui's own
+slider. Found in the built window at 0.0.1w5's check.
+Plan: `plans/core/gui.md` "Dark/light theme" row, the window title's sentence.

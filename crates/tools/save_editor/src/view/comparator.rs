@@ -219,7 +219,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         false
     };
     let mut open = comparator.open;
-    egui::Window::new("Comparator")
+    egui::Window::new(studio_core::theme::window_title_text("Comparator"))
         .id(egui::Id::unique("save_editor_comparator"))
         .default_width(620.0)
         .collapsible(false)

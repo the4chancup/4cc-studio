@@ -406,6 +406,8 @@ table.grid.stats-grid td { padding: 2px 6px; }
   display: flex; flex-direction: column; }
 .panel .title { color: var(--strong); font-size: 14px; margin-bottom: 6px;
   display: flex; justify-content: space-between; align-items: center; }
+/* Centred in the room the close button leaves, as egui's title bar draws it. */
+.panel .title .title-text { flex: 1; text-align: center; }
 .panel .pbody { overflow: auto; min-height: 0; }
 .panel .drow { display: flex; gap: 8px; padding: 0 4px; white-space: nowrap;
   border-radius: 2px; }
@@ -5766,7 +5768,7 @@ const SECOND_SAVES = [
 ];
 function panelWindow(id, title, body) {
   const p = h("div", { class: "panel", id, "data-panel": S.panel + "-window" },
-    h("div", { class: "title" }, title,
+    h("div", { class: "title" }, h("span", { class: "title-text" }, title),
       button("✕", () => { S.panel = null; render(); }, { frame0: true, title: "Close" })),
     h("div", { class: "pbody" }, body));
   return p;

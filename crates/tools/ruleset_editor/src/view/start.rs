@@ -39,7 +39,7 @@ pub(crate) fn modal(
     settings: &RulesetEditorSettings,
 ) {
     if super::modal(ui, "ruleset_start", |ui| {
-        ui.heading("Ruleset editor");
+        studio_core::theme::window_title(ui, "Ruleset editor");
         body(ui, view, ctx, settings);
         ui.button("Close").clicked()
     }) {

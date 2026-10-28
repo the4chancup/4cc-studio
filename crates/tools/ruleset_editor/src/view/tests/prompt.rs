@@ -468,3 +468,38 @@ fn a_template_pick_prompts_and_each_answer_does_what_it_says() {
 
     pick_answers(&mut window, &ctx, &dir, "Spring 26", "Spring 26");
 }
+
+// The prompt's title draws in the window-title style (the drafts'
+// `.window .title`): 14 points in the strong colour, not `Heading`'s 15,
+// which a page's heading keeps.
+#[test]
+fn the_prompts_title_is_14_points_and_strong() {
+    let (dir, ctx, mut window) = prompt_setup("prompt_title_style");
+    let mut view = dirty_view(&ctx, &dir);
+    menu_pick(&mut window, &mut view, &ctx, "File", "Open…");
+    let frame = window.draw(&mut view, &ctx);
+    let title = frame
+        .shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) if shape.galley.text() == "Save changes to Edited?" => {
+                Some(shape)
+            }
+            _ => None,
+        })
+        .next()
+        .expect("the prompt's title is painted");
+    assert_eq!(
+        title.galley.job.sections[0].format.font_id.size, 14.0,
+        "the drafts' .window .title"
+    );
+    let strong = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .strong_text_color();
+    assert_eq!(
+        title.galley.job.sections[0].format.color, strong,
+        "the title's strong colour"
+    );
+}

@@ -716,13 +716,13 @@ fn dialog(ui: &mut egui::Ui, view: &mut RulesetView) {
         match kind {
             Dialog::OpenRefused { name, findings } => refused_block(ui, name, findings),
             Dialog::SaveRefused { findings } => {
-                ui.heading("Not saved: the ruleset has problems");
+                studio_core::theme::window_title(ui, "Not saved: the ruleset has problems");
                 for line in findings {
                     ui.colored_label(ui.visuals().error_fg_color, line);
                 }
             }
             Dialog::SaveWrite { text } => {
-                ui.heading("Not saved");
+                studio_core::theme::window_title(ui, "Not saved");
                 ui.colored_label(ui.visuals().error_fg_color, text);
             }
         }

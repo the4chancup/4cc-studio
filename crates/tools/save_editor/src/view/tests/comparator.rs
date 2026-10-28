@@ -1249,3 +1249,35 @@ fn the_pick_row_keeps_the_buttons_on_one_line_with_a_long_path() {
         );
     }
 }
+
+// The panel's title bar draws its title in the window-title style (the
+// drafts' `.panel .title`): 14 points in the strong colour, where egui's
+// title bar falls back to `Heading`'s 15.
+#[test]
+fn the_panels_title_is_14_points_and_strong() {
+    let (mut view, mut window) = open_734_with("comparator_title", &[73401], 183);
+    view.comparator.open = true;
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let title = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) if shape.galley.text() == "Comparator" => Some(shape),
+            _ => None,
+        })
+        .next()
+        .expect("the panel's title is painted");
+    assert_eq!(
+        title.galley.job.sections[0].format.font_id.size, 14.0,
+        "the drafts' .panel .title"
+    );
+    let strong = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .strong_text_color();
+    assert_eq!(
+        title.galley.job.sections[0].format.color, strong,
+        "the title's strong colour"
+    );
+}

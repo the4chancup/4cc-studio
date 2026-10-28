@@ -818,7 +818,7 @@ fn refusal_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     if let Some(refusal) = view.refusal.as_ref() {
         let response =
             egui::Modal::new(egui::Id::unique("save_editor_refusal")).show(ui.ctx(), |ui| {
-                ui.heading(refusal.title);
+                studio_core::theme::window_title(ui, refusal.title);
                 ui.label(&refusal.message);
                 if ui.button("OK").clicked() {
                     close = true;
@@ -842,7 +842,7 @@ fn strip_again_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     let mut close = false;
     let response =
         egui::Modal::new(egui::Id::unique("save_editor_strip_again")).show(ui.ctx(), |ui| {
-            ui.heading("Appearance ids set on a stripped save");
+            studio_core::theme::window_title(ui, "Appearance ids set on a stripped save");
             ui.label(format!(
                 "{} {} an appearance id set while the rest are stripped:",
                 rows.len(),

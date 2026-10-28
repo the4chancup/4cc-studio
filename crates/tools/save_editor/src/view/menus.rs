@@ -338,7 +338,7 @@ pub(crate) fn fix_database_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     let mut close = false;
     let response =
         egui::Modal::new(egui::Id::unique("save_editor_fix_database")).show(ui.ctx(), |ui| {
-            ui.heading("Fix database");
+            studio_core::theme::window_title(ui, "Fix database");
             if let Some(session) = view.session.as_ref() {
                 ui.label(fix_database_question(session.file()));
             }
@@ -462,7 +462,7 @@ pub(crate) fn boglo_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     let boglo = view.boglo.as_mut().expect("checked above");
     let mut close = false;
     let response = egui::Modal::new(egui::Id::unique("save_editor_boglo")).show(ui.ctx(), |ui| {
-        ui.heading("Set boots and gloves IDs for everyone");
+        studio_core::theme::window_title(ui, "Set boots and gloves IDs for everyone");
         ui.horizontal(|ui| {
             ui.label("Boots:");
             ui.radio_value(&mut boglo.boots, BootsPick::Unchanged, "Unchanged");
@@ -626,7 +626,7 @@ pub(crate) fn stat_num_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     let response =
         egui::Modal::new(egui::Id::unique("save_editor_stat_num")).show(ui.ctx(), |ui| {
             let stat_num = view.stat_num.as_mut().expect("checked above");
-            ui.heading(stat_num.title());
+            studio_core::theme::window_title(ui, stat_num.title());
             let range = stat_num.range();
             ui.horizontal(|ui| {
                 ui.label(&stat_num.line);
@@ -766,7 +766,7 @@ pub(crate) fn copy_swap_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
             else {
                 return;
             };
-            ui.heading(dialog.title());
+            studio_core::theme::window_title(ui, dialog.title());
             let name = session
                 .file()
                 .player(dialog.player_id)

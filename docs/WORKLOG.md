@@ -3781,9 +3781,21 @@ briefs, review loops, gates and mutation runs as for any step.
       symbols (menu arrows, the unsaved dot, Live AATF's triangle) on the text's line, no
       wrapped row in either view; the player-by-player comparison with the drafts stays
       the maintainer's final pass (f1c)
-  - [ ] w5 a modal window's title at the drafts' 14 points (`.window .title`), a text style of
-    its own, where the app draws egui's `Heading` (15 after w2r1)
-  - [ ] w6 the maintainer's review of 2026-10-28 (DECISIONS "A Tricks panel under Skills" and
+  - [x] w5 a modal window's title at the drafts' 14 points (`.window .title`), a text style of
+    its own, where the app draws egui's `Heading` (15 after w2r1). Done 2026-10-28 (SWE-2,
+    brief `.tmp/0_0_1z/brief_w5.md`, reviewed; DECISIONS "A window's title is its place"):
+    `theme::window_title`/`window_title_text` (14, strong) on every modal's title (studio_core
+    3, save_editor 10, ruleset_editor 4) and, by the lead, the three `egui::Window` titles
+    (Help, Comparator, AATF violations); pages' `h2` headings and `info_strip`'s player title
+    stay `Heading`
+    - [x] the built window checked 2026-10-28 at `825f1885` (`.tmp/0_0_1z/shots/w5_01_about.png`,
+      `w5_02_help.png`): About's title in white at 14 (its ink 173 wide against the body's
+      "Release page" 74: 2.338, where 14 gives 2.321 and 15 2.397), Help's 28 wide (14: 28,
+      15: 31). egui's title bar centres the Help title where the drafts had it on the left:
+      the drafts now centre it (DECISIONS "A floating window's title centred"; checked by
+      `.tmp/0_0_1z/title_centre.py`: Comparator, AATF and Help titles at their room's centre,
+      no page errors)
+  - [x] w6 the maintainer's review of 2026-10-28 (DECISIONS "A Tricks panel under Skills" and
     "Panel titles on one line and 6.5 points above their content")
     - [x] w6a the drafts (lead): the Tricks panel (`trickCards`, `skillColumns`); the three
       column titles at one y (84, from 81 and 87) and every player-view title 6.5 points

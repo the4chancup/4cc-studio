@@ -59,7 +59,7 @@ pub(crate) fn show(
             .as_ref()
             .map(|document| document.ruleset.name.clone())
             .unwrap_or_default();
-        ui.heading(format!("Save changes to {name}?"));
+        studio_core::theme::window_title(ui, format!("Save changes to {name}?"));
         ui.horizontal(|ui| {
             if ui.button("Save").clicked() {
                 answer = Some(Answer::Save);

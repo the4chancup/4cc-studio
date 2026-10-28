@@ -19,6 +19,29 @@ pub const SUCCESS_FG: egui::Color32 = egui::Color32::from_rgb(0x4c, 0xd9, 0x64);
 /// own link and warning colours are darker for the same reason).
 pub const SUCCESS_FG_LIGHT: egui::Color32 = egui::Color32::from_rgb(0x13, 0x73, 0x33);
 
+/// The text style a modal or floating window's title draws in (the drafts'
+/// `.window .title`): proportional 14, where `Heading`, a page's heading
+/// (the drafts' `h2`), is 15. `install` registers it on both themes; draw a
+/// title with [`window_title`] or [`window_title_text`].
+fn window_title_style() -> egui::TextStyle {
+    egui::TextStyle::Name("window_title".into())
+}
+
+/// `text` as a window's title, the drafts' `.window .title`: in
+/// `window_title_style`'s 14 points, the draft's `var(--strong)` the strong
+/// text colour. An `egui::Window` takes it as its title, which its title
+/// bar would otherwise draw in `Heading`; a modal draws it with
+/// [`window_title`].
+pub fn window_title_text(text: impl Into<egui::RichText>) -> egui::RichText {
+    text.into().strong().text_style(window_title_style())
+}
+
+/// Draws `text` as a modal window's title, [`window_title_text`] in a
+/// label. A page's heading is `ui.heading`'s, `Heading`'s 15.
+pub fn window_title(ui: &mut egui::Ui, text: impl Into<egui::RichText>) -> egui::Response {
+    ui.label(window_title_text(text))
+}
+
 /// The colour a notice's text is drawn in: its kind's bright colour, since a
 /// notice is seen, not found.
 pub fn notice_color(kind: NoticeKind, visuals: &egui::Visuals) -> egui::Color32 {
@@ -63,15 +86,16 @@ pub fn install(ctx: &egui::Context) {
         ctx.style_mut_of(theme, |style| {
             style.spacing.button_padding = egui::vec2(4.0, 1.0);
             style.spacing.interact_size = egui::vec2(40.0, 18.0);
-            // The drafts' text sizes (the stylesheet's `.small`, body, `.mono`
-            // and `h2`), where egui defaults to 9, 13, 13, 13 and 18: at those
-            // every approved width and row moves.
+            // The drafts' text sizes (the stylesheet's `.small`, body, `.mono`,
+            // `h2` and `.window .title`), where egui defaults to 9, 13, 13, 13
+            // and 18: at those every approved width and row moves.
             for (text_style, font_id) in [
                 (egui::TextStyle::Small, egui::FontId::proportional(11.0)),
                 (egui::TextStyle::Body, egui::FontId::proportional(12.5)),
                 (egui::TextStyle::Button, egui::FontId::proportional(12.5)),
                 (egui::TextStyle::Monospace, egui::FontId::monospace(12.0)),
                 (egui::TextStyle::Heading, egui::FontId::proportional(15.0)),
+                (window_title_style(), egui::FontId::proportional(14.0)),
             ] {
                 style.text_styles.insert(text_style, font_id);
             }
@@ -322,6 +346,10 @@ mod tests {
                 (egui::TextStyle::Button, egui::FontId::proportional(12.5)),
                 (egui::TextStyle::Monospace, egui::FontId::monospace(12.0)),
                 (egui::TextStyle::Heading, egui::FontId::proportional(15.0)),
+                (
+                    egui::TextStyle::Name("window_title".into()),
+                    egui::FontId::proportional(14.0),
+                ),
             ] {
                 assert_eq!(
                     style.text_styles.get(&text_style),

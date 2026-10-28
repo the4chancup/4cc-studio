@@ -1377,6 +1377,53 @@ fn the_logo_opens_about_and_copy_puts_the_version_block_on_the_clipboard() {
     fs::remove_dir_all(&dir).unwrap();
 }
 
+// The About popup's title draws in the window-title style (the drafts'
+// `.window .title`): 14 points in the strong colour, not `Heading`'s 15,
+// which a page's heading keeps.
+#[test]
+fn the_about_popups_title_is_14_points_and_strong() {
+    let dir = test_dir("studio_core_about_title");
+    fs::create_dir_all(&dir).unwrap();
+    let (a, calls_a) = stub("a", "A", None);
+    let Shell { mut app, .. } = shell_with(
+        test_settings(&dir),
+        vec![a],
+        &[],
+        Some(dir.clone()),
+        vec![calls_a],
+    );
+    let egui_ctx = test_context();
+
+    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+    click(&egui_ctx, &mut app, entry(&nodes, "4cc"));
+    // The modal's first frame is a sizing pass; the settled frame's shapes
+    // are painted.
+    let out = idle(&egui_ctx, &mut app, 2);
+    let title = format!("About {}", crate::APP_NAME);
+    let shape = out
+        .shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) if shape.galley.text() == title => Some(shape),
+            _ => None,
+        })
+        .next()
+        .expect("the popup's title is painted");
+    assert_eq!(
+        shape.galley.job.sections[0].format.font_id.size, 14.0,
+        "the drafts' .window .title"
+    );
+    let strong = egui_ctx
+        .style_of(egui_ctx.theme())
+        .visuals
+        .strong_text_color();
+    assert_eq!(
+        shape.galley.job.sections[0].format.color, strong,
+        "the title's strong colour"
+    );
+    fs::remove_dir_all(&dir).unwrap();
+}
+
 // ST-SIDE-05 is manual: a real PES must run. These cover the poll's mechanics with a
 // stubbed probe, so they cite no scenario.
 

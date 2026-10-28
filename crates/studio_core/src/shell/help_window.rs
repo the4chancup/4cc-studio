@@ -146,7 +146,7 @@ impl HelpWindow {
         // A moved or resized rect is kept by the window's id afterwards.
         let screen = egui_ctx.content_rect();
         let size = (screen.size() * 0.9).round();
-        egui::Window::new("Help")
+        egui::Window::new(crate::theme::window_title_text("Help"))
             .id(egui::Id::unique("help-window"))
             .default_rect(egui::Rect::from_center_size(screen.center(), size))
             .collapsible(false)
@@ -1360,6 +1360,37 @@ mod tests {
         assert_eq!(toggled(&nodes, "Beta topic"), Some(Some(Toggled::False)));
         assert_eq!(toggled(&nodes, "Beta more"), Some(Some(Toggled::False)));
         assert_eq!(toggled(&nodes, "Messages"), Some(Some(Toggled::True)));
+    }
+
+    // The window's title bar draws its title in the window-title style (the
+    // drafts' `.help-win .title`): 14 points in the strong colour, where egui's
+    // title bar falls back to `Heading`'s 15.
+    #[test]
+    fn the_help_windows_title_is_14_points_and_strong() {
+        let dir = TestDir::new("studio_core_help_title");
+        let Shell { mut app, .. } = help_shell(dir.path());
+        let egui_ctx = test_context();
+
+        frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
+        let shapes = idle(&egui_ctx, &mut app, 15).shapes;
+        let strong = egui_ctx
+            .style_of(egui_ctx.theme())
+            .visuals
+            .strong_text_color();
+        let titles: Vec<(f32, egui::Color32)> = shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(shape) if shape.galley.text() == "Help" => {
+                    let format = &shape.galley.job.sections[0].format;
+                    Some((format.font_id.size, format.color))
+                }
+                _ => None,
+            })
+            .collect();
+        assert!(
+            titles.contains(&(14.0, strong)),
+            "the title among the texts \"Help\": {titles:?}"
+        );
     }
 
     #[test]
