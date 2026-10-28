@@ -12626,3 +12626,18 @@ points inside its combo; 4 everywhere would mean widening the approved label col
 site would break the one figure that keeps every mark's spacing alike. Found at the built-window
 look at the marks.
 Plan: `plans/save_editor.md` "Configurable AATF rules", the field cross bullet.
+
+## 2026-10-28 — drafts — The drafts draw the checkbox, the combo's list and the list's band as egui does
+Decision: the drafts' checkbox and radio button are drawn by the stylesheet (`appearance: none`)
+in egui's measures and theme colours, their label in the widget's text colour; a combo's open
+list is the drafts' own popup, opened by a click on the `select` (which keeps its value, change
+event and keyboard), in egui's popup frame and row look; the player list hides the browser's
+scroll bar and keeps egui's 10-point band clear while it scrolls.
+Why: the browser drew them its own way: a 13-point bordered box ticked in the selection blue
+with labels in the body grey, the system's list in the system's font, a 17-point bar on Windows
+and none headless, none of which the app draws; each was measured in the built window first
+(the box 14 on grey 60, the tick 1 point at grey 180, labels at 180; the popup flush under its
+button, border grey 60, corner 6, margin 6, rows 18 high 21 apart, 200 tall before it scrolls).
+Rebuilding the combo as a `div` widget would change every caller and the scripts that read the
+selects; the popup over the `select` changes neither.
+Plan: `plans/core/gui.md` "Prototypes before implementation", the Look bullet.

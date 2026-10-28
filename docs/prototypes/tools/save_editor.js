@@ -143,7 +143,12 @@ input[type=range]:focus { outline: none; }
 .master { display: flex; gap: 12px; align-items: flex-start; }
 .plist { width: 255px; flex: none; display: flex; flex-direction: column; gap: 4px; }
 .plist .rows { background: var(--extreme); border: 1px solid var(--stroke); min-height: 200px;
-  flex: 1; overflow-y: auto; overflow-x: hidden; }
+  flex: 1; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+/* While the list scrolls its rows stop short of the scroll bar's 10-point band, as the app's
+   do: egui's bar floats over that band, unseen until the pointer nears it. The browser's
+   own bar is hidden, since its width differs between browsers and is 0 in the headless
+   probes. */
+.plist .rows.scrolls > * { margin-right: 10px; }
 /* A name too long for the row truncates, its dot and mark kept after it. */
 .plist .pname { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .plist .rows .prow { display: flex; gap: 5px; align-items: center; padding: 1px 4px; white-space: nowrap;
@@ -3552,14 +3557,15 @@ function renderMaster() {
   const filter = h("input", { type: "text", id: "filter-box",
     placeholder: "Filter every team (name, shirt name or id)", value: S.filter,
     // No redraw: the box keeps its focus; the link still tracks the text.
-    oninput: e => { S.filter = e.target.value; renderList(rows); updateLink(); } });
+    oninput: e => { S.filter = e.target.value; renderList(rows); band(); updateLink(); } });
   const rows = h("div", { class: "rows", id: "player-rows",
     onscroll: e => { listScroll = e.target.scrollTop; } });
+  const band = () => rows.classList.toggle("scrolls", rows.scrollHeight > rows.clientHeight);
   box.append(sel, filter, rows, quickActions());
   renderList(rows);
   // Restored once the frame's layout has given the list its height (before
   // that the offset clamps to 0), and before the frame is painted.
-  requestAnimationFrame(() => { rows.scrollTop = listScroll; });
+  requestAnimationFrame(() => { band(); rows.scrollTop = listScroll; });
   return box;
 }
 // The player list is egui's ScrollArea, whose offset outlives a frame: a

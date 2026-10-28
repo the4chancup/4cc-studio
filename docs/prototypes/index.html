@@ -335,6 +335,20 @@
   button.frame0 { background: transparent; }
   button.frame0:hover:not(:disabled) { background: var(--hover); }
   select { background: var(--widget); border: 0; border-radius: 2px; padding: 1px 2px; }
+  /* An open combo as egui draws it (comboPopup below): the button in the open state, the
+     list right under it on the panel colour, a 1-point border, corner 6, margin 6 and the
+     popup shadow; rows 18 high and 3 apart, unwrapped, hovered as a button, the current one
+     in the selection's colours; inside the margin, past egui's combo_height, 200, the rows
+     scroll, from the top. */
+  select.open { background: #2d2d2d; box-shadow: inset 0 0 0 1px var(--stroke); }
+  .combo-pop { position: fixed; z-index: 140; background: var(--panel); border: 1px solid var(--stroke);
+    border-radius: 6px; padding: 6px; box-shadow: 6px 10px 4px #00000060; }
+  .combo-pop > div { display: flex; flex-direction: column; gap: 3px; max-height: 200px; overflow-y: auto; }
+  .combo-pop > div > div { flex: none; display: flex; align-items: center; min-height: 18px;
+    padding: 0 4px; border-radius: 2px; color: #b4b4b4; white-space: nowrap; cursor: default; }
+  .combo-pop > div > div:hover { background: var(--hover); box-shadow: inset 0 0 0 1px #969696;
+    border-radius: 3px; color: #f0f0f0; }
+  .combo-pop > div > div.on { background: var(--sel-bg); color: var(--sel-fg); }
   /* An open select's list: Firefox draws it outside the page, where the page's own fonts
      are not loaded, so without a generic family it falls to the browser's serif default.
      The app's combo list is in the body font; the system sans is the nearest a browser
@@ -348,8 +362,30 @@
     -webkit-appearance: none; margin: 0; }
   input[type=text]:focus, input[type=number]:focus { outline: 1px solid var(--sel-fg); }
   input[type=color] { width: 22px; height: 16px; border: 0; padding: 0; background: none; }
-  label.cb { display: inline-flex; align-items: center; gap: 4px; }
-  input[type=checkbox], input[type=radio] { accent-color: var(--sel-bg); margin: 0; }
+  /* egui's CheckBox and RadioButton in theme.rs's widget states: a 14-point box (corner 2)
+     or circle on the widget fill, no border; the tick a polyline across the box's central
+     8 points, the dot's radius a third of them, both in the label's colour. Hovered or pressed
+     anywhere on the row, since egui's response covers the label: the fill lighter or
+     darker, a 1-point border inside, the tick 1.5 or 2 wide. */
+  label.cb { display: inline-flex; align-items: center; gap: 4px; color: #b4b4b4; }
+  input[type=checkbox], input[type=radio] {
+    appearance: none; margin: 0; flex: none; width: 14px; height: 14px; border-radius: 2px;
+    background: var(--widget) no-repeat center / 14px 14px; }
+  input[type=radio] { border-radius: 50%; }
+  input[type=checkbox]:checked { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpolyline points='3,7 7,11 11,3' fill='none' stroke='%23b4b4b4'/%3E%3C/svg%3E"); }
+  input[type=radio]:checked { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='2.667' fill='%23b4b4b4'/%3E%3C/svg%3E"); }
+  label.cb:hover:not(:has(:disabled)) { color: #f0f0f0; }
+  :is(label.cb:hover > input, input:hover):is([type=checkbox], [type=radio]):not(:disabled) {
+    background-color: var(--hover); box-shadow: inset 0 0 0 1px #969696; }
+  :is(label.cb:hover > input, input:hover)[type=checkbox]:not(:disabled) { border-radius: 3px; }
+  :is(label.cb:hover > input, input:hover)[type=checkbox]:checked:not(:disabled) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpolyline points='3,7 7,11 11,3' fill='none' stroke='%23f0f0f0' stroke-width='1.5'/%3E%3C/svg%3E"); }
+  :is(label.cb:hover > input, input:hover)[type=radio]:checked:not(:disabled) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='2.667' fill='%23f0f0f0'/%3E%3C/svg%3E"); }
+  label.cb:active:not(:has(:disabled)) { color: #fff; }
+  :is(label.cb:active > input, input:active):is([type=checkbox], [type=radio]):not(:disabled) {
+    background-color: var(--active); box-shadow: inset 0 0 0 1px #fff; border-radius: 2px; }
+  :is(label.cb:active > input, input:active)[type=radio]:not(:disabled) { border-radius: 50%; }
+  :is(label.cb:active > input, input:active)[type=checkbox]:checked:not(:disabled) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpolyline points='3,7 7,11 11,3' fill='none' stroke='%23fff' stroke-width='2'/%3E%3C/svg%3E"); }
+  :is(label.cb:active > input, input:active)[type=radio]:checked:not(:disabled) { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='2.667' fill='%23fff'/%3E%3C/svg%3E"); }
   .sel { padding: 1px 5px; border-radius: 2px; cursor: default; user-select: none; }
   .sel:hover { background: var(--hover); color: #f0f0f0; }
   .sel.on { background: var(--sel-bg); color: var(--sel-fg); }
@@ -711,8 +747,45 @@ function combo(options, value, set, opts = {}) {
   const s = h("select", { title: opts.title, class: opts.cls || "", disabled: opts.disabled,
     onchange: e => { set(e.target.value === "\u0000" ? null : e.target.value); structural(); } },
     options.map(([v, label]) => h("option", { value: v ?? "\u0000", selected: v === value }, label)));
+  s.addEventListener("mousedown", e => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    if (comboOpen === s) closeComboPopup(); else comboPopup(s);
+  });
   return s;
 }
+// An open combo's list as egui draws it: the browser's own list is the system's, in the
+// system's font and colours. Only the mouse opening is replaced (the select takes no focus
+// from it, as egui's button shows none): the select keeps its value and change event.
+let comboOpen = null;
+function comboPopup(s) {
+  closeComboPopup();
+  const r = s.getBoundingClientRect();
+  const [left, top] = inWin(r.left, r.top), below = top + s.offsetHeight;
+  const pop = h("div", { class: "combo-pop", style: `left:${left}px; top:${below}px; min-width:${s.offsetWidth}px` },
+    h("div", {}, [...s.options].map(o => h("div", { class: o.selected ? "on" : "", onclick: () => {
+      closeComboPopup();
+      if (s.value !== o.value) { s.value = o.value; s.dispatchEvent(new Event("change")); }
+    } }, o.textContent))));
+  const win = document.getElementById("win");
+  win.append(pop);
+  if (below + pop.offsetHeight > win.clientHeight) pop.style.top = Math.max(4, top - pop.offsetHeight) + "px";
+  s.classList.add("open");
+  comboOpen = s;
+}
+function closeComboPopup() {
+  document.querySelectorAll(".combo-pop").forEach(p => p.remove());
+  if (comboOpen) comboOpen.classList.remove("open");
+  comboOpen = null;
+}
+// A press anywhere but the list or its own button closes it, as egui's popup does; so does
+// Escape, before the active view sees the key.
+document.addEventListener("mousedown", e => {
+  if (comboOpen && e.target !== comboOpen && !e.target.closest(".combo-pop")) closeComboPopup();
+}, true);
+document.addEventListener("keydown", e => {
+  if (comboOpen && e.key === "Escape") { e.stopPropagation(); closeComboPopup(); }
+}, true);
 function selectable(label, on, toggle, title) {
   return h("span", { class: "sel" + (on ? " on" : ""), title, onclick: () => { toggle(); structural(); } }, label);
 }

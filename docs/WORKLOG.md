@@ -3702,12 +3702,12 @@ briefs, review loops, gates and mutation runs as for any step.
     maintainer's eye (outside the app's own windows, which the lead does not capture): the
     taskbar's button and Alt+Tab (the tight crop: if the whole picture should be there, the
     plan's bullet on `small.png` says what that costs); Explorer's file icon on the exe
-- [ ] 0.0.1w the drafts and the app draw the same fonts (the maintainer, 2026-10-27: the
+- [x] 0.0.1w the drafts and the app draw the same fonts (the maintainer, 2026-10-27: the
   drafts named Ubuntu, installed nowhere, so they were reviewed in Segoe UI; Selawik, its
   metric twin, replaces Ubuntu; `plans/core/gui.md` "Prototypes before implementation", the
   Fonts bullet, and "Other UI components", the Dark/light theme row; DECISIONS "Selawik
-  replaces Ubuntu; the drafts load the app's own font files"). **The drafts' approval is
-  withdrawn until the maintainer's close look at them in these fonts.**
+  replaces Ubuntu; the drafts load the app's own font files"). The drafts' approval, withdrawn
+  until the maintainer's close look at them in these fonts, was given again at w3.
   - [x] w1 the drafts' fonts (lead): the font files in `docs/prototypes/assets/fonts/`
     (licences in its README and the host's comments), every stylesheet and canvas font on the
     app's chain (`--font-body`, `--font-mono`, `FONT_BODY`), every face loaded up front (canvas
@@ -3719,7 +3719,7 @@ briefs, review loops, gates and mutation runs as for any step.
     two emoji fonts only, on every page (red: the old body font and a canvas `sans-serif`
     restored by hand, 714 findings); glyphs pixel-identical at line height 1.2 and normal
     (12.5 and 14 points, 1x and 2x); the team view still fits its window
-  - [ ] w1b the drafts' native controls as egui draws them: the checkbox (13 × 13 in Chromium),
+  - [x] w1b the drafts' native controls as egui draws them: the checkbox (13 × 13 in Chromium),
     the sliders (Chromium's and Firefox's own), the combo's popup (the system's list), each
     measured in egui first; and the scrollbars, which a headful browser on Windows 10 draws
     17 wide in the layout where egui's float (the probes run headless and see none); the player list's reserved 10-point band (0.0.1u) drawn in the draft; the drafts' app name, "4cc Studio" in the title bar, About and the data-location dialog, against the preview's "Unlimited Tool Works".
@@ -3727,7 +3727,14 @@ briefs, review loops, gates and mutation runs as for any step.
     `docs/prototypes/index.html` for the title bar, About's title and first line "Unlimited
     Tool Works v0.0.1 pre-alpha", the logo's hover and the first-run prompt;
     `.tmp/0_0_1z/name_check.py`, no page errors); the scrollbars' width in the layout (w6a's
-    `--sbw`). Open: the checkbox, the combo's popup, the player list's reserved band
+    `--sbw`); the checkbox and radio, the combo's popup and the player list's band (2026-10-28,
+    lead: `docs/prototypes/index.html`'s checkbox rules and `comboPopup`, `save_editor.js`'s
+    `.rows.scrolls`; each measured in the built window first, `.tmp/0_0_1z/cb_measure.py`,
+    `combo_measure.py`, against the drafts by `cb_draft.py`, `combo_draft.py`, `band_check.py`:
+    box 14 on grey 60, tick and labels grey 180, popup flush under its button with border 60,
+    corner 6, margin 6, rows 18 high 21 apart, the hovered row and the shadow alike, a pick
+    firing the select's change, Escape and a press outside closing it; the rows 10 short while
+    the list scrolls, full width filtered to two; no page errors, `draft_fonts.py` 0 findings)
   - [x] w1c the symbols as SVGs (lead; the maintainer, 2026-10-27; DECISIONS "The symbols
     Selawik lacks are SVGs in the suite's icon font" and "The symbols are a font of their own,
     on the body font's metrics"). Done: the census (string literals of the crates' code, the

@@ -643,7 +643,12 @@ to the table first (a new dependency, asked for first):
 - **Look:** one shared stylesheet in Studio's dark theme, so every draft looks like Studio and
   the drafts look like one another, its body text at regular weight (400), not the light weight
   of egui's default font, which reads too thin. Drafts are not reviewed in the light theme,
-  which is second-class.
+  which is second-class. A control the browser would draw itself is drawn as egui draws it,
+  measured in the built window, not left to the browser, whose look is the system's: the
+  checkbox and radio button (a 14-point box or circle on the widget fill, the tick a
+  polyline), the slider, a combo's open list (egui's popup under its button, opened by the
+  draft's own code over the `select`), and a scroll bar where the app reserves a band for its
+  floating one (the browser's hidden, the band kept clear).
 - **Fonts:** a draft draws text only in the app's own font files, loaded by `@font-face` from
   `docs/prototypes/assets/fonts/` in the app's fallback order (the Dark/light theme row in
   "Other UI components"), naming no system font and no generic family, canvas text included; no bold (egui has no bold face),
