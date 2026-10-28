@@ -4414,7 +4414,8 @@ briefs, review loops, gates and mutation runs as for any step.
     (the maintainer, 2026-10-28: "height 185 takes no bracket (175-184 are currently
     allowed)", warnings too where it applies): per kind, what the hint says and what it costs
     the script (`logic.rhai`, hashed: before logic version 1's freeze, 0.0.1f2), drafted as a
-    table for the maintainer's ruling, then the drafts' sentences and the plan
+    table for the maintainer's ruling (QUESTIONS "Which issue sentences gain a hint at a valid
+    value"), then the drafts' sentences and the plan
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
