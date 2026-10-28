@@ -1030,6 +1030,10 @@ function fixPesPath() {
   render();
 }
 
+// The suite's display name where a member sees it (the window title, About, the
+// first-run prompt), as the app's `APP_NAME`: every release before 1.0.0 carries
+// the preview's codename.
+const APP_NAME = "Unlimited Tool Works";
 // The two data locations of distribution.md "Data location": the sample exe
 // folder the portable choice uses, the config dir the user-folder choice uses.
 // "none" never reaches dataLocation(): the first-run dialog covers the sidebar.
@@ -1042,7 +1046,7 @@ const dataLocation = () =>
 let lastCopied = null;
 // sample wording: the block's field labels.
 function aboutText() {
-  return ["4cc Studio v0.1.0", "Build: release", "Target: x86_64-pc-windows-msvc",
+  return [APP_NAME + " v0.0.1 pre-alpha", "Build: release", "Target: x86_64-pc-windows-msvc",
     "Data location: " + dataLocation(),
     "PES version: PES " + S.pesVersion].join("\n");
 }
@@ -1283,7 +1287,7 @@ function openAbout() {
     // window_ redraws the overlay itself; skipping closeWindow keeps the
     // layer held across the whole About chain.
     [button("OK", () => openAbout())], "about");
-  window_("About 4cc Studio",
+  window_("About " + APP_NAME,
     h("div", {}, h("pre", { class: "mono" }, aboutText()),
       row(link("Release page", () => ext("Release page", "the release page")),
         link("Repository", () => ext("Repository", "the repository")),
@@ -1995,7 +1999,7 @@ function drawSettings() {
 function drawFirstRun() {
   const choice = (label, hint, loc) => h("div", { class: "choice" },
     button(label, () => chooseDataLocation(loc)), weak(hint));
-  window_("Where should 4cc Studio keep its settings and data?",
+  window_("Where should " + APP_NAME + " keep its settings and data?",
     h("div", {},
       h("div", { class: "firstrun" },
         choice("Next to the program",
@@ -2030,10 +2034,10 @@ function chooseDataLocation(loc) {
 function windowTitle() {
   const acts = activityIds(true);
   if (acts.length)
-    return acts.map(id => activityText(id, S.activities[id])).join(" · ") + " - 4cc Studio";
-  if (S.heldTitleNotice) return S.heldTitleNotice + " - 4cc Studio";
+    return acts.map(id => activityText(id, S.activities[id])).join(" · ") + " - " + APP_NAME;
+  if (S.heldTitleNotice) return S.heldTitleNotice + " - " + APP_NAME;
   const view = VIEWS[S.activeTool], detail = view && view.titleDetail && view.titleDetail();
-  return toolLabel(S.activeTool) + (detail ? " " + detail : "") + " - 4cc Studio";
+  return toolLabel(S.activeTool) + (detail ? " " + detail : "") + " - " + APP_NAME;
 }
 // The title is set only when the string changes: the real shell sends
 // ViewportCommand::Title once per change, not once per frame. titleSetCount is
@@ -2261,7 +2265,7 @@ const ph = glyph => h("span", { class: "ph" }, glyph);
 // selector for the labelled one (the labels stay hidden in the rail).
 function sidebarItems(full) {
   const items = [
-    h("div", { class: "logo", title: "About 4cc Studio", onclick: openAbout }, "4cc")];
+    h("div", { class: "logo", title: "About " + APP_NAME, onclick: openAbout }, "4cc")];
   const pesSel = combo(
     PES_VERSIONS.map(v => [v, full ? "PES " + v : v.slice(2)]),
     S.pesVersion, setPesVersion,

@@ -2775,3 +2775,4 @@ worklog passed 7,000 lines.
 - **2026-10-28** — 0.0.1r's Browse in the built window at PES 2019: a folder named for the year stored as `20**`, a plain one as picked; 0.0.1r closed.
 - **2026-10-28** — k3: ST-RUN-08 and ST-RUN-09 checked on a hand-panicked release build (dialog, exit 101, the log's frames symbolized; the next start's dialog only after a kill); the panic reverted and the release rebuilt.
 - **2026-10-28** — k4: the window opens when the crash monitor cannot start (a hand-perturbed release build: one process, the warning logged); l2 waits for the cut's bundle.
+- **2026-10-28** — The drafts name the suite Unlimited Tool Works where the preview does (title bar, About, the logo's hover, the first-run prompt; w1b's name part); 0.0.1w4 closed (Roboto Flex picked, built).

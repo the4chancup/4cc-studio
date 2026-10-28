@@ -3722,7 +3722,12 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] w1b the drafts' native controls as egui draws them: the checkbox (13 × 13 in Chromium),
     the sliders (Chromium's and Firefox's own), the combo's popup (the system's list), each
     measured in egui first; and the scrollbars, which a headful browser on Windows 10 draws
-    17 wide in the layout where egui's float (the probes run headless and see none); the player list's reserved 10-point band (0.0.1u) drawn in the draft; the drafts' app name, "4cc Studio" in the title bar, About and the data-location dialog, against the preview's "Unlimited Tool Works"
+    17 wide in the layout where egui's float (the probes run headless and see none); the player list's reserved 10-point band (0.0.1u) drawn in the draft; the drafts' app name, "4cc Studio" in the title bar, About and the data-location dialog, against the preview's "Unlimited Tool Works".
+    Done: the sliders (0.0.1z1, egui's own); the app name (2026-10-28, lead: `APP_NAME` in
+    `docs/prototypes/index.html` for the title bar, About's title and first line "Unlimited
+    Tool Works v0.0.1 pre-alpha", the logo's hover and the first-run prompt;
+    `.tmp/0_0_1z/name_check.py`, no page errors); the scrollbars' width in the layout (w6a's
+    `--sbw`). Open: the checkbox, the combo's popup, the player list's reserved band
   - [x] w1c the symbols as SVGs (lead; the maintainer, 2026-10-27; DECISIONS "The symbols
     Selawik lacks are SVGs in the suite's icon font" and "The symbols are a font of their own,
     on the body font's metrics"). Done: the census (string literals of the crates' code, the
@@ -3765,7 +3770,7 @@ briefs, review loops, gates and mutation runs as for any step.
     `team_widgets/src/pitch/tests/paint.rs`
   - [x] w3 the maintainer's close look at the drafts: approved 2026-10-28 (with w4a, w6a; w6c
     was his own requests of the same evening); the built window follows w4b and w6b
-  - [ ] w4 alternatives to Selawik (the maintainer, 2026-10-27: "not liking Selawik much
+  - [x] w4 alternatives to Selawik (the maintainer, 2026-10-27: "not liking Selawik much
     compared to Segoe UI", alternatives kept open): a few bundleable fonts, each scaled
     (`FontTweak::scale`, `size-adjust` in the drafts) to Segoe UI's measured width (Steam's PES
     2019 path, 425.7 points at 12.5), shown side by side for the maintainer to pick; a pick
