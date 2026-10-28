@@ -337,6 +337,11 @@ table.grid.stats-grid td { padding: 2px 6px; }
 .rate .sel.on.rc { background: #5a5a5a; color: var(--text); }
 .rate.off .sel { color: #5a5a5a; }
 .rate.off .sel:hover { background: none; color: #5a5a5a; }
+/* The formation picker while the preset's Fluid formation is off: disabled as egui fades a
+   disabled widget, its tooltip kept. */
+.fsel.off { opacity: .6; }
+.fsel.off .sel:hover { background: none; color: inherit; }
+.fsel.off .sel.on:hover { background: var(--sel-bg); color: var(--sel-fg); }
 .palette { display: inline-flex; gap: 2px; align-items: center; }
 .palette .swatch.on { outline: 1px solid var(--sel-fg); }
 .palette.off .swatch { opacity: .45; }
@@ -5056,10 +5061,11 @@ function spotChoices(f, i, x, y) {
 }
 // The position slot i takes at the spot (x, y), coming from `cur`: kept
 // while the spot offers it (or offers nothing: the keeper's box), else the
-// one of the two his own overall rates higher, the default on a tie. The
-// game applies it at every step of a drag, so the path matters, not only
-// the end: an LMF dragged along the left keeps LMF wherever LMF is offered.
-// An empty roster slot keeps `cur`: no overall, no pick.
+// one of the two his own overall rates higher, the default on a tie. A drag
+// rules from the position he had when picked up, at every step, never from
+// the one shown a step earlier, so moving him back restores it: a CF dragged
+// down to AMF and back up is a CF again, as in the game. An empty roster
+// slot keeps `cur`: no overall, no pick.
 function ruledPosition(t, f, i, x, y, cur) {
   const choices = spotChoices(f, i, x, y), p = rosterPlayer(t, t.tactics.starting_eleven[i]);
   if (!choices.length || choices.includes(cur) || !p) return cur;
@@ -5206,10 +5212,11 @@ function paintPitch(g, t, f0, live) {
     const dragged = d && d.i === i && d.moved;
     g.globalAlpha = dragged && target >= 0 ? 0.35 : 1;
     const [x, y] = dragged ? heldBadge(d) : badgeAt(t, i, f0);
-    // A held marker's badge shows the position he holds at this step, or,
-    // over a teammate, the teammate's, which a release there gives him: the
-    // game's badge shows the same.
-    const shown = !dragged ? s.position : target >= 0 ? f[target].position : d.pos;
+    // A held marker's badge shows the position a release here gives him: the
+    // rule at his spot from his stored position, or, over a teammate, the
+    // teammate's. The game's badge shows the same.
+    const shown = !dragged ? s.position : target >= 0 ? f[target].position
+      : ruledPosition(t, f0, i, ...heldSpot(d), s.position);
     const bl = x - MARKER.badgeW / 2, bt = y - MARKER.badgeH / 2;
     const img = portraitOf(p);
     if (img) g.drawImage(img, x - MARKER.portrait / 2, bt - MARKER.gap - MARKER.portrait,
@@ -5350,10 +5357,8 @@ function pitchCanvas(t) {
     // badge centre (ox, oy) is kept for the whole drag, so the point of the
     // marker first pressed stays under the pointer.
     const [bx, by] = badgeAt(t, i);
-    // pos is the position he holds while dragged, ruled at every step.
-    const pos = tacFormation(t).players[i].position;
     S.pitchDrag = { i, px, py, x0: px, y0: py, ox: px - bx, oy: py - by, moved: false,
-      gk: pos === "GK", pos };
+      gk: tacFormation(t).players[i].position === "GK" };
   });
   // A bench row dropped on the pitch: onto a marker swaps the two roster
   // spots; an XI row swaps the two starters; onto grass does nothing.
@@ -5379,9 +5384,7 @@ document.addEventListener("pointermove", e => {
   const cv = document.getElementById("pitch"); if (!cv) return;
   [d.px, d.py] = pitchPoint(cv, e);
   if (!d.gk && Math.abs(d.px - d.x0) + Math.abs(d.py - d.y0) > 4) d.moved = true;
-  const t = selTeam();
-  if (d.moved) d.pos = ruledPosition(t, tacFormation(t), d.i, ...heldSpot(d), d.pos);
-  drawPitch(t);
+  drawPitch(selTeam());
 });
 // A press anywhere but inside the player's box closes it (a press on another
 // marker then opens that one's).
@@ -5416,7 +5419,8 @@ document.addEventListener("pointerup", e => {
   const onto = dropTarget(t, lx, ly, d.i);
   if (onto >= 0) { swapOnPitch(t, d.i, onto); render(); return; }
   const [x, y] = snapXY(lx - d.ox, ly - d.oy);
-  const pos = ruledPosition(t, tacFormation(t), d.i, x, y, d.pos);
+  const pos = ruledPosition(t, tacFormation(t), d.i, x, y,
+    tacFormation(t).players[d.i].position);
   edit("Move on pitch", () => {
     const s = tacFormation(t).players[d.i]; s.x = x; s.y = y; s.position = pos; });
   render();
@@ -5527,13 +5531,21 @@ function slotPopover(t) {
 // note's text, the auto flags' labels.
 function tacticsTab(t) {
   const tac = t.tactics, pre = tacPreset(t);
+  // A preset whose Fluid formation is off fields its Kick-off formation
+  // alone (PES 2015 has no switch: always off), so the picker is disabled
+  // and stays on Kick-off; switching Fluid formation off moves it back. It
+  // locks even when the other two differ: the view is the manager's, as the
+  // game's, and an organizer sees hidden formations in the pictures.
+  const locked = !pre.style.fluid;
+  if (locked) S.tac.formation = 0;
   const presetSel = h("span", { class: "row", style: "gap:2px" },
     weak("Preset"), [0, 1, 2].map(i =>
       selectable(String(i + 1), S.tac.preset === i, () => S.tac.preset = i)));
-  const formationSel = h("span", { class: "row", style: "gap:2px",
-      title: "The game uses formations 2 and 3 only while the preset's fluid formation is on" },
+  const formationSel = h("span", { class: "row fsel" + (locked ? " off" : ""), style: "gap:2px",
+      title: locked ? "Formations 2 and 3 are used only while Fluid formation is on"
+        : "The game uses formations 2 and 3 only while the preset's fluid formation is on" },
     FORMATIONS.map((f, i) =>
-      selectable(f, S.tac.formation === i, () => S.tac.formation = i)));
+      selectable(f, S.tac.formation === i, () => { if (!locked) S.tac.formation = i; })));
   // Each Copy/swap menu acts on the selected preset or formation: a copy to,
   // then a swap with, each of the other two (the bar it sits in names what).
   const others = sel => [0, 1, 2].filter(b => b !== sel);
@@ -5703,25 +5715,35 @@ function tacticsTab(t) {
 // columns are the three formations (Kick-off, In-possession,
 // Out-of-possession); a preset whose fluid formation is off draws its
 // Kick-off formation alone, the one the game keeps all match, the room
-// beside it left empty. A team with fluid off on every preset gets one
-// column and no column heads: a lone "Kick-off" would name a switch the
-// team never makes. The save's version sits at the title's right: a folder
+// beside it left empty, unless its other two differ from it: a team can hide
+// formations there and switch fluid back on in a match, and the picture is
+// how an organizer sees them, so such a preset draws all three, the other
+// two dimmed (they may as well be leftovers the manager forgot). A team with
+// one formation on every row gets one column and no column heads: a lone
+// "Kick-off" would name a switch the team never makes. Under each row's
+// "Preset n", its Fluid formation in the weak colour (PES 2016 on), with or
+// without the settings. The save's version sits at the title's right: a folder
 // of pictures from several saves would otherwise not say which game each
 // came from. Drawn on a canvas here; the app paints the same pitch painter
 // into an image it writes with `image`.
 // With `settings`, a column at the grid's right lists each preset's settings
 // beside its row, as the Tactics editor's panels show them (`presetLines`),
 // and the team's Automatic settings, which no preset owns, are one line
-// under the grid.
+// under the grid. The column holds the labels and the widest fixed value
+// (Attacking Full-Backs, 115 at 120) with a few points to spare; a target's
+// name longer than the rest is cut with an ellipsis rather than widening
+// every picture for the few long names.
 const PIC = { margin: 16, gap: 12, labelW: 96, titleH: 30, headH: 22,
-  setW: 300, valueX: 120, line: 15, footH: 30,
+  setW: 240, valueX: 120, line: 15, footH: 30,
   bg: "#1b1b1b", strong: "#dcdcdc", weak: "#8c8c8c", font: "12.5px " + FONT_BODY };
 // One preset's settings as the picture lists them, top to bottom in the
-// editor's order: fluid formation (the preset bar's), Formation settings
-// (the offensive half, then the defensive), Advanced instructions, each
-// instruction with its target. [label, value] is a line, [heading] a
-// heading, null half a line's gap. Values read as the editor's controls
-// name them, full length (the picture has the room the panel lacks).
+// editor's order: Formation settings (the offensive half, then the
+// defensive), Advanced instructions, each instruction's target on a line of
+// its own under it, after ↳, where on the instruction's line a name had only
+// the room the instruction left (Fluid formation is under the row's label,
+// not here). [label, value] is a line,
+// [heading] a heading, null half a line's gap. Values read as the editor's
+// controls name them, full length (the picture has the room the panel lacks).
 // sample wording: the headings.
 function presetLines(t, pre) {
   const v = version();
@@ -5733,12 +5755,12 @@ function presetLines(t, pre) {
     const [, label] = STYLE_TOGGLES.find(([k]) => k === key);
     return [label, titleCase(pre.style[key])];
   };
-  const lines = v >= 16 ? [["Fluid formation", pre.style.fluid ? "On" : "Off"], null] : [];
-  lines.push(["Formation settings"], ...TAC_OFFENSIVE.map(line), null, ...TAC_DEFENSIVE.map(line));
+  const lines = [["Formation settings"], ...TAC_OFFENSIVE.map(line), null, ...TAC_DEFENSIVE.map(line)];
   if (v >= 17) {
-    const side = (key, name) => pre.instructions[key].map((e, i) => [name + " " + (i + 1),
-      (INSTRUCTION_LABEL[e.instruction] || titleCase(e.instruction))
-        + (takesTarget(e.instruction) && e.player !== 255 ? " → " + playerName(rosterPlayer(t, e.player)) : "")]);
+    const side = (key, name) => pre.instructions[key].flatMap((e, i) => [
+      [name + " " + (i + 1), INSTRUCTION_LABEL[e.instruction] || titleCase(e.instruction)],
+      ...(takesTarget(e.instruction) && e.player !== 255
+        ? [["", "↳ " + playerName(rosterPlayer(t, e.player))]] : [])]);
     lines.push(null, ["Advanced instructions"], ...side("attack", "Attack"), ...side("defence", "Defence"));
   }
   return lines;
@@ -5757,9 +5779,17 @@ function fitText(g, text, width) {
   while (text && g.measureText(text + "…").width > width) text = text.slice(0, -1);
   return text + "…";
 }
+// The formations a preset's row draws: the fielded ones, or all three when
+// Fluid formation is off and the other two are not exact copies of Kick-off.
+// PES 2015 has no switch, so nothing there can field them.
+function picturedFormations(pre) {
+  const [kickoff, ...rest] = pre.formations, same = f => JSON.stringify(f) === JSON.stringify(kickoff);
+  const hidden = version() >= 16 && !pre.style.fluid && !rest.every(same);
+  return hidden ? pre.formations : fieldedFormations(pre).map(i => pre.formations[i]);
+}
 function formationsPicture(t, settings = false) {
   const presets = t.tactics.presets;
-  const cols = presets.some(pre => pre.style.fluid) ? FORMATIONS.length : 1;
+  const cols = presets.some(pre => picturedFormations(pre).length > 1) ? FORMATIONS.length : 1;
   const rows = presets.length, headH = cols > 1 ? PIC.headH : 0;
   const gridW = cols * PITCH.w + (cols - 1) * PIC.gap;
   const gridH = rows * PITCH.h + (rows - 1) * PIC.gap;
@@ -5793,12 +5823,19 @@ function formationsPicture(t, settings = false) {
   presets.forEach((pre, i) => {
     g.fillStyle = PIC.strong;
     g.fillText("Preset " + (i + 1), PIC.margin, cellY(i) + 10);
-    const shown = pre.style.fluid ? pre.formations : pre.formations.slice(0, 1);
-    shown.forEach((f, j) => {
+    if (version() >= 16) {
+      g.fillStyle = PIC.weak;
+      g.fillText("Fluid " + (pre.style.fluid ? "On" : "Off"), PIC.margin, cellY(i) + 10 + PIC.line);
+    }
+    picturedFormations(pre).forEach((f, j) => {
       const cell = document.createElement("canvas");
       cell.width = PITCH.w; cell.height = PITCH.h;
       paintPitch(cell.getContext("2d"), t, f, false);
+      // A fluid-off preset's other two are hidden: drawn at 60% over the
+      // background, so they read as unused, perhaps left there forgotten.
+      g.globalAlpha = j > 0 && !pre.style.fluid ? 0.6 : 1;
       g.drawImage(cell, cellX(j), cellY(i));
+      g.globalAlpha = 1;
     });
     if (!settings) return;
     // The settings beside the row: a heading strong, a label in the text

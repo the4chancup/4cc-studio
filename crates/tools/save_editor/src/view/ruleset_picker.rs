@@ -172,13 +172,14 @@ fn remove_import(view: &mut SaveView, file_name: &str) {
 /// The imported list read again from the data folder, and the ruleset
 /// resolved afresh on the next frame along with what was computed under
 /// it: a replaced copy keeps its file name, the key the Cards left badge,
-/// the medals and Live AATF's check are kept under.
+/// the medals and the AATF checks are kept under.
 fn reread_imports(view: &mut SaveView) {
     view.imported = rules::imported(view.data_dir.as_deref());
     view.rules = None;
     view.cards = None;
     view.medals = None;
     view.live.check.reset();
+    view.multi_aatf.check.reset();
 }
 
 /// The refusal for a file that does not load: its findings, one a line

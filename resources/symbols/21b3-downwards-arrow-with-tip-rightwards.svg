@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -2027 1767 2458">
+  <!-- U+21B3 DOWNWARDS ARROW WITH TIP RIGHTWARDS. Font units (2048 per em), y up from the
+       baseline: the group flips them into SVG's y-down; the view box is the line the strokes
+       were laid out on, from ascent to descent; its width is the glyph's advance. The
+       rightwards arrow's shaft, head and advance (U+2192), with a stem from its tail up to the
+       body font's cap height: Segoe UI Symbol's own, half as wide, turns too short to read
+       at the body size. -->
+  <g transform="scale(1 -1)">
+    <path fill="none" stroke="#000" stroke-width="129" d="M231 1456 V598 H1527 M1237 888 L1527 598 L1237 308"/>
+  </g>
+</svg>

@@ -208,6 +208,76 @@ folder's `rules/`.
 
 What this editor adds on top of the lib:
 
+- **The ruleset dropdown.** A combo box on the toolbar, left of the Live AATF toggle, drawn
+  whether Live AATF is on or off: the ruleset drives the quick actions, the Cards left badge
+  and which skills the Tricks or Free cards panel holds, not only the check. It lists the
+  rulesets built into the binary, every cup's current ones in `aatf_rules.md`
+  "Embedded rulesets"'s order, each by its description alone, the file's `name` (`aatf_rules.md`
+  "The ruleset schema": `/vg/ League 27`, not a file name or a code), then under a separator the imported ones the same way, each row with an ×
+  at its right end (a frameless small button: egui's combo popup holds any widget), then
+  under another `Import rules file…`, a command rather than a value. The choice
+  is the `aatf_ruleset` setting (an embedded ruleset's file stem, `autumn26`, or an imported
+  copy's file name), remembered across restarts, and `check-aatf` without `--rules` reads it.
+  It replaces the `aatf_rules` path setting and its settings-menu row: one place to pick the
+  rules, the place a member switching between cups' rules is already looking (switching
+  through the settings row was awkward). The settings menu's Save editor section keeps the
+  "Aesthetics from exports" checkbox ("Read-only aesthetics").
+  - **Import rules file…** opens the file dialog on `.4ccrules` files and loads the pick as
+    `Rules::load` does (`aatf_rules.md` "Loading and validation"). A file with findings is
+    refused, a dialog titled `The rules file has errors` listing them, each with its line and
+    column or key path, and nothing is copied: no file that does not load can become the
+    ruleset, so the quick actions and the badge never have a load error to show (the file is
+    fixed, in the Ruleset editor or by hand, and imported again). A clean file is copied into
+    the data folder's `rules/` under its file name and becomes the ruleset. The imported
+    rulesets are the `.4ccrules` files in that folder, read at start, no list kept beside
+    them, so moving or editing the original changes nothing until it is imported again. A
+    file whose description a built-in ruleset has is refused naming the clash (two rows would
+    read the same, and a built-in is not replaced); one whose file name or description an
+    earlier import has replaces that import once a confirmation naming it is accepted (a cup's
+    corrected rules keep their name). A file picked under another ending is copied as
+    `<stem>.4ccrules`, and one whose file name differs from an earlier import's in case alone
+    takes that import's name: Windows reads the two as one file, and the replace would
+    otherwise delete the copy it had just written. With no data folder (a portable copy
+    beside a read-only exe), the import is refused saying so. No Save a copy: writing a
+    ruleset out is the Ruleset editor's.
+  - **The ×** asks first (`Remove an imported ruleset?`, naming it, saying its copy is
+    deleted and the original stays), then deletes the copy; removing the ruleset in use falls
+    back to the first built-in one.
+  - **A choice that is gone**: a copy missing from `rules/` at start, or one that no longer
+    loads (edited by hand there), is left out of the list, and a setting naming it falls back
+    to the first built-in ruleset with a warning notice, `The AATF ruleset picked last is gone
+    from the data folder: <ruleset> is used instead.`
+- **No AATF panel.** Live AATF is the window's check: there is no floating "AATF
+  violations" window, no menu entry for one, no Validate rules and no Save a copy. A
+  member checks the team they are making legal, which Live AATF does after every edit;
+  importing validates a rules file; the Ruleset editor writes a ruleset out. An organizer's
+  check of several teams or the whole save is the Savefile menu's Multi-team AATF (below), or
+  `check-aatf --teams` on the command line.
+- **Multi-team AATF.** The Savefile menu's `Multi-team AATF…`, after Output rosters to TSV,
+  opens a dialog, `Multi-team AATF (<ruleset>)`, for an organizer checking a cup's
+  teams, who does not use a command line. On one row `Teams`, the range's first team, `to`, its
+  last: two combo boxes of the save's teams by id and name, the save's first and last by
+  default, the pick kept while the save stays open. Under it a line, `N teams checked, M
+  with issues` (`The first team comes after the last` in the warning colour when reversed, and
+  Copy to clipboard off); then every team of the range under its id and name, its rows
+  grouped and worded as Live AATF's dock words them, errors first, or `All clean` under a team
+  with none, so a clean team reads as checked rather than missed, the list as wide as the
+  dialog's content; then `Copy to clipboard` and `Close`. The teams are checked on a worker, in parallel as `check-aatf` runs them (220 teams
+  of a PES 2017 save in 2.0 s on 16 threads, 13.2 s on one), when the dialog opens and
+  whenever the range changes, the previous list kept and marked as checking until the new one
+  arrives; a team whose check fails is a line naming it and the error, the others still
+  listed. Suggestions are not asked for (an unused allowance is the manager's business, not
+  the organizer's), and a row's click does nothing. A dialog, not a docked panel or a
+  floating window: it is a report read once and copied out, while Live AATF is where a team
+  gets fixed. Copy to clipboard copies the list as plain text, a line per row: first the
+  ruleset and range with the error and warning counts, then per team its id and name after a
+  `>`, which a cup's thread draws as green text so each team stands out, per player his id and
+  name indented two spaces (the team's own rows under `Team-wide issues`; `All clean` there
+  under a clean team), per row its severity, rule and sentence indented four, so it pastes
+  readably into the thread (a failed team's error under its line); a notice says `Copied the
+  results of N teams.`, a count of 1 reading in the singular. The list is 614 by 360 points
+  and scrolls. `violations_list` draws both Live AATF's dock and this list (`ListUse`), and
+  the copied text walks the same grouping (`issue_groups`), so the two read alike.
 - **Validate rules.** `check-aatf` refuses a rules file that fails the lib's load-time
   validation with its findings (line or key path), so the command doubles as a rules file's
   check.

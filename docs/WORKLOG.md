@@ -2179,7 +2179,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     the dialogs' fields at one x, the range's teams picked in combos, the range dialog one
     width in both checkbox states. Drafts on main (`f3122871`, `e1b49843`, `5d668583`),
     the plan written (`plans/save_editor.md` "Tactics editor", "Formation pictures");
-    left: the code, with 8.34, its scenarios written with it
+    revised 2026-10-29 (DECISIONS "Formation pictures draw hidden formations, label Fluid
+    formation, and put a target on its own line"; `↳` added to the symbols font); left: the
+    code, with 8.34, its scenarios written with it
   - [ ] 8.34 after 8.33 (the maintainer, 2026-10-27): the same for a range of teams, one
     picture per team, in one go. Drafted and approved with 8.33 (above); left: the code
   - [ ] 8.29 the text pass: every line a member reads reread against CONTRIBUTING's "That text
@@ -4456,7 +4458,7 @@ briefs, review loops, gates and mutation runs as for any step.
     rules file that fails to load surfaced when it is loaded; switching between rules files,
     awkward) are answered by ov7: a file is validated when imported, and the toolbar's
     dropdown switches
-  - [ ] ov7 Live AATF replaces the AATF panel (the maintainer, 2026-10-28; DECISIONS "Live AATF
+  - [x] ov7 Live AATF replaces the AATF panel (the maintainer, 2026-10-28; DECISIONS "Live AATF
     replaces the AATF panel; the final pass's fourth rulings"; drafts and plan done,
     `plans/save_editor.md` "Configurable AATF rules", SE-GUI-15 and SE-GUI-32 rewritten, their
     tests rewritten with the code). The app side, three slices: ov7a built (Opus sidekick,
@@ -4471,7 +4473,13 @@ briefs, review loops, gates and mutation runs as for any step.
     `check_import`/`import`/`remove`, the dropdown's `Import rules file…` and each import's ×
     with their dialogs (`view/ruleset_picker.rs`), a re-import differing only in case keeping
     the earlier copy's name (Windows reads the two as one file); the ×'s and the dialogs' look
-    not yet seen in the built window (ov1). ov7c: Multi-team AATF. The list:
+    not yet seen in the built window (ov1). ov7c built (brief `brief_ov7c.md`, report
+    `.tmp/sidelead/sk_ov7c.report.md`): `view/multi_aatf.rs`, `violations_list`'s `ListUse`
+    and `issue_groups` shared with the copied text; the dialog's look not yet seen in the
+    built window (ov1). The spec move is done: `spec/aatf_rules.md` (the rulesets, the
+    setting) and `spec/save_editor.md` "Configurable AATF rules" (the dropdown, No AATF
+    panel, Multi-team AATF); the plan keeps the wheel over the dropdown (ov2e), and
+    SE-GUI-15/32/41 stay with the phase's other GUI scenarios until its close. The list:
     - the toolbar's ruleset dropdown (`save_editor` view): built-ins by `name`, imports under
       a separator with an ×, `Import rules file…` after another, outside the wheel's steps;
       the import (`rfd` on `.4ccrules`, `Rules::load`, the refusal dialog with the findings,
@@ -4516,13 +4524,16 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] ov10 the pitch drag as the game's (the maintainer, 2026-10-28; DECISIONS "The pitch
     drag follows the game's"; drafted, `plans/save_editor.md` "Tactics editor" "A held
     starter" and the popover, SE-GUI-42): in `team_widgets`' pitch, the held marker snapped
-    to whole units with the press's offset kept, the position ruled at every step
-    (`drop_rule::dropped_position` from the held one) and shown on his badge, the release
-    writing both; the lit area (`RosterRow` carrying each starter's A/B ratings); the
-    popover's combo limited to the spot's choices, X and Y applying the rule. Also to check
-    in PES 2021 (pad + OBS): where a swap leaves the teammate; the executable sends him to
-    the dragged slot's last written point with its held position, where the editor's swap
-    gives him the dragged starter's spot and position
+    to whole units with the press's offset kept, the position ruled at every step from his
+    stored one (DECISIONS "A held player's position is ruled from the one he had when picked
+    up", the maintainer's PES 17 check of 2026-10-29, which also found the swap as the
+    editor's) and shown on his badge, the release writing both; the lit area (`RosterRow`
+    carrying each starter's A/B ratings); the popover's combo limited to the spot's choices,
+    X and Y applying the rule; the formation selector disabled on Kick-off while the shown
+    preset's Fluid formation is off (the maintainer, 2026-10-29; DECISIONS "The formation
+    selector is locked on Kick-off while Fluid formation is off"). The sidekick's brief
+    (`brief_ov10.md`) asked for the step-to-step rule: its rework brief corrects it and adds
+    the lock
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
@@ -5930,6 +5941,12 @@ points there.
   reads as `None` in Rust but as present in the logic, which tests the key's presence; the
   logic's `num`/`list`/`table`/`flag` helpers already treat `()` as absent. Only a hand-written
   file reaches it.
+
+- open 2026-10-29 — the 120 s hang guards in the Save editor's tests (`frames_until`,
+  `portraits`' `served`) cost a mutation run up to 120 s per mutant that silences a worker
+  (they were 2 s and 30 s before, both failing correct code under load). At the next
+  `save_editor` mutation run, read those mutants' durations from its outcomes; if they add
+  notable time, lower the bound to the longest a loaded machine was measured to need
 
 ---
 

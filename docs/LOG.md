@@ -2791,3 +2791,4 @@ worklog passed 7,000 lines.
 - **2026-10-28** — The Save editor picks its AATF ruleset from a toolbar dropdown of every cup's current rules, built in and named by their descriptions; the AATF panel and the bundled rules files are gone (0.0.1ov7a).
 - **2026-10-28** — The ability stats' labels stand right-aligned against their numbers, as drafted, Live AATF's marks still on one column at the labels' edge (0.0.1ov2i).
 - **2026-10-28** — The ruleset dropdown imports a cup's rules file, refusing one with errors or a built-in's name, and an imported ruleset's × removes its copy after asking (0.0.1ov7b).
+- **2026-10-28** — The Savefile menu's Multi-team AATF checks a range of teams under the toolbar's ruleset and copies the report for a cup's thread; ov7's sections moved to the spec (0.0.1ov7c).

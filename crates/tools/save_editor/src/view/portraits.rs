@@ -316,7 +316,7 @@ impl Game {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use std::time::{Duration, Instant};
 
     use super::*;
     use crate::test_support::{dp_file_list, pes_folder, scratch};
@@ -329,13 +329,17 @@ mod tests {
     const PES17: &[u8] = include_bytes!("../../tests/fixtures/portraits/player_71801_pes17.dds");
 
     /// `textures` polled until every asked id's answer lands, a real nap between polls: the
-    /// bound makes a worker that never answers a failure, not a hang.
+    /// bound makes a worker that never answers a failure, not a hang. A hang guard, not a
+    /// speed bound: a passing test returns when the answer lands, and a 2 s bound failed
+    /// two of these on a machine busy with three builds (2026-10-29), the worker answering
+    /// in milliseconds once the load was gone.
     fn served(
         portraits: &mut Portraits,
         ctx: &egui::Context,
         ids: &[Option<u32>],
     ) -> Vec<Option<egui::TextureId>> {
-        for _ in 0..200 {
+        let deadline = Instant::now() + Duration::from_secs(120);
+        loop {
             let answer = portraits.textures(ctx, ids);
             if ids
                 .iter()
@@ -344,9 +348,9 @@ mod tests {
             {
                 return answer;
             }
+            assert!(Instant::now() < deadline, "no answer for {ids:?} in 120 s");
             std::thread::sleep(Duration::from_millis(10));
         }
-        panic!("no answer for {ids:?} after 200 polls")
     }
 
     /// `pixel` within 2 of `expected` in every channel (BC rounding differs between decoders).
