@@ -2088,23 +2088,22 @@ fn scroll_names_is_a_remembered_view_setting() {
     );
 }
 
-/// The medal letter painted at `badge`'s right end (right-aligned 3
-/// points in, level with the position text): the one-character text
-/// shape whose galley's right edge lands there, `None` when none was
+/// The medal outline painted over `badge` (1.5 points inside its
+/// edge): the stroked rect covering the badge's, `None` when none was
 /// painted.
-fn medal_letter(
+fn medal_outline(
     shapes: &[egui::epaint::ClippedShape],
     badge: egui::Rect,
-) -> Option<&egui::epaint::TextShape> {
+) -> Option<&egui::epaint::RectShape> {
     shapes
         .iter()
         .filter_map(|clipped| match &clipped.shape {
-            egui::Shape::Text(shape)
-                if shape.galley.job.text.len() == 1
-                    && (shape.pos.x + shape.galley.size().x - (badge.right() - 3.0)).abs()
-                        <= 0.5
-                    && (shape.pos.y + shape.galley.size().y / 2.0 - badge.center().y).abs()
-                        <= 0.5 =>
+            egui::Shape::Rect(shape)
+                if !shape.stroke.is_empty()
+                    && (shape.rect.left() - badge.left()).abs() <= 0.5
+                    && (shape.rect.right() - badge.right()).abs() <= 0.5
+                    && (shape.rect.top() - badge.top()).abs() <= 0.5
+                    && (shape.rect.bottom() - badge.bottom()).abs() <= 0.5 =>
             {
                 Some(shape)
             }
@@ -2114,9 +2113,9 @@ fn medal_letter(
 }
 
 /// Asserts each starter's badge on a frame of `view` (the rules file
-/// `rules_file`) draws `medals[index]`'s letter in its tier's colour,
-/// or none for `None`; `when` names the step in the messages.
-fn assert_medal_letters(
+/// `rules_file`) carries `medals[index]`'s outline in its tier's
+/// colour, or none for `None`; `when` names the step in the messages.
+fn assert_medal_outlines(
     window: &mut Headless,
     view: &mut SaveView,
     rules_file: Option<&std::path::Path>,
@@ -2134,45 +2133,44 @@ fn assert_medal_letters(
         );
         match medal {
             Some(medal) => {
-                let (letter, colour) = match medal {
-                    team_widgets::tactics::Medal::Gold => {
-                        ("G", egui::Color32::from_rgb(0xcc, 0x99, 0x00))
-                    }
+                let colour = match medal {
+                    team_widgets::tactics::Medal::Gold => egui::Color32::from_rgb(0xcc, 0x99, 0x00),
                     team_widgets::tactics::Medal::Silver => {
-                        ("S", egui::Color32::from_rgb(0xc0, 0xc0, 0xc0))
+                        egui::Color32::from_rgb(0xc0, 0xc0, 0xc0)
                     }
                     team_widgets::tactics::Medal::Bronze => {
-                        ("B", egui::Color32::from_rgb(0xcd, 0x7f, 0x32))
+                        egui::Color32::from_rgb(0x8c, 0x4a, 0x20)
                     }
                 };
-                let shape = medal_letter(&shapes, badge).unwrap_or_else(|| {
-                    panic!("{when}: starter {index}: no letter at his badge's right end")
+                let outline = medal_outline(&shapes, badge).unwrap_or_else(|| {
+                    panic!("{when}: starter {index}: no outline over his badge")
                 });
+                assert_eq!(outline.stroke.width, 1.5, "{when}: the outline's width");
                 assert_eq!(
-                    shape.galley.job.text, letter,
-                    "{when}: starter {index}'s tier letter"
+                    outline.stroke_kind,
+                    egui::StrokeKind::Inside,
+                    "{when}: starter {index}'s outline inside the badge's edge"
                 );
                 assert_eq!(
-                    galley_color(shape),
-                    colour,
-                    "{when}: starter {index}'s letter in the tier's colour"
+                    outline.stroke.color, colour,
+                    "{when}: starter {index}'s outline in the tier's colour"
                 );
             }
             None => assert!(
-                medal_letter(&shapes, badge).is_none(),
-                "{when}: starter {index} carries no letter"
+                medal_outline(&shapes, badge).is_none(),
+                "{when}: starter {index} carries no outline"
             ),
         }
     }
 }
 
-// A starter's badge names his medal tier: each starter's badge shows his
-// tier's initial at the badge's right end — a gold `G`, a silver `S` or
-// a bronze `B` in the tier's colour — and nothing for any other tier, no
-// tier or a failed check; the tiers are read through `player_tier` under
-// the active ruleset, not typed. One view throughout, so the letters
-// follow an edit, its undo and a rules file that stops loading, not only
-// a fresh view's first frame.
+// A starter's badge names his medal tier: each starter's badge carries
+// his tier's outline inside its edge — gold, silver or bronze in the
+// tier's colour — and nothing for any other tier, no tier or a failed
+// check; the tiers are read through `player_tier` under the active
+// ruleset, not typed. One view throughout, so the outlines follow an
+// edit, its undo and a rules file that stops loading, not only a fresh
+// view's first frame.
 #[test]
 fn the_badges_name_the_starters_medal_tiers() {
     use team_widgets::tactics::Medal::{Gold, Silver};
@@ -2199,7 +2197,7 @@ fn the_badges_name_the_starters_medal_tiers() {
         Some(Silver),
         Some(Gold),
     ];
-    assert_medal_letters(&mut window, &mut view, None, medals, "the first frame");
+    assert_medal_outlines(&mut window, &mut view, None, medals, "the first frame");
 
     // Starter 6, a silver, edited to Speed 99: the ruleset's tier is
     // read from the best of its rating stats, Speed among them, and 99
@@ -2211,13 +2209,13 @@ fn the_badges_name_the_starters_medal_tiers() {
     edited.stats.speed = 99;
     view.session.as_mut().unwrap().edit_player(1, edited);
     medals[6] = Some(Gold);
-    assert_medal_letters(&mut window, &mut view, None, medals, "after the edit");
+    assert_medal_outlines(&mut window, &mut view, None, medals, "after the edit");
 
     assert!(view.session.as_mut().unwrap().undo(), "the edit is undone");
     medals[6] = Some(Silver);
-    assert_medal_letters(&mut window, &mut view, None, medals, "after the undo");
+    assert_medal_outlines(&mut window, &mut view, None, medals, "after the undo");
 
-    assert_medal_letters(
+    assert_medal_outlines(
         &mut window,
         &mut view,
         Some(broken.as_path()),
@@ -2227,9 +2225,9 @@ fn the_badges_name_the_starters_medal_tiers() {
 }
 
 // The same bullet's other half: while the rules file does not load, no
-// badge draws a letter (the quick actions' red line reports it).
+// badge carries an outline (the quick actions' red line reports it).
 #[test]
-fn a_rules_file_that_does_not_load_draws_no_medal_letter() {
+fn a_rules_file_that_does_not_load_draws_no_medal_outline() {
     let path = fixture(PesVersion::Pes17, "tactics_medals_broken_rules");
     let broken = path.with_file_name("broken.4ccrules");
     std::fs::write(&broken, "definitely not a rules file").unwrap();
@@ -2247,8 +2245,67 @@ fn a_rules_file_that_does_not_load_draws_no_medal_letter() {
         let badge =
             egui::Rect::from_center_size(clamped_centre(canvas, *slot), egui::vec2(50.0, 14.0));
         assert!(
-            medal_letter(&shapes, badge).is_none(),
-            "starter {index} shows no letter under a file that does not load"
+            medal_outline(&shapes, badge).is_none(),
+            "starter {index} carries no outline under a file that does not load"
+        );
+    }
+}
+
+// The badge's right end shows the starter's overall at the position his
+// slot fields him at, read off his record: every starter's number
+// equals his record's `overall_at` at his slot's position.
+#[test]
+fn the_pitch_badges_show_each_starters_overall_from_his_record() {
+    let path = fixture(PesVersion::Pes17, "tactics_overalls");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1600.0, 1400.0);
+    view.selected = Some(Selection::Team(734));
+    let team = team_entry(&view, 734);
+    let players = team.tactics.presets[0].formations[0].players;
+    let expected: Vec<u8> = (0..11)
+        .map(|index| {
+            let roster_slot = usize::from(team.tactics.starting_eleven[index]);
+            let player = player_entry(&view, team.roster[roster_slot].player_id);
+            player
+                .overall_at(players[index].position)
+                .expect("a position byte is never past CF")
+        })
+        .collect();
+    assert!(
+        expected
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len()
+            >= 2,
+        "premise: at least two starters' overalls differ ({expected:?})"
+    );
+
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    for (index, slot) in players.iter().enumerate() {
+        let badge =
+            egui::Rect::from_center_size(clamped_centre(canvas, *slot), egui::vec2(50.0, 14.0));
+        let number = shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(shape)
+                    if (shape.pos.x + shape.galley.size().x - (badge.right() - 2.0)).abs()
+                        <= 0.5
+                        && (shape.pos.y + shape.galley.size().y / 2.0 - badge.center().y).abs()
+                            <= 0.5 =>
+                {
+                    Some(shape)
+                }
+                _ => None,
+            })
+            .next()
+            .unwrap_or_else(|| panic!("starter {index}: no number at his badge's right end"));
+        assert_eq!(
+            number.galley.job.text,
+            expected[index].to_string(),
+            "starter {index}'s overall at his slot's position"
         );
     }
 }

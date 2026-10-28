@@ -272,6 +272,7 @@ pub(super) fn roster_for<'a>(
                 registered_position: player.map(|player| player.positions.registered),
                 portrait: None,
                 medal: None,
+                overalls: None,
                 fielded: &[],
             }
         })

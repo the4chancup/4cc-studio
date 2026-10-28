@@ -3955,7 +3955,16 @@ briefs, review loops, gates and mutation runs as for any step.
     - [ ] y6b the code, after y4e1 (`team_widgets`' pitch paint and `RosterRow`, the save
       editor's host filling the overalls) → verify: the gates, the paint tests' medal letter
       (`team_widgets` `pitch/tests/paint.rs`) turned into the outline's; the built pitch
-      against the draft (asks before it takes focus)
+      against the draft (asks before it takes focus). Code done 2026-10-28 (SWE-2, brief
+      `.tmp/fb1028/brief_y6b.md`): `RosterRow::overalls` (thirteen, by position byte) filled
+      by the save editor's host through `overall_at`; the badge's overall white at 2 in, both
+      texts at 11.5 (`BADGE_TEXT_INSET`, `BADGE_FONT`), the medal a 1.5 inside stroke (bronze
+      `#8c4a20`, `Medal::letter` gone), the captain's mark on a 14 x 13 `BADGE_FILL` box; new
+      tests `the_badge_paints_the_overall_at_the_slots_position`,
+      `a_medal_outlines_the_badge_in_its_tiers_colour`,
+      `the_pitch_badges_show_each_starters_overall_from_his_record`, each red first and under
+      a perturbation (position 0's overall, inset 3, one player's overalls for all, the old
+      bronze). Open: the built pitch, with the batched built-window checks
   - [ ] y7 Substitution's Very early on PES 2018 to 2020 too (the maintainer, 2026-10-28:
     taken from PES 2017 and 2021 having it, the games between them)
     - [x] y7a the draft and `plans/save_editor.md` "Tactics editor" (the Automatic

@@ -88,6 +88,12 @@ const KEEPER_Y: f32 = 358.5;
 const BADGE_W: f32 = 50.0;
 /// The badge's height.
 const BADGE_H: f32 = 14.0;
+/// The badge texts' inset from the badge's ends: the game's ink is 2
+/// px in from each end on the 720p capture.
+const BADGE_TEXT_INSET: f32 = 2.0;
+/// The badge texts' size: the widest pair, `CMF 109`, leaves about 2
+/// between them in the 50-point badge at 11.5.
+const BADGE_FONT: f32 = 11.5;
 /// The portrait box's height.
 const PORTRAIT_H: f32 = 50.0;
 /// The marker box's reach above the badge centre: the portrait's 50 plus
@@ -819,10 +825,12 @@ fn marker(
 }
 
 /// One marker painted (the draft's `drawPitch` body): the portrait, the
-/// badge with the position's abbreviation in its group's colour, the name
-/// in its colour codes' colours (white where it has none), the captain's
-/// mark when he is the starter, and the selection corners the screen's
-/// marks lend the editor's states. `spot.centre` is the clamped badge
+/// badge with the position's abbreviation in its group's colour, the
+/// starter's overall at the slot's position at its right end in white
+/// and his medal's outline when he has a tier, the name in its colour
+/// codes' colours (white where it has none), the captain's mark when he
+/// is the starter, and the selection corners the screen's marks lend
+/// the editor's states. `spot.centre` is the clamped badge
 /// centre (the clamped pointer while dragged); `seconds` is the name
 /// scroll's clock. Answers how long until the name next moves, `None`
 /// when it fits and never moves.
@@ -857,26 +865,41 @@ fn paint_marker(
         BADGE_FILL
     };
     painter.rect_filled(badge, egui::CornerRadius::same(2), fill);
-    painter.text(
-        egui::pos2(badge.left() + 3.0, badge.center().y),
-        egui::Align2::LEFT_CENTER,
-        position_label(spot.slot.position),
-        egui::FontId::proportional(12.0),
-        position_colour(spot.slot.position),
-    );
-    // His medal tier's initial at the badge's right end, where the game
-    // draws the overall rating, level with the position text and in its
-    // font. A slot with no medal draws none.
+    // His medal tier outlines the badge in its colour, inside the
+    // badge's edge — an outline, not a fill, since the position
+    // colours read at a contrast of 1.0 to 2.4 on the metals. A slot
+    // with no medal draws none.
     if let Some(medal) = roster
         .get(usize::from(roster_slot))
         .and_then(|row| row.medal)
     {
+        painter.rect_stroke(
+            badge,
+            egui::CornerRadius::same(2),
+            egui::Stroke::new(1.5, medal.colour()),
+            egui::StrokeKind::Inside,
+        );
+    }
+    painter.text(
+        egui::pos2(badge.left() + BADGE_TEXT_INSET, badge.center().y),
+        egui::Align2::LEFT_CENTER,
+        position_label(spot.slot.position),
+        egui::FontId::proportional(BADGE_FONT),
+        position_colour(spot.slot.position),
+    );
+    // His overall at the slot's position at the badge's right end,
+    // where the game draws it, white as the game's.
+    if let Some(overall) = roster
+        .get(usize::from(roster_slot))
+        .and_then(|row| row.overalls)
+        .and_then(|overalls| overalls.get(usize::from(spot.slot.position)).copied())
+    {
         painter.text(
-            egui::pos2(badge.right() - 3.0, badge.center().y),
+            egui::pos2(badge.right() - BADGE_TEXT_INSET, badge.center().y),
             egui::Align2::RIGHT_CENTER,
-            medal.letter(),
-            egui::FontId::proportional(12.0),
-            medal.colour(),
+            overall.to_string(),
+            egui::FontId::proportional(BADGE_FONT),
+            egui::Color32::WHITE,
         );
     }
     // The name in its colour codes' colours (white where it has none),
@@ -920,9 +943,19 @@ fn paint_marker(
         );
     }
     if roster_slot == tactics.set_pieces.captain {
+        // The white box's 1 px outline in the badge's colour, as the
+        // game's: on a light portrait the box would have no edge.
+        painter.rect_filled(
+            egui::Rect::from_min_max(
+                egui::pos2(badge.left() + 1.0, badge.top() - 17.0),
+                egui::pos2(badge.left() + 15.0, badge.top() - 4.0),
+            ),
+            egui::CornerRadius::same(3),
+            BADGE_FILL,
+        );
         let mark = egui::Rect::from_min_max(
-            egui::pos2(badge.left() + 1.0, badge.top() - 16.0),
-            egui::pos2(badge.left() + 13.0, badge.top() - 5.0),
+            egui::pos2(badge.left() + 2.0, badge.top() - 16.0),
+            egui::pos2(badge.left() + 14.0, badge.top() - 5.0),
         );
         painter.rect_filled(mark, egui::CornerRadius::same(2), egui::Color32::WHITE);
         painter.text(

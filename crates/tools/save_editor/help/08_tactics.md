@@ -13,8 +13,9 @@ formation screen: each starter stands at his spot, drawn as his portrait
 over a badge with his position and his name below it (a name too long for
 the badge scrolls now and then, as in the game; the **Scroll names**
 checkbox at the right of the formation bar holds them still when off, and
-the setting is remembered). A gold **G**, a silver **S** or a bronze **B**
-at the badge's right end names his medal tier under the active ruleset,
+the setting is remembered). The badge's right end shows his overall at the
+position he plays there, as the game's does, and a gold, silver or bronze
+outline round the badge names his medal tier under the active ruleset,
 where he has one. The portraits come from
 the game picked at the top of the sidebar, out of the `download` folder
 inside the **PES folder** setting. When that folder is missing, or a file

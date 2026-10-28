@@ -384,7 +384,7 @@ fn the_markers_paint_badge_position_captain_and_portrait() {
             .filter_map(|clipped| match &clipped.shape {
                 egui::Shape::Text(shape)
                     if shape.galley.job.text == label
-                        && (shape.pos.x - (badge.left() + 3.0)).abs() <= 0.01
+                        && (shape.pos.x - (badge.left() + 2.0)).abs() <= 0.01
                         && (shape.visual_bounding_rect().center().y - badge.center().y).abs()
                             <= 2.0 =>
                 {
@@ -400,27 +400,48 @@ fn the_markers_paint_badge_position_captain_and_portrait() {
             "marker {index}'s {label} in its group's colour"
         );
     }
-    // The captain's mark on the captain's marker alone.
+    // The captain's mark on the captain's marker alone: the white box
+    // and the badge-coloured outline under it.
     let badge2 = egui::Rect::from_center_size(centres[2], egui::vec2(50.0, 14.0));
-    let marks: Vec<egui::Rect> = shapes
-        .iter()
-        .filter_map(|clipped| match &clipped.shape {
-            egui::Shape::Rect(shape)
-                if shape.fill == egui::Color32::WHITE
-                    && shape.rect.size() == egui::vec2(12.0, 11.0) =>
-            {
-                Some(shape.rect)
-            }
-            _ => None,
-        })
-        .collect();
+    let marks = |fill: egui::Color32, size: egui::Vec2| {
+        shapes
+            .iter()
+            .enumerate()
+            .filter_map(|(index, clipped)| match &clipped.shape {
+                egui::Shape::Rect(shape) if shape.fill == fill && shape.rect.size() == size => {
+                    Some((index, shape.rect))
+                }
+                _ => None,
+            })
+            .collect::<Vec<(usize, egui::Rect)>>()
+    };
+    let outlines = marks(BADGE_FILL, egui::vec2(14.0, 13.0));
+    let [(outline_at, outline)] = outlines.as_slice() else {
+        panic!("the badge-coloured outline above the captain's badge alone")
+    };
     assert_eq!(
-        marks,
-        [egui::Rect::from_min_max(
-            egui::pos2(badge2.left() + 1.0, badge2.top() - 16.0),
-            egui::pos2(badge2.left() + 13.0, badge2.top() - 5.0),
-        )],
-        "the white mark above the captain's badge alone"
+        *outline,
+        egui::Rect::from_min_max(
+            egui::pos2(badge2.left() + 1.0, badge2.top() - 17.0),
+            egui::pos2(badge2.left() + 15.0, badge2.top() - 4.0),
+        ),
+        "the outline a pixel out of the white box"
+    );
+    let whites = marks(egui::Color32::WHITE, egui::vec2(12.0, 11.0));
+    let [(white_at, white)] = whites.as_slice() else {
+        panic!("the white mark above the captain's badge alone")
+    };
+    assert_eq!(
+        *white,
+        egui::Rect::from_min_max(
+            egui::pos2(badge2.left() + 2.0, badge2.top() - 16.0),
+            egui::pos2(badge2.left() + 14.0, badge2.top() - 5.0),
+        ),
+        "the white box"
+    );
+    assert!(
+        outline_at < white_at,
+        "the outline paints before the white box"
     );
     // The portrait: the whole texture over the badge of the row that
     // hands one, no other image but the turf.
@@ -1665,13 +1686,12 @@ fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
     assert_eq!(fill, BADGE_FILL, "full opacity over the grass");
 }
 
-// A starter's badge names his medal tier: the row's medal letter at the
-// badge's right end, right-aligned 3 points in, level
-// with the position text and in its font, in the medal's colour — a
-// gold `G` `#cc9900`, a silver `S` `#c0c0c0`, a bronze `B` `#cd7f32`;
-// a slot with no medal draws none.
+// A starter's badge carries his medal tier as a 1.5-point outline
+// inside the badge's edge, in the tier's colour — a gold `#cc9900`,
+// a silver `#c0c0c0`, a bronze `#8c4a20`; a slot with no medal draws
+// none, and no letter is painted.
 #[test]
-fn a_medal_letter_paints_at_the_badges_right_end() {
+fn a_medal_outlines_the_badge_in_its_tiers_colour() {
     let mut window = Headless::sized(600.0, 450.0);
     let mut tactics = fixture_tactics(PesVersion::Pes21);
     // A non-identity eleven: a medal keyed by the marker's index rather
@@ -1688,23 +1708,12 @@ fn a_medal_letter_paints_at_the_badges_right_end() {
         (
             4usize,
             Medal::Gold,
-            "G",
             egui::Color32::from_rgb(0xcc, 0x99, 0x00),
         ),
-        (
-            5,
-            Medal::Silver,
-            "S",
-            egui::Color32::from_rgb(0xc0, 0xc0, 0xc0),
-        ),
-        (
-            6,
-            Medal::Bronze,
-            "B",
-            egui::Color32::from_rgb(0xcd, 0x7f, 0x32),
-        ),
+        (5, Medal::Silver, egui::Color32::from_rgb(0xc0, 0xc0, 0xc0)),
+        (6, Medal::Bronze, egui::Color32::from_rgb(0x8c, 0x4a, 0x20)),
     ];
-    for (index, medal, _, _) in medals {
+    for (index, medal, _) in medals {
         roster[usize::from(tactics.starting_eleven[index])].medal = Some(medal);
     }
     let players = tactics.presets[0].formations[0].players;
@@ -1712,36 +1721,52 @@ fn a_medal_letter_paints_at_the_badges_right_end() {
     let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let canvas = canvas_rect(&nodes);
     let centres = centres_of(canvas, &players);
-    for (index, _, letter_text, colour) in medals {
-        let badge = egui::Rect::from_center_size(centres[index], egui::vec2(50.0, 14.0));
-        let letter = shapes
+    /// The stroked rect covering `badge` (within 0.5), `None` when
+    /// none was painted.
+    fn outline_at(
+        shapes: &[egui::epaint::ClippedShape],
+        badge: egui::Rect,
+    ) -> Option<&egui::epaint::RectShape> {
+        shapes
             .iter()
             .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Text(shape)
-                    if shape.galley.job.text == letter_text
-                        && (shape.pos.x + shape.galley.size().x - (badge.right() - 3.0)).abs()
-                            <= 0.5
-                        && (shape.pos.y + shape.galley.size().y / 2.0 - badge.center().y).abs()
-                            <= 0.5 =>
+                egui::Shape::Rect(shape)
+                    if !shape.stroke.is_empty()
+                        && (shape.rect.left() - badge.left()).abs() <= 0.5
+                        && (shape.rect.right() - badge.right()).abs() <= 0.5
+                        && (shape.rect.top() - badge.top()).abs() <= 0.5
+                        && (shape.rect.bottom() - badge.bottom()).abs() <= 0.5 =>
                 {
                     Some(shape)
                 }
                 _ => None,
             })
             .next()
-            .unwrap_or_else(|| panic!("the {letter_text} at marker {index}'s badge's right end"));
-        assert_eq!(
-            painted_color(letter),
-            colour,
-            "marker {index}'s {letter_text} in its tier's colour"
-        );
-        assert_eq!(
-            letter.galley.job.sections[0].format.font_id,
-            egui::FontId::proportional(12.0),
-            "the position text's font"
-        );
     }
-    // The other eight starters hold no medal: no other letters.
+    for (index, _) in players.iter().enumerate() {
+        let badge = egui::Rect::from_center_size(centres[index], egui::vec2(50.0, 14.0));
+        match medals.iter().find(|(slot, _, _)| *slot == index) {
+            Some((_, _, colour)) => {
+                let outline = outline_at(&shapes, badge)
+                    .unwrap_or_else(|| panic!("no outline over marker {index}'s badge"));
+                assert_eq!(outline.stroke.width, 1.5, "the outline's width");
+                assert_eq!(
+                    outline.stroke_kind,
+                    egui::StrokeKind::Inside,
+                    "the outline inside the badge's edge"
+                );
+                assert_eq!(
+                    outline.stroke.color, *colour,
+                    "marker {index}'s outline in its tier's colour"
+                );
+            }
+            None => assert!(
+                outline_at(&shapes, badge).is_none(),
+                "marker {index} has no medal: no outline"
+            ),
+        }
+    }
+    // The tiers paint no letter.
     assert_eq!(
         shapes
             .iter()
@@ -1752,8 +1777,126 @@ fn a_medal_letter_paints_at_the_badges_right_end() {
                         && canvas.contains(shape.visual_bounding_rect().center())
             ))
             .count(),
-        3,
-        "the three letters, on their markers alone"
+        0,
+        "no medal letter is painted"
+    );
+}
+
+// The badge's right end shows the starter's overall at his slot's
+// position: the row's `overalls` entry the position byte indexes,
+// painted white at 11.5 with its galley's right edge 2 in. A row
+// holding none paints no number, and a position change paints the new
+// position's entry on the next frame.
+#[test]
+fn the_badge_paints_the_overall_at_the_slots_position() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    // A non-identity eleven: an overall keyed by the marker's index
+    // rather than its roster slot would look right on the fixture's
+    // [0, 1, ...].
+    tactics.starting_eleven.swap(4, 9);
+    assert_ne!(
+        tactics.starting_eleven[4], 4,
+        "premise: slot and index differ"
+    );
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    // Each starter's thirteen, an entry per position distinct per slot
+    // (synthetic numbers: they are a widget input, not a record); the
+    // starter at index 3's row holds none.
+    for (index, &roster_slot) in tactics.starting_eleven.iter().enumerate() {
+        if index == 3 {
+            continue;
+        }
+        let base = 40 + roster_slot;
+        let mut overalls = [0; 13];
+        for (position, overall) in overalls.iter_mut().enumerate() {
+            *overall = base + u8::try_from(position).expect("thirteen positions");
+        }
+        roster[usize::from(roster_slot)].overalls = Some(overalls);
+    }
+    let players = tactics.presets[0].formations[0].players;
+    // The text shapes painted at `badge`'s right end: a galley's right
+    // edge 2 in, centred on the badge.
+    fn number_at(
+        shapes: &[egui::epaint::ClippedShape],
+        badge: egui::Rect,
+    ) -> Vec<&egui::epaint::TextShape> {
+        shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(shape)
+                    if (shape.pos.x + shape.galley.size().x - (badge.right() - 2.0)).abs()
+                        <= 0.5
+                        && (shape.pos.y + shape.galley.size().y / 2.0 - badge.center().y).abs()
+                            <= 0.5 =>
+                {
+                    Some(shape)
+                }
+                _ => None,
+            })
+            .collect()
+    }
+
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    for (index, slot) in players.iter().enumerate() {
+        let badge = egui::Rect::from_center_size(centres[index], egui::vec2(50.0, 14.0));
+        let found = number_at(&shapes, badge);
+        match roster[usize::from(tactics.starting_eleven[index])].overalls {
+            Some(overalls) => {
+                let [number] = found.as_slice() else {
+                    panic!("one number at marker {index}'s badge, got {}", found.len())
+                };
+                assert_eq!(
+                    number.galley.job.text,
+                    overalls[usize::from(slot.position)].to_string(),
+                    "marker {index}'s overall at his slot's position"
+                );
+                assert_eq!(
+                    painted_color(number),
+                    egui::Color32::WHITE,
+                    "marker {index}'s overall white as the game's"
+                );
+                assert_eq!(
+                    number.galley.job.sections[0].format.font_id,
+                    egui::FontId::proportional(11.5),
+                    "marker {index}'s overall at the badge texts' size"
+                );
+            }
+            None => assert!(
+                found.is_empty(),
+                "marker {index} holds no overalls: no number"
+            ),
+        }
+    }
+
+    // A position change paints the new position's entry on the next
+    // frame.
+    let index = 4;
+    let position = players[index].position;
+    let new_position = (1..13)
+        .find(|p| *p != position)
+        .expect("another outfield position");
+    tactics.presets[0].formations[0].players[index].position = new_position;
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let canvas = canvas_rect(&nodes);
+    let players = tactics.presets[0].formations[0].players;
+    let centres = centres_of(canvas, &players);
+    let badge = egui::Rect::from_center_size(centres[index], egui::vec2(50.0, 14.0));
+    let found = number_at(&shapes, badge);
+    let [number] = found.as_slice() else {
+        panic!("the moved starter's number at the new position")
+    };
+    let overalls = roster[usize::from(tactics.starting_eleven[index])]
+        .overalls
+        .expect("starter 4's overalls");
+    assert_eq!(
+        number.galley.job.text,
+        overalls[usize::from(new_position)].to_string(),
+        "his number follows the slot's new position"
     );
 }
 

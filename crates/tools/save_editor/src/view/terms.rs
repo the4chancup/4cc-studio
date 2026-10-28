@@ -1095,6 +1095,7 @@ mod tests {
                 registered_position: *position,
                 portrait: None,
                 medal: None,
+                overalls: None,
                 fielded: &[],
             })
             .collect()

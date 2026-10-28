@@ -31,6 +31,11 @@ const COLUMN_GAP: f32 = 10.0;
 /// The gap between the grid's rows (the draft's `row-gap: 6px`).
 const ROW_GAP: f32 = 6.0;
 
+/// One roster slot's row data before the `RosterRow`s borrow it: the
+/// display name, the raw name, the registered position and the
+/// thirteen per-position overalls.
+type RosterSlot = (String, String, Option<u8>, Option<[u8; 13]>);
+
 /// The editor for the selected row's team (a player row's or a team
 /// row's own), under the team view's fields.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
@@ -53,20 +58,28 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         return;
     };
     // The roster as the widgets list it: the display names as the player
-    // list shows them, the raw names for the colour-coded rows and the
-    // registered positions, indexed by roster slot (an empty slot "" and
+    // list shows them, the raw names for the colour-coded rows, the
+    // registered positions and the thirteen per-position overalls the
+    // badge's number reads, indexed by roster slot (an empty slot "" and
     // none).
-    let rows: Vec<(String, String, Option<u8>)> = team
+    let rows: Vec<RosterSlot> = team
         .roster
         .iter()
         .map(|slot| {
             session.file().player(slot.player_id).map_or_else(
-                || (String::new(), String::new(), None),
+                || (String::new(), String::new(), None, None),
                 |player| {
+                    let mut overalls = [0; 13];
+                    for (position, overall) in (0u8..).zip(&mut overalls) {
+                        *overall = player
+                            .overall_at(position)
+                            .expect("overall_at is None only past CF");
+                    }
                     (
                         display_name(&player.name),
                         player.name.clone(),
                         Some(player.positions.registered),
+                        Some(overalls),
                     )
                 },
             )
@@ -84,7 +97,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         })
         .collect();
     let textures = portraits.textures(ui.ctx(), &player_ids);
-    // The badges' medal letters: `player_tier` per roster slot under the
+    // The badges' medal outlines: `player_tier` per roster slot under the
     // active ruleset, once per `MedalKey` (the open save's revision, the
     // team, the rules file) as the Cards left badge is — not every
     // frame. A file that does not load keeps a row of `None`s.
@@ -140,7 +153,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         .zip(textures)
         .enumerate()
         .map(
-            |(index, ((name, raw_name, position), portrait))| RosterRow {
+            |(index, ((name, raw_name, position, overalls), portrait))| RosterRow {
                 name: name.as_str(),
                 raw_name: raw_name.as_str(),
                 registered_position: *position,
@@ -150,6 +163,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     .and_then(|(_, medals)| medals.get(index))
                     .copied()
                     .flatten(),
+                overalls: *overalls,
                 fielded: fielded[index].as_slice(),
             },
         )
@@ -353,7 +367,7 @@ fn copy_swap_formation_menu(
 }
 
 /// Each of `team_id`'s `slots` roster slots' badge medal under `rules`
-/// (the pitch markers' right-end initials): the tier `player_tier` reads the
+/// (the pitch markers' badge outlines): the tier `player_tier` reads the
 /// slot's player as, mapped through `Medal::from_tier_id`; `None` for an
 /// empty slot, no tier, a check that failed or a tier that is no medal
 /// — and for every slot when the team cannot be viewed.

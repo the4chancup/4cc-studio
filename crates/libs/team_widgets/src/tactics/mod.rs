@@ -89,9 +89,12 @@ pub struct RosterRow<'a> {
     /// was found (or the host reads none): the marker then draws without one.
     pub portrait: Option<egui::TextureId>,
     /// The player's medal tier under the host's active ruleset (the
-    /// pitch markers draw its letter at the badge's right end); `None`
-    /// for a slot with no medal or a host that reads none.
+    /// pitch markers outline the badge in its colour); `None` for a
+    /// slot with no medal or a host that reads none.
     pub medal: Option<Medal>,
+    /// The player's overall at each position, indexed by the position byte
+    /// (GK 0 to CF 12); `None` for an empty slot or a host that reads none.
+    pub overalls: Option<[u8; 13]>,
     /// The slot's `FieldedNotA` marks (the pitch paints a `✖` left of
     /// the starter's badge on the formation a mark names); empty for a
     /// slot with none or a host that reads none.
@@ -117,10 +120,10 @@ pub struct FieldedMark {
     pub line: String,
 }
 
-/// A starter's medal tier: the letter his pitch badge carries at its
-/// right end, where the game draws the overall rating — a gold
-/// `G` (`#cc9900`, the game's gold name colour), a silver `S`
-/// (`#c0c0c0`) or a bronze `B` (`#cd7f32`).
+/// A starter's medal tier: the colour his pitch badge's outline
+/// carries — gold `#cc9900` (the game's gold name colour), silver
+/// `#c0c0c0` or bronze `#8c4a20`, far darker than the metal's
+/// `#cd7f32`, which a thin outline let pass for gold.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Medal {
     /// The `gold` tier.
@@ -143,22 +146,14 @@ impl Medal {
         }
     }
 
-    /// The badge's letter.
-    pub(crate) fn letter(self) -> &'static str {
-        match self {
-            Medal::Gold => "G",
-            Medal::Silver => "S",
-            Medal::Bronze => "B",
-        }
-    }
-
-    /// The letter's colour: gold in the game's gold name colour, silver
-    /// and bronze their metals'.
+    /// The badge outline's colour: gold in the game's gold name
+    /// colour, silver its metal's, bronze darkened so a thin outline
+    /// does not read as gold.
     pub(crate) fn colour(self) -> egui::Color32 {
         match self {
             Medal::Gold => egui::Color32::from_rgb(0xcc, 0x99, 0x00),
             Medal::Silver => egui::Color32::from_rgb(0xc0, 0xc0, 0xc0),
-            Medal::Bronze => egui::Color32::from_rgb(0xcd, 0x7f, 0x32),
+            Medal::Bronze => egui::Color32::from_rgb(0x8c, 0x4a, 0x20),
         }
     }
 }
