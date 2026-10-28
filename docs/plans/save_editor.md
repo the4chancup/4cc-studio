@@ -570,7 +570,11 @@ Win32 original hurt the most):
   it holds), and Make GK beside it at its own width, the two filling the popover's width, its top-right corner on the marker's bottom-left corner as it
   stood at the click, and there it stays while his X and Y change, so the fields' arrows stay
   under the pointer rather than moving off with the marker; a press outside it closes it, as
-  Close does. The editor is **one grid** of three columns (the
+  Close does. The position dropdown lists only the positions his spot offers, as the game's
+  Select Position menu does: the two of the drop rule below ("A pitch player dropped on
+  another"), his own first when the spot offers neither (an odd save's); a change of his X or
+  Y applies the same rule, as one step of a drag does, so a Y typed into another band changes
+  his position with it. The editor is **one grid** of three columns (the
   settings, 422 points; the pitch, 320; the assignments, the rest) and three rows, so every
   panel lines up with its neighbours rather than wrapping on its own:
   1. The **preset bar** (Preset 1/2/3, Fluid formation, then its Copy/swap menu) level with
@@ -873,6 +877,26 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   him, so a drag meant only to move a player shows the swap before the release and can be
   steered off it onto the grass. The dragged marker's own spot is never the target: the drop
   hits the marker drawn on top among the others, so the mark and the release always agree.
+- **A held starter** moves a whole stored unit at a time (2.8 points across, 6.8 down),
+  standing where a release would put him, and the point of his marker first pressed stays
+  under the pointer: the press's offset from his badge centre is kept for the whole drag, so
+  a press on his portrait or name does not jump his badge onto the pointer. At each step the
+  drop rule above sets the position he holds, from the one he held at the step before, as the
+  game's drag does every frame, so the path matters, not only the end (an LMF dragged along
+  the left keeps LMF wherever LMF is offered); his badge shows that position and his overall
+  there, or, over a teammate, the teammate's, which a release there gives him (the game's
+  badge does the same). The release writes the spot and the held position, one undoable edit.
+  While he is held, the pitch outside the areas of the positions he is rated A or B at is
+  darkened to 40% (the turf and its lines; the markers are drawn over it), as the game lights
+  it: each lit area is its position's rectangle in the first table, its edges half a unit
+  out from its rows through the spot mapping, a row at the table's edge (x 5 or 99, y 47)
+  reaching the canvas' edge; a band's area holds the smaller ones inside it (CB holds LB and
+  RB; CMF holds DMF, LMF, RMF and AMF; SS holds LWF, RWF and CF), so the lit rectangles never
+  overlap. These are the PES 2021 screen's edges within 1.5 points but for CF's lower one, which
+  the screen draws at y 40.7 where the table's row starts at 40: the editor draws the table's,
+  y 39.5, where a CF stops being offered, since the screen's own geometry for that edge is not
+  read. The lit area says where he is rated, not where his position changes: the rule decides
+  that, from every position's area and his overalls.
 - **A starter swapped with a bench player** hands the bench player every set-piece role, the
   joining of the attack and every preset's instruction targets the starter held; the captain
   stays who he was, as in 4ccEditor.
@@ -1494,6 +1518,16 @@ SE-GUI-12  GIVEN the team view's Tactics on preset 1
                 eleven, every formation unchanged; WHEN a set-piece role is assigned from the palette THEN the taker field
                 holds that player; WHEN "players to join attack" is in its assignment mode and
                 two pitch players are clicked THEN those two are the setting's players
+SE-GUI-42  GIVEN the PES 21 save's team 718 (/f/) on preset 1's Kick-off, its LMF PARTY HARD
+                (rated LMF A and LWF A) at (20, 26)
+           WHEN he is pressed on his portrait and held
+           THEN the pitch outside x up to 20.5 from y 15.5 up is darkened, and moving the pointer
+                moves his marker a whole unit at a time, the pressed point of his portrait
+                under the pointer within a unit; WHEN he is held at (30, 26) THEN his badge
+                reads AMF; WHEN he is then released at (19, 20) THEN his slot holds (19, 20)
+                and LMF, one undoable edit; WHEN his popover is opened at (20, 26) THEN its
+                Position combo lists CMF and LMF alone, and WHEN its Y is set to 36 THEN he is
+                an LWF
 SE-GUI-13  GIVEN the save open and a second save of the same version picked in the comparator
            WHEN the panel is drawn
            THEN it lists, per team and per player, the differences `diff <picked> <open>`

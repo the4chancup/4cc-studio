@@ -110,13 +110,13 @@ fn custom_checks(team) { [] }
   defines it and appends what it returns.
 
 A rules file a member or an organizer handles is named `<name>.4ccrules`, not `.rhai`: the
-one ending every picker offers (the Save editor's settings row and AATF panel, the Ruleset
-editor's Open and Save), the name Save a copy suggests, the CLI's examples. A member only loads the file, and `.rhai` tells them nothing; `.4ccrules` says
+one ending every picker offers (the Save editor's Import rules file…, the Ruleset editor's
+Open and Save), the name the Ruleset editor's Save suggests, the CLI's examples. A member only loads the file, and `.rhai` tells them nothing; `.4ccrules` says
 it is the cup's rules and sits beside the suite's `.4ccm`. The content stays plain Rhai text,
 so an organizer still edits it in a text editor (the CUSTOM CHECKS section is hand-written by
 design): the file's first line says it is a Rhai script, for whoever wants their editor's Rhai
-highlighting on it. The loader reads the content, never the ending, so a path typed into the
-settings row loads whatever it ends in. The repository's own sources keep `.rhai`
+highlighting on it. The loader reads the content, never the ending, so `check-aatf --rules`
+loads a file whatever it ends in. The repository's own sources keep `.rhai`
 (`libs/aatf/logic/logic.rhai`, `rulesets/*.rhai`): they are code, edited with that highlighting,
 and never handed to a member.
 
@@ -465,14 +465,24 @@ registered-position and playing-style ranges are built in.
 
 ## Embedded rulesets
 
-`libs/aatf` keeps the latest two rulesets of each kind of cup in `rulesets/`, the Ruleset
-editor's templates: the 4cc's own (the official AATF), and the two major invitationals with an
-organization of their own, VGL (/vg/ League) and VTL (/vt/ League). Today: Autumn 26 (also the
-default file, the only one embedded into a shipped binary) and Spring 26; VGL27 and VGL26; VTL11
-and VTL10; the other blocks are embedded by their test fixtures (`src/fixtures/`) until the
-templates land with the Ruleset editor (Phase 20). A new ruleset of a kind replaces
-the older of its two as a template and stays in `rulesets/` as a test ruleset with its fixtures,
-as Autumn 25 and VGL25 do. Minor invitationals (VTLA, UnityCup) get no template.
+A shipped binary embeds every cup's current rulesets (`aatf::templates`, `aatf::builtin`), so a
+member picks their cup's rules from the Save editor's ruleset dropdown (`spec/save_editor.md`
+"Configurable AATF rules") rather than finding and importing a file, and a built-in ruleset is
+never a copy a member can lose. They are the Ruleset editor's templates too. In the
+dropdown's order, by description: `4cc Autumn 26`, `4cc Spring 26`, `/vg/ League 27`, `/vg/
+League 26`, `/vt/ League 11`, `/vt/ League 10`, `Divegrass Before Christmas 7`; the first is
+the default and the fallback. Each file's `name` is its description: for the 4cc's own cups
+`4cc` then the season and its year's last two digits; for VGL and VTL the league's name then
+its edition number, which counts editions, not years; for DBC7 the cup's name then its
+edition. All seven are the ones the parity runs checked ("Development phase and
+verification"; DBC7's, `plans/aatf_rules.md` "Development phase and verification").
+
+`libs/aatf` keeps the latest two rulesets of each kind of cup with an organization of its own,
+the 4cc's own (the official AATF), VGL (/vg/ League) and VTL (/vt/ League), and DBC7
+(Divegrass Before Christmas). A cup's new edition joins the list, and its kind keeps its
+latest two; the older one leaves the list and stays in `rulesets/` as a test ruleset with its
+fixtures (`src/fixtures/`), built into the tests alone, as Autumn 25 and VGL25 do. Minor
+invitationals (VTLA, UnityCup) get no built-in ruleset.
 
 ## The official ruleset
 
@@ -979,9 +989,10 @@ AATF reports violations and never fixes them.
 
 ## Loading and validation
 
-The official file is embedded and is the default; the Save editor's `aatf_rules` setting holds
-the path of an alternative file. A file is validated on load (`Rules::load`, so `check-aatf`
-refuses one that fails):
+The embedded rulesets ("Embedded rulesets") load from the binary; the Save editor's
+`aatf_ruleset` setting picks one of them or a rules file imported into the data folder, and
+`check-aatf --rules` names a file. A file is validated on load (`Rules::load`, so `check-aatf`
+refuses one that fails, and the Save editor refuses to import one):
 
 1. It parses, and defines `RULESET`, `check_team`, `tier_values` and `card_limits` with their
    arities, and `custom_checks`, if defined, with one parameter (with another, `check_team`

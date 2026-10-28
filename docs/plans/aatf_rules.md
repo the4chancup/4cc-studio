@@ -131,25 +131,9 @@ quota fails); the last has neither
 
 What exists of this is in `spec/aatf_rules.md` "Embedded rulesets".
 
-A shipped binary embeds every cup's current rulesets, not Autumn 26 alone, so a member picks
-their cup's rules from the Save editor's ruleset dropdown (`plans/save_editor.md`
-"Configurable AATF rules") rather than finding and importing a file, and a built-in ruleset is
-never a copy a member can lose. In the dropdown's order, by description: `4cc Autumn 26`, `4cc
-Spring 26`, `/vg/ League 27`, `/vg/ League 26`, `/vt/ League 11`, `/vt/ League 10`, `Divegrass
-Before Christmas 7`; the first is the default and the fallback. Each file's `name` is its
-description: for the 4cc's own cups `4cc` then the season and its year's last two digits; for
-VGL and VTL the league's name then its edition number, which counts editions, not years; for
-DBC7 the cup's name then its edition. All seven are the ones the parity runs checked (the
-spec's "Development phase and verification"; DBC7's, "Coverage of the DBC7 rules" below).
-Autumn 25 and VGL25 stay test rulesets, built into the tests alone. A cup's new edition joins
-the list, and its kind keeps its latest two, as the templates do; the older one leaves the
-list and stays a test ruleset with its fixtures.
-
 ## DBC7
 
-A test ruleset in `rulesets/dbc7.rhai` (`spec/aatf_rules.md` "Embedded rulesets": an
-invitational without an organization of its own gets no template; the preview build's handling
-is worklog 0.0.1's), for Divegrass Before Christmas 7 (PES 2017, exports due 2026-11-18). Its
+A built-in ruleset in `rulesets/dbc7.rhai` (`spec/aatf_rules.md` "Embedded rulesets"), for Divegrass Before Christmas 7 (PES 2017, exports due 2026-11-18). Its
 source of truth is the wiki page
 `https://implyingrigged.info/wiki/Divegrass_Before_Christmas_7:_Melty_Under_The_Christmas_Tree`,
 "Tactical export Rules" (read through a browser, since a plain fetch gets HTTP 403; unchanged
@@ -268,10 +252,9 @@ refuses onto a local save whose team breaks the rule
 
 What exists of this is in `spec/aatf_rules.md` "Loading and validation".
 
-A "save a copy" action writes the embedded file out, and a file is validated by the Save editor's
-"validate rules" button and by the Ruleset editor before saving. A logic change that needs a new
-data shape bumps `schema`; `libs/aatf` keeps a migration from every earlier schema, run by the
-update.
+The Ruleset editor validates a file before saving it (`plans/ruleset_editor.md`). A logic
+change that needs a new data shape bumps `schema`; `libs/aatf` keeps a migration from every
+earlier schema, run by the update.
 
 **The first release, for logic identity, is the 0.0.1 preview** (`core/development_plan.md`
 "Divegrass Before Christmas"): its Ruleset editor saves files that DBC's organizers and

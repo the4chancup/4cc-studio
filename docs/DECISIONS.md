@@ -13000,3 +13000,20 @@ Why: the maintainer's ruling: pixel-perfect parity between a browser draft and e
 worth its cost (the two round text metrics and borders differently, and code bent to land
 the last pixel is code to maintain), and a pixel or two is not seen.
 Plan: `plans/core/gui.md` "Prototypes before implementation" (the Overlay bullet).
+
+## 2026-10-28 — save_editor — The pitch drag follows the game's: steps, the rule at every step, the lit area
+Decision: a held starter moves by whole stored units with the pressed point kept under the
+pointer; the drop rule runs at every step from the position held at the step before, his
+badge showing it (a swap target's over a teammate); while he is held the pitch outside his
+A- and B-rated positions' areas is darkened to 40%; the slot popover's Position combo lists
+only the spot's positions and its X and Y apply the rule. CF's lit edge is drawn at the
+table's y 39.5, not the PES 2021 screen's 40.7.
+Why: the maintainer's asks: the drag by steps rather than smooth with a snap at the drop;
+no jump of the badge onto the pointer at the press; the game's lit areas replicated, and the
+game's limiting of positions by the spot and its forced changes while dragging. The rule
+and the lit panels' code were read from PES 2016's executable (the same rows); the game
+applies the rule every frame, so ruling only at the release gave other positions than the
+game's on a path that crosses areas. CF's 40.7 is the screen's panel geometry, not read;
+the table's edge is where a CF stops being offered, and a second geometry for one edge is
+not worth its code.
+Plan: `plans/save_editor.md` "Tactics editor" (the popover, "A held starter"), SE-GUI-42.
