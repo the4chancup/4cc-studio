@@ -4522,13 +4522,13 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] ov10 the pitch drag as the game's (the maintainer, 2026-10-28; DECISIONS "The pitch
     drag follows the game's"; drafted, `plans/save_editor.md` "Tactics editor" "A held
     starter" and the popover, SE-GUI-42): in `team_widgets`' pitch, the held marker snapped
-    to whole units with the press's offset kept, the position ruled at every step
-    (`drop_rule::dropped_position` from the held one) and shown on his badge, the release
-    writing both; the lit area (`RosterRow` carrying each starter's A/B ratings); the
-    popover's combo limited to the spot's choices, X and Y applying the rule. Also to check
-    in PES 2021 (pad + OBS): where a swap leaves the teammate; the executable sends him to
-    the dragged slot's last written point with its held position, where the editor's swap
-    gives him the dragged starter's spot and position
+    to whole units with the press's offset kept, the position ruled at every step from his
+    stored one (DECISIONS "A held player's position is ruled from the one he had when picked
+    up", the maintainer's PES 17 check of 2026-10-29, which also found the swap as the
+    editor's) and shown on his badge, the release writing both; the lit area (`RosterRow`
+    carrying each starter's A/B ratings); the popover's combo limited to the spot's choices,
+    X and Y applying the rule. The sidekick's brief (`brief_ov10.md`) asked for the
+    step-to-step rule: its rework brief corrects it
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
@@ -5936,6 +5936,12 @@ points there.
   reads as `None` in Rust but as present in the logic, which tests the key's presence; the
   logic's `num`/`list`/`table`/`flag` helpers already treat `()` as absent. Only a hand-written
   file reaches it.
+
+- open 2026-10-29 — the 120 s hang guards in the Save editor's tests (`frames_until`,
+  `portraits`' `served`) cost a mutation run up to 120 s per mutant that silences a worker
+  (they were 2 s and 30 s before, both failing correct code under load). At the next
+  `save_editor` mutation run, read those mutants' durations from its outcomes; if they add
+  notable time, lower the bound to the longest a loaded machine was measured to need
 
 ---
 

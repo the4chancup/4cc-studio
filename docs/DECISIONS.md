@@ -13017,3 +13017,19 @@ game's on a path that crosses areas. CF's 40.7 is the screen's panel geometry, n
 the table's edge is where a CF stops being offered, and a second geometry for one edge is
 not worth its code.
 Plan: `plans/save_editor.md` "Tactics editor" (the popover, "A held starter"), SE-GUI-42.
+
+## 2026-10-29 — save_editor — A held player's position is ruled from the one he had when picked up
+Decision: at every step of a drag, the drop rule runs at the held spot from the slot's stored
+position (nothing is written until the release), not from the position shown a step earlier;
+the badge shows that result, the release writes it. This replaces the step-to-step reading
+of "The pitch drag follows the game's" (2026-10-28); its steps, grab point, lit area and
+popover stand.
+Why: the maintainer's PES 17 check: COWBOY BEBOP (/a/, a CF rated SS A and CF A) dragged down
+to AMF and back up without a release is a CF again, where the step-to-step rule, passing
+SS's rows on the way back, left him an SS (found in the draft); released as an AMF and
+dragged back he is a CF (his CF overall over his SS); released in SS's rows, then dragged
+into CF's area, he stays an SS. The rule from the stored position gives all three. The
+executable reads the position byte every frame, but of a formation the drag does not
+commit before the release, which the step-to-step reading missed. The same check found
+the swap working as the editor's does, so that open check is closed.
+Plan: `plans/save_editor.md` "Tactics editor" ("A held starter"), SE-GUI-42.

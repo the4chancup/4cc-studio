@@ -5056,10 +5056,11 @@ function spotChoices(f, i, x, y) {
 }
 // The position slot i takes at the spot (x, y), coming from `cur`: kept
 // while the spot offers it (or offers nothing: the keeper's box), else the
-// one of the two his own overall rates higher, the default on a tie. The
-// game applies it at every step of a drag, so the path matters, not only
-// the end: an LMF dragged along the left keeps LMF wherever LMF is offered.
-// An empty roster slot keeps `cur`: no overall, no pick.
+// one of the two his own overall rates higher, the default on a tie. A drag
+// rules from the position he had when picked up, at every step, never from
+// the one shown a step earlier, so moving him back restores it: a CF dragged
+// down to AMF and back up is a CF again, as in the game. An empty roster
+// slot keeps `cur`: no overall, no pick.
 function ruledPosition(t, f, i, x, y, cur) {
   const choices = spotChoices(f, i, x, y), p = rosterPlayer(t, t.tactics.starting_eleven[i]);
   if (!choices.length || choices.includes(cur) || !p) return cur;
@@ -5206,10 +5207,11 @@ function paintPitch(g, t, f0, live) {
     const dragged = d && d.i === i && d.moved;
     g.globalAlpha = dragged && target >= 0 ? 0.35 : 1;
     const [x, y] = dragged ? heldBadge(d) : badgeAt(t, i, f0);
-    // A held marker's badge shows the position he holds at this step, or,
-    // over a teammate, the teammate's, which a release there gives him: the
-    // game's badge shows the same.
-    const shown = !dragged ? s.position : target >= 0 ? f[target].position : d.pos;
+    // A held marker's badge shows the position a release here gives him: the
+    // rule at his spot from his stored position, or, over a teammate, the
+    // teammate's. The game's badge shows the same.
+    const shown = !dragged ? s.position : target >= 0 ? f[target].position
+      : ruledPosition(t, f0, i, ...heldSpot(d), s.position);
     const bl = x - MARKER.badgeW / 2, bt = y - MARKER.badgeH / 2;
     const img = portraitOf(p);
     if (img) g.drawImage(img, x - MARKER.portrait / 2, bt - MARKER.gap - MARKER.portrait,
@@ -5350,10 +5352,8 @@ function pitchCanvas(t) {
     // badge centre (ox, oy) is kept for the whole drag, so the point of the
     // marker first pressed stays under the pointer.
     const [bx, by] = badgeAt(t, i);
-    // pos is the position he holds while dragged, ruled at every step.
-    const pos = tacFormation(t).players[i].position;
     S.pitchDrag = { i, px, py, x0: px, y0: py, ox: px - bx, oy: py - by, moved: false,
-      gk: pos === "GK", pos };
+      gk: tacFormation(t).players[i].position === "GK" };
   });
   // A bench row dropped on the pitch: onto a marker swaps the two roster
   // spots; an XI row swaps the two starters; onto grass does nothing.
@@ -5379,9 +5379,7 @@ document.addEventListener("pointermove", e => {
   const cv = document.getElementById("pitch"); if (!cv) return;
   [d.px, d.py] = pitchPoint(cv, e);
   if (!d.gk && Math.abs(d.px - d.x0) + Math.abs(d.py - d.y0) > 4) d.moved = true;
-  const t = selTeam();
-  if (d.moved) d.pos = ruledPosition(t, tacFormation(t), d.i, ...heldSpot(d), d.pos);
-  drawPitch(t);
+  drawPitch(selTeam());
 });
 // A press anywhere but inside the player's box closes it (a press on another
 // marker then opens that one's).
@@ -5416,7 +5414,8 @@ document.addEventListener("pointerup", e => {
   const onto = dropTarget(t, lx, ly, d.i);
   if (onto >= 0) { swapOnPitch(t, d.i, onto); render(); return; }
   const [x, y] = snapXY(lx - d.ox, ly - d.oy);
-  const pos = ruledPosition(t, tacFormation(t), d.i, x, y, d.pos);
+  const pos = ruledPosition(t, tacFormation(t), d.i, x, y,
+    tacFormation(t).players[d.i].position);
   edit("Move on pitch", () => {
     const s = tacFormation(t).players[d.i]; s.x = x; s.y = y; s.position = pos; });
   render();

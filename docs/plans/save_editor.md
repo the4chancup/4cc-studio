@@ -880,12 +880,16 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
 - **A held starter** moves a whole stored unit at a time (2.8 points across, 6.8 down),
   standing where a release would put him, and the point of his marker first pressed stays
   under the pointer: the press's offset from his badge centre is kept for the whole drag, so
-  a press on his portrait or name does not jump his badge onto the pointer. At each step the
-  drop rule above sets the position he holds, from the one he held at the step before, as the
-  game's drag does every frame, so the path matters, not only the end (an LMF dragged along
-  the left keeps LMF wherever LMF is offered); his badge shows that position and his overall
-  there, or, over a teammate, the teammate's, which a release there gives him (the game's
-  badge does the same). The release writes the spot and the held position, one undoable edit.
+  a press on his portrait or name does not jump his badge onto the pointer. At each step his
+  badge shows the position a release there gives him and his overall at it: the drop rule
+  above at his spot, from the position he had when picked up, never from the one shown a
+  step earlier, so moving him back restores it (a CF dragged down to AMF and back up is a CF
+  again, as in PES 2017; ruled from the step before, he passed SS's rows on the way back and
+  stayed an SS). Over a teammate the badge shows the teammate's position, which a release
+  there gives him (the game's badge does the same). The release writes the spot and that
+  position, one undoable edit, and only a release commits one: a CF released as an AMF and
+  dragged back up is a CF again where his overall rates CF over SS, while one released in
+  SS's rows stays an SS in CF's area, SS being offered there.
   While he is held, the pitch outside the areas of the positions he is rated A or B at is
   darkened to 40% (the turf and its lines; the markers are drawn over it), as the game lights
   it: each lit area is its position's rectangle in the first table, its edges half a unit
@@ -1465,7 +1469,13 @@ SE-GUI-42  GIVEN the PES 21 save's team 718 (/f/) on preset 1's Kick-off, its LM
                 reads AMF; WHEN he is then released at (19, 20) THEN his slot holds (19, 20)
                 and LMF, one undoable edit; WHEN his popover is opened at (20, 26) THEN its
                 Position combo lists CMF and LMF alone, and WHEN its Y is set to 36 THEN he is
-                an LWF
+                an LWF; GIVEN the PES 17 save's team 702 (/a/), its CF COWBOY BEBOP (70223,
+                rated SS A and CF A) at (40, 45) WHEN he is held at (42, 30), clear of his
+                teammates' markers, THEN his badge reads AMF, and WHEN he is held back at
+                (40, 45) without a release THEN it reads CF; WHEN he is released at (42, 30)
+                THEN he is an AMF, and WHEN he is then dragged to (40, 45) THEN he is a CF;
+                WHEN he is instead released at (42, 30), then at (42, 37) (an SS), then
+                dragged to (40, 45) THEN he stays an SS
 SE-GUI-13  GIVEN the save open and a second save of the same version picked in the comparator
            WHEN the panel is drawn
            THEN it lists, per team and per player, the differences `diff <picked> <open>`
