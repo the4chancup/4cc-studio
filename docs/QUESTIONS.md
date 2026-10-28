@@ -30,47 +30,15 @@ names where the question came from so the context can be read there.
   (four equal gaps), `.tmp/0_0_1ov/ov7/multi.png` (Multi-team AATF; the Savefile menu opens it
   in the drafts). Drafted from the sixth rulings (DECISIONS "The final pass's sixth rulings"):
   `.tmp/0_0_1ov/ov7/multi_clean.png` (a clean team under `All clean`, the list inside the
-  dialog, the drag handles 3 from the row's edge), `ov7/pictures_range.png` (the formation
-  pictures' range on one row). Still to look at:
+  dialog), `ov7/pictures_range.png` (the formation pictures' range on one row). Drafted from
+  the seventh rulings (DECISIONS "The final pass's seventh rulings"): the drag handles 4 from
+  the row's edge, `.tmp/0_0_1ov/ov8/hints.png` (every hint at a valid value as the dock words
+  it) and `ov8/height_hint.png` (a player set to 183 under Autumn 26, the bracket he left
+  named; tried in the drafts by changing a height with Live AATF on). Still to look at:
   the windows' titles at 14 in white in the built app; the preview's icon where the lead
   cannot capture it (worklog 0.0.1v: the taskbar button and Alt+Tab show the tight crop of the
   head; Explorer's file icon on the exe). Then the confirmation that freezes logic version 1's
   hash (0.0.1f2).
-- **Which issue sentences gain a hint at a valid value** (worklog 0.0.1ov8; the maintainer
-  asked on 2026-10-28 for "a suggestion for a valid value … without the availability check
-  being too expensive", warnings too). Most kinds already name the value to reach: Age and
-  Weight their range, every stat, form, injury resistance and weak-foot kind its target (the
-  warning band's included), NameColor the tier's code, the card kinds and caps their limit,
-  RequiredCard the card, TierCount, BracketQuota, Goalkeepers and ExtraHeight their count,
-  MedalSystem the systems, RosterOrder the right player; the warnings are all among these. The
-  hints proposed for the rest, each computed by the check script (`logic.rhai`, still free to
-  change before 0.0.1f2's hash freeze), so the Live AATF list, the marks' tooltips and
-  Multi-team AATF's copy all carry them:
-  - **Height**: "height 183 takes no bracket (180 or 185 have room)", the heights of the
-    team's height system's brackets whose quota is not yet met, the player's height
-    allowance added (a goalkeeper counted at 4 cm less shows 4 cm more); when none has room,
-    the heights every bracket with a quota takes ("(up to 175, 180 or 185)"); under a pool
-    system such as DBC7's GigaHeight, the range it takes ("(175 to 210)"). About 25 lines:
-    the brackets' room counted once before the players are checked. Its limit: a special can
-    still forbid a height the hint names (Autumn 26's goalkeepers between 181 and 188 must be
-    189), since the hint reads the brackets alone.
-  - **NoTier** (VGL26 and the VTLs pick a tier by height): "fits no tier (the tiers take
-    180, 185, 190 or 195)", the heights the tiers' conditions name (VTL10's regulars list
-    theirs under an `any`), shown only when the player's height is none of them; a player
-    failing another condition (VTL11's gold needs swerve 99) gets no hint. About 20 lines.
-  - **RegisteredNotA**, **FieldedNotA**, **APositions** and **GkSecondA**: the positions the
-    player is rated A at, "(rated A at CF and SS)", or "(no position rated A)". **BRating**:
-    "(B at LB and RB)". A few lines: the card count already walks every position's rating.
-  - **TeamSetting**: the value the entry wants, "team setting No man marking: man marking
-    should be off" instead of "man_marking does not hold". About 5 lines.
-  - No hint for PositionRange and PlayingStyleRange (the editor's dropdowns offer only valid
-    values), Captain, FormationShape (any other shape is valid), Special and Custom (the
-    ruleset author's own words) and UnusedChoice (naming a choice's options needs a sentence
-    for every kind of effect; the special's label usually names them).
-  Each hint is a new field on its kind, so the command line's `check-aatf` prints it too, and
-  the kinds' expected values in the aatf tests gain it (mechanical). None searches for a value
-  that passes every rule: trying each height through the whole check is the expensive check
-  the hints avoid. Which of these to build?
 
 ## Cup practice
 

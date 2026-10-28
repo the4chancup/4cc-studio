@@ -4383,9 +4383,9 @@ briefs, review loops, gates and mutation runs as for any step.
       on it, the error red past it (SE-GUI-38)
     - [ ] ov2h the sixth rulings' looks (the maintainer, 2026-10-28; DECISIONS "The final
       pass's sixth rulings"; drafts done, `plans/save_editor.md` "Editing UI", "Tactics
-      editor"): the drag handle 3 points from the row's edge and 3 before the place, in the
-      player list and the lineup lists; the formation pictures' range on one row, `Teams`
-      first `to` last
+      editor"): the drag handle 4 points from the row's edge and 4 before the place, in the
+      player list and the lineup lists (DECISIONS "The final pass's seventh rulings"); the
+      formation pictures' range on one row, `Teams` first `to` last
   - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
     the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/`; the first rulings
     drafted and planned (ov2f; the dock's kind codes kept). The two points left for later (a
@@ -4418,11 +4418,25 @@ briefs, review loops, gates and mutation runs as for any step.
       rulesets", "Loading and validation" (the setting), `spec/save_editor.md` "Configurable
       AATF rules" and "CLI" (the setting `check-aatf` reads)
   - [ ] ov8 a violation's sentence suggests a valid value where the check can say it cheaply
-    (the maintainer, 2026-10-28: "height 185 takes no bracket (175-184 are currently
-    allowed)", warnings too where it applies): per kind, what the hint says and what it costs
-    the script (`logic.rhai`, hashed: before logic version 1's freeze, 0.0.1f2), drafted as a
-    table for the maintainer's ruling (QUESTIONS "Which issue sentences gain a hint at a valid
-    value"), then the drafts' sentences and the plan
+    (the maintainer, 2026-10-28; DECISIONS "The final pass's seventh rulings"; drafts and plan
+    done, `plans/aatf_rules.md` "The interpreter", Hints at a valid value). The app side, one
+    brief, before logic version 1's freeze (0.0.1f2):
+    - `logic.rhai`: `check_team` reads every player before checking any and hands the
+      brackets' room to `player_checks`; `Height`'s `fits` and `room` (the pool system's
+      range), `NoTier`'s `heights`, `card_summary`'s A and B lists into `RegisteredNotA`,
+      `FieldedNotA`, `APositions`, `GkSecondA` and `BRating`, `TeamSetting`'s `wanted`
+    - `aatf`: the `ViolationKind` fields, the map reader, `rule()`'s fields (what
+      `check-aatf` prints), the tests' expected values (`fixtures/*.rs`); the logic hash's
+      pin follows
+    - `team_widgets` `violations.rs` `sentence`: the drafts' wording (`violationSentence`)
+    - when built, the spec: `spec/aatf_rules.md` "The interpreter" (the violation block)
+  - [ ] ov9 the drafts' FieldedNotA against the check (found 2026-10-28 at ov8): the drafts'
+    `fieldedRows` raise one for PES 17's 71822 (DMF in preset 1, rated A at CB alone) under
+    Autumn 26 and DBC7, the current build's `check-aatf` on the same save none; find which
+    reads the preset's formations as the game does (the drafts take all three of a fluid
+    preset's) and correct the other. The drafts' official sample was stale the same way and
+    is re-recorded from the current build (Height and BracketQuota now computed by the drafts'
+    `heightRows`)
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in

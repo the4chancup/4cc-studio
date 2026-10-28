@@ -244,6 +244,51 @@ moves a threshold), and from a file whose logic is not the build's. Loading step
 with its two parameters, like the other three. It lands before the 0.0.1 cut freezes logic
 version 1, so no released file lacks it.
 
+**Hints at a valid value.** A violation whose sentence would not otherwise name a value to
+reach carries one, computed by the logic so every surface (Live AATF's rows, the marks'
+tooltips, Multi-team AATF's copy, `check-aatf`'s fields) shows the same: most kinds already
+name theirs (a range, a target, a limit, a count). Each hint reads what the check has already
+read, never a search for a value that passes every rule (each candidate height run through the
+whole check would be the expensive part); a special can therefore still forbid a height the
+hint names (Autumn 26's goalkeepers between 181 and 188 must be 189). The variants gain:
+
+```rust
+/// The heights the player could take, each an inclusive range, his height allowance added.
+/// `room`: the brackets of the team's height system whose quota is not met yet; when none has
+/// room, every bracket with a quota (`room: false`); under an `extra_height` system, its one
+/// range from the lowest quota bracket to `max` (`room: false`).
+Height { height: u8, fits: Vec<(u8, u8)>, room: bool },
+/// The heights the tiers' `when`s name (`height_min`/`height_max`, an `any` list's entries
+/// included), each an inclusive range; empty when the player's height is among them, the
+/// cause then being another condition.
+NoTier { heights: Vec<(u8, u8)> },
+/// `rated_a`: every position the player is rated A at.
+RegisteredNotA { rated_a: Vec<Position> },
+FieldedNotA { preset: u8, position: Position, rated_a: Vec<Position> },
+APositions { count: u8, max: u8, rated_a: Vec<Position> },
+/// `rated_a`: the A positions other than GK.
+GkSecondA { rated_a: Vec<Position> },
+/// `rated_b`: every position the player is rated B at.
+BRating { rated_b: Vec<Position> },
+/// `wanted`: the value the entry sets.
+TeamSetting { label: String, setting: String, wanted: bool },
+```
+
+`check_team` reads every player before checking any, so the brackets' room is counted once and
+handed to the per-player checks; `card_summary`, which already walks every position's rating,
+collects the A and B lists. The sentences (the Save editor's `team_widgets` and the drafts'
+`violationSentence`): `height 183 takes no bracket (180 or 185 have room)`, `(up to 175, 180 or
+185)` without room, `(175 to 210)` under a pool; `fits no tier (the tiers take 180, 185, 190 or
+195)`; `the registered position is not rated A (rated A at CF and SS)`, `(no position rated A)`
+when none; the same list after FieldedNotA's and APositions' sentences; `a second A rating at GK
+(also A at CB)`; `a B rating where the ruleset refuses one (B at LB and RB)`; `team setting No
+man marking: man marking should be off`, the setting in words. A range of one height prints
+once, one from the bottom `up to` its top. No hint for PositionRange and PlayingStyleRange (the
+editor's controls offer only valid values), Captain, FormationShape (any other shape is valid),
+Special and Custom (the ruleset author's words) and UnusedChoice (naming a choice's options
+would need a sentence for every kind of effect). Like `player_tier`, the fields land before
+logic version 1's freeze.
+
 ## The host
 
 What exists of this is in `spec/aatf_rules.md` "The host".

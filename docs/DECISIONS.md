@@ -12848,3 +12848,24 @@ sets each team apart in the thread; the names were cut short in the narrow lists
 Plan: `plans/save_editor.md` "Editing UI" (the player row's handle), "Tactics editor" (the
 formation pictures' range), "Configurable AATF rules" (Multi-team AATF), "Acceptance"
 (SE-GUI-41).
+
+## 2026-10-28 — aatf — The final pass's seventh rulings: hints at a valid value, the handles at 4
+Decision: a violation whose sentence names no value to reach carries a hint, computed by the
+logic: Height the heights the brackets with room take (every bracket with a quota when none
+has room, a pool system's range under `extra_height`), the player's allowance added; NoTier
+the heights the tiers' `when`s name, when his is none of them; RegisteredNotA, FieldedNotA,
+APositions and GkSecondA the positions rated A; BRating those rated B; TeamSetting the value
+the entry wants. No hint for PositionRange, PlayingStyleRange, Captain, FormationShape,
+Special, Custom and UnusedChoice. The drag handles stand 4 points from the row's edge and 4
+before the next item, not 3. Lead's choices, applied: the hints as fields of their kinds (so
+`check-aatf` prints them too) rather than text the host composes; the wording ("(180 or 185
+have room)", "(rated A at CF and SS)", "man marking should be off"); the drafts' official
+sample run re-recorded from the current build, which raises none of the 185 cm Height rows
+the old run held, with the drafts computing Height and BracketQuota from Autumn 26's brackets
+so a hint can be tried by changing a height; Multi-team AATF's header counts `1 error`, not
+`1 errors`.
+Why: the maintainer approved the four hints and let the rest go as too costly for what they
+add; a hint read from what the check already read costs a few lines, where finding a height
+that passes every rule would run the whole check per candidate.
+Plan: `plans/aatf_rules.md` "The interpreter" (Hints at a valid value); `plans/save_editor.md`
+"Editing UI" (the player row's handle).

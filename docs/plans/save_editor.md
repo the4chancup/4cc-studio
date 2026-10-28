@@ -204,7 +204,7 @@ all side by side.
   A player row shows his place in the roster (`01` to `23`, the slot `NN` of his id, always
   two digits, so no column is kept for right-aligning a one-digit number), position and name,
   with no team name under ALL or a filter: the team row above its players already names it.
-  The row's drag handle `≡` stands 3 points from its edge and 3 before the place, as in the
+  The row's drag handle `≡` stands 4 points from its edge and 4 before the place, as in the
   Tactics view's lineup lists, so the name gets the room the column's narrow width leaves.
   The place, not the shirt number: it is the `NN` of his export's `NN - Name` folder and of
   his id, and General info shows the shirt number; **drag-and-drop reordering**
