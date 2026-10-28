@@ -4456,7 +4456,7 @@ briefs, review loops, gates and mutation runs as for any step.
     rules file that fails to load surfaced when it is loaded; switching between rules files,
     awkward) are answered by ov7: a file is validated when imported, and the toolbar's
     dropdown switches
-  - [ ] ov7 Live AATF replaces the AATF panel (the maintainer, 2026-10-28; DECISIONS "Live AATF
+  - [x] ov7 Live AATF replaces the AATF panel (the maintainer, 2026-10-28; DECISIONS "Live AATF
     replaces the AATF panel; the final pass's fourth rulings"; drafts and plan done,
     `plans/save_editor.md` "Configurable AATF rules", SE-GUI-15 and SE-GUI-32 rewritten, their
     tests rewritten with the code). The app side, three slices: ov7a built (Opus sidekick,
@@ -4471,7 +4471,13 @@ briefs, review loops, gates and mutation runs as for any step.
     `check_import`/`import`/`remove`, the dropdown's `Import rules file…` and each import's ×
     with their dialogs (`view/ruleset_picker.rs`), a re-import differing only in case keeping
     the earlier copy's name (Windows reads the two as one file); the ×'s and the dialogs' look
-    not yet seen in the built window (ov1). ov7c: Multi-team AATF. The list:
+    not yet seen in the built window (ov1). ov7c built (brief `brief_ov7c.md`, report
+    `.tmp/sidelead/sk_ov7c.report.md`): `view/multi_aatf.rs`, `violations_list`'s `ListUse`
+    and `issue_groups` shared with the copied text; the dialog's look not yet seen in the
+    built window (ov1). The spec move is done: `spec/aatf_rules.md` (the rulesets, the
+    setting) and `spec/save_editor.md` "Configurable AATF rules" (the dropdown, No AATF
+    panel, Multi-team AATF); the plan keeps the wheel over the dropdown (ov2e), and
+    SE-GUI-15/32/41 stay with the phase's other GUI scenarios until its close. The list:
     - the toolbar's ruleset dropdown (`save_editor` view): built-ins by `name`, imports under
       a separator with an ×, `Import rules file…` after another, outside the wheel's steps;
       the import (`rfd` on `.4ccrules`, `Rules::load`, the refusal dialog with the findings,
