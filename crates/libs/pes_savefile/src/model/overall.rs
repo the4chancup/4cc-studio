@@ -152,7 +152,7 @@ impl PlayerEntry {
     /// The player's overall at `position` (a position byte, GK 0 to CF 12) by
     /// PES 2016's formula, on every version; `None` for a byte past CF. It
     /// equals every overall PES 2017's screens were seen to show, and is
-    /// within 2 of PES 2021's, whose own formula differs.
+    /// within 2 of every one PES 2021's showed, whose own formula differs.
     /// The twenty weighted terms, each `max(1, value - 25)`, summed and
     /// rounded to hundredths' units; the position's bonus (registered, A,
     /// B); at his registered position, unless it is GK, 60% of that and 40%

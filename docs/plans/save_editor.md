@@ -780,8 +780,10 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   is held is not where his position changes. A rule fitted to scans would guess, and its wrong
   guesses would set positions silently, so the rule is read from the game's code: PES 2016's
   executable, the last one that is not packed, then checked in PES 2021, where it reproduces
-  the four scans and the Select Position menu. Each position has a rectangle of the pitch
-  (PES 2016's tables; CF's starts at stored y 40, confirmed in PES 2021). A dropped point
+  the four scans and the Select Position menu. Each position has an area of the pitch, its
+  rectangle in each of PES 2016's two tables (the second widens the first to the pitch's
+  edges, x 0 and 104 and y 48), a point inside either counting; CF's starts at stored y 40,
+  confirmed in PES 2021. Below, "rectangle" means that area. A dropped point
   offers two positions: the band's default (the first of CB, CMF, SS whose rectangle holds
   the point) and the first free one of LB, RB, DMF, LMF, RMF, AMF, LWF, RWF, CF, CB, SS holding
   it, where a central position is always free and a wide one (LB, RB, LMF, RMF, LWF, RWF) only
@@ -789,7 +791,8 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   of the two (or the point offers neither); otherwise he takes the one his own per-position
   overall rates higher, the default on a tie. So a point inside his position's rectangle does
   not always keep it: a second LMF dragged within LMF's rectangle is offered CMF alone, the
-  other LMF holding the wide one. His teammates' spots never enter it. The overall is PES 2016's formula on every version, no other version's being read: PES
+  other LMF holding the wide one. His teammates' spots never enter it. A slot whose roster
+  row has no overalls (an empty slot) keeps his position: no overall, no pick. The overall is PES 2016's formula on every version, no other version's being read: PES
   2021's differs from it by up to 2 (93 of 201 points read in game differ, 12 of them by 2),
   so where the two candidates' overalls are within 2 the editor's pick can differ from the
   game's. The formula is `pes_savefile`'s, on its player model (a player's abilities and
