@@ -27,8 +27,8 @@ fn an_edit_marks_the_row_until_ctrl_s_writes_the_save() {
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
-        row(&nodes, "1 CB PLACEHOLDER ●").label(),
-        Some("1 CB PLACEHOLDER ●")
+        row(&nodes, "01 CB PLACEHOLDER ●").label(),
+        Some("01 CB PLACEHOLDER ●")
     );
     assert_eq!(
         std::fs::read(&path).unwrap(),
@@ -41,7 +41,7 @@ fn an_edit_marks_the_row_until_ctrl_s_writes_the_save() {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    row(&nodes, "1 CB PLACEHOLDER");
+    row(&nodes, "01 CB PLACEHOLDER");
     assert!(
         !nodes
             .iter()
@@ -311,13 +311,13 @@ fn undoing_back_to_the_saved_state_clears_the_dot() {
         |ui| show(ui, &mut view, &|| Vec::new(), None),
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    row(&nodes, "1 CB PLACEHOLDER ●");
+    row(&nodes, "01 CB PLACEHOLDER ●");
     // Undoing the only edit clears the dot.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    row(&nodes, "1 CB PLACEHOLDER");
+    row(&nodes, "01 CB PLACEHOLDER");
     assert!(
         !nodes
             .iter()
@@ -532,7 +532,7 @@ fn an_unreadable_file_is_refused_and_keeps_the_open_save() {
     assert!(
         nodes
             .iter()
-            .any(|node| node.label() == Some("1 CB PLACEHOLDER")),
+            .any(|node| node.label() == Some("01 CB PLACEHOLDER")),
         "the session still shows its players"
     );
 }

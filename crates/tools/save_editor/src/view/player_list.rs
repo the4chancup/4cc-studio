@@ -5,8 +5,8 @@
 
 use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
+use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::names::display_name;
-use pes_savefile::model::{PlayerEntry, TeamEntry};
 
 use team_widgets::names::{append_name, plain_format};
 
@@ -66,13 +66,27 @@ fn dot_right(ui: &egui::Ui, right_end: f32, mark_width: Option<f32>) -> f32 {
 
 /// The selector, the filter box, the rows and the quick actions, top to
 /// bottom of the side panel: the list's scroll area takes the height left
-/// above the actions.
-pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
+/// above the actions. Returns the right edge of the rows' frame, where the
+/// player view counts its first gap from.
+pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) -> f32 {
+    // egui's solid scroll bar stands outside the rows' frame, in a strip
+    // (its 4-point gap and 6-point bar) kept at the column's right whether
+    // or not the list scrolls, so a filter leaving few rows keeps the
+    // list's width. A floating bar lies over the rows, where a row's dot
+    // and mark at its right end take their hover and click. The controls
+    // above and below end at the frame's edge too, so the column reads as
+    // one box.
+    let scroll = egui::style::ScrollStyle::solid();
+    let frame_width = ui.available_width() - scroll.allocated_width();
+    let frame_right = ui.max_rect().min.x + frame_width;
     let Some(session) = view.session.as_ref() else {
-        return;
+        return frame_right;
     };
     let team_before = view.team;
-    team_selector(ui, &mut view.team, session.file(), "save_editor_team");
+    ui.scope(|ui| {
+        ui.spacing_mut().combo_width = frame_width;
+        team_selector(ui, &mut view.team, session.file(), "save_editor_team");
+    });
     // Picking a team selects its team row, so the detail shows that team's
     // view, its tactics with it: a manager who picks a team usually wants
     // its tactics next. Picking ALL keeps the selection.
@@ -83,16 +97,23 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     }
     ui.add(
         egui::TextEdit::singleline(&mut view.filter)
-            .hint_text("Filter every team (name, shirt name or id)"),
+            .hint_text("Filter every team (name, shirt name or id)")
+            .desired_width(frame_width),
     );
     // The quick actions sit at the panel's bottom, under the list (the
     // draft's `qagrid`): a bottom panel takes its height off the scroll's.
     // The panel's frame keeps its fill and its vertical margin but no
-    // horizontal one, so the grid spans the list rows' width.
+    // horizontal one, and the grid's width stops at the frame's, so the
+    // grid spans the list rows' width.
     egui::Panel::bottom("save_editor_quick_actions")
         .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(egui::Margin::symmetric(0, 2)))
         .show(ui, |ui| {
-            quick_actions::show(ui, view);
+            // A child of its own: the panel's `ui` already spans the
+            // panel's width, which `set_max_width` cannot shrink.
+            ui.vertical(|ui| {
+                ui.set_max_width(frame_width);
+                quick_actions::show(ui, view);
+            });
         });
     // A drop works on a row of the dragged player's own team, in one team's
     // list or under ALL where each team's rows run unbroken under its team
@@ -104,6 +125,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         // height plus the button padding (`interact_size.y`, what a
         // selectable occupies).
         row_height: ui.spacing().interact_size.y,
+        width: frame_width,
         draggable: view.filter.trim().is_empty(),
     };
     // Live AATF's held check: the rows of the team it is for carry its
@@ -111,49 +133,78 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let held = live_marks::held_violations(view.live_aatf, &view.live.check, view.rules.as_ref());
     let session = view.session.as_mut().expect("checked above");
     let rows = selection::list(session.file(), &view.team, &view.filter);
-    // The floating scroll bar's band stays clear of the rows: reserve
-    // it, so a row's dot and mark, at its right end, sit left of the bar
-    // and keep their hover and click; floating over them, the bar's hit
-    // zone took both once the button padding shrank to 4.
-    ui.spacing_mut().scroll.floating_allocated_width = ui.spacing().scroll.bar_width;
-    egui::ScrollArea::vertical().show_rows(ui, layout.row_height, rows.len(), |ui, range| {
-        for row in &rows[range] {
-            match row {
-                ListRow::Team(team_id) => {
-                    team_row(
-                        ui,
-                        &mut view.selected,
-                        session,
-                        *team_id,
-                        layout.row_height,
-                        held.filter(|(id, _)| *id == *team_id)
-                            .map(|(_, violations)| live_marks::row_mark(violations, None)),
-                    );
-                }
-                ListRow::Player(row) => {
-                    player_row(
-                        ui,
-                        &mut view.selected,
-                        session,
-                        row,
-                        layout,
-                        held.filter(|(id, _)| *id == row.team_id)
-                            .map(|(_, violations)| {
-                                live_marks::row_mark(violations, Some(row.slot))
-                            }),
-                    );
+    ui.spacing_mut().scroll = scroll;
+    // The frame's fill goes under the rows, painted once the scroll area
+    // has its rect.
+    let background = ui.painter().add(egui::Shape::Noop);
+    // Not shrunk: the frame takes the panel's height whatever few rows a
+    // filter leaves.
+    let output = egui::ScrollArea::vertical()
+        .auto_shrink([false, false])
+        .show_rows(ui, layout.row_height, rows.len(), |ui, range| {
+            for row in &rows[range] {
+                match row {
+                    ListRow::Team(team_id) => {
+                        team_row(
+                            ui,
+                            &mut view.selected,
+                            session,
+                            *team_id,
+                            layout,
+                            held.filter(|(id, _)| *id == *team_id)
+                                .map(|(_, violations)| live_marks::row_mark(violations, None)),
+                        );
+                    }
+                    ListRow::Player(row) => {
+                        player_row(
+                            ui,
+                            &mut view.selected,
+                            session,
+                            row,
+                            layout,
+                            held.filter(|(id, _)| *id == row.team_id)
+                                .map(|(_, violations)| {
+                                    live_marks::row_mark(violations, Some(row.slot))
+                                }),
+                        );
+                    }
                 }
             }
-        }
-    });
+        });
+    // The viewport spans the bar's strip while nothing scrolls: the frame
+    // keeps its own width.
+    let frame = egui::Rect::from_min_size(
+        output.inner_rect.min,
+        egui::vec2(frame_width, output.inner_rect.height()),
+    );
+    ui.painter().set(
+        background,
+        egui::epaint::RectShape::filled(
+            frame,
+            egui::CornerRadius::ZERO,
+            ui.visuals().extreme_bg_color,
+        ),
+    );
+    // The stroke over the rows, so a selected or hovered row's fill
+    // reaches the frame's edge under it.
+    ui.painter().rect_stroke(
+        frame,
+        egui::CornerRadius::ZERO,
+        ui.visuals().widgets.noninteractive.bg_stroke,
+        egui::StrokeKind::Inside,
+    );
+    frame_right
 }
 
-/// How the list draws one row, computed once in `show`: the row's height
-/// and whether player rows drag (no filter typed).
+/// How the list draws one row, computed once in `show`: the row's height,
+/// its width and whether player rows drag (no filter typed).
 #[derive(Clone, Copy)]
 struct RowLayout {
     /// The row's height (`interact_size.y`, what a selectable occupies).
     row_height: f32,
+    /// The row's width, the frame's: the scroll area's own spans the bar's
+    /// strip while nothing scrolls.
+    width: f32,
     /// Player rows drag and take drops.
     draggable: bool,
 }
@@ -225,7 +276,7 @@ fn team_row(
     selected: &mut Option<Selection>,
     session: &Session,
     team_id: u32,
-    row_height: f32,
+    layout: RowLayout,
     mark: Option<live_marks::RowMark>,
 ) {
     let Some(team) = session.file().team(team_id) else {
@@ -234,7 +285,7 @@ fn team_row(
     let is_selected = *selected == Some(Selection::Team(team_id));
     let dirty = session.team_dirty(team_id);
     let (rect, response) = ui.allocate_exact_size(
-        egui::vec2(ui.available_width(), row_height),
+        egui::vec2(layout.width, layout.row_height),
         egui::Sense::click(),
     );
     response.widget_info(|| {
@@ -312,10 +363,13 @@ fn team_row(
         // `[click for tactics]` after the name, in the weak colour at the
         // normal weight (the draft's `.thint`): what a click on the row
         // opens. It takes only the room the name left, so it is elided
-        // before the name is.
+        // before the name is. An elided name ends a few points short of
+        // its room (the cut falls between letters), so it is the elision,
+        // not the room left, that drops the hint: a name filling the row
+        // keeps it to itself.
         let hint_x = x + name_galley.size().x + ui.spacing().item_spacing.x;
         let hint_room = rect.max.x - padding - room - hint_x;
-        if hint_room > 0.0 {
+        if !name_galley.elided && hint_room > 0.0 {
             let mut hint = egui::text::LayoutJob::default();
             hint.append(
                 "[click for tactics]",
@@ -361,7 +415,7 @@ fn team_row(
     }
 }
 
-/// One list row: number, position, and the name with its colour codes drawn.
+/// One list row: place, position, and the name with its colour codes drawn.
 /// The whole row is one click target; a click selects it. `draggable` (no
 /// filter typed) also makes it a drag source and a drop target: a drop on
 /// a row of the dragged player's own team moves him to it
@@ -376,12 +430,11 @@ fn player_row(
     mark: Option<live_marks::RowMark>,
 ) {
     let file = session.file();
-    let team = file.team(row.team_id);
     let player = file.player(row.player_id);
     let dirty = session.player_dirty(row.team_id, row.slot);
     let is_selected = *selected == Some(Selection::Player(row.team_id, row.slot));
     let row_height = layout.row_height;
-    let mut job = row_text(team, player, row);
+    let mut job = row_text(player, row);
     // The unsaved dot paints at the row's right end, never inside the
     // text: a row the name overflows keeps it. The label and the hover
     // keep its text.
@@ -399,8 +452,7 @@ fn player_row(
     } else {
         egui::Sense::click()
     };
-    let (rect, response) =
-        ui.allocate_exact_size(egui::vec2(ui.available_width(), row_height), sense);
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(layout.width, row_height), sense);
     response.widget_info(|| {
         egui::WidgetInfo::selected(
             egui::Role::Button,
@@ -478,23 +530,21 @@ fn player_row(
     }
 }
 
-/// The row's text as one `LayoutJob`: number, position, then the name's
-/// runs, each colored as `name_spans` gives it (`None` runs the normal
-/// text color, `append_name`).
-fn row_text(
-    team: Option<&TeamEntry>,
-    player: Option<&PlayerEntry>,
-    row: &Row,
-) -> egui::text::LayoutJob {
+/// The row's text as one `LayoutJob`: his place in the roster, position,
+/// then the name's runs, each colored as `name_spans` gives it (`None`
+/// runs the normal text color, `append_name`). The place is the slot's
+/// `01` to `23`, the `NN` of his id and of his export's `NN - Name`
+/// folder, not his shirt number (General info shows that): two digits on
+/// every row, so the places line up with no column kept to right-align
+/// them.
+fn row_text(player: Option<&PlayerEntry>, row: &Row) -> egui::text::LayoutJob {
     let mut job = egui::text::LayoutJob::default();
-    let number = team
-        .and_then(|team| team.roster.get(usize::from(row.slot)))
-        .map_or_else(|| "?".to_owned(), |slot| slot.number.to_string());
+    let place = u32::from(row.slot) + 1;
     let position = player
         .and_then(|player| POSITIONS.get(usize::from(player.positions.registered)))
         .copied()
         .unwrap_or("?");
-    job.append(&format!("{number} {position}"), 0.0, plain_format());
+    job.append(&format!("{place:02} {position}"), 0.0, plain_format());
     match player {
         Some(player) => {
             job.append(" ", 0.0, plain_format());

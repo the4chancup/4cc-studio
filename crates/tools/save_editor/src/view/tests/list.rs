@@ -97,7 +97,7 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
     // and display name.
     assert_eq!(
         row_labels(&nodes).first().map(String::as_str),
-        Some("1 CB PLACEHOLDER"),
+        Some("01 CB PLACEHOLDER"),
         "the first row"
     );
 
@@ -133,7 +133,7 @@ fn a_players_name_paints_in_the_colors_his_codes_set() {
     let mut window = Headless::new();
     let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    let shape = text_shape(&shapes, "50 GK ROADTRIP");
+    let shape = text_shape(&shapes, "01 GK ROADTRIP");
     let painted: Vec<(egui::Color32, String)> = shape
         .galley
         .job
@@ -153,7 +153,7 @@ fn a_players_name_paints_in_the_colors_his_codes_set() {
     // `name_spans`' `None` means. The layout merges adjacent equal-color
     // sections, so the expectation merges too.
     let normal = egui::Color32::PLACEHOLDER;
-    let mut expected: Vec<(egui::Color32, String)> = vec![(normal, "50 GK ".to_owned())];
+    let mut expected: Vec<(egui::Color32, String)> = vec![(normal, "01 GK ".to_owned())];
     for (color, text) in &spans {
         let color = match color {
             Some([red, green, blue]) => egui::Color32::from_rgb(*red, *green, *blue),
@@ -194,7 +194,7 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
     // 70202 of team 702 is listed under a filter.
     let row = nodes
         .iter()
-        .find(|node| node.role() == Role::Button && node.label() == Some("1 GK QUALITY"))
+        .find(|node| node.role() == Role::Button && node.label() == Some("02 GK QUALITY"))
         .expect("the filtered row");
     click(&mut window, row, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -221,7 +221,7 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
         assert!(
             nodes
                 .iter()
-                .any(|node| node.role() == Role::Button && node.label() == Some("1 GK QUALITY")),
+                .any(|node| node.role() == Role::Button && node.label() == Some("02 GK QUALITY")),
             "{typed:?} finds 70202"
         );
     }
@@ -241,7 +241,7 @@ fn the_selected_row_reports_selected() {
         .iter()
         .partition(|node| node.toggled() == Some(accesskit::Toggled::True));
     assert_eq!(selected.len(), 1, "exactly one row selected");
-    assert_eq!(selected[0].label(), Some("1 CB PLACEHOLDER"));
+    assert_eq!(selected[0].label(), Some("01 CB PLACEHOLDER"));
     assert!(
         rest.iter()
             .all(|node| node.toggled() == Some(accesskit::Toggled::False))
@@ -304,7 +304,7 @@ fn a_long_name_truncates_instead_of_wrapping_the_row() {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let file2 = EditFile::load(&path).unwrap();
-    let (_, roster_slot) = file2
+    let (index, roster_slot) = file2
         .team(701)
         .unwrap()
         .roster
@@ -317,8 +317,8 @@ fn a_long_name_truncates_instead_of_wrapping_the_row() {
         .player(roster_slot.player_id)
         .expect("the last player");
     let label = format!(
-        "{} {} {}",
-        roster_slot.number,
+        "{:02} {} {}",
+        index + 1,
         pes_savefile::interchange::team_toml::labels::POSITIONS
             [usize::from(player.positions.registered)],
         pes_savefile::model::names::display_name(&player.name)
@@ -348,17 +348,17 @@ fn scrolling_to_the_end_of_all_selects_the_last_player() {
     file.player_mut(last_id).unwrap().name = "LAST".to_owned();
     file.save(&path).unwrap();
     let file = EditFile::load(&path).unwrap();
-    let slot = file
+    let place = file
         .team(team_id)
         .expect("the last team")
         .roster
         .iter()
-        .find(|slot| slot.player_id == last_id)
-        .expect("the renamed slot");
+        .position(|slot| slot.player_id == last_id)
+        .expect("the renamed slot")
+        + 1;
     let player = file.player(last_id).expect("the last player");
     let label = format!(
-        "{} {} LAST",
-        slot.number,
+        "{place:02} {} LAST",
         pes_savefile::interchange::team_toml::labels::POSITIONS
             [usize::from(player.positions.registered)]
     );
@@ -432,7 +432,7 @@ fn a_row_dragged_above_another_trades_their_records_between_the_ids() {
 
     // Select another row first, so the selection following the dragged
     // record is not vacuous.
-    click(&mut window, row(&nodes, "3 CB PLACEHOLDER"), &mut view);
+    click(&mut window, row(&nodes, "03 CB PLACEHOLDER"), &mut view);
     assert_eq!(
         view.selected,
         Some(Selection::Player(701, 2)),
@@ -441,15 +441,15 @@ fn a_row_dragged_above_another_trades_their_records_between_the_ids() {
 
     // Drag player 02's row above player 01's.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let from = centre(row(&nodes, "2 CB SECOND"));
-    let onto = centre(row(&nodes, "1 CB FIRST"));
+    let from = centre(row(&nodes, "02 CB SECOND"));
+    let onto = centre(row(&nodes, "01 CB FIRST"));
     drag(&mut window, from, onto, &mut view);
 
     // The list shows the new order, the moved rows marked unsaved; the
     // selection followed the dragged record to its new slot.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let labels = row_labels(&nodes);
-    assert_eq!(&labels[..2], ["1 CB SECOND ●", "2 CB FIRST ●"]);
+    assert_eq!(&labels[..2], ["01 CB SECOND ●", "02 CB FIRST ●"]);
     assert_eq!(
         view.selected,
         Some(Selection::Player(701, 0)),
@@ -514,17 +514,17 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     file.player_mut(other_id).unwrap().name = "OTHER".to_owned();
     file.save(&path).unwrap();
     let other_label = {
-        let slot = file
+        let place = file
             .team(702)
             .unwrap()
             .roster
             .iter()
-            .find(|slot| slot.player_id == other_id)
-            .expect("the renamed slot");
+            .position(|slot| slot.player_id == other_id)
+            .expect("the renamed slot")
+            + 1;
         let player = file.player(other_id).unwrap();
         format!(
-            "{} {} OTHER",
-            slot.number,
+            "{place:02} {} OTHER",
             pes_savefile::interchange::team_toml::labels::POSITIONS
                 [usize::from(player.positions.registered)]
         )
@@ -539,7 +539,7 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
 
     // A drag onto another team's row: nothing moves.
     let before = row_labels(&nodes);
-    let from = centre(row(&nodes, "2 CB SECOND"));
+    let from = centre(row(&nodes, "02 CB SECOND"));
     let other = centre(row(&nodes, &other_label));
     drag(&mut window, from, other, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -554,7 +554,7 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     // A drag of the team row itself onto a player row: nothing moves.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let from = centre(team_row(&nodes, &view, 701));
-    let onto = centre(row(&nodes, "1 CB FIRST"));
+    let onto = centre(row(&nodes, "01 CB FIRST"));
     drag(&mut window, from, onto, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
@@ -566,7 +566,7 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     assert!(!view.session.as_ref().unwrap().can_undo());
 
     // A drag onto the team row: nothing moves.
-    let from = centre(row(&nodes, "2 CB SECOND"));
+    let from = centre(row(&nodes, "02 CB SECOND"));
     let onto = centre(team_row(&nodes, &view, 701));
     drag(&mut window, from, onto, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -580,13 +580,13 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
 
     // A drag onto the player's own team's row: the records trade, as in
     // one team's list.
-    let from = centre(row(&nodes, "2 CB SECOND"));
-    let onto = centre(row(&nodes, "1 CB FIRST"));
+    let from = centre(row(&nodes, "02 CB SECOND"));
+    let onto = centre(row(&nodes, "01 CB FIRST"));
     drag(&mut window, from, onto, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
         &row_labels(&nodes)[..2],
-        ["1 CB SECOND ●", "2 CB FIRST ●"],
+        ["01 CB SECOND ●", "02 CB FIRST ●"],
         "the drop on his own team moved him"
     );
 }
@@ -615,12 +615,12 @@ fn under_a_filter_a_drag_moves_nothing() {
     let labels_before = row_labels(&nodes);
     assert_eq!(
         labels_before,
-        ["1 CB QQ FIRST", "3 CB QQ THIRD"],
+        ["01 CB QQ FIRST", "03 CB QQ THIRD"],
         "premise: the filter lists the two"
     );
 
-    let from = centre(row(&nodes, "1 CB QQ FIRST"));
-    let onto = centre(row(&nodes, "3 CB QQ THIRD"));
+    let from = centre(row(&nodes, "01 CB QQ FIRST"));
+    let onto = centre(row(&nodes, "03 CB QQ THIRD"));
     drag(&mut window, from, onto, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
@@ -948,14 +948,9 @@ fn every_player_row_spans_the_team_rows_width_and_selects_at_its_end() {
     );
 
     // A click at the row's right end, past a short label's text, selects
-    // him (the list's scroll bar covers the last points of it).
+    // him (the list's scroll bar stands outside the rows' frame).
     view.selected = Some(Selection::Player(701, 3));
-    let bar = nodes
-        .iter()
-        .filter(|node| node.role() == Role::ScrollBar)
-        .filter_map(|node| node.bounds().map(|b| b.x0))
-        .fold(f64::MAX, f64::min);
-    let at = egui::pos2(((team.x1 - 4.0).min(bar - 2.0)) as f32, centre.y);
+    let at = egui::pos2((team.x1 - 2.0) as f32, centre.y);
     click_at(&mut window, at, &mut view);
     assert_eq!(
         view.selected,
@@ -1051,10 +1046,10 @@ fn the_player_rows_dot_paints_at_the_rows_right_end() {
 
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let bounds = row(&nodes, "1 CB PLACEHOLDER ●")
+    let bounds = row(&nodes, "01 CB PLACEHOLDER ●")
         .bounds()
         .expect("the row's bounds");
-    let text = text_in_rect(&shapes, "1 CB", bounds);
+    let text = text_in_rect(&shapes, "01 CB", bounds);
     let dot = dot_in_row(&shapes, bounds);
     assert_eq!(galley_color(dot), warn, "the dot in the warning colour");
     let dot_right = f64::from(dot.pos.x + dot.galley.rect.width());
@@ -1086,26 +1081,31 @@ fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (before, _) = pane_frame(&shapes, window.screen);
-    // The list is a fixed 255 wide: the pane's left edge — the list's
-    // right edge, measured from the window's left edge — sits at the
-    // window panel's margin plus the 255.
-    let list_edge = f64::from(PANEL_MARGIN) + 255.0;
+    // The list's column, from its frame's left edge to the end of the
+    // scroll bar's strip (the list scrolls under ALL).
+    let column = |window: &mut Headless, view: &mut SaveView| {
+        let (_, nodes, shapes) =
+            window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        let width = list_scroll_bar(&nodes).x1 - f64::from(list_frame(window, &shapes).min.x);
+        (width, pane_frame(&shapes, window.screen).0)
+    };
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (width, before) = column(&mut window, &mut view);
     assert!(
-        (before - list_edge).abs() <= 1.0,
-        "the list is 255 wide ({before} vs {list_edge})"
+        (width - 255.0).abs() <= 0.5,
+        "the list's column is 255 wide ({width})"
     );
 
-    // A drag from the list's right edge 80 points to the right.
+    // A drag from the list's right edge, the pane's left, 80 points to the
+    // right.
     let from = egui::pos2(before as f32, 400.0);
     let onto = egui::pos2(before as f32 + 80.0, 400.0);
     drag(&mut window, from, onto, &mut view);
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (after, _) = pane_frame(&shapes, window.screen);
+    let (width, after) = column(&mut window, &mut view);
     assert!(
-        (after - list_edge).abs() <= 1.0,
-        "the drag left the list at 255 ({after} vs {list_edge})"
+        (width - 255.0).abs() <= 0.5 && (after - before).abs() <= 0.5,
+        "the drag left the list at 255 ({width}) and the pane's edge where it was ({after} vs \
+         {before})"
     );
 }
 
@@ -1278,4 +1278,193 @@ fn the_team_rows_hint_elides_before_the_name() {
         }),
         "no hint paints on the full row"
     );
+}
+
+// The list's scroll bar stands outside its frame: egui's solid bar, 4
+// points from the content and 6 wide, right of the frame, so a selected
+// row's fill reaches the frame's right edge and the bar covers no part of
+// a row. The team combo and the filter above end at the frame's right
+// edge, not at the bar's.
+#[test]
+fn the_lists_scroll_bar_stands_outside_its_frame() {
+    let path = fixture(PesVersion::Pes21, "list_bar_outside");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::new();
+    let selection = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .selection
+        .bg_fill;
+    // The bar shows from the frame after the list first measured its rows.
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let frame = list_frame(&window, &shapes);
+    let content_right = f64::from(frame.max.x);
+
+    let bar = list_scroll_bar(&nodes);
+    assert!(
+        (bar.x0 - content_right - 4.0).abs() <= 0.5,
+        "the bar 4 points right of the content ({bar:?} vs {content_right})"
+    );
+    assert!(
+        (bar.x1 - bar.x0 - 6.0).abs() <= 0.5,
+        "the bar 6 points wide ({bar:?})"
+    );
+
+    // The selected row's fill, as far as it shows, reaches the frame's
+    // right edge.
+    let selected = nodes
+        .iter()
+        .filter(|node| player_row(node))
+        .find(|node| node.toggled() == Some(accesskit::Toggled::True))
+        .and_then(accesskit::Node::bounds)
+        .expect("the selected row");
+    let centre = egui::pos2(
+        ((selected.x0 + selected.x1) / 2.0) as f32,
+        ((selected.y0 + selected.y1) / 2.0) as f32,
+    );
+    let fill = shapes
+        .iter()
+        .find_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape) if shape.fill == selection && shape.rect.contains(centre) => {
+                Some(shape.rect.intersect(clipped.clip_rect))
+            }
+            _ => None,
+        })
+        .expect("the selected row's fill");
+    assert!(
+        (f64::from(fill.max.x) - content_right).abs() <= 0.5,
+        "the selection fill reaches the frame's edge ({fill:?} vs {content_right})"
+    );
+
+    // The combo and the filter end at the frame's right edge.
+    for role in [Role::ComboBox, Role::TextInput] {
+        let control = nodes
+            .iter()
+            .filter(|node| node.role() == role)
+            .filter_map(accesskit::Node::bounds)
+            .find(|bounds| bounds.x0 < f64::from(frame.max.x))
+            .unwrap_or_else(|| panic!("the list's {role:?}"));
+        assert!(
+            (control.x0 - f64::from(frame.min.x)).abs() <= 0.5
+                && (control.x1 - content_right).abs() <= 0.5,
+            "the {role:?} spans the frame ({control:?} vs {frame:?})"
+        );
+    }
+}
+
+// The list's frame stands where the draft's does at the 1280 x 780
+// window: its left edge 12 points into the pane and its right edge 245
+// further (the draft's `.rows`, its border included), the 255-point list
+// column being the frame and the bar's 10-point strip.
+#[test]
+fn the_lists_frame_stands_where_the_drafts_does() {
+    let path = fixture(PesVersion::Pes21, "list_frame_edges");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::new();
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let frame = list_frame(&window, &shapes);
+    assert!(
+        (frame.min.x - 12.0).abs() <= 0.5 && (frame.max.x - 257.0).abs() <= 0.5,
+        "the frame from 12 to 257, as the draft's ({frame:?})"
+    );
+}
+
+// The bar's strip stays while a filter leaves nothing to scroll, so the
+// list keeps its width: with a filter leaving three rows the frame is as
+// wide as with the whole list, its rows as wide as it, and no bar shows.
+#[test]
+fn a_filter_leaving_three_rows_keeps_the_bars_strip() {
+    let path = fixture(PesVersion::Pes21, "list_strip_kept");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.player_mut(70101).unwrap().name = "QQ FIRST".to_owned();
+    file.player_mut(70103).unwrap().name = "QQ THIRD".to_owned();
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::new();
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let whole = list_frame(&window, &shapes);
+    assert!(
+        list_scroll_bar(&nodes).x0 > f64::from(whole.max.x),
+        "premise: the whole list scrolls"
+    );
+
+    view.filter = "qq".to_owned();
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let rows: Vec<accesskit::Rect> = nodes
+        .iter()
+        .filter(|node| node.role() == Role::Button && node.bounds().is_some_and(|b| b.x1 < 300.0))
+        .filter(|node| player_row(node) || node.label() == Some("701 /3/"))
+        .filter_map(accesskit::Node::bounds)
+        .collect();
+    assert_eq!(rows.len(), 3, "premise: the filter leaves three rows");
+    let filtered = list_frame(&window, &shapes);
+    assert!(
+        (filtered.min.x - whole.min.x).abs() <= 0.5 && (filtered.max.x - whole.max.x).abs() <= 0.5,
+        "the frame keeps its width ({filtered:?} vs {whole:?})"
+    );
+    for row in rows {
+        assert!(
+            (row.x1 - f64::from(filtered.max.x)).abs() <= 0.5,
+            "a row spans the frame ({row:?} vs {filtered:?})"
+        );
+    }
+    assert!(
+        !nodes.iter().any(|node| {
+            node.role() == Role::ScrollBar && node.bounds().is_some_and(|b| b.x0 < 300.0)
+        }),
+        "no bar shows while nothing scrolls"
+    );
+}
+
+// A player row numbers him by his place in the roster, `01` to `23` (the
+// slot `NN` of his id), not by his shirt number: team 757 (/v/) of the
+// test save, whose shirt numbers (111, 333, 10, ...) are not its places.
+#[test]
+fn a_player_row_numbers_his_place_in_the_roster() {
+    let path = fixture(PesVersion::Pes21, "list_places");
+    let file = EditFile::load(&path).unwrap();
+    let team = file.team(757).expect("team 757");
+    let expected: Vec<String> = team
+        .roster
+        .iter()
+        .enumerate()
+        .filter(|(_, slot)| slot.player_id != 0)
+        .map(|(index, slot)| {
+            let player = file.player(slot.player_id).expect("a rostered player");
+            format!(
+                "{:02} {} {}",
+                index + 1,
+                POSITIONS[usize::from(player.positions.registered)],
+                display_name(&player.name)
+            )
+        })
+        .collect();
+    assert_eq!(expected.len(), 23, "premise: 757 rosters 23 players");
+    assert!(
+        team.roster
+            .iter()
+            .take(3)
+            .enumerate()
+            .all(|(index, slot)| usize::from(slot.number) != index + 1),
+        "premise: 757's first three shirt numbers are not their places"
+    );
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(757);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 1100.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(row_labels(&nodes), expected, "the rows read 01 to 23");
 }
