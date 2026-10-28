@@ -4171,7 +4171,8 @@ briefs, review loops, gates and mutation runs as for any step.
     (the maintainer, 2026-10-28: "wait for one final pass of the UI from me, before it goes
     golden"), once every UI step of 0.0.1 has landed (w4b, w6b, z2, y4e, y5b, y6b, y7b and the
     lead's built-window checks, which ask before they take focus). Before it: the sidebar's
-    flicker on open, which the maintainer saw, reproduced and fixed by the lead. In the same
+    flicker on open, which the maintainer saw when the collapsed sidebar expands under a
+    hovering pointer (2026-10-28), reproduced and fixed by the lead. In the same
     pass: 0.0.1v's open look outside the app's own windows (the taskbar button, Alt+Tab,
     Explorer's file icon on the exe) → QUESTIONS "Before the release"
   - [ ] f2 logic version 1's hash frozen (on the maintainer's confirmation, after f1c), `just
