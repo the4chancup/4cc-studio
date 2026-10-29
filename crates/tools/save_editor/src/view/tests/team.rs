@@ -48,17 +48,17 @@ fn rostered(view: &SaveView, team_id: u32) -> Vec<(usize, u32)> {
         .collect()
 }
 
-/// The team view's name field: the TextInput right of the topmost "Team"
+/// The team view's name field: the TextInput right of the topmost "Name"
 /// label.
 fn bar_name_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
     let label = nodes
         .iter()
-        .filter(|node| node.role() == Role::Label && node.value() == Some("Team"))
+        .filter(|node| node.role() == Role::Label && node.value() == Some("Name"))
         .min_by(|a, b| {
             let y = |node: &&accesskit::Node| node.bounds().map(|b| b.y0).unwrap_or(f64::MAX);
             y(a).partial_cmp(&y(b)).expect("ordered bounds")
         })
-        .expect("the view's Team label");
+        .expect("the view's Name label");
     right_of(nodes, label, Role::TextInput)
 }
 
@@ -388,8 +388,8 @@ fn the_team_name_field_gets_its_full_width_on_the_first_frame() {
     );
 }
 
-// The team view's title is the team's name in the body text's strong
-// weight, not a heading's size.
+// The team view's title is `<id> <name>` in the body text's size, its
+// name in the strong weight, not a heading's size.
 #[test]
 fn the_title_is_the_teams_name_in_the_bodys_strong_weight() {
     let path = fixture(PesVersion::Pes21, "team_title_body");
@@ -405,15 +405,24 @@ fn the_title_is_the_teams_name_in_the_bodys_strong_weight() {
             style.visuals.strong_text_color(),
         )
     };
-    let title = label_shape(&nodes, &shapes, "/3/");
+    let title = label_shape(&nodes, &shapes, "701 /3/");
+    for section in &title.galley.job.sections {
+        assert_eq!(
+            section.format.font_id.size, body.size,
+            "the title's font is the body's"
+        );
+    }
     assert_eq!(
-        title.galley.job.sections[0].format.font_id.size, body.size,
-        "the title's font is the body's"
-    );
-    assert_eq!(
-        galley_color(title),
+        title
+            .galley
+            .job
+            .sections
+            .last()
+            .expect("the name's run")
+            .format
+            .color,
         strong,
-        "the title's plain run in the strong colour"
+        "the title's plain name run in the strong colour"
     );
 }
 
@@ -430,7 +439,7 @@ fn the_fields_ids_and_kit_slots_button_share_one_row_at_the_default_pane() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let row_y = label_bounds(&nodes, "Short").y0;
-    for label in ["Team", "Col. 1", "Col. 2", "Manager ID", "Stadium ID"] {
+    for label in ["Name", "Col. 1", "Col. 2", "Manager ID", "Stadium ID"] {
         let bounds = nodes
             .iter()
             .filter(|node| node.role() == Role::Label && node.value() == Some(label))
@@ -604,7 +613,7 @@ fn the_header_units_draw_inside_their_claims() {
     let right_x = |node: &accesskit::Node| node.bounds().expect("bounds").x1;
     let span = |value: &str, right: f64| right - label_node(value).bounds().expect("bounds").x0;
     let spans = [
-        span("Team", right_x(bar_name_field(&nodes))),
+        span("Name", right_x(bar_name_field(&nodes))),
         span(
             "Short",
             right_x(
@@ -749,23 +758,14 @@ fn a_team_name_keystroke_past_the_fields_limit_is_not_taken() {
     );
 }
 
-// The dialog's "(→ N)" preview reads the last *filled* slot's resulting
-// ID: slot k (1-based) gets start + k - 1, so the preview is the start
-// plus the filled slot's 0-based index (an empty last slot is not it).
-#[test]
-fn the_boglo_dialogs_preview_names_the_last_filled_slots_id() {
-    let path = fixture(PesVersion::Pes21, "boglo_preview");
+/// The boots and gloves dialog opened on team 701 of the PES 21 fixture,
+/// a player row selected, the aesthetics lock off: the view, the window
+/// and the open dialog's nodes.
+fn open_boglo(test: &str) -> (SaveView, Headless, Vec<accesskit::Node>) {
+    let path = fixture(PesVersion::Pes21, test);
     let mut view = SaveView::new();
     view.open(&path);
-    view.aesthetics_from_exports = true;
-    view.edit_aesthetics = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
-    // The last filled slot's index, read from the roster, never typed in.
-    let last = rostered(&view, 701)
-        .last()
-        .expect("team 701 has filled slots")
-        .0;
-
     let nodes = open_team_menu(&mut window, &mut view);
     click(
         &mut window,
@@ -776,62 +776,242 @@ fn the_boglo_dialogs_preview_names_the_last_filled_slots_id() {
         ),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
-    click(
-        &mut window,
-        node_labeled(&nodes, Role::RadioButton, "Incremental from"),
-        &mut view,
-    );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
-    let incremental = node_labeled(&nodes, Role::RadioButton, "Incremental from");
-    let start = right_of(&nodes, incremental, Role::SpinButton);
-    click(&mut window, start, &mut view);
-    window.frame(vec![egui::Event::Text("100".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new())
-    });
-    window.frame(
-        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &|| Vec::new()),
-    );
-
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
-    let preview = format!("(\u{2192} {})", 100 + last);
-    assert!(
-        nodes
-            .iter()
-            .any(|node| node.role() == Role::Label && node.value() == Some(preview.as_str())),
-        "the preview names {preview}"
-    );
+    let nodes = draw(&mut window, &mut view);
+    (view, window, nodes)
 }
 
-/// The boots and gloves ID fields the open dialog prefilled: the field
-/// right of Incremental from, then of the two "Same ID for all" radios
-/// (the boots one first).
-fn boglo_prefill(nodes: &[accesskit::Node]) -> [String; 3] {
-    let incremental = node_labeled(nodes, Role::RadioButton, "Incremental from");
+/// The dialog's fields: the incremental start, the read-only end box
+/// right of it, and the boots' and the gloves' one-ID boxes (the fields
+/// right of the two "Set all to the same ID:" radios, the boots' above).
+struct BogloFields<'a> {
+    start: &'a accesskit::Node,
+    end: &'a accesskit::Node,
+    boots: &'a accesskit::Node,
+    gloves: &'a accesskit::Node,
+}
+
+fn boglo_fields(nodes: &[accesskit::Node]) -> BogloFields<'_> {
+    let incremental = node_labeled(nodes, Role::RadioButton, "Set incremental value:");
+    let start = right_of(nodes, incremental, Role::SpinButton);
+    let end = first_right_of(nodes, start, |node| {
+        node.value()
+            .is_some_and(|value| value.chars().all(|c| c.is_ascii_digit()))
+    })
+    .expect("the end box right of the start");
     let mut same: Vec<&accesskit::Node> = nodes
         .iter()
-        .filter(|node| node.role() == Role::RadioButton && node.label() == Some("Same ID for all"))
+        .filter(|node| {
+            node.role() == Role::RadioButton && node.label() == Some("Set all to the same ID:")
+        })
         .collect();
     same.sort_by(|a, b| {
         let y = |node: &&accesskit::Node| node.bounds().expect("bounds").y0;
         y(a).partial_cmp(&y(b)).expect("ordered bounds")
     });
-    assert_eq!(same.len(), 2, "the boots and gloves Same-ID radios");
-    [
-        right_of(nodes, incremental, Role::SpinButton)
+    assert_eq!(same.len(), 2, "the boots and gloves one-ID radios");
+    BogloFields {
+        start,
+        end,
+        boots: right_of(nodes, same[0], Role::SpinButton),
+        gloves: right_of(nodes, same[1], Role::SpinButton),
+    }
+}
+
+/// `text` typed into `field` (a click, the text, Enter); the next frame's
+/// nodes.
+fn type_into(
+    window: &mut Headless,
+    view: &mut SaveView,
+    field: &accesskit::Node,
+    text: &str,
+) -> Vec<accesskit::Node> {
+    click(window, field, view);
+    window.frame(vec![egui::Event::Text(text.to_owned())], |ui| {
+        show(ui, view, &|| Vec::new())
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| show(ui, view, &|| Vec::new()),
+    );
+    draw(window, view)
+}
+
+// The dialog's layout (the draft's `dlgBoglo`): a group per side titled `Boot IDs` and
+// `Glove IDs`, each option's field in one column across both groups, the
+// one-ID boxes as wide as the incremental range (its start, the dash and
+// its end box).
+#[test]
+fn the_boglo_dialogs_fields_share_one_column_across_both_groups() {
+    let (_, _, nodes) = open_boglo("boglo_columns");
+    for title in ["Boot IDs", "Glove IDs"] {
+        assert!(label_value(&nodes, title), "the {title} group's title");
+    }
+    for label in ["Unchanged", "Set like boot IDs"] {
+        node_labeled(&nodes, Role::RadioButton, label);
+    }
+    let fields = boglo_fields(&nodes);
+    let bounds = |node: &accesskit::Node| node.bounds().expect("a field's bounds");
+    let left = bounds(fields.start).x0;
+    for (name, field) in [("boots", fields.boots), ("gloves", fields.gloves)] {
+        assert!(
+            (bounds(field).x0 - left).abs() <= 0.5,
+            "the {name} one-ID box starts where the range does ({:?} vs {left})",
+            bounds(field)
+        );
+        assert!(
+            (bounds(field).x1 - bounds(fields.end).x1).abs() <= 1.0,
+            "the {name} one-ID box ends where the range does ({:?} vs {:?})",
+            bounds(field),
+            bounds(fields.end)
+        );
+    }
+}
+
+// The range's end box reads the start plus 22 (slot 23's ID), follows an
+// edit of the start, and is no field: a click on it focuses nothing.
+#[test]
+fn the_end_box_reads_the_start_plus_22_and_follows_it_read_only() {
+    let (mut view, mut window, nodes) = open_boglo("boglo_end_box");
+    let fields = boglo_fields(&nodes);
+    let start: u32 = fields
+        .start
+        .value()
+        .expect("the start's value")
+        .parse()
+        .expect("a number");
+    assert_eq!(fields.end.value(), Some((start + 22).to_string().as_str()));
+    assert_ne!(start, 60, "premise: the edit changes the start");
+
+    let nodes = type_into(&mut window, &mut view, fields.start, "60");
+    let fields = boglo_fields(&nodes);
+    assert_eq!(
+        fields.start.value(),
+        Some("60"),
+        "premise: the start edited"
+    );
+    assert_eq!(fields.end.value(), Some("82"), "the end follows the start");
+    assert_eq!(fields.end.role(), Role::Label, "the end box is no field");
+
+    click(&mut window, fields.end, &mut view);
+    assert_eq!(
+        window.ctx.memory(|memory| memory.focused()),
+        None,
+        "a click on the end box focuses nothing"
+    );
+}
+
+// The end box's number in the dark theme's grey (`#a0a0a0`) and in its
+// light twin (`#5f5f5f`) on the light theme, which reads at the same
+// contrast against the light background.
+#[test]
+fn the_end_boxs_number_takes_each_themes_grey() {
+    for (theme, grey) in [
+        (egui::Theme::Dark, egui::Color32::from_gray(0xa0)),
+        (egui::Theme::Light, egui::Color32::from_gray(0x5f)),
+    ] {
+        let (mut view, mut window, _) = open_boglo(&format!("boglo_readout_{theme:?}"));
+        window.ctx.set_theme(theme);
+        draw(&mut window, &mut view);
+        let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+        let end = boglo_fields(&nodes)
+            .end
             .value()
-            .expect("the start field")
-            .to_owned(),
-        right_of(nodes, same[0], Role::SpinButton)
-            .value()
-            .expect("the boots field")
-            .to_owned(),
-        right_of(nodes, same[1], Role::SpinButton)
-            .value()
-            .expect("the gloves field")
-            .to_owned(),
-    ]
+            .expect("the end box's number")
+            .to_owned();
+        assert_eq!(
+            painted_label_color(&nodes, &shapes, &end),
+            grey,
+            "the end box's number on the {theme:?} theme"
+        );
+    }
+}
+
+// Set, incremental from 60: every filled slot `k` (1-based) gets boots ID
+// 59 + k, and the dialog closes.
+#[test]
+fn set_numbers_every_filled_slot_from_the_start_and_closes() {
+    let (mut view, mut window, nodes) = open_boglo("boglo_set");
+    let slots = rostered(&view, 701);
+    assert!(slots.len() > 2, "premise: several filled slots");
+    assert_ne!(
+        player_entry(&view, slots[0].1).appearance.boots_id,
+        60,
+        "premise: slot 1's boots ID changes"
+    );
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::RadioButton, "Set incremental value:"),
+        &mut view,
+    );
+    let nodes = draw(&mut window, &mut view);
+    let nodes = type_into(&mut window, &mut view, boglo_fields(&nodes).start, "60");
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Set"),
+        &mut view,
+    );
+    for &(slot, id) in &slots {
+        let expected = 60 + u32::try_from(slot).expect("a roster has at most 40 slots");
+        assert_eq!(
+            player_entry(&view, id).appearance.boots_id,
+            expected,
+            "slot {}'s boots",
+            slot + 1
+        );
+    }
+    assert!(view.boglo.is_none(), "Set closes the dialog");
+}
+
+// A start past the boots ID's range: Set writes nothing and the error line
+// shows under the groups, the dialog staying open.
+#[test]
+fn a_start_past_the_range_shows_the_error_under_the_groups_and_writes_nothing() {
+    let (mut view, mut window, nodes) = open_boglo("boglo_past_range");
+    let slots = rostered(&view, 701);
+    let before: Vec<PlayerEntry> = slots
+        .iter()
+        .map(|&(_, id)| player_entry(&view, id))
+        .collect();
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::RadioButton, "Set incremental value:"),
+        &mut view,
+    );
+    let nodes = draw(&mut window, &mut view);
+    let nodes = type_into(&mut window, &mut view, boglo_fields(&nodes).start, "70000");
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Set"),
+        &mut view,
+    );
+    let nodes = draw(&mut window, &mut view);
+    for (&(_, id), entry) in slots.iter().zip(&before) {
+        assert_eq!(&player_entry(&view, id), entry, "{id} unchanged");
+    }
+    assert!(view.boglo.is_some(), "the dialog stays open");
+    let error = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Label && node.value().is_some_and(|value| value.contains("70000"))
+        })
+        .expect("the error line names the value");
+    let gloves = boglo_fields(&nodes).gloves.bounds().expect("bounds");
+    let set = node_labeled(&nodes, Role::Button, "Set")
+        .bounds()
+        .expect("bounds");
+    let line = error.bounds().expect("bounds");
+    assert!(
+        gloves.y1 < line.y0 && line.y1 <= set.y0,
+        "the error line under the groups, over the buttons ({line:?})"
+    );
+}
+
+/// The boots and gloves ID fields the open dialog prefilled: the
+/// incremental start, then the boots' and the gloves' one-ID boxes.
+fn boglo_prefill(nodes: &[accesskit::Node]) -> [String; 3] {
+    let fields = boglo_fields(nodes);
+    [fields.start, fields.boots, fields.gloves]
+        .map(|field| field.value().expect("a prefilled field's value").to_owned())
 }
 
 // The dialog opened from the team row prefills from the first filled
@@ -1031,7 +1211,10 @@ fn the_team_view_draws_its_fields_and_edits_them_undoable() {
 
     // The title, the fields, the ids and the button; the kit slot rows are
     // behind the dialog, not in the view.
-    assert!(label_value(&nodes, "/lit/"), "the title is the team's name");
+    assert!(
+        label_value(&nodes, "734 /lit/"),
+        "the title is the team's id and name"
+    );
     assert_eq!(
         bar_name_field(&nodes).value(),
         Some("/lit/"),
@@ -1179,8 +1362,8 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
     }
     assert_eq!(player_entry(&view, other_id), other_before, "untouched");
 
-    // Set boots and gloves IDs for everyone: Incremental from 100, gloves
-    // same as the boot IDs — slot k gets 100 + k - 1 on both (the check's
+    // Set boots and gloves IDs for everyone: incremental from 100, gloves
+    // like the boot IDs — slot k gets 100 + k - 1 on both (the check's
     // bound is the record's 14-bit field, not settings.toml's 0 to 100).
     let start_value = 100u32;
     let nodes = open_team_menu(&mut window, &mut view);
@@ -1194,10 +1377,10 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
         &mut view,
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
-    let incremental = node_labeled(&nodes, Role::RadioButton, "Incremental from");
+    let incremental = node_labeled(&nodes, Role::RadioButton, "Set incremental value:");
     click(&mut window, incremental, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
-    let incremental = node_labeled(&nodes, Role::RadioButton, "Incremental from");
+    let incremental = node_labeled(&nodes, Role::RadioButton, "Set incremental value:");
     let start = right_of(&nodes, incremental, Role::SpinButton);
     click(&mut window, start, &mut view);
     window.frame(vec![egui::Event::Text(start_value.to_string())], |ui| {
@@ -1210,13 +1393,13 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
-        node_labeled(&nodes, Role::RadioButton, "Same as the boot IDs"),
+        node_labeled(&nodes, Role::RadioButton, "Set like boot IDs"),
         &mut view,
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     click(
         &mut window,
-        node_labeled(&nodes, Role::Button, "OK"),
+        node_labeled(&nodes, Role::Button, "Set"),
         &mut view,
     );
     for &(slot, id) in &slots {

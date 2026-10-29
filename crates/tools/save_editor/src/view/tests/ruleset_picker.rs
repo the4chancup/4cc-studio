@@ -199,7 +199,7 @@ fn no_toolbar_menu_holds_an_aatf_panel_entry() {
     view.open(&path);
     view.selected = Some(Selection::Player(734, 0));
     let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
-    for menu in ["Player", "Team", "Savefile", "Panels"] {
+    for menu in ["Player", "Team", "Savefile"] {
         let closed = draw(&mut window, &mut view);
         let before: Vec<String> = closed
             .iter()

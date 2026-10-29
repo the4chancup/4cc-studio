@@ -1217,9 +1217,9 @@ fn a_pes17_strip_refuses_a_name_past_its_own_field() {
     );
 }
 
-/// Whether `shapes` paints `text` at the heading size (the header's
-/// title; the views' strong lines and the lists' rows are body-sized).
-fn title_painted(shapes: &[egui::epaint::ClippedShape], text: &str, heading: f32) -> bool {
+/// Whether `shapes` paints `text` at the font size `size` (the header's
+/// title, at the body's size).
+fn title_painted(shapes: &[egui::epaint::ClippedShape], text: &str, size: f32) -> bool {
     shapes
         .iter()
         .filter_map(|clipped| match &clipped.shape {
@@ -1232,7 +1232,7 @@ fn title_painted(shapes: &[egui::epaint::ClippedShape], text: &str, heading: f32
                 .job
                 .sections
                 .first()
-                .is_some_and(|section| (section.format.font_id.size - heading).abs() < 0.5)
+                .is_some_and(|section| (section.format.font_id.size - size).abs() < 0.5)
         })
 }
 
@@ -1252,12 +1252,45 @@ fn title_shape<'a>(
         .unwrap_or_else(|| panic!("no painted text {text:?}"))
 }
 
+// A count under its limit in the dark theme's grey (`#5a5a5a`) and in its
+// light twin (`#9f9f9f`) on the light theme: General info's Name count for
+// 70101, the PES 21 fixture's first player.
+#[test]
+fn a_count_under_its_limit_takes_each_themes_grey() {
+    let path = fixture(PesVersion::Pes21, "count_theme");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
+    for (theme, grey) in [
+        (egui::Theme::Dark, egui::Color32::from_gray(0x5a)),
+        (egui::Theme::Light, egui::Color32::from_gray(0x9f)),
+    ] {
+        window.ctx.set_theme(theme);
+        draw(&mut window, &mut view);
+        let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+        let job = &text_shape(&shapes, "Name (").galley.job;
+        let (shown, limit) = job.text["Name (".len()..job.text.len() - 1]
+            .split_once('/')
+            .expect("the count reads n/max");
+        assert!(
+            shown.parse::<usize>().expect("n") < limit.parse::<usize>().expect("max"),
+            "premise: the name's count {} is under its limit",
+            job.text
+        );
+        let count = job
+            .format_at_byte(egui::text::ByteIndex(job.text.len() - 1))
+            .color;
+        assert_eq!(count, grey, "the Name count on the {theme:?} theme");
+    }
+}
+
 // plans "Editing UI", the player header bullet and the "No view draws the
 // tool's name" bullet: `<id> <name>` as the player view's title over the
 // strip's nine labels — on the player view alone, the team view editing no
 // player. The name's colour codes paint as the player list draws them: a
-// coded run in the code's colour, the rest the widget's text colour, the id
-// the weak one.
+// coded run in the code's colour, the rest the strong text colour, the id
+// the weak one, all at the body's size.
 // SE-GUI-01
 #[test]
 fn the_player_header_tops_the_player_view_alone() {
@@ -1269,20 +1302,17 @@ fn the_player_header_tops_the_player_view_alone() {
     entry.name = "WHEN THE \x11cb7bec5ffWORK RESULT\x11d WAS GOOD".to_owned();
     view.session.as_mut().unwrap().edit_players(vec![entry]);
     let title = "73401 WHEN THE WORK RESULT WAS GOOD";
-    let normal = egui::Color32::PLACEHOLDER;
-    let weak = window
-        .ctx
-        .style_of(window.ctx.theme())
-        .visuals
-        .weak_text_color();
+    let (normal, weak) = {
+        let visuals = &window.ctx.style_of(window.ctx.theme()).visuals;
+        (visuals.strong_text_color(), visuals.weak_text_color())
+    };
     let expected: Vec<(egui::Color32, &str)> = vec![
         (weak, "73401 "),
         (normal, "WHEN THE "),
         (egui::Color32::from_rgb(0xb7, 0xbe, 0xc5), "WORK RESULT"),
         (normal, " WAS GOOD"),
     ];
-    let heading =
-        window.ctx.style_of(window.ctx.theme()).text_styles[&egui::TextStyle::Heading].size;
+    let body = window.ctx.style_of(window.ctx.theme()).text_styles[&egui::TextStyle::Body].size;
     // The player view, with the Appearance section closed then open: the
     // header tops both arrangements.
     for appearance_open in [false, true] {
@@ -1313,8 +1343,8 @@ fn the_player_header_tops_the_player_view_alone() {
             "the title's painted runs (appearance open: {appearance_open})"
         );
         assert!(
-            title_painted(&shapes, title, heading),
-            "the name at the heading size"
+            title_painted(&shapes, title, body),
+            "the name at the body's size"
         );
         // The panels' titles and the player fields' labels — the counted
         // labels carry their counts, matched by prefix.
@@ -1359,7 +1389,7 @@ fn the_player_header_tops_the_player_view_alone() {
     open_team_view(&mut window, &mut view, 734);
     let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
-        !title_painted(&shapes, title, heading),
+        !title_painted(&shapes, title, body),
         "no title on the team view"
     );
     // ("Captain" is left out: the Player assignments' own label for its
@@ -1445,7 +1475,7 @@ fn the_field_labels_paint_the_normal_text_colour() {
     // The team view's field labels.
     open_team_view(&mut window, &mut view, 701);
     let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
-    for label in ["Team", "Short"] {
+    for label in ["Name", "Short"] {
         assert_eq!(
             painted_label_color(&nodes, &shapes, label),
             text_color,

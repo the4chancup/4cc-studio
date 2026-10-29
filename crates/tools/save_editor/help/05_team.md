@@ -1,5 +1,5 @@
-Clicking a team's row in the list opens the team view: the team's name
-as its title, one row holding the name, three-letter short name and two
+Clicking a team's row in the list opens the team view: the team's id and
+name as its title, one row holding the name, three-letter short name and two
 colour fields, the manager and stadium IDs and the **Kit slots…** button,
 and the Tactics below. **Kit
 slots…** opens the kit slot assignments in a dialog (PES 2017 only) and closes
@@ -18,10 +18,16 @@ and the extra data the game keeps alongside is left as it was.
 team row's, and writes every filled roster slot in one undoable step:
 
 - **Set edited flag** marks every player of the team as edited.
-- **Set boots and gloves IDs for everyone…** opens a small dialog: the boots
-  can stay unchanged, count up from a start ID (slot 1 gets the start, slot
-  2 the next, and so on) or take one ID for all, and the gloves can stay
-  unchanged, take the same IDs as the boots or take one ID for all.
+- **Set boots and gloves IDs for everyone…** opens a small dialog with a
+  box for the boot IDs and one for the glove IDs. The boots can stay
+  **Unchanged**, count up from a start ID with **Set incremental value:**
+  (slot 1 gets the start, slot 2 the next, and so on; the grey box beside
+  the start shows slot 23's ID and follows it), or take one ID with **Set
+  all to the same ID:**. The gloves can stay **Unchanged**, take each
+  player's boot ID with **Set like boot IDs**, or take one ID for all.
+  **Set** writes the IDs and closes the dialog, **Close** closes it without
+  writing. An ID the save cannot hold is refused with a line under the
+  boxes, and nothing is written.
 - **Set player names to positions** renames every player of the team to his
   registered position's full name.
 - **Clear visual flags** (Ctrl+F) clears the face, hair, physique and strip

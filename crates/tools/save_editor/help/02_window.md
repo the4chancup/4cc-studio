@@ -41,7 +41,7 @@ and picked, while a file with errors is refused with its errors listed, so you c
 it and import it again. The **×** beside an imported ruleset removes it from the list
 after asking, deleting only the data folder's copy, never the file you imported.
 
-**Comparator.** **Panels** in the toolbar, **Comparator…**, opens a floating
+**Comparator.** **Savefile** in the toolbar, **Comparator…**, opens a floating
 window comparing the open save, edits included, against a second save:
 **Pick…** chooses it and refuses one of another version, naming both. The
 **Show** row narrows the list to All, Gameplay or Aesthetics, and the team

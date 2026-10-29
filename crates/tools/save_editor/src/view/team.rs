@@ -1,5 +1,5 @@
-//! The team view (the draft's `teamView`): the selected team's name with its
-//! colours as the title, one row holding the name, short name and colours
+//! The team view (the draft's `teamView`): the selected team's id and name
+//! with its colours as the title, one row holding the name, short name and colours
 //! 1-2 fields (the former team bar's pairs), the manager and stadium IDs
 //! and the `Kit slots…` button opening the kit slot assignments in a
 //! dialog, then the Tactics editor. Every control edits a copy of the
@@ -19,15 +19,14 @@ use pes_savefile::model::{TeamColor, TeamEntry};
 use pes_savefile::schema::fields::{TeamField, TeamText};
 use pes_savefile::schema::{VersionSchema, first_version_with_team, schema_for};
 use pes_version::PesVersion;
-use team_widgets::names::append_name;
 
 use crate::session::Session;
-use crate::view::{SaveView, edit_team, selected_team, tactics};
+use crate::view::{SaveView, edit_team, info_strip, selected_team, tactics};
 
 /// One unit of the header's row: a label with its field, or the button.
 #[derive(Debug, Clone, Copy)]
 pub(super) enum HeaderUnit {
-    /// The `Team` pair.
+    /// The `Name` pair.
     Name,
     /// The `Short` pair.
     Short,
@@ -46,7 +45,7 @@ pub(super) enum HeaderUnit {
 /// drawn `min_rect` width; the widths are fixed, a longer team name
 /// changes nothing), each unit one `allocate_ui` at its claim.
 pub(super) const TEAM_ROW: [(HeaderUnit, f32); 7] = [
-    (HeaderUnit::Name, 179.5),
+    (HeaderUnit::Name, 182.0),
     (HeaderUnit::Short, 79.0),
     (HeaderUnit::Colour(0), 139.0),
     (HeaderUnit::Colour(1), 139.0),
@@ -54,8 +53,8 @@ pub(super) const TEAM_ROW: [(HeaderUnit, f32); 7] = [
     (HeaderUnit::Stadium, 110.0),
     (HeaderUnit::KitSlots, 64.0),
 ];
-/// The view's Team field.
-pub(super) const TEAM_LABEL: &str = "Team";
+/// The view's name field (the title already says it is the team's).
+pub(super) const TEAM_LABEL: &str = "Name";
 /// The view's Short field.
 pub(super) const SHORT_LABEL: &str = "Short";
 /// The two colours' labels (the draft's `Col.` shortening).
@@ -71,8 +70,8 @@ pub(super) const KIT_NUMBER_LABEL: &str = "Number";
 /// A kit slot's bound team field.
 pub(super) const BOUND_TEAM_LABEL: &str = "Bound team ID";
 
-/// The team view for the selected team: the name as the title in the body
-/// text's strong weight, one wrapped row holding the name, short name and
+/// The team view for the selected team: `<id> <name>` as the title
+/// (`info_strip::view_title`), one wrapped row holding the name, short name and
 /// colour pairs, the manager and stadium IDs and the `Kit slots…` button
 /// (whole units wrap to a second row where the view is narrower, a pair
 /// never splits), then the Tactics editor. Nothing when the selection
@@ -91,21 +90,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // id). The session is re-taken per unit so the Tactics editor can
     // borrow the whole view.
     ui.push_id(("team", generation, team_id), |ui| {
-        // The view's title: the team's name, its colour codes drawn as the
-        // list paints them (`append_name`), in the body text's strong
-        // weight — the plain runs' `PLACEHOLDER` takes the strong colour;
-        // the app installs no bold face.
-        let mut title = egui::text::LayoutJob::default();
-        append_name(&mut title, &team.name);
-        let body = egui::TextStyle::Body.resolve(ui.style());
-        let strong = ui.visuals().strong_text_color();
-        for section in &mut title.sections {
-            section.format.font_id = body.clone();
-            if section.format.color == egui::Color32::PLACEHOLDER {
-                section.format.color = strong;
-            }
-        }
-        ui.label(title);
+        info_strip::view_title(ui, team_id, &team.name, 2.5);
         // The fields, the ids and the button on one row, since the Tactics
         // editor below needs the height, each unit one `allocate_ui` at its
         // claim. The pane is never narrower than the row (a narrower window

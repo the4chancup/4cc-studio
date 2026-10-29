@@ -1,5 +1,7 @@
 The **Savefile** menu works on the whole save:
 
+- **Comparator…** opens a window comparing the open save against a second
+  save (see the window's chapter).
 - **Output rosters to TSV…** writes the roster sheet, the file members
   paste into a spreadsheet to check a cup's teams: every team of the
   save, hidden ones included, its name on a line of its own, then one

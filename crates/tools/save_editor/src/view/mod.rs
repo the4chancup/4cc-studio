@@ -37,6 +37,7 @@ use std::sync::Arc;
 
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_version::{Engine, PesVersion};
+use studio_core::widgets::toolbar_separator;
 use studio_core::{Notice, NoticeKind, RunningPes};
 use team_widgets::names::append_name;
 
@@ -463,6 +464,9 @@ impl SaveView {
 /// the scroll bar's strip beside it, the panel's margins not included.
 const LIST_WIDTH: f32 = 255.0;
 
+/// The detail pane's margin over a view's title.
+const TITLE_MARGIN: i8 = 6;
+
 /// Shows the window for one frame. `running` is the running-PES probe,
 /// called only when Save runs (a process snapshot is not a frame's cost).
 /// The ruleset is resolved from `view.aatf_ruleset` on the first frame and
@@ -524,7 +528,16 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() ->
             .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(margin))
             .show(ui, |ui| player_list::show(ui, view));
         let frame_right = list_panel.inner;
-        egui::CentralPanel::default().show(ui, |ui| {
+        // 6 points over the view, not egui's 8: a view's title then stands
+        // as far below the toolbar's buttons as its first row stands below
+        // the title, in ink (`info_strip::view_title`).
+        let detail = egui::Frame::central_panel(ui.style()).inner_margin(egui::Margin {
+            left: 8,
+            right: 8,
+            top: TITLE_MARGIN,
+            bottom: 8,
+        });
+        egui::CentralPanel::default().frame(detail).show(ui, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
                 .show(ui, |ui| match view.selected {
@@ -631,10 +644,12 @@ fn set_surrender_on_press(ctx: &egui::Context) {
     });
 }
 
-/// The toolbar: Open, Save, Undo, Redo, the menus, the ruleset dropdown,
-/// the Live AATF toggle and the unsaved-changes marker (the draft's
-/// toolbar row). The open save's path rides the idle window title
-/// (`Tool::title_detail`), not this row, which never takes a second row.
+/// The toolbar (the draft's toolbar row), its groups apart by separators:
+/// Open and Save; Undo and Redo; the menus; the ruleset dropdown, the Live
+/// AATF toggle and the unsaved-changes marker. A menu bar, so with one
+/// menu open the pointer entering another's button opens that one. The
+/// open save's path rides the idle window title (`Tool::title_detail`),
+/// not this row, which never takes a second row.
 fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
     // The unsaved prompt and the running-game question hold every
     // shortcut dead while up (the prompt's own buttons are the way out).
@@ -665,7 +680,7 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         !typing && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::I));
     let bump_key =
         !typing && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::B));
-    ui.horizontal(|ui| {
+    studio_core::widgets::toolbar(ui, |ui| {
         if ui.button("Open…").clicked() {
             // A dirty session prompts first (SE-GUI-05): the picker waits
             // for the answer.
@@ -675,6 +690,14 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
                 view.open(&path);
             }
         }
+        if ui
+            .add_enabled(view.session.is_some(), egui::Button::new("Save"))
+            .clicked()
+            || save_key
+        {
+            save(view, running);
+        }
+        toolbar_separator(ui);
         let (can_undo, can_redo) = view
             .session
             .as_ref()
@@ -696,17 +719,11 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         {
             session.redo();
         }
-        if ui
-            .add_enabled(view.session.is_some(), egui::Button::new("Save"))
-            .clicked()
-            || save_key
-        {
-            save(view, running);
-        }
+        toolbar_separator(ui);
         menus::player_menu(ui, view);
         menus::team_menu(ui, view);
         menus::savefile_menu(ui, view);
-        menus::panels_menu(ui, view);
+        toolbar_separator(ui);
         // The ruleset beside the check it drives, whether the check is on
         // or not: the quick actions and the card counts use it too.
         ruleset_picker::show(ui, view);
@@ -733,9 +750,11 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
                 );
         }
         // The save's path is in the window title (`title_detail`): beside the
-        // unsaved mark it could wrap the toolbar onto a second row.
+        // unsaved mark it could wrap the toolbar onto a second row. The mark
+        // in the link blue: the weak grey hid the one piece saying the save
+        // differs from its file among the toolbar's quieter text.
         if view.is_dirty() {
-            ui.weak("\u{2022} unsaved changes");
+            ui.colored_label(ui.visuals().hyperlink_color, "\u{2022} unsaved changes");
         }
     });
     if clear_flags_key
