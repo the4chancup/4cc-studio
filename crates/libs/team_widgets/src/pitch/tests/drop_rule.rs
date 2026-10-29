@@ -5,7 +5,7 @@
 //! tie, the keep and the missing row).
 
 use super::*;
-use crate::pitch::drop_rule::dropped_position;
+use crate::pitch::drop_rule::{dropped_position, spot_choices};
 
 /// `dropped_position` at each `(x, y)` of `drops` answered by its
 /// expected position, one assertion per drop named `case (x, y)`.
@@ -109,7 +109,7 @@ fn the_drop_rule_on_701s_preset_1_formation_1() {
 // on a marker makes), so `cmf_left`'s (31, 26) read LMF there.
 #[test]
 fn the_drop_rule_on_718s_preset_1_formations() {
-    let party: [u8; 13] = [76, 85, 88, 88, 88, 84, 95, 82, 85, 86, 82, 84, 84];
+    let party = PARTY_HARD;
     let zone: [u8; 13] = [73, 82, 85, 85, 85, 93, 79, 79, 83, 80, 80, 82, 82];
     let formation = formation_718_1();
     check(
@@ -282,5 +282,60 @@ fn a_point_only_the_second_table_holds_still_offers_its_positions() {
         dropped_position(&formation, 2, 2, 20, Some(&overalls)),
         position_byte("LMF"),
         "the free candidate LMF wins on a higher overall"
+    );
+}
+
+/// `labels`' position bytes, for comparing with `spot_choices`.
+fn bytes(labels: &[&str]) -> Vec<u8> {
+    labels.iter().map(|label| position_byte(label)).collect()
+}
+
+// The positions a spot offers on team 718's preset 1 formation 1, the
+// band's default first: its CMF's spot (53, 26) offers CMF and the free
+// candidate AMF; its middle CB's (52, 7) CB alone, the candidate CB
+// being the default; its CF's (42, 41) SS and CF; a spot in the
+// keeper's box (54, 1) nothing, GK being neither a default nor a
+// candidate.
+#[test]
+fn a_spot_offers_the_bands_default_then_the_first_free_candidate() {
+    let formation = formation_718_1();
+    assert_eq!(
+        spot_choices(&formation, 2, 53, 26),
+        bytes(&["CMF", "AMF"]),
+        "the CMF's spot"
+    );
+    assert_eq!(
+        spot_choices(&formation, 6, 52, 7),
+        bytes(&["CB"]),
+        "the middle CB's spot"
+    );
+    assert_eq!(
+        spot_choices(&formation, 10, 42, 41),
+        bytes(&["SS", "CF"]),
+        "the CF's spot"
+    );
+    assert_eq!(
+        spot_choices(&formation, 6, 54, 1),
+        bytes(&[]),
+        "the keeper's box offers nothing"
+    );
+}
+
+// A wide position a teammate holds is not offered: with slot 8 the
+// formation's LMF, slot 2 made a second LMF at (10, 20), inside LMF's
+// area, is offered CMF alone.
+#[test]
+fn a_second_lmf_inside_lmfs_area_is_offered_cmf_alone_by_the_spot() {
+    let mut formation = formation_718_1();
+    assert_eq!(
+        formation.players[8].position,
+        position_byte("LMF"),
+        "premise: slot 8 is the LMF"
+    );
+    formation.players[2].position = position_byte("LMF");
+    assert_eq!(
+        spot_choices(&formation, 2, 10, 20),
+        bytes(&["CMF"]),
+        "the other LMF holds the wide position"
     );
 }

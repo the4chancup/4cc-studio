@@ -143,6 +143,23 @@ impl Headless {
         })
     }
 
+    /// One frame of `pitch` with `events`, keeping the painted shapes:
+    /// the shapes and whether it changed `tactics`.
+    fn pitch_shapes(
+        &mut self,
+        version: PesVersion,
+        tactics: &mut TeamTactics,
+        view: &mut TacticsView,
+        roster: &[RosterRow<'_>],
+        events: Vec<egui::Event>,
+    ) -> (Vec<egui::epaint::ClippedShape>, bool) {
+        let mut changed = None;
+        let (_, shapes) = self.frame(events, |ui| {
+            changed = Some(super::pitch(ui, "pitch", version, tactics, view, roster));
+        });
+        (shapes, changed.expect("the widget ran"))
+    }
+
     /// `pitch_paint` at `time` as the frame's timestamp (the name
     /// scroll's clock and the repaint delay read it).
     fn pitch_paint_at(
@@ -244,7 +261,7 @@ impl Headless {
     ) -> (Vec<accesskit::Node>, bool) {
         let mut changed = false;
         let (nodes, _) = self.frame(events, |ui| {
-            super::formation_selector(ui, view);
+            super::formation_selector(ui, tactics, view);
             changed = super::pitch(ui, "pitch", version, tactics, view, roster);
             changed |= super::lineup(ui, "lineup", version, tactics, view, roster);
         });
@@ -355,6 +372,29 @@ fn near(a: egui::Pos2, b: egui::Pos2, eps: f32) {
         (a.x - b.x).abs() <= eps && (a.y - b.y).abs() <= eps,
         "{a:?} vs {b:?}"
     );
+}
+
+/// A press at `press` on `slot`'s marker: its offset from his badge
+/// centre, which a held marker keeps between him and the pointer (he is
+/// released at the pointer less it).
+fn press_offset(canvas: egui::Rect, slot: FormationSlot, press: egui::Pos2) -> egui::Vec2 {
+    press - badge_centre(canvas.min, slot)
+}
+
+/// Where an outfield `slot`'s marker pressed at `press` is painted while
+/// held with the pointer at `pointer`: his badge centre at the spot under
+/// the pointer less the press's offset, clamped like every marker's.
+fn held_centre(
+    canvas: egui::Rect,
+    slot: FormationSlot,
+    press: egui::Pos2,
+    pointer: egui::Pos2,
+) -> egui::Pos2 {
+    let (x, y) = snap(pointer - press_offset(canvas, slot, press), canvas.min);
+    clamp_centre(
+        badge_centre(canvas.min, FormationSlot { x, y, ..slot }),
+        canvas,
+    )
 }
 
 /// The pitch canvas' rect (the "pitch" node's).
@@ -560,6 +600,43 @@ fn formation_718_1() -> Formation {
         ("DMF", 42, 17),
         ("CF", 42, 41),
     ])
+}
+
+/// PARTY HARD's thirteen overalls (GK to CF), team 718's LMF in slot 8
+/// of its preset 1 formation 1: the editor's formula on his record, each
+/// within 1 of those the game showed.
+const PARTY_HARD: [u8; 13] = [76, 85, 88, 88, 88, 84, 95, 82, 85, 86, 82, 84, 84];
+
+/// Team 718's preset 1 formation 1 on `tactics`' preset 1 Kick-off, and
+/// PARTY HARD, its LMF in slot 8, on his `roster` row: his overalls and
+/// the two positions he is rated A at, LMF and LWF.
+fn party_hard(tactics: &mut TeamTactics, roster: &mut [RosterRow<'_>]) {
+    tactics.presets[0].formations[0] = formation_718_1();
+    let row = &mut roster[usize::from(tactics.starting_eleven[8])];
+    row.overalls = Some(PARTY_HARD);
+    row.rated[usize::from(position_byte("LMF"))] = true;
+    row.rated[usize::from(position_byte("LWF"))] = true;
+}
+
+/// The PES 17 fixture save's team 702 (/a/): its tactics, and the
+/// thirteen overalls (GK to CF) of COWBOY BEBOP (70223), its CF in slot 10
+/// of preset 1's Kick-off at (40, 45), by the editor's formula on his
+/// record (he is rated SS A and CF A).
+fn team_702() -> (TeamTactics, [u8; 13]) {
+    let file = pes_savefile::EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes17))
+        .expect("fixture save");
+    let tactics = file
+        .team(702)
+        .expect("team 702 is in the fixture")
+        .tactics
+        .clone();
+    let player = file.player(70223).expect("COWBOY BEBOP is in the fixture");
+    let overalls = std::array::from_fn(|position| {
+        player
+            .overall_at(u8::try_from(position).expect("thirteen positions"))
+            .expect("a position below 13 has an overall")
+    });
+    (tactics, overalls)
 }
 
 /// Team 718's preset 1 formation 3.

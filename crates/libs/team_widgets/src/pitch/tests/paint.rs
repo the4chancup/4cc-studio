@@ -6,7 +6,9 @@ use pes_version::PesVersion;
 
 use super::*;
 use crate::tactics::{FieldedMark, Medal};
-use crate::test_support::{Headless, fixture_rows, fixture_tactics, painted_color, roster_rows};
+use crate::test_support::{
+    Headless, centre, entry, fixture_rows, fixture_tactics, painted_color, pointer_at, roster_rows,
+};
 use crate::violations::CROSS;
 
 /// An outfield slot at (`x`, `y`), for the pure mapping tests.
@@ -713,7 +715,7 @@ fn the_lower_marker_paints_last_and_takes_the_press() {
 }
 
 /// The frame's badge rects (`BADGE_FILL`, badge-sized) in paint order.
-fn badge_rects(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::Rect> {
+pub(super) fn badge_rects(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::Rect> {
     shapes
         .iter()
         .filter_map(|clipped| match &clipped.shape {
@@ -735,8 +737,9 @@ fn off(a: egui::Pos2, b: egui::Pos2) -> bool {
 }
 
 // While a marker is dragged he paints last, his badge centred on the
-// clamped pointer — eleven badges as ever, the last at the drop point
-// and none left at his own centre.
+// spot under the pointer less the press's offset — eleven badges as
+// ever, the last where a release would put him and none left at his own
+// centre.
 #[test]
 fn a_dragged_marker_paints_last_at_the_pointer() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -767,7 +770,10 @@ fn a_dragged_marker_paints_last_at_the_pointer() {
     let onto = grass_point(canvas, &players, egui::Rect::NOTHING);
     let from = marker_point(&nodes, &players, index);
     assert!(
-        off(onto, centres[index]),
+        off(
+            held_centre(canvas, players[index], from, onto),
+            centres[index]
+        ),
         "premise: the drop point is off his own centre"
     );
 
@@ -792,7 +798,7 @@ fn a_dragged_marker_paints_last_at_the_pointer() {
     assert_eq!(badges.len(), 11, "eleven badges, the dragged one's moved");
     near(
         badges.last().expect("eleven badges").center(),
-        clamp_centre(onto, canvas),
+        held_centre(canvas, players[index], from, onto),
         0.5,
     );
     assert!(
@@ -1542,15 +1548,20 @@ fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
     let centres = centres_of(canvas, &players);
     let from = marker_point(&nodes, &players, dragged);
     // `over` is on the target's marker and off the dragged one's own
-    // spot; `target` is the topmost other marker there.
-    let over = marker_point(&nodes, &players, target);
+    // spot; `target` is the topmost other marker there. It is two units
+    // right of the target's own free point: the held marker stands at
+    // the pointer less the press's offset, and from the target's point
+    // he would sit exactly on the target's badge, where the two badges'
+    // rects cannot be told apart.
+    let over = marker_point(&nodes, &players, target) + egui::vec2(2.0 * SPOT_XS, 0.0);
     assert!(
         !marker_rect(centres[dragged], canvas).contains(over),
         "premise: the hold is off the dragged marker's own spot"
     );
-    assert!(
-        marker_rect(centres[target], canvas).contains(over),
-        "premise: the hold is on the target's marker"
+    assert_eq!(
+        swap_target(&players, &centres, canvas, over, dragged),
+        Some(target),
+        "premise: the hold is on the target's marker, under no later one"
     );
 
     window.pitch(
@@ -1604,8 +1615,10 @@ fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
         );
     }
     // And the dragged marker's badge paints at 35% over him.
-    let dragged_badge =
-        egui::Rect::from_center_size(clamp_centre(over, canvas), egui::vec2(50.0, 14.0));
+    let dragged_badge = egui::Rect::from_center_size(
+        held_centre(canvas, players[dragged], from, over),
+        egui::vec2(50.0, 14.0),
+    );
     let fill = shapes
         .iter()
         .filter_map(|clipped| match &clipped.shape {
@@ -1673,8 +1686,10 @@ fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
         )),
         "no brackets over the grass"
     );
-    let dragged_badge =
-        egui::Rect::from_center_size(clamp_centre(grass, canvas), egui::vec2(50.0, 14.0));
+    let dragged_badge = egui::Rect::from_center_size(
+        held_centre(canvas, players[dragged], from, grass),
+        egui::vec2(50.0, 14.0),
+    );
     let fill = shapes
         .iter()
         .filter_map(|clipped| match &clipped.shape {
@@ -2076,16 +2091,15 @@ fn the_cross_draws_only_on_a_formation_the_preset_fields() {
     )];
     roster[slot].fielded = &marks;
 
-    // The kick-off formation carries it, the same preset's second
-    // formation none, another preset's pitch none.
+    // The kick-off formation carries it; the same preset's second
+    // formation is never shown, the pitch going back to Kick-off and its
+    // cross; another preset's pitch carries none.
     let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     assert_eq!(crosses(&shapes).len(), 1, "the kick-off formation's cross");
     view.formation = 1;
     let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
-    assert!(
-        crosses(&shapes).is_empty(),
-        "a non-fluid preset's second formation carries none"
-    );
+    assert_eq!(view.formation, 0, "a non-fluid preset shows Kick-off alone");
+    assert_eq!(crosses(&shapes).len(), 1, "and Kick-off's cross");
     view.preset = 1;
     view.formation = 0;
     let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
@@ -2465,4 +2479,119 @@ fn the_formation_name_sits_in_the_bottom_left_corner_after_the_markers() {
         index > last_badge,
         "the name paints after every marker ({index} vs badge {last_badge})"
     );
+}
+
+/// The marker boxes the frame's buttons cover: a marker's AccessKit
+/// bounds are his box.
+fn button_boxes(nodes: &[accesskit::Node]) -> Vec<egui::Rect> {
+    nodes
+        .iter()
+        .filter(|node| node.role() == Role::Button)
+        .filter_map(|node| node.bounds())
+        .map(|b| {
+            egui::Rect::from_min_max(
+                egui::pos2(b.x0 as f32, b.y0 as f32),
+                egui::pos2(b.x1 as f32, b.y1 as f32),
+            )
+        })
+        .collect()
+}
+
+// The formation selector follows the formations the shown preset fields.
+// On the PES 21 save's team 718, preset 1 with Fluid formation on, its
+// three tabs are enabled. With Fluid formation switched off in the
+// record, the next frame draws them disabled with Kick-off selected, the
+// view back on Kick-off although it showed Out-of-possession, a click on
+// In-possession leaves it there, and the pitch draws Kick-off's slots.
+#[test]
+fn the_formation_selector_is_locked_on_kick_off_while_fluid_formation_is_off() {
+    let mut window = Headless::sized(900.0, 1100.0);
+    let mut tactics =
+        pes_savefile::EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21))
+            .expect("fixture save")
+            .team(718)
+            .expect("team 718 is in the fixture")
+            .tactics
+            .clone();
+    tactics.presets[0].style.fluid = Some(true);
+    // Out-of-possession's slot 5 a few units off Kick-off's, so the two
+    // formations' markers can be told apart.
+    tactics.presets[0].formations[2].players[5].x += 6;
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let tabs = |nodes: &[accesskit::Node]| {
+        FORMATIONS.map(|label| entry(nodes, Role::Button, label).is_disabled())
+    };
+
+    let (nodes, _) =
+        window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    assert_eq!(tabs(&nodes), [false; 3], "Fluid formation on: three tabs");
+
+    tactics.presets[0].style.fluid = Some(false);
+    view.formation = 2;
+    let (nodes, _) =
+        window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    assert_eq!(tabs(&nodes), [true; 3], "Fluid formation off: locked");
+    assert_eq!(view.formation, 0, "the view is back on Kick-off");
+    assert_eq!(
+        FORMATIONS.map(|label| entry(&nodes, Role::Button, label).toggled()),
+        [
+            Some(accesskit::Toggled::True),
+            Some(accesskit::Toggled::False),
+            Some(accesskit::Toggled::False),
+        ],
+        "Kick-off is selected"
+    );
+    let canvas = canvas_rect(&nodes);
+    let boxes = button_boxes(&nodes);
+    let shown = |formation: usize| {
+        let slot = tactics.presets[0].formations[formation].players[5];
+        let marker = marker_rect(badge_centre(canvas.min, slot), canvas);
+        boxes.iter().any(|b| (b.min - marker.min).length() <= 0.5)
+    };
+    assert!(shown(0), "Kick-off's slot 5 is on the pitch");
+    assert!(!shown(2), "Out-of-possession's is not");
+
+    let at = centre(entry(&nodes, Role::Button, "In-possession"));
+    window.pitch_and_lineup(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(at, true),
+    );
+    window.pitch_and_lineup(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(at, false),
+    );
+    assert_eq!(
+        view.formation, 0,
+        "a click on In-possession changes nothing"
+    );
+}
+
+// PES 2015 has no Fluid formation: its selector is always locked.
+#[test]
+fn the_formation_selector_is_locked_on_pes_15() {
+    let mut window = Headless::sized(900.0, 1100.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes15);
+    assert_eq!(
+        tactics.presets[0].style.fluid, None,
+        "premise: PES 2015 stores no Fluid formation"
+    );
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes15);
+    let roster = roster_rows(&rows);
+    let (nodes, _) =
+        window.pitch_and_lineup(PesVersion::Pes15, &mut tactics, &mut view, &roster, vec![]);
+    for label in FORMATIONS {
+        assert!(
+            entry(&nodes, Role::Button, label).is_disabled(),
+            "{label} is disabled"
+        );
+    }
 }

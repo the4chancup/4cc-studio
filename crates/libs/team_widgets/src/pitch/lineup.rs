@@ -812,6 +812,8 @@ mod tests {
         let mut tactics = fixture_tactics(PesVersion::Pes21);
         tactics.presets[0].formations[0].players[5].position = 4; // DMF
         tactics.presets[0].formations[1].players[5].position = 8; // AMF
+        // Fluid formation on, so the selector offers In-possession.
+        tactics.presets[0].style.fluid = Some(true);
         let before = tactics.clone();
         let mut view = TacticsView::default();
         let rows = fixture_rows(PesVersion::Pes21);

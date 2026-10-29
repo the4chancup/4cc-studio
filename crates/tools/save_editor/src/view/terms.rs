@@ -1096,6 +1096,7 @@ mod tests {
                 portrait: None,
                 medal: None,
                 overalls: None,
+                rated: [false; 13],
                 fielded: &[],
             })
             .collect()

@@ -23,7 +23,13 @@ it lists is missing, the starters show the game's blank portrait instead.
 Dragging a pitch player to a new place moves him there, snapped to the
 positions the save can hold, and gives him the position the game's own
 editor would there (which can depend on his ratings: the spot offers up
-to two positions and he takes the one he rates higher at); dropping him on another starter (the goalkeeper excepted)
+to two positions and he takes the one he rates higher at). While you
+hold him, he moves one step at a time and the point you grabbed stays
+under the pointer. The pitch stays lit only where he is rated A or B,
+and his badge shows the position he would take if you let go there, so
+it changes as he crosses from one area into another. Nothing changes
+until you let go: bring him back to where he started and he keeps his
+position. Dropping him on another starter (the goalkeeper excepted)
 trades their places and positions in the formation on screen alone, as
 the game's own drag does: the preset's other two formations and the other
 presets keep theirs. While you hold him over the other, that one's marker
@@ -32,17 +38,22 @@ so a drag meant only to move him can still be steered aside onto the
 grass. A bench player
 dropped on a pitch player swaps them, and a pitch player dropped on a
 bench row does the same. Clicking a pitch player opens
-his details beside his marker: a position pick, the exact X and Y fields
-and **Make GK**,
+his details beside his marker: a position pick (it offers only the
+positions his spot allows, as the game's Select Position menu does), the
+exact X and Y fields (moving him with them changes his position as a
+drag there would) and **Make GK**,
 which puts him in goal and brings the goalkeeper out onto his spot. The
 details stay where they opened while X and Y move the player, so the
 fields' arrows stay under the pointer, and a click anywhere outside
 closes them. The
 goalkeeper cannot be dragged and his position and spot stay fixed.
 The **Kick-off**, **In-possession** and **Out-of-possession** buttons on the
-formation bar pick which of the preset's three formations it shows (the game
-uses the second and third only while the preset's fluid formation is on).
-Switching formations changes nothing by itself. The formation's name in the
+formation bar pick which of the preset's three formations it shows. The game
+uses the second and third only while the preset's **Fluid formation** is on,
+so while it is off (and always on PES 2015) the buttons stay on Kick-off and
+cannot be clicked. The formation bar's Copy/swap still works, so you can
+prepare the other two before switching it on. Switching formations changes
+nothing by itself. The formation's name in the
 pitch's bottom-left corner (such as 3-4-2-1) counts the players in each line
 by their positions, back to front, as the game's formation screen does, so
 it changes when a player's position does but not when he only moves.

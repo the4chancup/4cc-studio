@@ -483,8 +483,10 @@ fn a_preset_switch_closes_the_popover() {
     assert_eq!(view.popover, None, "a preset switch closes the popover");
 }
 
-// The popover's Position combo writes the picked position byte to
-// the shown formation's slot alone.
+// The popover's Position combo lists the positions the slot's spot
+// offers and writes the picked position byte to the shown formation's
+// slot alone: the fixture's RB at (89, 12) is offered CB and RB, and
+// picks CB.
 #[test]
 fn the_popovers_position_pick_writes_the_slot() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -503,13 +505,15 @@ fn the_popovers_position_pick_writes_the_slot() {
     );
     let before = tactics.clone();
     let formation = before.presets[0].formations[0].clone();
-    let cf = POSITIONS
-        .iter()
-        .position(|label| *label == "CF")
-        .expect("CF is a position") as u8;
-    assert_ne!(
-        formation.players[index].position, cf,
-        "premise: a real change"
+    let cb = position_byte("CB");
+    assert_eq!(
+        (
+            formation.players[index].position,
+            formation.players[index].x,
+            formation.players[index].y
+        ),
+        (position_byte("RB"), 89, 12),
+        "premise: the RB at (89, 12), a real change"
     );
 
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
@@ -539,16 +543,16 @@ fn the_popovers_position_pick_writes_the_slot() {
         .collect();
     assert_eq!(
         button_labels(&popup, |_| true),
-        POSITIONS[1..],
-        "the twelve outfield positions in order, GK absent"
+        ["CB", "RB"],
+        "the spot's two positions, the band's default first"
     );
-    let item = entry_id(&ids, Role::Button, "CF");
+    let item = entry_id(&ids, Role::Button, "CB");
     let (_, changed) =
         window.action_click_pitch(item, PesVersion::Pes21, &mut tactics, &mut view, &roster);
     assert!(changed, "the pick changed the record");
     assert_eq!(
-        tactics.presets[0].formations[0].players[index].position, cf,
-        "the pick wrote CF"
+        tactics.presets[0].formations[0].players[index].position, cb,
+        "the pick wrote CB"
     );
     assert_eq!(
         tactics.presets[0].formations[1..],
@@ -556,14 +560,16 @@ fn the_popovers_position_pick_writes_the_slot() {
         "the other two formations untouched"
     );
     let mut expect = before;
-    expect.presets[0].formations[0].players[index].position = cf;
+    expect.presets[0].formations[0].players[index].position = cb;
     assert_eq!(tactics, expect, "the slot's position alone changed");
     assert!(view.popover.is_some(), "the pick leaves the popover open");
 }
 
 // The popover writes the shown preset's shown formation, not a fixed
-// one: a position pick, an X and a Y edit on preset 2's In-possession
-// change that slot there alone.
+// one: an X and a Y edit and a position pick on preset 2's
+// In-possession change that slot there alone. The edits come first: the
+// combo's two-row list stays open after an AccessKit pick, over the X
+// field.
 #[test]
 fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -580,6 +586,8 @@ fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
     // formations' slots differ.
     let index = 3;
     tactics.presets[1].formations[1].players[index].y += 1;
+    // Fluid formation on, so the preset's In-possession can be shown.
+    tactics.presets[1].style.fluid = Some(true);
     // A non-identity eleven: a write keyed by his roster slot rather
     // than the slot's index would look right on the fixture's
     // [0, 1, ...].
@@ -595,13 +603,14 @@ fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
         players[index], before.presets[0].formations[0].players[index],
         "premise: the slot differs from preset 1's Kick-off"
     );
-    let cf = POSITIONS
-        .iter()
-        .position(|label| *label == "CF")
-        .expect("CF is a position") as u8;
-    assert_ne!(
-        players[index].position, cf,
-        "premise: a real position change"
+    // The roster rows hold no overalls, so the X and Y edits keep his
+    // RB; his new spot (55, 30) then offers CMF and AMF, his RB listed
+    // first, and the pick is CMF.
+    let cmf = position_byte("CMF");
+    assert_eq!(
+        players[index].position,
+        position_byte("RB"),
+        "premise: the RB, a real position change"
     );
     assert_ne!(players[index].x, 55, "premise: a real x change");
     // The typed y is neither the slot's y nor its x, old or new, so a Y
@@ -614,18 +623,6 @@ fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let at = marker_point(&nodes, &players, index);
     window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
-    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let combo = entry(&nodes, Role::ComboBox, "Position");
-    window.click_pitch(
-        centre(combo),
-        PesVersion::Pes21,
-        &mut tactics,
-        &mut view,
-        &roster,
-    );
-    let ids = window.pitch_ids(PesVersion::Pes21, &mut tactics, &mut view, &roster);
-    let item = entry_id(&ids, Role::Button, "CF");
-    window.action_click_pitch(item, PesVersion::Pes21, &mut tactics, &mut view, &roster);
     window.type_in_spin_field(
         "X",
         "55",
@@ -642,9 +639,21 @@ fn the_popovers_writes_land_in_the_shown_preset_and_formation() {
         &mut view,
         &roster,
     );
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let combo = entry(&nodes, Role::ComboBox, "Position");
+    window.click_pitch(
+        centre(combo),
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    let ids = window.pitch_ids(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let item = entry_id(&ids, Role::Button, "CMF");
+    window.action_click_pitch(item, PesVersion::Pes21, &mut tactics, &mut view, &roster);
 
     let mut expect = before;
-    expect.presets[1].formations[1].players[index].position = cf;
+    expect.presets[1].formations[1].players[index].position = cmf;
     expect.presets[1].formations[1].players[index].x = 55;
     expect.presets[1].formations[1].players[index].y = y;
     assert_eq!(
@@ -912,20 +921,17 @@ fn a_press_outside_closes_the_popover_but_a_press_inside_does_not() {
         "the press on the combo is inside the popover"
     );
     let ids = window.pitch_ids(PesVersion::Pes21, &mut tactics, &mut view, &roster);
-    let amf = POSITIONS
-        .iter()
-        .position(|label| *label == "AMF")
-        .and_then(|index| u8::try_from(index).ok())
-        .expect("AMF is a position");
+    // The RB's spot offers CB and RB.
+    let cb = position_byte("CB");
     assert_ne!(
-        formation.players[index].position, amf,
+        formation.players[index].position, cb,
         "premise: a real change"
     );
     let (item, item_node) = ids
         .iter()
-        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("AMF"))
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("CB"))
         .map(|(id, node)| (*id, node.clone()))
-        .expect("the list's AMF");
+        .expect("the list's CB");
     window.pitch(
         PesVersion::Pes21,
         &mut tactics,
@@ -949,8 +955,8 @@ fn a_press_outside_closes_the_popover_but_a_press_inside_does_not() {
         window.action_click_pitch(item, PesVersion::Pes21, &mut tactics, &mut view, &roster);
     assert!(changed, "the pick wrote the position");
     assert_eq!(
-        tactics.presets[0].formations[0].players[index].position, amf,
-        "the pick wrote AMF"
+        tactics.presets[0].formations[0].players[index].position, cb,
+        "the pick wrote CB"
     );
     assert!(view.popover.is_some(), "the pick leaves the popover open");
 
@@ -1130,4 +1136,113 @@ fn the_keepers_release_is_his_click_however_far_the_pointer_moved() {
         "the far release is his click: the keeper takes the role"
     );
     assert_eq!(view.assign, None, "and the mode disarmed");
+}
+
+/// The Position combo's list in slot `index`'s popover, opened by a
+/// click on his marker and then on the combo: the labels of the buttons
+/// the open list adds, top to bottom.
+fn position_list(
+    window: &mut Headless,
+    tactics: &mut TeamTactics,
+    view: &mut TacticsView,
+    roster: &[RosterRow<'_>],
+    index: usize,
+) -> Vec<String> {
+    let players = tactics.presets[0].formations[0].players;
+    let (nodes, _) = window.pitch(PesVersion::Pes21, tactics, view, roster, vec![]);
+    let at = marker_point(&nodes, &players, index);
+    window.click_pitch(at, PesVersion::Pes21, tactics, view, roster);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, tactics, view, roster, vec![]);
+    let combo = entry(&nodes, Role::ComboBox, "Position");
+    let closed = window.pitch_ids(PesVersion::Pes21, tactics, view, roster);
+    window.click_pitch(centre(combo), PesVersion::Pes21, tactics, view, roster);
+    let open = window.pitch_ids(PesVersion::Pes21, tactics, view, roster);
+    let shown: std::collections::HashSet<accesskit::NodeId> =
+        closed.iter().map(|(id, _)| *id).collect();
+    let popup: Vec<accesskit::Node> = open
+        .iter()
+        .filter(|(id, _)| !shown.contains(id))
+        .map(|(_, node)| node.clone())
+        .collect();
+    button_labels(&popup, |_| true)
+}
+
+// The Position combo lists the positions the slot's spot offers, as
+// the game's Select Position menu does, on team 718's preset 1
+// formation 1: its CMF at (53, 26) is offered CMF and AMF; its middle
+// CB at (52, 7) CB alone; and the CMF made an LB, which the spot does
+// not offer, lists his LB first.
+#[test]
+fn the_position_combo_lists_the_positions_the_spot_offers() {
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    tactics.presets[0].formations[0] = formation_718_1();
+    let players = tactics.presets[0].formations[0].players;
+    assert_eq!(
+        (players[2].position, players[2].x, players[2].y),
+        (position_byte("CMF"), 53, 26),
+        "premise: slot 2, the CMF at (53, 26)"
+    );
+    assert_eq!(
+        (players[6].position, players[6].x, players[6].y),
+        (position_byte("CB"), 52, 7),
+        "premise: slot 6, the CB at (52, 7)"
+    );
+    for (index, position, expected) in [
+        (2, "CMF", vec!["CMF", "AMF"]),
+        (6, "CB", vec!["CB"]),
+        (2, "LB", vec!["LB", "CMF", "AMF"]),
+    ] {
+        let mut window = Headless::sized(600.0, 450.0);
+        let mut view = TacticsView::default();
+        tactics.presets[0].formations[0].players[index].position = position_byte(position);
+        assert_eq!(
+            position_list(&mut window, &mut tactics, &mut view, &roster, index),
+            expected,
+            "slot {index} as {position}"
+        );
+    }
+}
+
+// PARTY HARD's popover at (20, 26) lists CMF and LMF alone; his Y set to
+// 36 puts him in the forwards' band, where he is offered SS and LWF and
+// holds neither, so his higher overall makes him an LWF, 86 against 84,
+// on the same frame as the Y.
+// SE-GUI-42
+#[test]
+fn party_hards_popover_lists_cmf_and_lmf_and_a_y_of_36_makes_him_lwf() {
+    let rows = fixture_rows(PesVersion::Pes21);
+    let mut roster = roster_rows(&rows);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    party_hard(&mut tactics, &mut roster);
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut view = TacticsView::default();
+    assert_eq!(
+        position_list(&mut window, &mut tactics, &mut view, &roster, 8),
+        ["CMF", "LMF"],
+        "the spot's two positions"
+    );
+
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut view = TacticsView::default();
+    let before = tactics.clone();
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let at = marker_point(&nodes, &before.presets[0].formations[0].players, 8);
+    window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    window.type_in_spin_field(
+        "Y",
+        "36",
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    let mut expect = before;
+    expect.presets[0].formations[0].players[8] = FormationSlot {
+        position: position_byte("LWF"),
+        x: 20,
+        y: 36,
+    };
+    assert_eq!(tactics, expect, "his Y is 36 and he is an LWF, alone");
 }

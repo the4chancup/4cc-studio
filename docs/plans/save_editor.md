@@ -580,7 +580,15 @@ Win32 original hurt the most):
   1. The **preset bar** (Preset 1/2/3, Fluid formation, then its Copy/swap menu) level with
      the **formation bar** (Kick-off / In-possession / Out-of-possession and theirs), which
      spans the pitch's column and the next: the formations and their menu need more than the
-     pitch's width.
+     pitch's width. While the shown preset's Fluid formation is off (PES 2015 has no switch,
+     so always), the formation selector is disabled and on Kick-off, its hover
+     `Formations 2 and 3 are used only while Fluid formation is on`: the game fields the
+     other two only while it is on, so editing them there edits nothing a match uses, and
+     switching Fluid formation off moves the view back to Kick-off. It locks even when the
+     other two differ from Kick-off: the view is the manager's and copies the game's, and an
+     organizer looking for formations hidden there finds them in the formation pictures
+     ("Formation pictures" below), a quicker check across teams than the view. Their Copy/swap menu
+     stays, a copy into them being how a member prepares them before switching it on.
   2. **Formation settings**, the pitch and **Player assignments**, the two panels exactly as
      tall as the pitch (386 points with its border) and level with it. Formation settings
      runs row by row, each offensive setting beside its defensive pair (Attacking style beside
@@ -756,18 +764,28 @@ Win32 original hurt the most):
   it, with an Open folder action. The picture: the theme's panel colour under the team's name
   in its colour codes' colours, its id and the save's version (a folder of pictures from
   several saves would otherwise not say which game each came from); one row per preset,
-  labelled "Preset n"; each cell the pitch as the view paints it at its own 320 x 384, the
+  labelled "Preset n", with "Fluid On" or "Fluid Off" under it in the text colour (PES
+  2016 on), with or without the settings; each cell the pitch as the view paints it at its own 320 x 384, the
   formation's name in its corner, with none of the view's states (no drag, corners or join
   fill, a wider name held still at the badge's left). The columns are the three formations
   under their names; a preset with fluid formation off draws its Kick-off formation alone, the
-  room beside it empty, and a team with fluid off on every preset gets one column and no column
-  heads (a lone "Kick-off" would name a switch the team never makes). With the settings, a 300
-  point column at the grid's right lists each preset's settings level with its row, in the
-  Tactics editor's order: Fluid formation (PES 2016 on), the Formation settings' offensive then
-  defensive half, the Advanced instructions (PES 2017 on) with each target after an arrow, a
-  label in the text colour and its value strong at 120 points, values named as the editor's
-  controls name them, full length, a value too long cut with an ellipsis; the team's Automatic
-  settings, which no preset owns, are one line under the grid. The pitch painter is one
+  room beside it empty, unless its other two are not exact copies of Kick-off: then it draws
+  all three, as a fluid preset does, since a team can hide formations there and switch Fluid
+  formation on in a match, and the picture is the organizers' check (PES 2015, with no switch,
+  draws Kick-off alone); the other two are drawn at 60% opacity over the background, so they
+  read as unused, perhaps left there forgotten by the manager, rather than as a fluid set. A team whose every row draws one formation gets one column and no
+  column heads (a lone "Kick-off" would name a switch the team never makes). With the
+  settings, a 240 point column at the grid's right lists each preset's settings level with its
+  row, in the Tactics editor's order: the Formation settings' offensive then defensive half,
+  the Advanced instructions (PES 2017 on), each target on a line of its own under its
+  instruction, at the value's x after `↳` (the symbols font's), where on the instruction's
+  line after an arrow a name had only the room the instruction left; a label in the text
+  colour and its value strong at 120 points, values named as the editor's controls name
+  them, full length. The column holds the widest fixed value (Attacking Full-Backs) with a
+  few points to spare, and a target's name longer than that is cut with an ellipsis, rather
+  than every picture widened for the few long names (up to 282 points among the sample
+  saves' players) and left with empty room on the right. The team's Automatic settings,
+  which no preset owns, are one line under the grid. The pitch painter is one
   function the view and the picture share, taking the formation it paints. The Savefile menu's
   "Save formation pictures for a range of teams…" writes one such picture per team whose id
   lies between two teams picked in combo boxes on one row, `Teams`, the first, `to`, the last,
@@ -786,7 +804,7 @@ Win32 original hurt the most):
   the placeholder where the view shows a face. Drawing the picture: egui's Painter draws to the
   screen only, so the pitch painter draws through a small target that both the view's
   `Painter` and an `image::RgbaImage` implement, text through `ab_glyph` (already in the tree
-  through epaint), rather than a software renderer (a new dependency) or screenshot crops
+  through epaint) from the view's fonts, the symbols font after the body font for `↳`, rather than a software renderer (a new dependency) or screenshot crops
   (the view would flicker through every formation).
 - Formation edits participate in undo/redo like everything else.
 
@@ -880,19 +898,23 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
 - **A held starter** moves a whole stored unit at a time (2.8 points across, 6.8 down),
   standing where a release would put him, and the point of his marker first pressed stays
   under the pointer: the press's offset from his badge centre is kept for the whole drag, so
-  a press on his portrait or name does not jump his badge onto the pointer. At each step the
-  drop rule above sets the position he holds, from the one he held at the step before, as the
-  game's drag does every frame, so the path matters, not only the end (an LMF dragged along
-  the left keeps LMF wherever LMF is offered); his badge shows that position and his overall
-  there, or, over a teammate, the teammate's, which a release there gives him (the game's
-  badge does the same). The release writes the spot and the held position, one undoable edit.
+  a press on his portrait or name does not jump his badge onto the pointer. At each step his
+  badge shows the position a release there gives him and his overall at it: the drop rule
+  above at his spot, from the position he had when picked up, never from the one shown a
+  step earlier, so moving him back restores it (a CF dragged down to AMF and back up is a CF
+  again, as in PES 2017; ruled from the step before, he passed SS's rows on the way back and
+  stayed an SS). Over a teammate the badge shows the teammate's position, which a release
+  there gives him (the game's badge does the same). The release writes the spot and that
+  position, one undoable edit, and only a release commits one: a CF released as an AMF and
+  dragged back up is a CF again where his overall rates CF over SS, while one released in
+  SS's rows stays an SS in CF's area, SS being offered there.
   While he is held, the pitch outside the areas of the positions he is rated A or B at is
   darkened to 40% (the turf and its lines; the markers are drawn over it), as the game lights
   it: each lit area is its position's rectangle in the first table, its edges half a unit
   out from its rows through the spot mapping, a row at the table's edge (x 5 or 99, y 47)
-  reaching the canvas' edge; a band's area holds the smaller ones inside it (CB holds LB and
-  RB; CMF holds DMF, LMF, RMF and AMF; SS holds LWF, RWF and CF), so the lit rectangles never
-  overlap. These are the PES 2021 screen's edges within 1.5 points but for CF's lower one, which
+  reaching the canvas' edge. The darkening is painted as the cells the lit edges cut the
+  canvas into, each filled once when no lit rectangle holds it, so overlapping rectangles (a
+  band's and a smaller area inside it) never darken twice. These are the PES 2021 screen's edges within 1.5 points but for CF's lower one, which
   the screen draws at y 40.7 where the table's row starts at 40: the editor draws the table's,
   y 39.5, where a CF stops being offered, since the screen's own geometry for that edge is not
   read. The lit area says where he is rated, not where his position changes: the rule decides
@@ -1465,7 +1487,13 @@ SE-GUI-42  GIVEN the PES 21 save's team 718 (/f/) on preset 1's Kick-off, its LM
                 reads AMF; WHEN he is then released at (19, 20) THEN his slot holds (19, 20)
                 and LMF, one undoable edit; WHEN his popover is opened at (20, 26) THEN its
                 Position combo lists CMF and LMF alone, and WHEN its Y is set to 36 THEN he is
-                an LWF
+                an LWF; GIVEN the PES 17 save's team 702 (/a/), its CF COWBOY BEBOP (70223,
+                rated SS A and CF A) at (40, 45) WHEN he is held at (42, 30), clear of his
+                teammates' markers, THEN his badge reads AMF, and WHEN he is held back at
+                (40, 45) without a release THEN it reads CF; WHEN he is released at (42, 30)
+                THEN he is an AMF, and WHEN he is then dragged to (40, 45) THEN he is a CF;
+                WHEN he is instead released at (42, 30), then at (42, 37) (an SS), then
+                dragged to (40, 45) THEN he stays an SS
 SE-GUI-13  GIVEN the save open and a second save of the same version picked in the comparator
            WHEN the panel is drawn
            THEN it lists, per team and per player, the differences `diff <picked> <open>`

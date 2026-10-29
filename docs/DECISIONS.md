@@ -13017,3 +13017,58 @@ game's on a path that crosses areas. CF's 40.7 is the screen's panel geometry, n
 the table's edge is where a CF stops being offered, and a second geometry for one edge is
 not worth its code.
 Plan: `plans/save_editor.md` "Tactics editor" (the popover, "A held starter"), SE-GUI-42.
+
+## 2026-10-29 — save_editor — A held player's position is ruled from the one he had when picked up
+Decision: at every step of a drag, the drop rule runs at the held spot from the slot's stored
+position (nothing is written until the release), not from the position shown a step earlier;
+the badge shows that result, the release writes it. This replaces the step-to-step reading
+of "The pitch drag follows the game's" (2026-10-28); its steps, grab point, lit area and
+popover stand.
+Why: the maintainer's PES 17 check: COWBOY BEBOP (/a/, a CF rated SS A and CF A) dragged down
+to AMF and back up without a release is a CF again, where the step-to-step rule, passing
+SS's rows on the way back, left him an SS (found in the draft); released as an AMF and
+dragged back he is a CF (his CF overall over his SS); released in SS's rows, then dragged
+into CF's area, he stays an SS. The rule from the stored position gives all three. The
+executable reads the position byte every frame, but of a formation the drag does not
+commit before the release, which the step-to-step reading missed. The same check found
+the swap working as the editor's does, so that open check is closed.
+Plan: `plans/save_editor.md` "Tactics editor" ("A held starter"), SE-GUI-42.
+
+## 2026-10-29 — save_editor — The formation selector is locked on Kick-off while Fluid formation is off
+Decision: while the shown preset's Fluid formation is off (always on PES 2015, which has no
+switch), the Tactics editor's formation selector is disabled and shows Kick-off; switching
+it off moves the view back to Kick-off. The formation bar's Copy/swap menu stays enabled.
+Why: the maintainer's ask. The game fields the In-possession and Out-of-possession
+formations only while Fluid formation is on, so editing them with it off changed nothing a
+match uses and left a member wondering why. Copy/swap stays: copying Kick-off into them is
+how a member prepares them before switching Fluid formation on.
+Plan: `plans/save_editor.md` "Tactics editor" (the formation bar).
+
+## 2026-10-29 — save_editor — Formation pictures draw hidden formations, label Fluid formation, and put a target on its own line
+Decision: in a formation picture, a preset whose Fluid formation is off but whose
+In-possession or Out-of-possession formation is not an exact copy of Kick-off draws all
+three, as a fluid preset does (PES 2015, with no switch, draws Kick-off alone), the other
+two at 60% opacity over the background (the maintainer's starting value); every row
+has "Fluid On" or "Fluid Off" under its "Preset n" in the text colour (PES 2016 on),
+with or without the settings, and the settings column no longer lists Fluid formation; an
+advanced instruction's target is a line of its own under the instruction, at the value's
+x, after `↳`, a new symbol of the symbols font (`→` with a stem to the cap height); the
+settings column narrows from 300 points to 240, the widest fixed value with a few to spare,
+a longer target name cut with an ellipsis. The Tactics editor's formation selector still locks on Kick-off while Fluid formation is off,
+even when the other two differ. Supersedes 2026-10-27's "Formation pictures, the
+formation's name and the nation names" on its "Kick-off formation alone, with no
+explaining line".
+Why: the maintainer's asks. Some teams hide formations by editing the In-possession and
+Out-of-possession formations and then switching Fluid formation off, ready to switch it on
+in a match; the picture is the organizers' check, so it shows them, and the label says
+which rows a match fields as drawn. The dimming says the two are hidden, and may only be
+leftovers a manager forgot there. The target after an arrow on the instruction's line
+was cut ("Counter Target → LOLICATGIR…") while every other row left the column's right
+empty. The maintainer asked for an arrow turning from down to right; Segoe UI Symbol's
+`↳`, half as wide, read as a hook at 12.5, so ours is `→` with a stem. The maintainer
+also asked to remove the room left on the right, and to let long names take the ellipsis
+rather than size the column for them. On the lock, the
+maintainer: organizers never need hidden formations in the view, the pictures are a
+quicker check, and the view is for managers and copies the game.
+Plan: `plans/save_editor.md` "Tactics editor" (the formation bar, "Formation pictures");
+`plans/core/gui.md` (the Dark/light theme row's symbols); `resources/fonts/README.md`.

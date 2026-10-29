@@ -1,21 +1,22 @@
-//! The position a starter's marker released on the grass takes: the
-//! rule the game's own formation editor applies, read from PES 2016's
-//! executable (the last version left unpacked) and checked against PES
-//! 2017's and PES 2021's editors. It is no fixed map of pitch areas to
-//! positions: a point offers up to two positions and the dragged
-//! player's own per-position overalls pick between them, so the same
-//! spot gives different players different positions.
+//! The position a starter takes at a spot of the pitch: the rule the
+//! game's own formation editor applies at every step of a drag and in
+//! its Select Position menu, read from PES 2016's executable (the last
+//! version left unpacked) and checked against PES 2017's and PES 2021's
+//! editors. It is no fixed map of pitch areas to positions: a point
+//! offers up to two positions and the dragged player's own per-position
+//! overalls pick between them, so the same spot gives different players
+//! different positions.
 
 use pes_savefile::model::tactics::Formation;
 
 /// A position's pitch area in stored units, bounds inclusive (x 0 to
 /// 104 across, y 0 to 48 up).
 #[derive(Clone, Copy)]
-struct Rect {
-    y_min: u8,
-    y_max: u8,
-    x_min: u8,
-    x_max: u8,
+pub(super) struct Rect {
+    pub(super) y_min: u8,
+    pub(super) y_max: u8,
+    pub(super) x_min: u8,
+    pub(super) x_max: u8,
 }
 
 impl Rect {
@@ -40,8 +41,9 @@ const fn rect(y_min: u8, y_max: u8, x_min: u8, x_max: u8) -> Rect {
 /// either row does. The second table widens the first's left and
 /// central rows out to the pitch's edges and its top rows to y 48 —
 /// the right-side rows it leaves at x 99 — and both are kept as the
-/// game has them.
-const AREAS_A: [Rect; 13] = [
+/// game has them. The first table's rows are also the areas a held
+/// starter lights.
+pub(super) const AREAS_A: [Rect; 13] = [
     rect(0, 3, 52, 56),   // GK
     rect(4, 15, 5, 99),   // CB
     rect(4, 15, 5, 20),   // LB
@@ -84,17 +86,37 @@ const CANDIDATES: [u8; 11] = [2, 3, 4, 6, 7, 8, 9, 10, 12, 1, 11];
 /// many slots share them.
 const WIDE: [u8; 6] = [2, 3, 6, 7, 9, 10];
 
-/// The position `slot`'s marker takes released at the snapped point
-/// `(x, y)` in stored units: `current` where none of the defaults' or
-/// candidates' areas holds the point (the keeper's box among them: GK
-/// is neither), or where his own position
-/// is one of the two the point offers; else the band's default — the
-/// first of `BAND_DEFAULTS` whose area holds it — or the first free
-/// candidate of `CANDIDATES` whose area holds it, whichever
-/// `overalls` (his thirteen per-position ratings, indexed by the
-/// position byte) rates higher, the default on a tie. `overalls`
-/// `None` — an empty slot or a host that reads none — keeps `current`:
-/// no overall, no pick.
+/// The positions the snapped point `(x, y)` in stored units offers
+/// `slot` of `formation`, as the game's drag and its Select Position
+/// menu offer them: the band's default (the first of `BAND_DEFAULTS`
+/// whose area holds the point), then the first candidate of
+/// `CANDIDATES` whose area holds it and which is free, each only when
+/// found and the candidate left out when it is the default. At most
+/// two; none in the keeper's box, GK being neither.
+pub(super) fn spot_choices(formation: &Formation, slot: usize, x: u8, y: u8) -> Vec<u8> {
+    let default = BAND_DEFAULTS
+        .into_iter()
+        .find(|&position| holds(position, x, y));
+    let candidate = CANDIDATES
+        .into_iter()
+        .find(|&position| holds(position, x, y) && free(formation, slot, position))
+        .filter(|&candidate| Some(candidate) != default);
+    default.into_iter().chain(candidate).collect()
+}
+
+/// The position `slot` of `formation` takes at the snapped point `(x,
+/// y)` in stored units: his stored position where the point offers it or
+/// offers nothing (`spot_choices`); else the one position offered, or of
+/// two the one `overalls` (his thirteen per-position ratings, indexed by
+/// the position byte) rates higher, the band's default on a tie.
+/// `overalls` `None` (an empty slot or a host that reads none) keeps his
+/// position: no overall, no pick.
+///
+/// A drag rules every step from the stored position, which nothing
+/// writes until the release, never from the position shown a step
+/// earlier, as the game does: a CF dragged down to AMF and back up is a
+/// CF again, where ruling step to step would leave him the SS he passed
+/// through on the way back.
 pub(super) fn dropped_position(
     formation: &Formation,
     slot: usize,
@@ -103,28 +125,23 @@ pub(super) fn dropped_position(
     overalls: Option<&[u8; 13]>,
 ) -> u8 {
     let current = formation.players[slot].position;
-    let default = BAND_DEFAULTS
-        .into_iter()
-        .find(|&position| holds(position, x, y));
-    let candidate = CANDIDATES
-        .into_iter()
-        .find(|&position| holds(position, x, y) && free(formation, slot, position));
-    if default == Some(current) || candidate == Some(current) {
+    let choices = spot_choices(formation, slot, x, y);
+    if choices.contains(&current) {
         return current;
     }
     let Some(overalls) = overalls else {
         return current;
     };
-    match (default, candidate) {
-        (Some(default), Some(candidate)) => {
+    match *choices.as_slice() {
+        [] => current,
+        [only] => only,
+        [default, candidate, ..] => {
             if overalls[usize::from(candidate)] > overalls[usize::from(default)] {
                 candidate
             } else {
                 default
             }
         }
-        (Some(position), None) | (None, Some(position)) => position,
-        (None, None) => current,
     }
 }
 
