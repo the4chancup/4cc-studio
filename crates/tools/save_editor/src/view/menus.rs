@@ -458,6 +458,20 @@ const RANGE_SPAN: u64 = 22;
 /// which is barely readable.
 const READOUT_GREY: egui::Color32 = egui::Color32::from_gray(0xa0);
 
+/// `READOUT_GREY` on the light theme's faint box: the same contrast, 6.3,
+/// as the dark grey has on the dark one, where the dark grey itself would
+/// read at 2.6.
+const READOUT_GREY_LIGHT: egui::Color32 = egui::Color32::from_gray(0x5f);
+
+/// The range's last ID's colour on the theme `visuals` draw.
+fn readout_grey(visuals: &egui::Visuals) -> egui::Color32 {
+    if visuals.dark_mode {
+        READOUT_GREY
+    } else {
+        READOUT_GREY_LIGHT
+    }
+}
+
 /// The dialog's two columns: the option column's width, the widest
 /// option's, and the fields' column's, the range's (its start, the dash
 /// and its end box), which the one-ID boxes take too.
@@ -516,7 +530,7 @@ fn option_cell(ui: &mut egui::Ui, width: f32, add: impl FnOnce(&mut egui::Ui)) {
 }
 
 /// The range's last ID (the draft's `.readout`): a flat box a shade off
-/// the panel, its number in `READOUT_GREY`. No field and no disabled
+/// the panel, its number in `readout_grey`'s. No field and no disabled
 /// widget: it takes no click or focus, and reads as a label.
 fn readout(ui: &mut egui::Ui, value: u64) {
     let size = egui::vec2(BOGLO_BOX, ui.spacing().interact_size.y);
@@ -535,7 +549,7 @@ fn readout(ui: &mut egui::Ui, value: u64) {
             egui::Align2::CENTER_CENTER,
             text,
             egui::TextStyle::Body.resolve(ui.style()),
-            READOUT_GREY,
+            readout_grey(visuals),
         );
     }
 }

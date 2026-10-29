@@ -2352,6 +2352,41 @@ fn letter_color(
     galley_color(shape)
 }
 
+// A chosen C rating's square in the dark theme's grey (`#5a5a5a`) and in
+// its light twin (`#9f9f9f`) on the light theme, where the light theme's
+// dark letter still reads on it.
+#[test]
+fn a_chosen_c_rating_takes_each_themes_grey() {
+    let path = fixture(PesVersion::Pes21, "rating_c_theme");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    // LWF at C (stored 0), its `playable` entry the third.
+    file.player_mut(70101).unwrap().positions.playable[2] = 0;
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::sized(DEFAULT_PANE.x, 800.0);
+    for (theme, grey) in [
+        (egui::Theme::Dark, egui::Color32::from_gray(0x5a)),
+        (egui::Theme::Light, egui::Color32::from_gray(0x9f)),
+    ] {
+        window.ctx.set_theme(theme);
+        draw(&mut window, &mut view);
+        let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+        let c = rating_buttons(&nodes, "LWF")[0];
+        assert_eq!(
+            c.toggled(),
+            Some(accesskit::Toggled::True),
+            "premise: LWF holds C"
+        );
+        assert_eq!(
+            fill_at(&shapes, c.bounds().expect("bounds")),
+            Some(grey),
+            "LWF's C square on the {theme:?} theme"
+        );
+    }
+}
+
 // The chosen rating's fill and letter (the draft's `.sel.on` variants):
 // A a deep green (`#129648`) under a white letter, B the selection colour with
 // its foreground, C a grey square with the normal text, so the three

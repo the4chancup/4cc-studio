@@ -900,6 +900,32 @@ fn the_end_box_reads_the_start_plus_22_and_follows_it_read_only() {
     );
 }
 
+// The end box's number in the dark theme's grey (`#a0a0a0`) and in its
+// light twin (`#5f5f5f`) on the light theme, which reads at the same
+// contrast against the light background.
+#[test]
+fn the_end_boxs_number_takes_each_themes_grey() {
+    for (theme, grey) in [
+        (egui::Theme::Dark, egui::Color32::from_gray(0xa0)),
+        (egui::Theme::Light, egui::Color32::from_gray(0x5f)),
+    ] {
+        let (mut view, mut window, _) = open_boglo(&format!("boglo_readout_{theme:?}"));
+        window.ctx.set_theme(theme);
+        draw(&mut window, &mut view);
+        let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+        let end = boglo_fields(&nodes)
+            .end
+            .value()
+            .expect("the end box's number")
+            .to_owned();
+        assert_eq!(
+            painted_label_color(&nodes, &shapes, &end),
+            grey,
+            "the end box's number on the {theme:?} theme"
+        );
+    }
+}
+
 // Set, incremental from 60: every filled slot `k` (1-based) gets boots ID
 // 59 + k, and the dialog closes.
 #[test]

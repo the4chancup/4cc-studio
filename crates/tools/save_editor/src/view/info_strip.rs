@@ -711,7 +711,7 @@ fn side_row(ui: &mut egui::Ui, field_width: f32, held: u8) -> Option<(u8, u64)> 
                     true,
                     egui::RichText::new(label).color(ui.visuals().text_color()),
                 )
-                .fill(abilities::RATING_C_FILL)
+                .fill(abilities::rating_c_fill(ui.visuals()))
             } else {
                 egui::Button::selectable(false, label)
             };
@@ -729,11 +729,25 @@ fn side_row(ui: &mut egui::Ui, field_width: f32, held: u8) -> Option<(u8, u64)> 
 /// draws the eye only once the field reaches its limit.
 const COUNT_GREY: egui::Color32 = egui::Color32::from_rgb(0x5a, 0x5a, 0x5a);
 
+/// `COUNT_GREY` on the light theme's panel: the same quiet contrast, 2.5,
+/// as the dark grey has on the dark one, where the dark grey itself would
+/// read at 6.5, as loud as the text.
+const COUNT_GREY_LIGHT: egui::Color32 = egui::Color32::from_gray(0x9f);
+
+/// A count's grey under its limit on the theme `visuals` draw.
+fn count_grey(visuals: &egui::Visuals) -> egui::Color32 {
+    if visuals.dark_mode {
+        COUNT_GREY
+    } else {
+        COUNT_GREY_LIGHT
+    }
+}
+
 /// How near `limit` a count of `n` is, as its colour: the grey under it,
 /// the warning colour on it, the error colour past it.
 fn count_color(visuals: &egui::Visuals, n: usize, limit: usize) -> egui::Color32 {
     match n.cmp(&limit) {
-        std::cmp::Ordering::Less => COUNT_GREY,
+        std::cmp::Ordering::Less => count_grey(visuals),
         std::cmp::Ordering::Equal => visuals.warn_fg_color,
         std::cmp::Ordering::Greater => visuals.error_fg_color,
     }

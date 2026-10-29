@@ -1252,6 +1252,39 @@ fn title_shape<'a>(
         .unwrap_or_else(|| panic!("no painted text {text:?}"))
 }
 
+// A count under its limit in the dark theme's grey (`#5a5a5a`) and in its
+// light twin (`#9f9f9f`) on the light theme: General info's Name count for
+// 70101, the PES 21 fixture's first player.
+#[test]
+fn a_count_under_its_limit_takes_each_themes_grey() {
+    let path = fixture(PesVersion::Pes21, "count_theme");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::sized(DEFAULT_PANE.x, 700.0);
+    for (theme, grey) in [
+        (egui::Theme::Dark, egui::Color32::from_gray(0x5a)),
+        (egui::Theme::Light, egui::Color32::from_gray(0x9f)),
+    ] {
+        window.ctx.set_theme(theme);
+        draw(&mut window, &mut view);
+        let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+        let job = &text_shape(&shapes, "Name (").galley.job;
+        let (shown, limit) = job.text["Name (".len()..job.text.len() - 1]
+            .split_once('/')
+            .expect("the count reads n/max");
+        assert!(
+            shown.parse::<usize>().expect("n") < limit.parse::<usize>().expect("max"),
+            "premise: the name's count {} is under its limit",
+            job.text
+        );
+        let count = job
+            .format_at_byte(egui::text::ByteIndex(job.text.len() - 1))
+            .color;
+        assert_eq!(count, grey, "the Name count on the {theme:?} theme");
+    }
+}
+
 // plans "Editing UI", the player header bullet and the "No view draws the
 // tool's name" bullet: `<id> <name>` as the player view's title over the
 // strip's nine labels — on the player view alone, the team view editing no
