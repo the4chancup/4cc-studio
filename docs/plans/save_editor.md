@@ -78,7 +78,7 @@ not kept, so no team operation reaches past one team.
 | Clear visual settings flags (all players on team) | Kept |
 | Set edited/created flag (all players on team) | Kept |
 | Set / remove FPC invisibility (whole team) | Kept |
-| Set boot/glove IDs for everyone (boots: unchanged, incremental or same for all; gloves: unchanged, like the boots, or same for all; incremental gives slot `k` the start ID + `k` − 1, slots 1 to 23) | Kept, every filled slot of the roster numbered by its slot (4ccEditor stops at the first id missing from the team, a bug not kept), in 4ccEditor's own layout, the maintainer's design: a group per side (`Boot IDs`, `Glove IDs`), its options stacked (`Unchanged`, `Set incremental value:`, `Set all to the same ID:`; `Set like boot IDs`), each option's field in one column across both groups, the incremental range's last ID beside its start, read-only and following it (the start plus 22, slot 23's), drawn as a flat box a shade off the panel with its number in the weak text grey (a disabled widget's faded text is barely readable), the one-ID boxes as wide as the range, each group as wide as its options and fields and the window as wide as the groups; `Set` applies and closes, `Close` closes; a value past the field's range is an error line under the groups |
+| Set boot/glove IDs for everyone (boots: unchanged, incremental or same for all; gloves: unchanged, like the boots, or same for all; incremental gives slot `k` the start ID + `k` − 1, slots 1 to 23) | Kept, every filled slot of the roster numbered by its slot (4ccEditor stops at the first id missing from the team, a bug not kept), in 4ccEditor's own layout, the maintainer's design: a group per side (`Boot IDs`, `Glove IDs`), its options stacked (`Unchanged`, `Set incremental value:`, `Set all to the same ID:`; `Set like boot IDs`), each option's field in one column across both groups, the incremental range's last ID beside its start, read-only and following it (the start plus 22, slot 23's), drawn as a flat box a shade off the panel with its number in `#a0a0a0`, the draft's (`#5f5f5f` on the light theme; egui's weak text grey on that box is as faded as a disabled widget's text, barely readable), the one-ID boxes as wide as the range, each group as wide as its options and fields and the window as wide as the groups; `Set` applies and closes, `Close` closes; a value past the field's range is an error line under the groups |
 | Set player names to positions (each name becomes its registered position's full name, "Goalkeeper", and the edited-player flag is set) | Kept, same, and written: 4ccEditor renames the players in memory but never marks the records changed, so its Save writes none of it back (measured, the slice 2 parity run) |
 | Load squad (`.4ccs`, with stats/aesthetics/tactics checkboxes) | Kept as read-only legacy import, same section checkboxes; Team TOML import is the primary path. Cross-version import applies the playstyle/skill conversion maps |
 
@@ -271,7 +271,9 @@ all side by side.
   row's ink is below its own (about 11 points each on the maintainer's screen), not close
   under the buttons. The gaps are even in what the eye sees, not in boxes: a line box holds
   more room under the baseline than over the capitals, so equal box gaps of 7 read as 9 above
-  and 11 below, and the title sits 2 lower to even them.
+  and 11 below, so they are evened in ink: the drafts set the title 2 lower, and the app,
+  whose title sat low instead, takes a 6-point margin over it and room under it (11 and 11
+  measured).
 - **The player view**: three columns side by side, then the Appearance section, the room
   the fixed columns leave split into four equal gaps: after the player list, between the
   columns, and after Ability stats (29.4 points each at the 1280 × 780 window). The first
@@ -772,7 +774,8 @@ Win32 original hurt the most):
   room beside it empty, unless its other two are not exact copies of Kick-off: then it draws
   all three, as a fluid preset does, since a team can hide formations there and switch Fluid
   formation on in a match, and the picture is the organizers' check (PES 2015, with no switch,
-  draws Kick-off alone); the other two are drawn at 60% opacity over the background, so they
+  draws Kick-off alone); the other two are drawn at 60% opacity over the background (darker on the dark theme,
+  paler on the light, receding either way), so they
   read as unused, perhaps left there forgotten by the manager, rather than as a fluid set. A team whose every row draws one formation gets one column and no
   column heads (a lone "Kick-off" would name a switch the team never makes). With the
   settings, a 240 point column at the grid's right lists each preset's settings level with its

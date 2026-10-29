@@ -13072,3 +13072,31 @@ maintainer: organizers never need hidden formations in the view, the pictures ar
 quicker check, and the view is for managers and copies the game.
 Plan: `plans/save_editor.md` "Tactics editor" (the formation bar, "Formation pictures");
 `plans/core/gui.md` (the Dark/light theme row's symbols); `resources/fonts/README.md`.
+
+## 2026-10-29 — save_editor — The range's end box keeps the draft's grey; the app evens the titles' ink gaps its own way
+Decision: the boots/gloves dialog's read-only end box draws its number in `#a0a0a0`, the
+approved draft's `.readout` colour, not egui's weak text grey the plan named; the views'
+titles reach the plan's even ink gaps (11 above, 11 below) through a 6-point margin over the
+title and room under it, not by moving the title 2 lower as the drafts do.
+Why: the sidekick's measurements at ov2h. egui's weak grey on that box comes out near
+`#616161`, as faded as the disabled text the draft's own comment rejects. In the app the
+titles sat low (13 above, 7 to 8.5 below), the reverse of the drafts' boxes, so moving them
+lower would have widened the gap; the goal, even gaps in ink, is the plan's and holds.
+Plan: `plans/save_editor.md` "Editing UI" (the titles' paragraph), "Team operations" (the
+boot/glove row).
+
+## 2026-10-29 — gui — Every custom colour has a light-theme twin
+Decision: a colour a view names outside the theme's `Visuals` comes with a light-theme
+twin picked by `visuals.dark_mode`, its contrast ratio against the light background
+matched to the dark colour's against the dark one, as `SUCCESS_FG_LIGHT` already is;
+none for a colour on a surface both themes share (the pitch, a fill under its own text
+colour). The dark-only greys found are given theirs: the boots/gloves end box's
+`#a0a0a0` → `#5f5f5f`, the counts' `COUNT_GREY` `#5a5a5a` → `#9f9f9f`, the C rating's
+and held side toggles' fill `RATING_C_FILL` `#5a5a5a` → `#9f9f9f` (the light text, grey
+80, reads on it at 3.05, the dark theme's at 2.05).
+Why: the maintainer's ask: light support is second-class, but each new custom colour for
+the dark theme gets its light colour prepared with it. Without it, `RATING_C_FILL` put
+the light theme's dark text on a dark grey, and the two greys read as normal text or
+faded to nothing.
+Plan: `plans/core/gui.md` (the Dark/light theme row); `plans/save_editor.md` "Formation
+pictures" (the dimming on the light theme).
