@@ -4432,7 +4432,7 @@ briefs, review loops, gates and mutation runs as for any step.
       `Marks::paint` given the cell's rect. Tests in `tests/abilities.rs` (right edges at one x,
       12 before the box, centred on its row) and `tests/live_marks.rs` (the marks 2 before the
       column), red on the left-aligned labels and on a mark keyed to the text
-    - [ ] ov2h the sixth rulings' looks (the maintainer, 2026-10-28; DECISIONS "The final
+    - [x] ov2h the sixth rulings' looks (the maintainer, 2026-10-28; DECISIONS "The final
       pass's sixth rulings"; drafts done, `plans/save_editor.md` "Editing UI", "Tactics
       editor"): the drag handle 4 points from the row's edge and 4 before the place, in the
       player list and the lineup lists (DECISIONS "The final pass's seventh rulings"); the
@@ -4451,7 +4451,15 @@ briefs, review loops, gates and mutation runs as for any step.
       badges' colours"; `team_widgets` `pitch`'s `position_colour` shared, not copied); the toolbar's `• unsaved
       changes` in the link blue (DECISIONS "The unsaved-changes label in the link blue").
       Every draft change of ov2b to ov2h
-      is approved (the maintainer, 2026-10-28: "All approved"); what is left is building them
+      is approved (the maintainer, 2026-10-28: "All approved"). Built 2026-10-29 (`1784c17b`, rework 1
+      `e1babcce` the three dark-only greys' light colours, merge `c7fab4d2`;
+      `studio_core` `widgets/{toolbar,ink}.rs`, `save_editor` `view/{mod,menus,info_strip,
+      team,player_list}.rs`, `team_widgets` `pitch/lineup.rs`, help 02, 05, 07), the plan
+      corrected on the end box's grey and the titles' route (DECISIONS "The range's end box
+      keeps the draft's grey"). Left to the steps that build their features: the toolbar's
+      Save as (l3), the Savefile menu's Apply aesthetics patch and the Team menu's Import /
+      export team file (8.9k slice 5), Save a picture of the formations and the pictures
+      range dialog, its range on one row (8.33, 8.34). Not yet seen in a built window (ov1)
   - [ ] ov6 Live AATF's whole look (the maintainer, 2026-10-28): every element rendered from
     the drafts, `.tmp/0_0_1ov/live_gallery.py` → `.tmp/0_0_1ov/live/`; the first rulings
     drafted and planned (ov2f; the dock's kind codes kept). The two points left for later (a
@@ -4536,6 +4544,25 @@ briefs, review loops, gates and mutation runs as for any step.
     host's `rated` fill tested), merge `8315c07e`; `team_widgets` pitch (`drop_rule.rs`, new
     `lit_area.rs`, `mod.rs`, `popover.rs`, tests), `tactics/mod.rs`; `save_editor`
     `view/tactics.rs` (`roster_slot`), help 08. Not yet seen in a built window (ov1)
+  - [ ] ov11 the light theme (the maintainer, 2026-10-29: is it usable? then "avoid writing any
+    colors directly, ideally they should all be part of a switchable palette"; DECISIONS
+    "Every colour comes from a switchable palette, none written in a view")
+    - [ ] ov11a the palette (`plans/core/gui.md`, the Dark/light theme row): `Palette` in
+      `studio_core::theme` with `DARK` and `LIGHT`, every colour constant and inline
+      colour of the product code moved into it (`SUCCESS_FG`/`_LIGHT`, the pitch's,
+      the ratings' fills, `COUNT_GREY`, the boots readout, the medals, the WORK RESULT
+      name colour, the colour picker's markers...), each light value by the contrast rule;
+      `scripts/colour_literals.py` with its test, in `gates` and `gates-changed` (lead:
+      a lint). Cross-crate: after ov2e lands. ov2h's rework gives the three dark-only
+      greys `_LIGHT` twins and tests on both themes; their constants move here, the tests
+      stay
+    - [ ] ov11b the light theme looked at: no test or capture has ever drawn a view in it
+      and the drafts are dark only. Render every Save editor view and dialog in it
+      (built-window captures with the maintainer's yes, the theme switched in the
+      sandbox's settings, or headless frames), list what reads poorly, fix it in the
+      palette. Known: the members' own name colour codes, chosen for the game's dark
+      screens (theirs, not ours to change: whether a light theme draws names on a dark
+      chip or outlines them is a question for the maintainer once seen)
   - [ ] ov3 a general overlap test: a headless pass over every modal and view failing when two
     widgets' rectangles intersect (catches collisions, not a draft mismatch: ov1 does that)
   - [ ] ov4 8.20's host control (lead, drafts): the captures in
@@ -4757,7 +4784,7 @@ The phase's steps are itemized when it opens; prepared ahead:
 
 ### Phase 16 — Polish and distribution
 
-Steps are itemized when Phase 15 closes; two are fixed already:
+Steps are itemized when Phase 15 closes; three are fixed already:
 
 - [x] 16.w the release exe's platform floor and size (maintainer, 2026-10-15; taken up right
   after 5.3b3's review, not at Phase 16). A survey of 2026-10-14 (`.tmp/win7/`) found the
@@ -4815,6 +4842,14 @@ Steps are itemized when Phase 15 closes; two are fixed already:
     → verify: a table per encoder and preset, and a recommendation: the preset and CPU encoder
     to ship, or the BC3 fallback, with a decision entry; our own encoder only if every lever
     falls short
+
+- [ ] 16.y a settings panel where a member customizes the palette (the maintainer,
+  2026-10-29: after Release 0.2.0), on ov11a's `studio_core::theme::Palette` (`plans/core/gui.md`,
+  the Dark/light theme row): each named colour editable with the suite's colour picker,
+  saved in the settings, reset per colour and whole; `theme::palette` then returns the
+  member's edited copy, the built-in dark and light instances its defaults. To plan first:
+  whether egui's own `Visuals` colours (text, widget fills, the accent) are editable too,
+  or the palette grows fields that set them; a draft, then the plan section
 
 ### Phase 20 — Ruleset editor (post-release)
 
