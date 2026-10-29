@@ -8,6 +8,8 @@ use crate::test_support::{Headless, centre, control_right_of, pointer_at};
 mod drop_rule;
 /// The drag-and-drop and swap tests.
 mod drops;
+/// The lineup lists' rows' tests.
+mod lineup;
 /// The geometry and painted-output tests.
 mod paint;
 /// The slot popover and armed assign modes' tests.

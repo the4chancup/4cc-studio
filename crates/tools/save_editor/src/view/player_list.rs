@@ -7,7 +7,7 @@ use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::names::display_name;
-
+use studio_core::widgets::ink_span;
 use team_widgets::names::{append_name, plain_format};
 
 use crate::session::Session;
@@ -23,6 +23,11 @@ const SWATCH: f32 = 10.0;
 /// `margin-left: 4px` on top of its 5 px flex gap: 9 px dot to mark,
 /// measured on the rendered draft).
 pub(super) const DOT_MARK_GAP: f32 = 4.0;
+
+/// A player row's drag handle `≡` stands this far from the row's left
+/// edge, and his place this far after the handle, both in ink (the
+/// draft's `.prow .handle`): the name gets the room.
+const HANDLE_INSET: f32 = 4.0;
 
 /// The `●` of a row with unsaved changes (the draft's `.plist .dot`: the
 /// warning colour, pushed to the row's right end): its galley at the
@@ -473,13 +478,29 @@ fn player_row(
         // row's right end, as the team row's does).
         let dot = dirty_dot(ui, dirty);
         let room = end_room(ui, dot.as_ref().map(|galley| galley.size().x), mark_width);
+        // The handle, then the text, placed by their ink, which starts a
+        // glyph's side bearing in from its box: boxes alone left the place
+        // a point off on the rows from 10 to 19.
+        let handle = ui.painter().layout_no_wrap(
+            "\u{2261}".to_owned(),
+            egui::TextStyle::Body.resolve(ui.style()),
+            ui.visuals().weak_text_color(),
+        );
+        let handle_ink = ink_span(&handle);
+        let handle_x = rect.min.x + HANDLE_INSET - handle_ink.min;
+        let text_ink_x = handle_x + handle_ink.max + HANDLE_INSET;
         job.wrap = egui::text::TextWrapping::truncate_at_width(
-            (rect.max.x - rect.min.x - 2.0 * padding - room).max(0.0),
+            (rect.max.x - text_ink_x - padding - room).max(0.0),
         );
         let galley = ui.painter().layout_job(job);
         ui.painter().galley(
+            egui::pos2(handle_x, rect.center().y - handle.size().y / 2.0),
+            handle,
+            visuals.fg_stroke.color,
+        );
+        ui.painter().galley(
             egui::pos2(
-                rect.min.x + padding,
+                text_ink_x - ink_span(&galley).min,
                 rect.center().y - galley.size().y / 2.0,
             ),
             galley.clone(),

@@ -6,7 +6,9 @@ use pes_savefile::model::tactics::{SetPieceTakers, TeamTactics};
 use pes_savefile::schema::instruction;
 use pes_version::PesVersion;
 
-use super::{LineupDrag, position_label};
+use studio_core::widgets::ink_span;
+
+use super::{LineupDrag, position_colour, position_label};
 use crate::names::append_name;
 use crate::tactics::{RosterRow, TacticsView, raw_name_at};
 
@@ -21,6 +23,12 @@ const LIST_HEIGHT: f32 = 12.0 * ROW_HEIGHT;
 /// The padding above and below a list's rows (`#tac-lists .llist`'s
 /// `padding: 4px 0`).
 const LIST_PADDING: f32 = 4.0;
+/// A row's drag handle stands this far from the row's left edge, and the
+/// position this far after the handle, both in ink (the draft's `.lrow
+/// .handle`): the name gets the room.
+const HANDLE_INSET: f32 = 4.0;
+/// The position column's width (the draft's `.lrow .fpos`).
+const POSITION_WIDTH: f32 = 30.0;
 
 /// The draft's `#tac-lists` beside the pitch: the starting eleven and
 /// the bench, each list half of the span it is given less `LIST_GAP`,
@@ -99,23 +107,29 @@ pub fn lineup(
 /// scroll area `LIST_HEIGHT` of rows with `LIST_PADDING` above and
 /// below; the rows draw through `add`.
 fn list(ui: &mut egui::Ui, id_salt: &'static str, add: impl FnOnce(&mut egui::Ui)) {
-    egui::Frame::group(ui.style()).show(ui, |ui| {
-        // No gaps between the padding and the scroll either: the inner
-        // height is exactly `LIST_HEIGHT` plus the two pads.
-        ui.spacing_mut().item_spacing.y = 0.0;
-        ui.add_space(LIST_PADDING);
-        egui::ScrollArea::vertical()
-            .id_salt(id_salt)
-            .auto_shrink([false, false])
-            .max_height(LIST_HEIGHT)
-            .show(ui, |ui| {
-                // 18-point rows back to back (the draft's `.lrow`): no
-                // row gap, the handle row's own height the draft's 18.
-                ui.spacing_mut().interact_size.y = ROW_HEIGHT;
-                add(ui);
-            });
-        ui.add_space(LIST_PADDING);
-    });
+    // No margin left of the rows: a row runs from the frame, as the draft's
+    // `.lrow` from its list's border, so its handle's inset is its own.
+    let frame = egui::Frame::group(ui.style());
+    let margin = frame.inner_margin;
+    frame
+        .inner_margin(egui::Margin { left: 0, ..margin })
+        .show(ui, |ui| {
+            // No gaps between the padding and the scroll either: the inner
+            // height is exactly `LIST_HEIGHT` plus the two pads.
+            ui.spacing_mut().item_spacing.y = 0.0;
+            ui.add_space(LIST_PADDING);
+            egui::ScrollArea::vertical()
+                .id_salt(id_salt)
+                .auto_shrink([false, false])
+                .max_height(LIST_HEIGHT)
+                .show(ui, |ui| {
+                    // 18-point rows back to back (the draft's `.lrow`): no
+                    // row gap, the handle row's own height the draft's 18.
+                    ui.spacing_mut().interact_size.y = ROW_HEIGHT;
+                    add(ui);
+                });
+            ui.add_space(LIST_PADDING);
+        });
 }
 
 /// One starting-eleven row (the draft's XI `lrow`): the formation slot's
@@ -136,7 +150,7 @@ fn starter_row(
         ui,
         ("starting eleven", index),
         LineupDrag::Starter(index),
-        position_label(position),
+        Some(position),
         raw_name_at(roster, slot),
     );
     if let Some(dropped) = response.dnd_release_payload::<LineupDrag>() {
@@ -174,8 +188,7 @@ fn bench_row(
     let slot = tactics.bench_order[index];
     let position = roster
         .get(usize::from(slot))
-        .and_then(|row| row.registered_position)
-        .map_or("--", position_label);
+        .and_then(|row| row.registered_position);
     let response = lineup_row(
         ui,
         ("bench", index),
@@ -201,12 +214,14 @@ fn bench_row(
 
 /// One lineup row, the draft's `.lrow`: the ≡ handle, the position
 /// column and the raw name drawn with its colour codes; a drag source
-/// of `payload`, a drop target always.
+/// of `payload`, a drop target always. `position` is the position byte
+/// the row shows, drawn in its group's colour as the pitch badges draw
+/// it; `None` draws `--` in the weak colour.
 fn lineup_row(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
     payload: LineupDrag,
-    position: &str,
+    position: Option<u8>,
     raw_name: &str,
 ) -> egui::Response {
     ui.dnd_drag_source(ui.scope_id().with(id_salt), payload, |ui| {
@@ -214,11 +229,35 @@ fn lineup_row(
             // The whole band is the drop target (the draft's `.lrow` spans
             // the list), not only the handle, position and name.
             ui.set_min_width(ui.available_width());
-            ui.weak("≡");
-            ui.add_sized(
-                egui::vec2(30.0, ui.spacing().interact_size.y),
-                egui::Label::new(egui::RichText::new(position).weak()),
+            let name_gap = ui.spacing().item_spacing.x;
+            ui.spacing_mut().item_spacing.x = 0.0;
+            let font = egui::TextStyle::Body.resolve(ui.style());
+            let weak = ui.visuals().weak_text_color();
+            let handle = ui
+                .painter()
+                .layout_no_wrap("≡".to_owned(), font.clone(), weak);
+            let place = ui.painter().layout_no_wrap(
+                position.map_or("--", position_label).to_owned(),
+                font,
+                position.map_or(weak, position_colour),
             );
+            // The handle and the position placed by their ink, which
+            // starts a glyph's side bearing in from its box: boxes alone
+            // left them a point off on some positions' letters.
+            let handle_ink = ink_span(&handle);
+            ui.add_space(HANDLE_INSET - handle_ink.min);
+            let after_handle = handle.size().x - handle_ink.max;
+            ui.add(egui::Label::new(handle));
+            ui.add_space(HANDLE_INSET - after_handle - ink_span(&place).min);
+            ui.allocate_ui_with_layout(
+                egui::vec2(POSITION_WIDTH, ui.spacing().interact_size.y),
+                egui::Layout::left_to_right(egui::Align::Center),
+                |ui| {
+                    ui.set_min_width(POSITION_WIDTH);
+                    ui.add(egui::Label::new(place));
+                },
+            );
+            ui.add_space(name_gap);
             let mut job = egui::text::LayoutJob::default();
             append_name(&mut job, raw_name);
             // Cut at the row's end (the full name on hover): the

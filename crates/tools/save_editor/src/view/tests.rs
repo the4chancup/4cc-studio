@@ -274,18 +274,31 @@ fn menu_button<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::
         .unwrap_or_else(|| panic!("the {label:?} menu button"))
 }
 
-/// `menu`'s popup open for one frame: a click on its button (skipped when
-/// a previous call left `item` visible), then the frame's nodes.
+/// `menu`'s popup open for one frame: the pointer moved onto its button,
+/// which opens it while another of the toolbar's menus is open (a click
+/// then would close it again), else a click on it; either skipped when
+/// `item` is visible already. Then the frame's nodes.
 fn open_menu(
     window: &mut Headless,
     view: &mut SaveView,
     menu: &str,
     item: &str,
 ) -> Vec<accesskit::Node> {
+    let shows_item = |nodes: &[accesskit::Node]| {
+        nodes.iter().any(|node| {
+            node.role() == Role::Button && node.label().is_some_and(|l| l.starts_with(item))
+        })
+    };
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
-    if nodes.iter().any(|node| {
-        node.role() == Role::Button && node.label().is_some_and(|l| l.starts_with(item))
-    }) {
+    if shows_item(&nodes) {
+        return nodes;
+    }
+    let button = centre(menu_button(&nodes, menu));
+    window.frame(vec![egui::Event::PointerMoved(button)], |ui| {
+        show(ui, view, &|| Vec::new())
+    });
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new()));
+    if shows_item(&nodes) {
         return nodes;
     }
     click(window, menu_button(&nodes, menu), view);
@@ -465,6 +478,23 @@ fn text_shape<'a>(
         })
         .next()
         .unwrap_or_else(|| panic!("no painted text starting {starts_with:?}"))
+}
+
+/// The ink of `shape`'s painted glyphs: each glyph's bitmap where the
+/// tessellator places it (`galley`'s row, the glyph's baseline position
+/// and its bitmap's offset), spaces skipped.
+fn ink(shape: &egui::epaint::TextShape) -> egui::Rect {
+    let mut rect = egui::Rect::NOTHING;
+    for row in &shape.galley.rows {
+        for glyph in &row.row.glyphs {
+            if glyph.uv_rect.is_nothing() {
+                continue;
+            }
+            let min = shape.pos + row.pos.to_vec2() + glyph.pos.to_vec2() + glyph.uv_rect.offset;
+            rect = rect.union(egui::Rect::from_min_size(min, glyph.uv_rect.size));
+        }
+    }
+    rect
 }
 
 /// The colour `shape`'s text paints in: a section's own colour when one
@@ -1441,3 +1471,4 @@ mod strip;
 mod tactics;
 mod tactics_undo;
 mod team;
+mod toolbar;

@@ -33,7 +33,7 @@ fn scratch_of(view: &SaveView) -> PathBuf {
         .to_path_buf()
 }
 
-/// The comparator opened from the toolbar's Panels menu: the
+/// The comparator opened from the toolbar's Savefile menu: the
 /// "Comparator…" item clicked, the next frame's node pairs returned.
 fn open_comparator(
     window: &mut Headless,
@@ -42,7 +42,7 @@ fn open_comparator(
     let nodes = draw(window, view);
     click(
         window,
-        node_labeled(&nodes, Role::Button, &menu_label("Panels")),
+        node_labeled(&nodes, Role::Button, &menu_label("Savefile")),
         view,
     );
     let nodes = draw(window, view);

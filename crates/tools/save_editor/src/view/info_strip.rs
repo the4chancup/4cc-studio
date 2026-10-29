@@ -82,22 +82,39 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         .expect("the selected player")
         .name
         .clone();
-    // `<id> <name>` as the view's title, not the tool's name, which the
-    // title bar carries: the id in the weak colour, the name's colour
-    // codes drawn as the player list draws them (`append_name`), all at
-    // the heading text style.
+    // General info's title holds its ink higher in its row than the team
+    // view's labels, centred in their 18-point row, so this view's first
+    // row needs more room under the title for even ink gaps.
+    view_title(ui, player_id, &name, 4.0);
+}
+
+/// A view's title, the player view's and the team view's alike (the
+/// draft's `viewTitle`): `<id> <name>`, not the tool's name, which the
+/// title bar carries. The id in the weak colour as the list draws ids, the
+/// name's colour codes drawn as the list draws them (`append_name`), its
+/// plain runs in the strong colour, all in the body text's size (the app
+/// installs no bold face). `space_below` comes after it: the view's first
+/// row's ink then stands as far below the title's ink as the title's
+/// stands below the toolbar's buttons. Even boxes would not do it, since a
+/// line box holds more room under the baseline than over the capitals.
+pub(super) fn view_title(ui: &mut egui::Ui, id: u32, name: &str, space_below: f32) {
+    let body = egui::TextStyle::Body.resolve(ui.style());
     let mut title = egui::text::LayoutJob::default();
     title.append(
-        &format!("{player_id} "),
+        &format!("{id} "),
         0.0,
-        egui::TextFormat::simple(egui::FontId::default(), ui.visuals().weak_text_color()),
+        egui::TextFormat::simple(body.clone(), ui.visuals().weak_text_color()),
     );
-    append_name(&mut title, &name);
-    let heading = egui::TextStyle::Heading.resolve(ui.style());
+    append_name(&mut title, name);
+    let strong = ui.visuals().strong_text_color();
     for section in &mut title.sections {
-        section.format.font_id = heading.clone();
+        section.format.font_id = body.clone();
+        if section.format.color == egui::Color32::PLACEHOLDER {
+            section.format.color = strong;
+        }
     }
     ui.label(title);
+    ui.add_space(space_below);
 }
 
 /// The General info panel's content (`generalPanel`): the Name and Shirt

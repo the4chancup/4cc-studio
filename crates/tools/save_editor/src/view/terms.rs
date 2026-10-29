@@ -1247,7 +1247,7 @@ mod tests {
         );
         assert_eq!(terms.len(), 2);
         assert_term(&terms[0], "EditedName", "0", "1");
-        assert_term(&terms[1], "Team", "/3/", "/3/X");
+        assert_term(&terms[1], "Name", "/3/", "/3/X");
     }
 
     /// The team fields', the kit slots' and the roster's rows: the view's

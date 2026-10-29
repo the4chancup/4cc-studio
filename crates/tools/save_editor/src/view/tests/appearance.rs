@@ -1499,10 +1499,23 @@ fn open_tool_menu(
     menu: &str,
     item: &str,
 ) -> Vec<accesskit::Node> {
+    let shows_item = |nodes: &[accesskit::Node]| {
+        nodes.iter().any(|node| {
+            node.role() == Role::Button && node.label().is_some_and(|l| l.starts_with(item))
+        })
+    };
     let nodes = tool_frame(window, tool, ctx);
-    if nodes.iter().any(|node| {
-        node.role() == Role::Button && node.label().is_some_and(|l| l.starts_with(item))
-    }) {
+    if shows_item(&nodes) {
+        return nodes;
+    }
+    // The pointer onto the button first: while another menu is open that
+    // opens this one, and a click would close it again (`open_menu`).
+    let button = centre(menu_button(&nodes, menu));
+    window.frame(vec![egui::Event::PointerMoved(button)], |ui| {
+        tool.view(ui, ctx)
+    });
+    let nodes = tool_frame(window, tool, ctx);
+    if shows_item(&nodes) {
         return nodes;
     }
     press_release(window, centre(menu_button(&nodes, menu)), |ui| {

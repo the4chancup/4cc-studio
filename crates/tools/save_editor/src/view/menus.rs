@@ -1,8 +1,8 @@
 //! The toolbar's menu buttons: the Player menu's four stat operations and FPC toggle,
 //! the Team menu's operations over the selected row's team, each a
 //! sealed undo entry (`session/{player,team}_ops.rs`), the Savefile
-//! menu's roster sheet and Fix database (`session/database.rs`), the
-//! Panels menu's floating panels, and the dialogs they open (`Boglo`,
+//! menu's Comparator, roster sheet and Fix database
+//! (`session/database.rs`), and the dialogs they open (`Boglo`,
 //! `StatNum`, `CopySwap` and the Fix database confirmation; the draft's
 //! `dlgBoglo`, `dlgNum`, `dlgCopySwap` and `dlgFixDb`).
 
@@ -221,12 +221,14 @@ pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     });
 }
 
-/// The Savefile menu button (the draft's `databaseMenu`): Output rosters
-/// to TSV, a pure read of the open save so never locked — `rfd`'s save
-/// dialog with `EDIT.tsv` as the default name, a write error shown as the
-/// refusal — then Multi-team AATF, a read too (`multi_aatf`), and Fix
-/// database, under the aesthetics lock with the ownership line as its
-/// disabled hover (SE-GUI-22). The menu is disabled with no save open.
+/// The Savefile menu button (the draft's `databaseMenu`), the whole save's
+/// work grouped by what it acts on: the Comparator, which reads a second
+/// save against this one; then the reports, Output rosters to TSV, a pure
+/// read of the open save so never locked — `rfd`'s save dialog with
+/// `EDIT.tsv` as the default name, a write error shown as the refusal —
+/// and Multi-team AATF, a read too (`multi_aatf`); then Fix database,
+/// under the aesthetics lock with the ownership line as its disabled hover
+/// (SE-GUI-22). The menu is disabled with no save open.
 pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     let (unlocked, version) = {
         let Some(session) = view.session.as_ref() else {
@@ -241,6 +243,11 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
         let Some(session) = view.session.as_mut() else {
             return;
         };
+        if ui.button("Comparator\u{2026}").clicked() {
+            view.comparator.open = true;
+            ui.close();
+        }
+        ui.separator();
         if ui.button("Output rosters to TSV\u{2026}").clicked() {
             let written = rfd::FileDialog::new()
                 .set_file_name("EDIT.tsv")
@@ -258,6 +265,7 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
             view.multi_aatf.open(session.file());
             ui.close();
         }
+        ui.separator();
         if ui
             .add_enabled(unlocked, egui::Button::new("Fix database\u{2026}"))
             .on_disabled_hover_text(ownership_tip(version))
@@ -266,19 +274,6 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
             view.fix_database = true;
             ui.close();
         }
-    });
-}
-
-/// The Panels menu button (after Savefile, the draft's panel items): the
-/// comparator. Disabled with no save open.
-pub(crate) fn panels_menu(ui: &mut egui::Ui, view: &mut SaveView) {
-    ui.add_enabled_ui(view.session.is_some(), |ui| {
-        menu_button(ui, "Panels", |ui| {
-            if ui.button("Comparator\u{2026}").clicked() {
-                view.comparator.open = true;
-                ui.close();
-            }
-        });
     });
 }
 
@@ -362,8 +357,8 @@ pub(crate) fn fix_database_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
 /// while it is open): the mode radios and the three ID fields, prefilled
 /// from the selected player's own IDs — on a team row the team's first
 /// filled roster slot's — with Unchanged picked on both sides
-/// (the draft's defaults); `error` holds the refusal OK last got, shown
-/// under the buttons while the dialog stays open.
+/// (the draft's defaults); `error` holds the refusal Set last got, shown
+/// under the groups while the dialog stays open.
 pub(crate) struct Boglo {
     /// The boots mode radio.
     boots: BootsPick,
@@ -375,7 +370,7 @@ pub(crate) struct Boglo {
     boots_id: u32,
     /// Same-ID-for-all's gloves ID.
     gloves_id: u32,
-    /// The refusal `set_boots_and_gloves` returned on OK.
+    /// The refusal `set_boots_and_gloves` returned on Set.
     error: Option<String>,
 }
 
@@ -437,11 +432,120 @@ impl Boglo {
     }
 }
 
-/// The dialog while `view.boglo` holds one: the boots and gloves radios
-/// with their ID fields (the last filled slot's resulting ID read-only
-/// beside Incremental's start, the draft's `dlgBoglo`), the last refusal
-/// under the buttons; OK applies and closes, a refusal keeps it open, and
-/// Cancel or Escape closes it.
+/// The dialog's option texts, both groups': the option column is as wide
+/// as the widest, so every field stands at one x.
+const BOGLO_OPTIONS: [&str; 4] = [
+    "Unchanged",
+    "Set incremental value:",
+    "Set all to the same ID:",
+    "Set like boot IDs",
+];
+/// A field's width in the dialog (the draft's number input).
+const BOGLO_BOX: f32 = 52.0;
+/// The gap either side of the range's dash (the draft's `.row` gap).
+const BOGLO_RANGE_GAP: f32 = 6.0;
+/// The gap from the option column to the fields' (the draft's `.boglo`
+/// column gap).
+const BOGLO_COLUMN_GAP: f32 = 12.0;
+/// The gap between a group's rows, and under its title (the draft's
+/// `.boglo` row gap and top margin).
+const BOGLO_ROW_GAP: f32 = 6.0;
+/// How far the range's last ID lies past its start: slot 23's, a roster's
+/// last.
+const RANGE_SPAN: u64 = 22;
+/// The range's last ID's colour (the draft's `.boglo input.readout`):
+/// egui's weak grey on the box is as faded as a disabled field's text,
+/// which is barely readable.
+const READOUT_GREY: egui::Color32 = egui::Color32::from_gray(0xa0);
+
+/// The dialog's two columns: the option column's width, the widest
+/// option's, and the fields' column's, the range's (its start, the dash
+/// and its end box), which the one-ID boxes take too.
+struct BogloColumns {
+    option: f32,
+    field: f32,
+}
+
+impl BogloColumns {
+    fn measure(ui: &egui::Ui) -> BogloColumns {
+        let text_width = |text: &str| {
+            ui.painter()
+                .layout_no_wrap(
+                    text.to_owned(),
+                    egui::TextStyle::Button.resolve(ui.style()),
+                    egui::Color32::PLACEHOLDER,
+                )
+                .size()
+                .x
+        };
+        let widest = BOGLO_OPTIONS
+            .iter()
+            .map(|text| text_width(text))
+            .fold(0.0, f32::max);
+        BogloColumns {
+            option: widest + ui.spacing().icon_width + ui.spacing().icon_spacing,
+            field: 2.0 * BOGLO_BOX + 2.0 * BOGLO_RANGE_GAP + text_width("\u{2013}"),
+        }
+    }
+}
+
+/// A titled group of the dialog (the draft's `.group`), as wide as its
+/// rows: the title in the strong colour, then `add`'s rows.
+fn boglo_group(ui: &mut egui::Ui, title: &str, add: impl FnOnce(&mut egui::Ui)) {
+    ui.group(|ui| {
+        // Every gap in a row is given explicitly, so the fields' column
+        // lands at one x in both groups.
+        ui.spacing_mut().item_spacing = egui::vec2(0.0, BOGLO_ROW_GAP);
+        ui.label(egui::RichText::new(title).strong());
+        add(ui);
+    });
+}
+
+/// `add`'s option in a cell the option column's width, then the gap to the
+/// fields' column.
+fn option_cell(ui: &mut egui::Ui, width: f32, add: impl FnOnce(&mut egui::Ui)) {
+    ui.allocate_ui_with_layout(
+        egui::vec2(width, ui.spacing().interact_size.y),
+        egui::Layout::left_to_right(egui::Align::Center),
+        |ui| {
+            ui.set_min_width(width);
+            add(ui);
+        },
+    );
+    ui.add_space(BOGLO_COLUMN_GAP);
+}
+
+/// The range's last ID (the draft's `.readout`): a flat box a shade off
+/// the panel, its number in `READOUT_GREY`. No field and no disabled
+/// widget: it takes no click or focus, and reads as a label.
+fn readout(ui: &mut egui::Ui, value: u64) {
+    let size = egui::vec2(BOGLO_BOX, ui.spacing().interact_size.y);
+    let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
+    let text = value.to_string();
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, true, &text));
+    if ui.is_rect_visible(rect) {
+        let visuals = ui.visuals();
+        ui.painter().rect_filled(
+            rect,
+            visuals.widgets.inactive.corner_radius,
+            visuals.faint_bg_color,
+        );
+        ui.painter().text(
+            rect.center(),
+            egui::Align2::CENTER_CENTER,
+            text,
+            egui::TextStyle::Body.resolve(ui.style()),
+            READOUT_GREY,
+        );
+    }
+}
+
+/// The dialog while `view.boglo` holds one (the draft's `dlgBoglo`): a
+/// group per side, `Boot IDs` and `Glove IDs`,
+/// each option's field in one column across both, the incremental
+/// range's last ID read-only beside its start and following it; the last
+/// refusal under the groups. Set applies and closes, a refusal keeps it
+/// open, and Close or Escape closes it.
 pub(crate) fn boglo_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     if view.boglo.is_none() {
         return;
@@ -452,68 +556,98 @@ pub(crate) fn boglo_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some(session) = view.session.as_mut() else {
         return;
     };
-    // The last filled slot's resulting ID: slot `k` (1-based) gets
-    // `start + k - 1`, so the last one lands `start + index` out.
-    let last_slot = session
-        .file()
-        .team(team_id)
-        .and_then(|team| team.roster.iter().rposition(|slot| slot.player_id != 0));
     let boglo = view.boglo.as_mut().expect("checked above");
     let mut close = false;
     let response = egui::Modal::new(egui::Id::unique("save_editor_boglo")).show(ui.ctx(), |ui| {
         studio_core::theme::window_title(ui, "Set boots and gloves IDs for everyone");
-        ui.horizontal(|ui| {
-            ui.label("Boots:");
-            radio_value(ui, &mut boglo.boots, BootsPick::Unchanged, "Unchanged");
+        let columns = BogloColumns::measure(ui);
+        let field_size =
+            |ui: &egui::Ui, width: f32| egui::vec2(width, ui.spacing().interact_size.y);
+        boglo_group(ui, "Boot IDs", |ui| {
+            ui.horizontal(|ui| {
+                option_cell(ui, columns.option, |ui| {
+                    radio_value(ui, &mut boglo.boots, BootsPick::Unchanged, "Unchanged");
+                });
+            });
+            ui.horizontal(|ui| {
+                option_cell(ui, columns.option, |ui| {
+                    radio_value(
+                        ui,
+                        &mut boglo.boots,
+                        BootsPick::Incremental,
+                        "Set incremental value:",
+                    );
+                });
+                ui.add_sized(
+                    field_size(ui, BOGLO_BOX),
+                    egui::DragValue::new(&mut boglo.start),
+                );
+                ui.add_space(BOGLO_RANGE_GAP);
+                ui.label("\u{2013}");
+                ui.add_space(BOGLO_RANGE_GAP);
+                readout(ui, u64::from(boglo.start) + RANGE_SPAN);
+            });
+            ui.horizontal(|ui| {
+                option_cell(ui, columns.option, |ui| {
+                    radio_value(
+                        ui,
+                        &mut boglo.boots,
+                        BootsPick::Same,
+                        "Set all to the same ID:",
+                    );
+                });
+                ui.add_sized(
+                    field_size(ui, columns.field),
+                    egui::DragValue::new(&mut boglo.boots_id),
+                );
+            });
         });
-        ui.horizontal(|ui| {
-            radio_value(
-                ui,
-                &mut boglo.boots,
-                BootsPick::Incremental,
-                "Incremental from",
-            );
-            ui.add(egui::DragValue::new(&mut boglo.start));
-            if let Some(slot) = last_slot {
-                ui.weak(format!(
-                    "(\u{2192} {})",
-                    u64::from(boglo.start) + u64::try_from(slot).expect("a slot index fits u64")
-                ));
-            }
+        boglo_group(ui, "Glove IDs", |ui| {
+            ui.horizontal(|ui| {
+                option_cell(ui, columns.option, |ui| {
+                    radio_value(ui, &mut boglo.gloves, GlovesPick::Unchanged, "Unchanged");
+                });
+            });
+            ui.horizontal(|ui| {
+                option_cell(ui, columns.option, |ui| {
+                    radio_value(
+                        ui,
+                        &mut boglo.gloves,
+                        GlovesPick::LikeBoots,
+                        "Set like boot IDs",
+                    );
+                });
+            });
+            ui.horizontal(|ui| {
+                option_cell(ui, columns.option, |ui| {
+                    radio_value(
+                        ui,
+                        &mut boglo.gloves,
+                        GlovesPick::Same,
+                        "Set all to the same ID:",
+                    );
+                });
+                ui.add_sized(
+                    field_size(ui, columns.field),
+                    egui::DragValue::new(&mut boglo.gloves_id),
+                );
+            });
         });
+        if let Some(error) = &boglo.error {
+            ui.colored_label(ui.visuals().error_fg_color, error.as_str());
+        }
         ui.horizontal(|ui| {
-            radio_value(ui, &mut boglo.boots, BootsPick::Same, "Same ID for all");
-            ui.add(egui::DragValue::new(&mut boglo.boots_id));
-        });
-        ui.horizontal(|ui| {
-            ui.label("Gloves:");
-            radio_value(ui, &mut boglo.gloves, GlovesPick::Unchanged, "Unchanged");
-            radio_value(
-                ui,
-                &mut boglo.gloves,
-                GlovesPick::LikeBoots,
-                "Same as the boot IDs",
-            );
-        });
-        ui.horizontal(|ui| {
-            radio_value(ui, &mut boglo.gloves, GlovesPick::Same, "Same ID for all");
-            ui.add(egui::DragValue::new(&mut boglo.gloves_id));
-        });
-        ui.horizontal(|ui| {
-            if ui.button("OK").clicked() {
+            if ui.button("Set").clicked() {
                 let (boots, gloves) = boglo.modes();
                 match session.set_boots_and_gloves(team_id, boots, gloves) {
                     Ok(()) => close = true,
                     Err(error) => boglo.error = Some(format!("{error:#}")),
                 }
             }
-            if ui.button("Cancel").clicked() {
+            if ui.button("Close").clicked() {
                 close = true;
             }
         });
-        if let Some(error) = &boglo.error {
-            ui.colored_label(ui.visuals().error_fg_color, error.as_str());
-        }
     });
     if close || response.should_close() {
         view.boglo = None;

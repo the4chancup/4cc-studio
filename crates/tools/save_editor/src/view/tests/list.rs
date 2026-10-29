@@ -246,6 +246,59 @@ fn the_selected_row_reports_selected() {
     );
 }
 
+// A player row's drag handle stands 4 points from the row's left edge and
+// 4 before his place, in ink, so the name gets the room: on the first row
+// (`01`, whose `0` paints from its box's edge) and the tenth (`10`, whose
+// `1` paints a point in), so boxes alone would miss one of the two.
+#[test]
+fn a_player_rows_handle_stands_4_from_its_edge_and_4_before_the_place() {
+    let path = fixture(PesVersion::Pes21, "row_handle");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, 900.0);
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    for place in ["01 ", "10 "] {
+        let row = nodes
+            .iter()
+            .filter(|node| player_row(node) && node.label().is_some_and(|l| l.starts_with(place)))
+            .filter_map(accesskit::Node::bounds)
+            .min_by(|a, b| a.y0.partial_cmp(&b.y0).expect("ordered bounds"))
+            .unwrap_or_else(|| panic!("a player row at place {place:?}"));
+        let in_row = |shape: &&egui::epaint::TextShape| {
+            let y = f64::from(shape.pos.y);
+            y >= row.y0 && y < row.y1
+        };
+        let texts: Vec<&egui::epaint::TextShape> = shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(shape) => Some(shape),
+                _ => None,
+            })
+            .filter(in_row)
+            .collect();
+        let handle = texts
+            .iter()
+            .find(|shape| shape.galley.job.text == "\u{2261}")
+            .unwrap_or_else(|| panic!("the row {place:?} paints its handle"));
+        let text = texts
+            .iter()
+            .find(|shape| shape.galley.job.text.starts_with(place))
+            .unwrap_or_else(|| panic!("the row {place:?} paints its text"));
+        let handle_ink = ink(handle);
+        let place_ink = ink(text);
+        let inset = f64::from(handle_ink.left()) - row.x0;
+        assert!(
+            (inset - 4.0).abs() <= 0.5,
+            "{place:?}: the handle's ink {inset} from the row's edge"
+        );
+        let gap = place_ink.left() - handle_ink.right();
+        assert!(
+            (gap - 4.0).abs() <= 0.5,
+            "{place:?}: the handle's ink {gap} before the place's"
+        );
+    }
+}
+
 // A player row is one line, truncated, its full name on hover: a 52-byte
 // name keeps every row at one line, and the scroll still reaches the last
 // player.
