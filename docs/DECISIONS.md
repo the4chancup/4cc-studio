@@ -13100,3 +13100,16 @@ the light theme's dark text on a dark grey, and the two greys read as normal tex
 faded to nothing.
 Plan: `plans/core/gui.md` (the Dark/light theme row); `plans/save_editor.md` "Formation
 pictures" (the dimming on the light theme).
+
+## 2026-10-29 — gui — Every colour comes from a switchable palette, none written in a view
+Decision: every colour the suite draws beyond egui's `Visuals` is a named field of
+`studio_core::theme::Palette`, with a dark and a light instance picked by the theme
+(`theme::palette(&visuals)`); no colour is built from literals outside `theme.rs`, which
+`scripts/colour_literals.py` checks in the gates; colours computed from data are exempt.
+This carries out "Every custom colour has a light-theme twin" (same day) through one
+place rather than a constant pair beside each use.
+Why: the maintainer's ask, after the twin sweep found only the named constants: inline
+colours (the medals', the WORK RESULT name colour's) were missed, so a rule that a
+review enforces by reading leaves gaps a check does not. One struct also makes a
+colour forgotten in one theme a compile error.
+Plan: `plans/core/gui.md` (the Dark/light theme row).
